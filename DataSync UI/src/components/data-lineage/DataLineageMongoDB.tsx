@@ -19,13 +19,13 @@ import {
   TableRow,
   Button,
   PaginationInfo,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { dataLineageMongoDBApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { dataLineageMongoDBApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 import DataLineageMongoDBTreeView from './DataLineageMongoDBTreeView';
 
 const fadeIn = keyframes`
@@ -413,10 +413,6 @@ const DataLineageMongoDB = () => {
         dataLineageMongoDBApi.getMongoDBServers()
       ]);
       if (isMountedRef.current) {
-        console.log("MongoDB Lineage Data:", lineageData);
-        console.log("MongoDB Metrics Data:", metricsData);
-        console.log("MongoDB Metrics Data Type:", typeof metricsData);
-        console.log("MongoDB Metrics Data Keys:", metricsData ? Object.keys(metricsData) : 'null');
         setLineage(lineageData.data || []);
         setPagination(lineageData.pagination || {
           total: 0,
@@ -448,12 +444,10 @@ const DataLineageMongoDB = () => {
   const fetchMetrics = useCallback(async () => {
     if (!isMountedRef.current) return;
     try {
-      console.log("MongoDB fetchMetrics: Starting...");
       const metricsData = await dataLineageMongoDBApi.getMongoDBMetrics().catch(err => {
         console.error("MongoDB getMongoDBMetrics error:", err);
         throw err;
       });
-      console.log("MongoDB fetchMetrics: Received data:", metricsData);
       if (isMountedRef.current) {
         setMetrics(metricsData || {});
       }
@@ -645,9 +639,6 @@ const DataLineageMongoDB = () => {
     );
   }
 
-  console.log("MongoDB Component Render - Metrics State:", metrics);
-  console.log("MongoDB Component Render - Metrics total_relationships:", metrics.total_relationships);
-  console.log("MongoDB Component Render - Metrics type:", typeof metrics.total_relationships);
 
   return (
     <Container>

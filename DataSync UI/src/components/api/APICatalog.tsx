@@ -25,12 +25,12 @@ import {
   SearchButton,
   ClearSearchButton,
   PaginationInfo,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { apiCatalogApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { apiCatalogApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
 
 interface APICatalogEntry {
   id: number;

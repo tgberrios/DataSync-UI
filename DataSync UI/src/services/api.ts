@@ -1269,10 +1269,7 @@ export const dataLineageApi = {
 
   getMariaDBMetrics: async () => {
     try {
-      console.log("API: Calling /data-lineage/mariadb/metrics");
       const response = await api.get("/data-lineage/mariadb/metrics");
-      console.log("API: MariaDB metrics response:", response);
-      console.log("API: MariaDB metrics response.data:", response.data);
       return response.data;
     } catch (error) {
       console.error("Error fetching MariaDB lineage metrics:", error);
@@ -1534,13 +1531,7 @@ export const governanceCatalogApi = {
 
   getMariaDBMetrics: async () => {
     try {
-      console.log("API: Calling /governance-catalog/mariadb/metrics");
       const response = await api.get("/governance-catalog/mariadb/metrics");
-      console.log("API: MariaDB governance metrics response:", response);
-      console.log(
-        "API: MariaDB governance metrics response.data:",
-        response.data
-      );
       return response.data;
     } catch (error) {
       console.error("Error fetching MariaDB governance metrics:", error);
@@ -1622,13 +1613,7 @@ export const governanceCatalogApi = {
 
   getMSSQLMetrics: async () => {
     try {
-      console.log("API: Calling /governance-catalog/mssql/metrics");
       const response = await api.get("/governance-catalog/mssql/metrics");
-      console.log("API: MSSQL governance metrics response:", response);
-      console.log(
-        "API: MSSQL governance metrics response.data:",
-        response.data
-      );
       return response.data;
     } catch (error) {
       console.error("Error fetching MSSQL governance metrics:", error);
@@ -1709,13 +1694,7 @@ export const governanceCatalogMongoDBApi = {
 
   getMongoDBMetrics: async () => {
     try {
-      console.log("API: Calling /governance-catalog/mongodb/metrics");
       const response = await api.get("/governance-catalog/mongodb/metrics");
-      console.log("API: MongoDB governance metrics response:", response);
-      console.log(
-        "API: MongoDB governance metrics response.data:",
-        response.data
-      );
       return response.data;
     } catch (error) {
       console.error("Error fetching MongoDB governance metrics:", error);
@@ -1877,13 +1856,7 @@ export const governanceCatalogOracleApi = {
 
   getOracleMetrics: async () => {
     try {
-      console.log("API: Calling /governance-catalog/oracle/metrics");
       const response = await api.get("/governance-catalog/oracle/metrics");
-      console.log("API: Oracle governance metrics response:", response);
-      console.log(
-        "API: Oracle governance metrics response.data:",
-        response.data
-      );
       return response.data;
     } catch (error) {
       console.error("Error fetching Oracle governance metrics:", error);

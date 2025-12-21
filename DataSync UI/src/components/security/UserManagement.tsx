@@ -29,14 +29,14 @@ import {
   ModalContent,
   ModalHeader,
   ModalTitle,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { authApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { authApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
 import styled from 'styled-components';
-import { theme } from '../theme/theme';
+import { theme } from '../../theme/theme';
 import UserManagementTreeView from './UserManagementTreeView';
 
 const HeaderContent = styled.div`

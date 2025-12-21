@@ -8,11 +8,11 @@ import {
   Grid,
   Value,
   Button,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { monitorApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { monitorApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { theme } from '../../theme/theme';
 
 const ControlsContainer = styled.div`
   display: flex;

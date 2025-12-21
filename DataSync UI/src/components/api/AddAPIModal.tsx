@@ -6,8 +6,8 @@ import {
   FormGroup,
   Label,
   Select,
-} from './shared/BaseComponents';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { theme } from '../../theme/theme';
 
 const fadeIn = keyframes`
   from {

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
-import { queryPerformanceApi } from '../services/api';
-import { Container, Header, Select, FiltersContainer, Input, Pagination, PageButton, LoadingOverlay, ErrorMessage } from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { extractApiError } from '../utils/errorHandler';
+import { queryPerformanceApi } from '../../services/api';
+import { Container, Header, Select, FiltersContainer, Input, Pagination, PageButton, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { extractApiError } from '../../utils/errorHandler';
 
 const MetricsGrid = styled.div`
   display: grid;

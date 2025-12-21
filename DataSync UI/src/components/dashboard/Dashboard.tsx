@@ -8,16 +8,16 @@ import {
   Value,
   ErrorMessage,
   Button,
-} from "../components/shared/BaseComponents";
-import { dashboardApi, configApi } from "../services/api";
+} from "../shared/BaseComponents";
+import { dashboardApi, configApi } from "../../services/api";
 import type {
   DashboardStats,
   BatchConfig,
   CurrentlyProcessing,
-} from "../services/api";
-import { extractApiError } from "../utils/errorHandler";
+} from "../../services/api";
+import { extractApiError } from "../../utils/errorHandler";
 import styled from "styled-components";
-import { theme } from "../theme/theme";
+import { theme } from "../../theme/theme";
 
 const ProgressBar = styled.div<{ $progress: number }>`
   width: 100%;

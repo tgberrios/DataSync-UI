@@ -10,12 +10,12 @@ import {
   Button,
   Grid,
   Value,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { governanceApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { governanceApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { theme } from '../../theme/theme';
 import GovernanceTreeView from './GovernanceTreeView';
 
 const fadeIn = keyframes`

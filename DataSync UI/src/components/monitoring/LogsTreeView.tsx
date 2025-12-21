@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../theme/theme';
-import type { LogEntry } from '../services/api';
+import { theme } from '../../theme/theme';
+import type { LogEntry } from '../../services/api';
 
 const fadeIn = keyframes`
   from {

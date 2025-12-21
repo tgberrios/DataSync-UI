@@ -19,13 +19,13 @@ import {
   TableRow,
   Button,
   PaginationInfo,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { dataLineageMSSQLApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { dataLineageMSSQLApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 import DataLineageMSSQLTreeView from './DataLineageMSSQLTreeView';
 
 const fadeIn = keyframes`
@@ -442,10 +442,6 @@ const DataLineageMSSQL = () => {
         dataLineageMSSQLApi.getMSSQLServers()
       ]);
       if (isMountedRef.current) {
-        console.log("MSSQL Lineage Data:", lineageData);
-        console.log("MSSQL Metrics Data:", metricsData);
-        console.log("MSSQL Metrics Data Type:", typeof metricsData);
-        console.log("MSSQL Metrics Data Keys:", metricsData ? Object.keys(metricsData) : 'null');
         setLineage(lineageData.data || []);
         setPagination(lineageData.pagination || {
           total: 0,
@@ -479,12 +475,10 @@ const DataLineageMSSQL = () => {
   const fetchMetrics = useCallback(async () => {
     if (!isMountedRef.current) return;
     try {
-      console.log("MSSQL fetchMetrics: Starting...");
       const metricsData = await dataLineageMSSQLApi.getMSSQLMetrics().catch(err => {
         console.error("MSSQL getMSSQLMetrics error:", err);
         throw err;
       });
-      console.log("MSSQL fetchMetrics: Received data:", metricsData);
       if (isMountedRef.current) {
         setMetrics(metricsData || {});
       }
@@ -721,10 +715,6 @@ const DataLineageMSSQL = () => {
       </Container>
     );
   }
-
-  console.log("MSSQL Component Render - Metrics State:", metrics);
-  console.log("MSSQL Component Render - Metrics total_relationships:", metrics.total_relationships);
-  console.log("MSSQL Component Render - Metrics type:", typeof metrics.total_relationships);
 
   return (
     <Container>

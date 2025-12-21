@@ -8,11 +8,11 @@ import {
   Select,
   FiltersContainer,
   Button,
-} from './shared/BaseComponents';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { qualityApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { qualityApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { theme } from '../../theme/theme';
 import QualityTreeView from './QualityTreeView';
 
 const Badge = styled.span<{ $status?: string }>`

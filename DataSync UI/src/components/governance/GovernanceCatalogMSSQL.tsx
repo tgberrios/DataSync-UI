@@ -18,13 +18,13 @@ import {
   Td,
   TableRow,
   Button,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { governanceCatalogApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { governanceCatalogApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 import GovernanceCatalogMSSQLTreeView from './GovernanceCatalogMSSQLTreeView';
 
 const fadeIn = keyframes`
@@ -509,15 +509,11 @@ const GovernanceCatalogMSSQL = () => {
   useEffect(() => {
     isMountedRef.current = true;
     const loadData = async () => {
-      console.log("MSSQL: Starting to load data...");
       await fetchAllItems();
       try {
-        console.log("MSSQL: Fetching metrics...");
         const metricsData = await governanceCatalogApi.getMSSQLMetrics();
-        console.log("MSSQL: Metrics received:", metricsData);
         if (isMountedRef.current) {
           setMetrics(metricsData || {});
-          console.log("MSSQL: Metrics set in state:", metricsData);
         }
       } catch (err) {
         console.error("MSSQL: Error loading metrics:", err);
@@ -531,7 +527,6 @@ const GovernanceCatalogMSSQL = () => {
       if (isMountedRef.current) {
         fetchAllItems();
         governanceCatalogApi.getMSSQLMetrics().then(metricsData => {
-          console.log("MSSQL: Interval metrics received:", metricsData);
           if (isMountedRef.current) {
             setMetrics(metricsData || {});
           }
@@ -696,16 +691,6 @@ const GovernanceCatalogMSSQL = () => {
       {error && <ErrorMessage>{error}</ErrorMessage>}
       
       <MetricsGrid $columns="repeat(auto-fit, minmax(180px, 1fr))">
-        {(() => {
-          console.log("MSSQL: Rendering metrics cards, metrics object:", metrics);
-          console.log("MSSQL: total_objects:", metrics.total_objects);
-          console.log("MSSQL: total_size_mb:", metrics.total_size_mb);
-          console.log("MSSQL: healthy_count:", metrics.healthy_count);
-          console.log("MSSQL: warning_count:", metrics.warning_count);
-          console.log("MSSQL: critical_count:", metrics.critical_count);
-          console.log("MSSQL: unique_servers:", metrics.unique_servers);
-          return null;
-        })()}
         <MetricCard $index={0}>
           <MetricLabel>
             <span>■</span>

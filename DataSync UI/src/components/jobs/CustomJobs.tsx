@@ -31,15 +31,15 @@ import {
   ModalHeader,
   ModalTitle,
   TextArea,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { customJobsApi } from '../services/api';
-import type { CustomJobEntry } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { customJobsApi } from '../../services/api';
+import type { CustomJobEntry } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
 import styled from 'styled-components';
-import { theme } from '../theme/theme';
+import { theme } from '../../theme/theme';
 import CustomJobsTreeView from './CustomJobsTreeView';
 
 const HeaderContent = styled.div`

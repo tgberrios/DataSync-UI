@@ -7,11 +7,11 @@ import {
   LoadingOverlay,
   Button,
   Input,
-} from './shared/BaseComponents';
-import { configApi } from '../services/api';
-import type { ConfigEntry } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { configApi } from '../../services/api';
+import type { ConfigEntry } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { theme } from '../../theme/theme';
 import ConfigTreeView from './ConfigTreeView';
 
 const ConfigTable = styled.table`

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
-import { securityApi } from '../services/api';
-import { Container, Header, Section, SectionTitle, LoadingOverlay, ErrorMessage } from './shared/BaseComponents';
-import { extractApiError } from '../utils/errorHandler';
+import { securityApi } from '../../services/api';
+import { Container, Header, Section, SectionTitle, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import { extractApiError } from '../../utils/errorHandler';
 
 const Grid = styled.div`
   display: grid;

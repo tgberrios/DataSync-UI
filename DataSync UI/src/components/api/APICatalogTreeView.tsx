@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../theme/theme';
-import { StatusBadge } from './shared/BaseComponents';
+import { theme } from '../../theme/theme';
+import { StatusBadge } from '../shared/BaseComponents';
 
 const fadeIn = keyframes`
   from {

@@ -18,13 +18,13 @@ import {
   Td,
   TableRow,
   Button,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { governanceCatalogApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { governanceCatalogApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 import GovernanceCatalogMariaDBTreeView from './GovernanceCatalogMariaDBTreeView';
 
 const fadeIn = keyframes`
@@ -474,15 +474,11 @@ const GovernanceCatalogMariaDB = () => {
   useEffect(() => {
     isMountedRef.current = true;
     const loadData = async () => {
-      console.log("MariaDB: Starting to load data...");
       await fetchAllItems();
       try {
-        console.log("MariaDB: Fetching metrics...");
         const metricsData = await governanceCatalogApi.getMariaDBMetrics();
-        console.log("MariaDB: Metrics received:", metricsData);
         if (isMountedRef.current) {
           setMetrics(metricsData || {});
-          console.log("MariaDB: Metrics set in state:", metricsData);
         }
       } catch (err) {
         console.error("MariaDB: Error loading metrics:", err);
@@ -496,7 +492,6 @@ const GovernanceCatalogMariaDB = () => {
       if (isMountedRef.current) {
         fetchAllItems();
         governanceCatalogApi.getMariaDBMetrics().then(metricsData => {
-          console.log("MariaDB: Interval metrics received:", metricsData);
           if (isMountedRef.current) {
             setMetrics(metricsData || {});
           }
@@ -653,16 +648,6 @@ const GovernanceCatalogMariaDB = () => {
       {error && <ErrorMessage>{error}</ErrorMessage>}
       
       <MetricsGrid $columns="repeat(auto-fit, minmax(180px, 1fr))">
-        {(() => {
-          console.log("MariaDB: Rendering metrics cards, metrics object:", metrics);
-          console.log("MariaDB: total_tables:", metrics.total_tables);
-          console.log("MariaDB: total_size_mb:", metrics.total_size_mb);
-          console.log("MariaDB: healthy_count:", metrics.healthy_count);
-          console.log("MariaDB: warning_count:", metrics.warning_count);
-          console.log("MariaDB: critical_count:", metrics.critical_count);
-          console.log("MariaDB: unique_servers:", metrics.unique_servers);
-          return null;
-        })()}
         <MetricCard $index={0}>
           <MetricLabel>
             <span>■</span>

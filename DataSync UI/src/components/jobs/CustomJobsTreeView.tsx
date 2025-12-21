@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../theme/theme';
-import { ActiveBadge, ActionButton, PlayButton } from './shared/BaseComponents';
+import { theme } from '../../theme/theme';
+import { ActiveBadge, ActionButton, PlayButton } from '../shared/BaseComponents';
 import { format } from 'date-fns';
-import type { CustomJobEntry } from '../services/api';
+import type { CustomJobEntry } from '../../services/api';
 
 const fadeIn = keyframes`
   from {

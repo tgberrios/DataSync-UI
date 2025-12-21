@@ -6,9 +6,9 @@ import {
   FormGroup,
   Label,
   Select,
-} from './shared/BaseComponents';
-import type { CatalogEntry } from '../services/api';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import type { CatalogEntry } from '../../services/api';
+import { theme } from '../../theme/theme';
 
 const fadeIn = keyframes`
   from {

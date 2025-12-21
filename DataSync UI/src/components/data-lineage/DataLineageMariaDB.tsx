@@ -19,13 +19,13 @@ import {
   TableRow,
   Button,
   PaginationInfo,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { dataLineageApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { dataLineageApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 import DataLineageMariaDBTreeView from './DataLineageMariaDBTreeView';
 
 const fadeIn = keyframes`
@@ -397,17 +397,13 @@ const DataLineageMariaDB = () => {
   const isMountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
-    console.log("MariaDB fetchData called, isMounted:", isMountedRef.current);
     if (!isMountedRef.current) {
-      console.log("MariaDB fetchData: Component not mounted, returning");
       return;
     }
     try {
-      console.log("MariaDB fetchData: Starting API calls...");
       setLoading(true);
       setError(null);
       const sanitizedSearch = sanitizeSearch(filters.search as string, 100);
-      console.log("MariaDB fetchData: Calling getMariaDBMetrics...");
       const [lineageData, metricsData, serversData] = await Promise.all([
         dataLineageApi.getMariaDBLineage({
           page,
@@ -424,12 +420,7 @@ const DataLineageMariaDB = () => {
         }),
         dataLineageApi.getMariaDBServers()
       ]);
-      console.log("MariaDB fetchData: API calls completed");
       if (isMountedRef.current) {
-        console.log("MariaDB Lineage Data:", lineageData);
-        console.log("MariaDB Metrics Data:", metricsData);
-        console.log("MariaDB Metrics Data Type:", typeof metricsData);
-        console.log("MariaDB Metrics Data Keys:", metricsData ? Object.keys(metricsData) : 'null');
         setLineage(lineageData.data || []);
         setPagination(lineageData.pagination || {
           total: 0,
@@ -462,12 +453,10 @@ const DataLineageMariaDB = () => {
   const fetchMetrics = useCallback(async () => {
     if (!isMountedRef.current) return;
     try {
-      console.log("MariaDB fetchMetrics: Starting...");
       const metricsData = await dataLineageApi.getMariaDBMetrics().catch(err => {
         console.error("MariaDB getMariaDBMetrics error:", err);
         throw err;
       });
-      console.log("MariaDB fetchMetrics: Received data:", metricsData);
       if (isMountedRef.current) {
         setMetrics(metricsData || {});
       }
@@ -660,10 +649,6 @@ const DataLineageMariaDB = () => {
       </Container>
     );
   }
-
-  console.log("MariaDB Component Render - Metrics State:", metrics);
-  console.log("MariaDB Component Render - Metrics total_relationships:", metrics.total_relationships);
-  console.log("MariaDB Component Render - Metrics type:", typeof metrics.total_relationships);
 
   return (
     <Container>

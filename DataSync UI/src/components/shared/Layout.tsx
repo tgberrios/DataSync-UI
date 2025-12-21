@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import styled from 'styled-components';
-import { authApi, getCurrentUser } from '../services/api';
+import { authApi, getCurrentUser } from '../../services/api';
 
 const LayoutContainer = styled.div`
   display: flex;

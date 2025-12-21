@@ -6,10 +6,10 @@ import {
   ErrorMessage,
   LoadingOverlay,
   Button,
-} from './shared/BaseComponents';
-import { monitorApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { monitorApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { theme } from '../../theme/theme';
 
 const CopyButton = styled(Button)`
   margin-top: ${theme.spacing.sm};

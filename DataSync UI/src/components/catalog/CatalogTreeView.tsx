@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../theme/theme';
-import type { CatalogEntry } from '../services/api';
-import { StatusBadge } from './shared/BaseComponents';
+import { theme } from '../../theme/theme';
+import type { CatalogEntry } from '../../services/api';
+import { StatusBadge } from '../shared/BaseComponents';
 
 const fadeIn = keyframes`
   from {

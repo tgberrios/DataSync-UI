@@ -11,13 +11,13 @@ import {
   Select,
   Input,
   Button,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { governanceCatalogMongoDBApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { governanceCatalogMongoDBApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 import GovernanceCatalogMongoDBTreeView from './GovernanceCatalogMongoDBTreeView';
 
 const fadeIn = keyframes`
@@ -370,15 +370,11 @@ const GovernanceCatalogMongoDB = () => {
   useEffect(() => {
     isMountedRef.current = true;
     const loadData = async () => {
-      console.log("MongoDB: Starting to load data...");
       await fetchAllItems();
       try {
-        console.log("MongoDB: Fetching metrics...");
         const metricsData = await governanceCatalogMongoDBApi.getMongoDBMetrics();
-        console.log("MongoDB: Metrics received:", metricsData);
         if (isMountedRef.current) {
           setMetrics(metricsData || {});
-          console.log("MongoDB: Metrics set in state:", metricsData);
         }
       } catch (err) {
         console.error("MongoDB: Error loading metrics:", err);
@@ -392,7 +388,6 @@ const GovernanceCatalogMongoDB = () => {
       if (isMountedRef.current) {
         fetchAllItems();
         governanceCatalogMongoDBApi.getMongoDBMetrics().then(metricsData => {
-          console.log("MongoDB: Interval metrics received:", metricsData);
           if (isMountedRef.current) {
             setMetrics(metricsData || {});
           }
@@ -715,17 +710,6 @@ const GovernanceCatalogMongoDB = () => {
       {error && <ErrorMessage>{error}</ErrorMessage>}
       
       <MetricsGrid $columns="repeat(auto-fit, minmax(180px, 1fr))">
-        {(() => {
-          console.log("MongoDB: Rendering metrics cards, metrics object:", metrics);
-          console.log("MongoDB: total_collections:", metrics.total_collections);
-          console.log("MongoDB: total_size_mb:", metrics.total_size_mb);
-          console.log("MongoDB: total_documents:", metrics.total_documents);
-          console.log("MongoDB: healthy_count:", metrics.healthy_count);
-          console.log("MongoDB: warning_count:", metrics.warning_count);
-          console.log("MongoDB: critical_count:", metrics.critical_count);
-          console.log("MongoDB: unique_servers:", metrics.unique_servers);
-          return null;
-        })()}
         <MetricCard $index={0}>
           <MetricLabel>
             <span>■</span>

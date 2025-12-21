@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { authApi, isAuthenticated } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { theme } from '../theme/theme';
-import { Button, Input, ErrorMessage } from './shared/BaseComponents';
+import { authApi, isAuthenticated } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { theme } from '../../theme/theme';
+import { Button, Input, ErrorMessage } from '../shared/BaseComponents';
 
 
 const slideUp = keyframes`

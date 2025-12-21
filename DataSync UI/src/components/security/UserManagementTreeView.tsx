@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../theme/theme';
+import { theme } from '../../theme/theme';
 
 const fadeIn = keyframes`
   from {

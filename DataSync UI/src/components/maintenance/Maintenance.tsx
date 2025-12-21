@@ -9,11 +9,11 @@ import {
   Value,
   Select,
   FiltersContainer,
-} from './shared/BaseComponents';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { maintenanceApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { maintenanceApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { theme } from '../../theme/theme';
 import MaintenanceTreeView from './MaintenanceTreeView';
 
 const MetricsGrid = styled(Grid)`

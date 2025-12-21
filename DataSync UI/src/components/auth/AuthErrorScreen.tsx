@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../theme/theme';
-import { Button } from './shared/BaseComponents';
+import { theme } from '../../theme/theme';
+import { Button } from '../shared/BaseComponents';
 
 const fadeIn = keyframes`
   from {

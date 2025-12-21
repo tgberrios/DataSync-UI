@@ -19,13 +19,13 @@ import {
   TableRow,
   Button,
   PaginationInfo,
-} from './shared/BaseComponents';
-import { usePagination } from '../hooks/usePagination';
-import { useTableFilters } from '../hooks/useTableFilters';
-import { dataLineageOracleApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { usePagination } from '../../hooks/usePagination';
+import { useTableFilters } from '../../hooks/useTableFilters';
+import { dataLineageOracleApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 import DataLineageOracleTreeView from './DataLineageOracleTreeView';
 
 const fadeIn = keyframes`
@@ -413,10 +413,6 @@ const DataLineageOracle = () => {
         dataLineageOracleApi.getOracleServers()
       ]);
       if (isMountedRef.current) {
-        console.log("Oracle Lineage Data:", lineageData);
-        console.log("Oracle Metrics Data:", metricsData);
-        console.log("Oracle Metrics Data Type:", typeof metricsData);
-        console.log("Oracle Metrics Data Keys:", metricsData ? Object.keys(metricsData) : 'null');
         setLineage(lineageData.data || []);
         setPagination(lineageData.pagination || {
           total: 0,
@@ -448,12 +444,10 @@ const DataLineageOracle = () => {
   const fetchMetrics = useCallback(async () => {
     if (!isMountedRef.current) return;
     try {
-      console.log("Oracle fetchMetrics: Starting...");
       const metricsData = await dataLineageOracleApi.getOracleMetrics().catch(err => {
         console.error("Oracle getOracleMetrics error:", err);
         throw err;
       });
-      console.log("Oracle fetchMetrics: Received data:", metricsData);
       if (isMountedRef.current) {
         setMetrics(metricsData || {});
       }
@@ -645,9 +639,6 @@ const DataLineageOracle = () => {
     );
   }
 
-  console.log("Oracle Component Render - Metrics State:", metrics);
-  console.log("Oracle Component Render - Metrics total_relationships:", metrics.total_relationships);
-  console.log("Oracle Component Render - Metrics type:", typeof metrics.total_relationships);
 
   return (
     <Container>

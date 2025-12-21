@@ -6,11 +6,11 @@ import {
   ErrorMessage,
   LoadingOverlay,
   Button,
-} from './shared/BaseComponents';
-import { logsApi, type LogEntry, type LogInfo } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
-import { sanitizeSearch } from '../utils/validation';
-import { theme } from '../theme/theme';
+} from '../shared/BaseComponents';
+import { logsApi, type LogEntry, type LogInfo } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
+import { sanitizeSearch } from '../../utils/validation';
+import { theme } from '../../theme/theme';
 
 const Section = styled.div`
   margin-bottom: ${theme.spacing.xxl};

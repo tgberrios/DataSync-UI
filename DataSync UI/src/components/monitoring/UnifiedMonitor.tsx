@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../theme/theme';
-import { Container, Header, ErrorMessage, LoadingOverlay } from './shared/BaseComponents';
-import { monitorApi, queryPerformanceApi, dashboardApi } from '../services/api';
-import { extractApiError } from '../utils/errorHandler';
+import { theme } from '../../theme/theme';
+import { Container, Header, ErrorMessage, LoadingOverlay } from '../shared/BaseComponents';
+import { monitorApi, queryPerformanceApi, dashboardApi } from '../../services/api';
+import { extractApiError } from '../../utils/errorHandler';
 
 const fadeIn = keyframes`
   from {
