@@ -7,6 +7,7 @@ import { spawn } from "child_process";
 import os from "os";
 import path from "path";
 import fs from "fs";
+import multer from "multer";
 
 // Load configuration from shared config file
 function loadConfig() {
@@ -130,6 +131,45 @@ pool.connect((err, client, done) => {
     console.log("Successfully connected to PostgreSQL");
     done();
   }
+});
+
+// Configurar multer para uploads de CSV
+const uploadDir = "uploads/csv";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const originalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const baseName = path.parse(originalName).name;
+    const ext = path.parse(originalName).ext || ".csv";
+    cb(null, `${baseName}_${timestamp}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    // Sin límite de tamaño
+  },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (
+      ext === ".csv" ||
+      file.mimetype === "text/csv" ||
+      file.mimetype === "application/vnd.ms-excel" ||
+      file.mimetype === "text/plain"
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only CSV files are allowed"));
+    }
+  },
 });
 
 import {
@@ -2376,7 +2416,9 @@ app.get("/api/logs/stats", async (req, res) => {
   try {
     const logFilePath1 = path.join(process.cwd(), "..", "..", "DataSync.log");
     const logFilePath2 = path.join(process.cwd(), "..", "DataSync.log");
-    const logFilePath = fs.existsSync(logFilePath1) ? logFilePath1 : logFilePath2;
+    const logFilePath = fs.existsSync(logFilePath1)
+      ? logFilePath1
+      : logFilePath2;
 
     if (!fs.existsSync(logFilePath)) {
       return res.json({
@@ -6116,11 +6158,37 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
           }
 
           const testPool = new Pool(config);
-          const result = await testPool.query(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE' ORDER BY table_name",
-            [schema_name]
-          );
-          tables = result.rows.map((row) => row.table_name);
+          // Excluir schemas del sistema de PostgreSQL
+          const systemSchemas = [
+            "information_schema",
+            "pg_catalog",
+            "pg_toast",
+            "pg_temp_1",
+            "pg_toast_temp_1",
+          ];
+          const schemaLower = schema_name.toLowerCase();
+
+          if (systemSchemas.includes(schemaLower)) {
+            tables = [];
+          } else {
+            // Filtrar tablas del sistema: excluir tablas que empiecen con pg_ y schemas del sistema
+            const systemSchemasList = systemSchemas
+              .map((s) => `'${s}'`)
+              .join(", ");
+            const result = await testPool.query(
+              `SELECT table_name 
+               FROM information_schema.tables 
+               WHERE table_schema = $1 
+               AND table_type = 'BASE TABLE'
+               AND table_schema NOT IN (${systemSchemasList})
+               AND table_name NOT LIKE 'pg_%'
+               AND table_name NOT LIKE 'pg_toast%'
+               AND table_name NOT LIKE 'pg_temp%'
+               ORDER BY table_name`,
+              [schema_name]
+            );
+            tables = result.rows.map((row) => row.table_name);
+          }
           await testPool.end();
         } catch (err) {
           return res.status(400).json({
@@ -6160,8 +6228,22 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
             connectTimeout: 5000,
           });
 
-          const [rows] = await connection.query("SHOW TABLES");
-          tables = rows.map((row) => Object.values(row)[0]).sort();
+          // Excluir tablas del sistema de MariaDB/MySQL
+          const systemTables = [
+            "information_schema",
+            "mysql",
+            "performance_schema",
+            "sys",
+          ];
+          const [rows] = await connection.query(
+            `SELECT TABLE_NAME FROM information_schema.TABLES 
+             WHERE TABLE_SCHEMA = ? 
+             AND TABLE_TYPE = 'BASE TABLE'
+             AND TABLE_SCHEMA NOT IN (${systemTables.map(() => "?").join(", ")})
+             ORDER BY TABLE_NAME`,
+            [schema_name, ...systemTables]
+          );
+          tables = rows.map((row) => row.TABLE_NAME).sort();
           await connection.end();
         } catch (err) {
           return res.status(400).json({
@@ -6222,11 +6304,31 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
 
           const pool = new ConnectionPool(config);
           await pool.connect();
-          const result = await pool
-            .request()
-            .query(
-              `SELECT t.name AS TABLE_NAME FROM sys.tables t INNER JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name NOT IN ('INFORMATION_SCHEMA', 'sys', 'guest') AND t.type = 'U' ORDER BY t.name`
-            );
+          // Filtrar por schema específico y excluir schemas del sistema
+          const systemSchemas = [
+            "INFORMATION_SCHEMA",
+            "sys",
+            "guest",
+            "db_owner",
+            "db_accessadmin",
+            "db_securityadmin",
+            "db_ddladmin",
+            "db_backupoperator",
+            "db_datareader",
+            "db_datawriter",
+            "db_denydatareader",
+            "db_denydatawriter",
+          ];
+          const schemaFilter = systemSchemas.map((s) => `'${s}'`).join(", ");
+          const result = await pool.request().query(
+            `SELECT t.name AS TABLE_NAME 
+               FROM sys.tables t 
+               INNER JOIN sys.schemas s ON t.schema_id = s.schema_id 
+               WHERE s.name = '${schema_name.replace(/'/g, "''")}' 
+               AND s.name NOT IN (${schemaFilter}) 
+               AND t.type = 'U' 
+               ORDER BY t.name`
+          );
           tables = result.recordset.map((row) => row.TABLE_NAME);
           await pool.close();
         } catch (err) {
@@ -6297,11 +6399,40 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
             connectionTimeout: 5000,
           });
 
-          const result = await connection.execute(
-            "SELECT table_name FROM all_tables WHERE owner = :owner ORDER BY table_name",
-            { owner: schema_name.toUpperCase() }
-          );
-          tables = result.rows.map((row) => row[0]);
+          // Excluir schemas del sistema de Oracle
+          const systemSchemas = [
+            "SYS",
+            "SYSTEM",
+            "SYSAUX",
+            "OUTLN",
+            "DBSNMP",
+            "CTXSYS",
+            "XDB",
+            "WMSYS",
+            "MDSYS",
+            "OLAPSYS",
+            "ORDSYS",
+            "ORDPLUGINS",
+            "SI_INFORMTN_SCHEMA",
+            "FLOWS_FILES",
+            "APEX_030200",
+            "APEX_PUBLIC_USER",
+          ];
+          const schemaUpper = schema_name.toUpperCase();
+
+          if (systemSchemas.includes(schemaUpper)) {
+            tables = [];
+          } else {
+            const schemaList = systemSchemas.map((s) => `'${s}'`).join(", ");
+            const result = await connection.execute(
+              `SELECT table_name FROM all_tables 
+               WHERE owner = :owner 
+               AND owner NOT IN (${schemaList})
+               ORDER BY table_name`,
+              { owner: schemaUpper }
+            );
+            tables = result.rows.map((row) => row[0]);
+          }
           await connection.close();
         } catch (err) {
           return res.status(400).json({
@@ -6340,7 +6471,9 @@ app.get("/api/custom-jobs/scripts", async (req, res) => {
   try {
     const scriptsPath1 = path.join(process.cwd(), "..", "..", "scripts");
     const scriptsPath2 = path.join(process.cwd(), "..", "scripts");
-    const scriptsPath = fs.existsSync(scriptsPath1) ? scriptsPath1 : scriptsPath2;
+    const scriptsPath = fs.existsSync(scriptsPath1)
+      ? scriptsPath1
+      : scriptsPath2;
     if (!fs.existsSync(scriptsPath)) {
       return res.json([]);
     }
@@ -6760,6 +6893,1163 @@ app.delete(
     }
   }
 );
+
+app.get("/api/csv-catalog", async (req, res) => {
+  try {
+    const page = validatePage(req.query.page, 1);
+    const limit = validateLimit(req.query.limit, 1, 100);
+    const offset = (page - 1) * limit;
+    const source_type = validateEnum(
+      req.query.source_type,
+      ["FILEPATH", "URL", "ENDPOINT", "UPLOADED_FILE", ""],
+      ""
+    );
+    const target_db_engine = validateEnum(
+      req.query.target_db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+    const status = validateEnum(
+      req.query.status,
+      ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING", ""],
+      ""
+    );
+    const active =
+      req.query.active !== undefined ? validateBoolean(req.query.active) : "";
+    const search = sanitizeSearch(req.query.search, 100);
+
+    let whereConditions = [];
+    let queryParams = [];
+    let paramCount = 0;
+
+    if (source_type) {
+      paramCount++;
+      whereConditions.push(`source_type = $${paramCount}`);
+      queryParams.push(source_type);
+    }
+
+    if (target_db_engine) {
+      paramCount++;
+      whereConditions.push(`target_db_engine = $${paramCount}`);
+      queryParams.push(target_db_engine);
+    }
+
+    if (status) {
+      paramCount++;
+      whereConditions.push(`status = $${paramCount}`);
+      queryParams.push(status);
+    }
+
+    if (active !== "") {
+      paramCount++;
+      whereConditions.push(`active = $${paramCount}`);
+      queryParams.push(active === "true");
+    }
+
+    if (search) {
+      paramCount++;
+      whereConditions.push(
+        `(csv_name ILIKE $${paramCount} OR source_path ILIKE $${paramCount} OR target_schema ILIKE $${paramCount} OR target_table ILIKE $${paramCount})`
+      );
+      queryParams.push(`%${search}%`);
+    }
+
+    const whereClause =
+      whereConditions.length > 0
+        ? `WHERE ${whereConditions.join(" AND ")}`
+        : "";
+
+    const countQuery = `SELECT COUNT(*) FROM metadata.csv_catalog ${whereClause}`;
+    const countResult = await pool.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    paramCount++;
+    const dataQuery = `SELECT * FROM metadata.csv_catalog ${whereClause}
+      ORDER BY 
+        CASE status
+          WHEN 'SUCCESS' THEN 1
+          WHEN 'IN_PROGRESS' THEN 2
+          WHEN 'ERROR' THEN 3
+          WHEN 'PENDING' THEN 4
+          ELSE 5
+        END,
+        active DESC,
+        csv_name
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    queryParams.push(limit, offset);
+
+    const result = await pool.query(dataQuery, queryParams);
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      data: result.rows,
+      pagination: {
+        total,
+        totalPages,
+        currentPage: parseInt(page),
+        limit: parseInt(limit),
+      },
+    });
+  } catch (err) {
+    console.error("Error getting CSV catalog:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error al obtener catálogo de CSV",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+// Endpoint para subir archivos CSV
+app.post(
+  "/api/csv-catalog/upload",
+  requireAuth,
+  requireRole("admin", "user"),
+  upload.single("csvFile"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Retornar la ruta relativa que el C++ puede usar
+      const filePath = req.file.path;
+
+      res.json({
+        filePath: filePath,
+        fileName: req.file.originalname,
+        size: req.file.size,
+        message: "File uploaded successfully",
+      });
+    } catch (err) {
+      console.error("Error uploading CSV file:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error uploading CSV file",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para analizar CSV (delimitador, skip rows, etc.)
+app.post(
+  "/api/csv-catalog/analyze",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { source_path, source_type } = req.body;
+
+      if (!source_path || !source_type) {
+        return res.status(400).json({
+          error: "Missing required fields: source_path and source_type",
+        });
+      }
+
+      // Leer las primeras 10 líneas del archivo
+      let lines = [];
+      let filePath = source_path;
+
+      if (source_type === "UPLOADED_FILE" || source_type === "FILEPATH") {
+        if (!fs.existsSync(filePath)) {
+          return res.status(404).json({ error: "File not found" });
+        }
+
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        lines = fileContent
+          .split("\n")
+          .slice(0, 10)
+          .filter((line) => line.trim());
+      } else if (source_type === "URL") {
+        // Para URLs, necesitaríamos hacer fetch, pero por ahora solo soportamos archivos locales
+        return res.status(400).json({
+          error:
+            "URL analysis not yet supported. Please use file path or upload.",
+        });
+      }
+
+      if (lines.length === 0) {
+        return res.status(400).json({ error: "File appears to be empty" });
+      }
+
+      // Detectar delimitador común
+      const delimiters = [",", ";", "\t", "|"];
+      let detectedDelimiter = ",";
+      let maxFields = 0;
+
+      // Analizar múltiples líneas para mejor detección
+      for (const delim of delimiters) {
+        let totalFields = 0;
+        let consistentCount = 0;
+        for (const line of lines.slice(0, 5)) {
+          if (line.trim()) {
+            const fieldCount = line.split(delim).length;
+            totalFields += fieldCount;
+            if (fieldCount > 1) {
+              consistentCount++;
+            }
+          }
+        }
+        const avgFields = totalFields / Math.max(consistentCount, 1);
+        if (avgFields > maxFields && consistentCount >= 2) {
+          maxFields = avgFields;
+          detectedDelimiter = delim;
+        }
+      }
+
+      // Detectar skip rows (filas vacías o con headers)
+      let skipRows = 0;
+      let hasHeader = false;
+
+      // Verificar si la primera línea parece ser un header (contiene texto, no solo números)
+      const firstLine = lines[0];
+      const firstLineFields = firstLine.split(detectedDelimiter);
+      const hasTextFields = firstLineFields.some((field) => {
+        const trimmed = field.trim();
+        return trimmed && isNaN(trimmed) && trimmed !== "";
+      });
+
+      if (hasTextFields) {
+        hasHeader = true;
+        // Verificar si hay filas vacías antes del header
+        // (esto requeriría leer el archivo completo, por ahora asumimos 0)
+      }
+
+      // Contar filas vacías al inicio (si las hay)
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === "") {
+          skipRows++;
+        } else {
+          break;
+        }
+      }
+
+      res.json({
+        success: true,
+        delimiter: detectedDelimiter,
+        has_header: hasHeader,
+        skip_rows: skipRows,
+        sample_lines: lines.slice(0, 3), // Devolver primeras 3 líneas como muestra
+        field_count: maxFields,
+      });
+    } catch (err) {
+      console.error("Error analyzing CSV:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error analyzing CSV file",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para validar schema (solo preview, no crea nada - el C++ lo hará)
+app.post(
+  "/api/csv-catalog/create-schema",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { db_engine, connection_string, schema_name } = req.body;
+
+      if (!db_engine || !connection_string || !schema_name) {
+        return res.status(400).json({
+          error:
+            "Missing required fields: db_engine, connection_string, schema_name",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Schema '${schema_name}' will be created automatically by the C++ sync process when data is processed. This is just a preview validation.`,
+        schema_name: schema_name,
+        note: "The actual schema creation is handled by the C++ sync process during data transfer.",
+      });
+    } catch (err) {
+      console.error("Error validating schema:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error validating schema",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para preview de tabla (solo muestra qué columnas se detectarían, no crea nada - el C++ lo hará)
+app.post(
+  "/api/csv-catalog/create-table",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        db_engine,
+        connection_string,
+        schema_name,
+        table_name,
+        columns,
+        source_path,
+        has_header,
+        delimiter,
+        skip_rows,
+      } = req.body;
+
+      if (!db_engine || !connection_string || !schema_name || !table_name) {
+        return res.status(400).json({
+          error:
+            "Missing required fields: db_engine, connection_string, schema_name, table_name",
+        });
+      }
+
+      let detectedColumns = [];
+      let columnTypes = [];
+
+      if (columns && Array.isArray(columns) && columns.length > 0) {
+        detectedColumns = columns.map((col) => col.name || col);
+        columnTypes = columns.map((col) => col.type || "TEXT");
+      } else if (source_path) {
+        try {
+          const fileContent = fs.readFileSync(source_path, "utf8");
+          const lines = fileContent.split("\n").filter((line) => line.trim());
+          const startLine = (skip_rows || 0) + (has_header ? 1 : 0);
+          const dataLines = lines.slice(startLine, startLine + 10);
+
+          if (dataLines.length > 0) {
+            const firstDataLine = dataLines[0];
+            const fields = firstDataLine.split(delimiter || ",");
+
+            if (has_header && lines.length > skip_rows) {
+              const headerLine = lines[skip_rows || 0];
+              detectedColumns = headerLine
+                .split(delimiter || ",")
+                .map((c) => c.trim().replace(/[^a-zA-Z0-9_]/g, "_"));
+            } else {
+              detectedColumns = fields.map((_, i) => `column_${i + 1}`);
+            }
+
+            columnTypes = fields.map((field) => {
+              const trimmed = String(field || "").trim();
+              if (!trimmed || trimmed === "") return "TEXT";
+              if (!isNaN(trimmed) && trimmed !== "") {
+                if (trimmed.includes(".")) return "NUMERIC";
+                return "BIGINT";
+              }
+              if (
+                trimmed.toLowerCase() === "true" ||
+                trimmed.toLowerCase() === "false"
+              )
+                return "BOOLEAN";
+              return "TEXT";
+            });
+          }
+        } catch (fileErr) {
+          console.error("Error reading source file:", fileErr);
+        }
+      }
+
+      if (detectedColumns.length === 0) {
+        return res.status(400).json({
+          error:
+            "Could not detect columns. Please provide columns array or valid source_path for analysis.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Table '${schema_name}.${table_name}' will be created automatically by the C++ sync process when data is processed. This is just a preview of detected columns.`,
+        schema_name: schema_name,
+        table_name: table_name,
+        preview_columns: detectedColumns.map((col, i) => ({
+          name: col,
+          type: columnTypes[i] || "TEXT",
+        })),
+        note: "The actual table creation with these columns is handled by the C++ sync process during data transfer.",
+      });
+    } catch (err) {
+      console.error("Error previewing table:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error previewing table",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/csv-catalog",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const {
+      csv_name,
+      source_type,
+      source_path,
+      has_header,
+      delimiter,
+      skip_rows,
+      skip_empty_rows,
+      target_db_engine,
+      target_connection_string,
+      target_schema,
+      target_table,
+      sync_interval,
+      status,
+      active,
+    } = req.body;
+
+    if (
+      !csv_name ||
+      !source_type ||
+      !source_path ||
+      !target_db_engine ||
+      !target_connection_string ||
+      !target_schema ||
+      !target_table
+    ) {
+      return res.status(400).json({
+        error:
+          "Missing required fields: csv_name, source_type, source_path, target_db_engine, target_connection_string, target_schema, target_table",
+      });
+    }
+
+    const validSourceType = validateEnum(
+      source_type,
+      ["FILEPATH", "URL", "ENDPOINT", "UPLOADED_FILE"],
+      null
+    );
+    if (!validSourceType) {
+      return res.status(400).json({ error: "Invalid source_type" });
+    }
+
+    const validTargetEngine = validateEnum(
+      target_db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      null
+    );
+    if (!validTargetEngine) {
+      return res.status(400).json({ error: "Invalid target_db_engine" });
+    }
+
+    const validStatus = validateEnum(
+      status || "PENDING",
+      ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING"],
+      "PENDING"
+    );
+
+    const interval =
+      sync_interval && sync_interval > 0 ? parseInt(sync_interval) : 3600;
+    const isActive =
+      active !== undefined ? validateBoolean(active, true) : true;
+    const hasHeader =
+      has_header !== undefined ? validateBoolean(has_header, true) : true;
+    const skipEmptyRows =
+      skip_empty_rows !== undefined
+        ? validateBoolean(skip_empty_rows, true)
+        : true;
+    const skipRows = skip_rows ? parseInt(skip_rows) : 0;
+    const csvDelimiter = delimiter || ",";
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT csv_name FROM metadata.csv_catalog WHERE csv_name = $1`,
+        [csv_name]
+      );
+
+      if (checkResult.rows.length > 0) {
+        return res.status(409).json({
+          error: "CSV with this name already exists",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.csv_catalog 
+       (csv_name, source_type, source_path, has_header, delimiter, skip_rows, skip_empty_rows,
+        target_db_engine, target_connection_string, target_schema, target_table,
+        status, active, sync_interval)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING *`,
+        [
+          csv_name,
+          source_type,
+          source_path,
+          hasHeader,
+          csvDelimiter,
+          skipRows,
+          skipEmptyRows,
+          target_db_engine,
+          target_connection_string,
+          target_schema.toLowerCase(),
+          target_table.toLowerCase(),
+          validStatus,
+          isActive,
+          interval,
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating CSV entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.patch("/api/csv-catalog/active", async (req, res) => {
+  const { csv_name, active } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE metadata.csv_catalog 
+       SET active = $1, updated_at = NOW()
+       WHERE csv_name = $2
+       RETURNING *`,
+      [active, csv_name]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "CSV not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating CSV active status:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error al actualizar estado de CSV",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.get("/api/csv-catalog/metrics", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_csvs,
+        COUNT(*) FILTER (WHERE active = true) as active_csvs,
+        COUNT(*) FILTER (WHERE status = 'SUCCESS') as success_csvs,
+        COUNT(*) FILTER (WHERE status = 'ERROR') as error_csvs,
+        COUNT(*) FILTER (WHERE status = 'IN_PROGRESS') as in_progress_csvs,
+        COUNT(*) FILTER (WHERE status = 'PENDING') as pending_csvs,
+        COUNT(DISTINCT source_type) as source_types_count,
+        COUNT(DISTINCT target_db_engine) as target_engines_count
+      FROM metadata.csv_catalog
+    `);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting CSV catalog metrics:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error en el servidor",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.get("/api/google-sheets-catalog", async (req, res) => {
+  try {
+    const page = validatePage(req.query.page, 1);
+    const limit = validateLimit(req.query.limit, 1, 100);
+    const offset = (page - 1) * limit;
+    const target_db_engine = validateEnum(
+      req.query.target_db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+    const status = validateEnum(
+      req.query.status,
+      ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING", ""],
+      ""
+    );
+    const active =
+      req.query.active !== undefined ? validateBoolean(req.query.active) : "";
+    const search = sanitizeSearch(req.query.search, 100);
+
+    let whereConditions = [];
+    let queryParams = [];
+    let paramCount = 0;
+
+    if (target_db_engine) {
+      paramCount++;
+      whereConditions.push(`target_db_engine = $${paramCount}`);
+      queryParams.push(target_db_engine);
+    }
+
+    if (status) {
+      paramCount++;
+      whereConditions.push(`status = $${paramCount}`);
+      queryParams.push(status);
+    }
+
+    if (active !== "") {
+      paramCount++;
+      whereConditions.push(`active = $${paramCount}`);
+      queryParams.push(active === "true");
+    }
+
+    if (search) {
+      paramCount++;
+      whereConditions.push(
+        `(sheet_name ILIKE $${paramCount} OR spreadsheet_id ILIKE $${paramCount} OR target_schema ILIKE $${paramCount} OR target_table ILIKE $${paramCount})`
+      );
+      queryParams.push(`%${search}%`);
+    }
+
+    const whereClause =
+      whereConditions.length > 0
+        ? `WHERE ${whereConditions.join(" AND ")}`
+        : "";
+
+    const countQuery = `SELECT COUNT(*) FROM metadata.google_sheets_catalog ${whereClause}`;
+    const countResult = await pool.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    paramCount++;
+    const dataQuery = `SELECT * FROM metadata.google_sheets_catalog ${whereClause}
+      ORDER BY 
+        CASE status
+          WHEN 'SUCCESS' THEN 1
+          WHEN 'IN_PROGRESS' THEN 2
+          WHEN 'ERROR' THEN 3
+          WHEN 'PENDING' THEN 4
+          ELSE 5
+        END,
+        active DESC,
+        sheet_name
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    queryParams.push(limit, offset);
+
+    const result = await pool.query(dataQuery, queryParams);
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      data: result.rows,
+      pagination: {
+        total,
+        totalPages,
+        currentPage: parseInt(page),
+        limit: parseInt(limit),
+      },
+    });
+  } catch (err) {
+    console.error("Error getting Google Sheets catalog:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error al obtener catálogo de Google Sheets",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.post(
+  "/api/google-sheets-catalog",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const {
+      sheet_name,
+      spreadsheet_id,
+      api_key,
+      access_token,
+      range,
+      target_db_engine,
+      target_connection_string,
+      target_schema,
+      target_table,
+      sync_interval,
+      status,
+      active,
+    } = req.body;
+
+    if (
+      !sheet_name ||
+      !spreadsheet_id ||
+      !target_db_engine ||
+      !target_connection_string ||
+      !target_schema ||
+      !target_table
+    ) {
+      return res.status(400).json({
+        error:
+          "Missing required fields: sheet_name, spreadsheet_id, target_db_engine, target_connection_string, target_schema, target_table",
+      });
+    }
+
+    if (!api_key && !access_token) {
+      return res.status(400).json({
+        error: "Either api_key or access_token must be provided",
+      });
+    }
+
+    const validTargetEngine = validateEnum(
+      target_db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      null
+    );
+    if (!validTargetEngine) {
+      return res.status(400).json({ error: "Invalid target_db_engine" });
+    }
+
+    const validStatus = validateEnum(
+      status || "PENDING",
+      ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING"],
+      "PENDING"
+    );
+
+    const interval =
+      sync_interval && sync_interval > 0 ? parseInt(sync_interval) : 3600;
+    const isActive =
+      active !== undefined ? validateBoolean(active, true) : true;
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT sheet_name FROM metadata.google_sheets_catalog WHERE sheet_name = $1`,
+        [sheet_name]
+      );
+
+      if (checkResult.rows.length > 0) {
+        return res.status(409).json({
+          error: "Google Sheet with this name already exists",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.google_sheets_catalog 
+       (sheet_name, spreadsheet_id, api_key, access_token, range,
+        target_db_engine, target_connection_string, target_schema, target_table,
+        status, active, sync_interval)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+        [
+          sheet_name,
+          spreadsheet_id,
+          api_key || null,
+          access_token || null,
+          range || null,
+          target_db_engine,
+          target_connection_string,
+          target_schema.toLowerCase(),
+          target_table.toLowerCase(),
+          validStatus,
+          isActive,
+          interval,
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating Google Sheets entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para obtener hojas disponibles de un Google Sheet
+app.post(
+  "/api/google-sheets-catalog/get-sheets",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { spreadsheet_id, api_key, access_token } = req.body;
+
+      if (!spreadsheet_id) {
+        return res.status(400).json({
+          error: "Missing required field: spreadsheet_id",
+        });
+      }
+
+      // Construir URL de Google Sheets API para obtener metadata
+      let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}`;
+
+      // Agregar API key o access token
+      if (api_key) {
+        url += `?key=${api_key}`;
+      } else if (access_token) {
+        url += `?access_token=${access_token}`;
+      } else {
+        return res.status(400).json({
+          error: "Either api_key or access_token is required",
+        });
+      }
+
+      // Hacer fetch a Google Sheets API
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return res.status(response.status).json({
+          error:
+            errorData.error?.message || "Failed to fetch Google Sheet metadata",
+        });
+      }
+
+      const data = await response.json();
+      const sheets = data.sheets || [];
+
+      // Extraer información de cada hoja
+      const sheetsList = sheets.map((sheet) => ({
+        title: sheet.properties?.title || "Untitled",
+        sheetId: sheet.properties?.sheetId || null,
+        index: sheet.properties?.index || 0,
+      }));
+
+      res.json({
+        success: true,
+        sheets: sheetsList,
+      });
+    } catch (err) {
+      console.error("Error getting Google Sheets list:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error getting Google Sheets list",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para analizar Google Sheets (detectar headers, estructura, etc.)
+app.post(
+  "/api/google-sheets-catalog/analyze",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { spreadsheet_id, api_key, access_token, range } = req.body;
+
+      if (!spreadsheet_id) {
+        return res.status(400).json({
+          error: "Missing required field: spreadsheet_id",
+        });
+      }
+
+      // Construir URL de Google Sheets API
+      let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/`;
+      if (range) {
+        url += range;
+      } else {
+        url += "A1:Z10"; // Rango por defecto para análisis
+      }
+
+      // Agregar API key o access token
+      if (api_key) {
+        url += `?key=${api_key}`;
+      } else if (access_token) {
+        url += `?access_token=${access_token}`;
+      } else {
+        return res.status(400).json({
+          error: "Either api_key or access_token is required",
+        });
+      }
+
+      // Hacer fetch a Google Sheets API
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return res.status(response.status).json({
+          error: errorData.error?.message || "Failed to fetch Google Sheet",
+        });
+      }
+
+      const data = await response.json();
+      const values = data.values || [];
+
+      if (values.length === 0) {
+        return res.status(400).json({ error: "Sheet appears to be empty" });
+      }
+
+      // Analizar estructura
+      let hasHeader = false;
+      let skipRows = 0;
+
+      // Verificar si la primera fila parece ser un header
+      if (values[0] && values[0].length > 0) {
+        const firstRow = values[0];
+        const hasTextFields = firstRow.some((cell) => {
+          const trimmed = String(cell || "").trim();
+          return trimmed && isNaN(trimmed) && trimmed !== "";
+        });
+
+        if (hasTextFields) {
+          hasHeader = true;
+        }
+      }
+
+      // Contar filas vacías al inicio
+      for (let i = 0; i < values.length; i++) {
+        if (
+          !values[i] ||
+          values[i].length === 0 ||
+          values[i].every((cell) => !cell || String(cell).trim() === "")
+        ) {
+          skipRows++;
+        } else {
+          break;
+        }
+      }
+
+      // Obtener número de columnas
+      const maxColumns = Math.max(
+        ...values.map((row) => (row ? row.length : 0))
+      );
+
+      res.json({
+        success: true,
+        has_header: hasHeader,
+        skip_rows: skipRows,
+        column_count: maxColumns,
+        row_count: values.length,
+        sample_rows: values.slice(0, 3), // Primeras 3 filas como muestra
+      });
+    } catch (err) {
+      console.error("Error analyzing Google Sheet:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error analyzing Google Sheet",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para crear schema si no existe (Google Sheets)
+app.post(
+  "/api/google-sheets-catalog/create-schema",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { db_engine, connection_string, schema_name } = req.body;
+
+      if (!db_engine || !connection_string || !schema_name) {
+        return res.status(400).json({
+          error:
+            "Missing required fields: db_engine, connection_string, schema_name",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Schema '${schema_name}' will be created automatically by the C++ sync process when data is processed. This is just a preview validation.`,
+        schema_name: schema_name,
+        note: "The actual schema creation is handled by the C++ sync process during data transfer.",
+      });
+    } catch (err) {
+      console.error("Error validating schema:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error validating schema",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para preview de tabla (solo muestra qué columnas se detectarían, no crea nada - el C++ lo hará)
+app.post(
+  "/api/google-sheets-catalog/create-table",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        db_engine,
+        connection_string,
+        schema_name,
+        table_name,
+        columns,
+        spreadsheet_id,
+        api_key,
+        access_token,
+        range,
+        has_header,
+        skip_rows,
+      } = req.body;
+
+      if (!db_engine || !connection_string || !schema_name || !table_name) {
+        return res.status(400).json({
+          error:
+            "Missing required fields: db_engine, connection_string, schema_name, table_name",
+        });
+      }
+
+      let detectedColumns = [];
+      let columnTypes = [];
+
+      if (columns && Array.isArray(columns) && columns.length > 0) {
+        detectedColumns = columns.map((col) => col.name || col);
+        columnTypes = columns.map((col) => col.type || "TEXT");
+      } else if (spreadsheet_id && (api_key || access_token)) {
+        try {
+          let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/`;
+          if (range) {
+            url += range;
+          } else {
+            url += "A1:Z10";
+          }
+
+          if (api_key) {
+            url += `?key=${api_key}`;
+          } else if (access_token) {
+            url += `?access_token=${access_token}`;
+          }
+
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            const values = data.values || [];
+
+            if (values.length > 0) {
+              const startRow = skip_rows || 0;
+              const headerRow =
+                has_header && values.length > startRow
+                  ? values[startRow]
+                  : null;
+              const firstDataRow =
+                values.length > startRow + (has_header ? 1 : 0)
+                  ? values[startRow + (has_header ? 1 : 0)]
+                  : values[startRow] || [];
+
+              if (headerRow && has_header) {
+                detectedColumns = headerRow.map(
+                  (cell) =>
+                    String(cell || "")
+                      .trim()
+                      .replace(/[^a-zA-Z0-9_]/g, "_") || "column_1"
+                );
+              } else {
+                detectedColumns = firstDataRow.map((_, i) => `column_${i + 1}`);
+              }
+
+              columnTypes = firstDataRow.map((cell) => {
+                const trimmed = String(cell || "").trim();
+                if (!trimmed || trimmed === "") return "TEXT";
+                if (!isNaN(trimmed) && trimmed !== "") {
+                  if (trimmed.includes(".")) return "NUMERIC";
+                  return "BIGINT";
+                }
+                if (
+                  trimmed.toLowerCase() === "true" ||
+                  trimmed.toLowerCase() === "false"
+                )
+                  return "BOOLEAN";
+                return "TEXT";
+              });
+            }
+          }
+        } catch (fetchErr) {
+          console.error("Error fetching Google Sheet for analysis:", fetchErr);
+        }
+      }
+
+      if (detectedColumns.length === 0) {
+        return res.status(400).json({
+          error:
+            "Could not detect columns. Please provide columns array or valid spreadsheet_id with authentication for analysis.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Table '${schema_name}.${table_name}' will be created automatically by the C++ sync process when data is processed. This is just a preview of detected columns.`,
+        schema_name: schema_name,
+        table_name: table_name,
+        preview_columns: detectedColumns.map((col, i) => ({
+          name: col,
+          type: columnTypes[i] || "TEXT",
+        })),
+        note: "The actual table creation with these columns is handled by the C++ sync process during data transfer.",
+      });
+    } catch (err) {
+      console.error("Error previewing table:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error previewing table",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.patch("/api/google-sheets-catalog/active", async (req, res) => {
+  const { sheet_name, active } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE metadata.google_sheets_catalog 
+       SET active = $1, updated_at = NOW()
+       WHERE sheet_name = $2
+       RETURNING *`,
+      [active, sheet_name]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Google Sheet not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating Google Sheets active status:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error al actualizar estado de Google Sheets",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.get("/api/google-sheets-catalog/metrics", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_sheets,
+        COUNT(*) FILTER (WHERE active = true) as active_sheets,
+        COUNT(*) FILTER (WHERE status = 'SUCCESS') as success_sheets,
+        COUNT(*) FILTER (WHERE status = 'ERROR') as error_sheets,
+        COUNT(*) FILTER (WHERE status = 'IN_PROGRESS') as in_progress_sheets,
+        COUNT(*) FILTER (WHERE status = 'PENDING') as pending_sheets,
+        COUNT(DISTINCT target_db_engine) as target_engines_count
+      FROM metadata.google_sheets_catalog
+    `);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting Google Sheets catalog metrics:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error en el servidor",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
 
 // Export app for testing
 export default app;

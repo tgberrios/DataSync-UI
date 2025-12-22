@@ -2158,3 +2158,261 @@ export const customJobsApi = {
     }
   },
 };
+
+export interface CSVCatalogEntry {
+  id: number;
+  csv_name: string;
+  source_type: string;
+  source_path: string;
+  has_header: boolean;
+  delimiter: string;
+  skip_rows: number;
+  skip_empty_rows: boolean;
+  target_db_engine: string;
+  target_connection_string: string;
+  target_schema: string;
+  target_table: string;
+  sync_interval: number;
+  status: string;
+  active: boolean;
+  last_sync_time: string | null;
+  last_sync_status: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoogleSheetsCatalogEntry {
+  id: number;
+  sheet_name: string;
+  spreadsheet_id: string;
+  api_key: string;
+  access_token: string;
+  range: string;
+  target_db_engine: string;
+  target_connection_string: string;
+  target_schema: string;
+  target_table: string;
+  sync_interval: number;
+  status: string;
+  active: boolean;
+  last_sync_time: string | null;
+  last_sync_status: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const csvCatalogApi = {
+  getCSVs: async (params: {
+    page?: number;
+    limit?: number;
+    source_type?: string;
+    target_db_engine?: string;
+    status?: string;
+    active?: string;
+    search?: string;
+  }) => {
+    try {
+      const response = await api.get("/csv-catalog", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching CSV catalog:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createCSV: async (entry: {
+    csv_name: string;
+    source_type: string;
+    source_path: string;
+    has_header: boolean;
+    delimiter: string;
+    skip_rows: number;
+    skip_empty_rows: boolean;
+    target_db_engine: string;
+    target_connection_string: string;
+    target_schema: string;
+    target_table: string;
+    sync_interval: number;
+    status: string;
+    active: boolean;
+  }) => {
+    try {
+      const response = await api.post("/csv-catalog", entry);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating CSV entry:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateActive: async (csvName: string, active: boolean) => {
+    try {
+      const response = await api.patch("/csv-catalog/active", {
+        csv_name: csvName,
+        active: active,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating CSV active status:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getMetrics: async () => {
+    try {
+      const response = await api.get("/csv-catalog/metrics");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching CSV catalog metrics:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  uploadCSV: async (
+    file: File
+  ): Promise<{ filePath: string; fileName: string; size: number }> => {
+    try {
+      const formData = new FormData();
+      formData.append("csvFile", file);
+
+      const response = await api.post("/csv-catalog/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 0, // Sin timeout para archivos grandes
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error uploading CSV file:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};
+
+export const googleSheetsCatalogApi = {
+  getSheets: async (params: {
+    page?: number;
+    limit?: number;
+    target_db_engine?: string;
+    status?: string;
+    active?: string;
+    search?: string;
+  }) => {
+    try {
+      const response = await api.get("/google-sheets-catalog", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching Google Sheets catalog:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createSheet: async (entry: {
+    sheet_name: string;
+    spreadsheet_id: string;
+    api_key: string;
+    access_token: string;
+    range: string;
+    target_db_engine: string;
+    target_connection_string: string;
+    target_schema: string;
+    target_table: string;
+    sync_interval: number;
+    status: string;
+    active: boolean;
+  }) => {
+    try {
+      const response = await api.post("/google-sheets-catalog", entry);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating Google Sheets entry:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateActive: async (sheetName: string, active: boolean) => {
+    try {
+      const response = await api.patch("/google-sheets-catalog/active", {
+        sheet_name: sheetName,
+        active: active,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating Google Sheets active status:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getMetrics: async () => {
+    try {
+      const response = await api.get("/google-sheets-catalog/metrics");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching Google Sheets catalog metrics:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};

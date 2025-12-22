@@ -39,6 +39,8 @@ const GovernanceCatalogOracle = lazy(
 );
 const APICatalog = lazy(() => import("./components/api/APICatalog"));
 const CustomJobs = lazy(() => import("./components/jobs/CustomJobs"));
+const CSVCatalog = lazy(() => import("./components/csv/CSVCatalog"));
+const GoogleSheetsCatalog = lazy(() => import("./components/google-sheets/GoogleSheetsCatalog"));
 const UserManagement = lazy(() => import("./components/security/UserManagement"));
 const Login = lazy(() => import("./components/auth/Login"));
 
@@ -188,6 +190,26 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <CustomJobs />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="csv-catalog"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <CSVCatalog />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="google-sheets-catalog"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <GoogleSheetsCatalog />
                 </Suspense>
               </ProtectedRoute>
             }

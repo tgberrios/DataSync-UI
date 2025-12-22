@@ -250,13 +250,16 @@ const Layout = () => {
           </NavGroupHeader>
           <NavGroupContent $isOpen={openGroups.catalog}>
             <NavSubItem to="/catalog">
-              ■ Catalog
+              ■ Catalog - Catalog
             </NavSubItem>
-            <NavSubItem to="/column-catalog">
-              ■ Column Catalog
+            <NavSubItem to="/api-catalog">
+              ■ Catalog - API ETL
             </NavSubItem>
-            <NavSubItem to="/catalog-locks">
-              ■ Catalog Locks
+            <NavSubItem to="/csv-catalog">
+              ■ Catalog - CSV ETL
+            </NavSubItem>
+            <NavSubItem to="/google-sheets-catalog">
+              ■ Catalog - Google Sheets ETL
             </NavSubItem>
           </NavGroupContent>
         </NavGroup>
@@ -292,6 +295,9 @@ const Layout = () => {
             Governance
           </NavGroupHeader>
           <NavGroupContent $isOpen={openGroups.governance}>
+            <NavSubItem to="/column-catalog">
+              ■ Governance Columns
+            </NavSubItem>
             <NavSubItem to="/governance-catalog-mariadb">
               ■ Gov Catalog MariaDB
             </NavSubItem>
@@ -332,9 +338,6 @@ const Layout = () => {
             Data Sources
           </NavGroupHeader>
           <NavGroupContent $isOpen={openGroups.dataSources}>
-            <NavSubItem to="/api-catalog">
-              ■ API Catalog
-            </NavSubItem>
             <NavSubItem to="/custom-jobs">
               ■ Custom Jobs
             </NavSubItem>
@@ -366,6 +369,9 @@ const Layout = () => {
             System
           </NavGroupHeader>
           <NavGroupContent $isOpen={openGroups.system}>
+            <NavSubItem to="/catalog-locks">
+              ■ Locks
+            </NavSubItem>
             <NavSubItem to="/logs">
               ■ Logs
             </NavSubItem>
