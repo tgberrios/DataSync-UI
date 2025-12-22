@@ -2006,6 +2006,31 @@ export const apiCatalogApi = {
       throw error;
     }
   },
+
+  previewAPI: async (params: {
+    base_url: string;
+    endpoint: string;
+    http_method?: string;
+    auth_type?: string;
+    auth_config?: Record<string, unknown> | string;
+    request_headers?: Record<string, unknown> | string;
+    query_params?: Record<string, unknown> | string;
+  }) => {
+    try {
+      const response = await api.post("/api-catalog/preview", params);
+      return response.data;
+    } catch (error) {
+      console.error("Error previewing API:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
 
 export interface CustomJobEntry {

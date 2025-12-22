@@ -5451,6 +5451,173 @@ app.get("/api/api-catalog/metrics", async (req, res) => {
   }
 });
 
+app.post("/api/api-catalog/preview", async (req, res) => {
+  try {
+    const {
+      base_url,
+      endpoint,
+      http_method,
+      auth_type,
+      auth_config,
+      request_headers,
+      query_params,
+    } = req.body;
+
+    if (!base_url || !endpoint) {
+      return res
+        .status(400)
+        .json({ error: "base_url and endpoint are required" });
+    }
+
+    const url = new URL(endpoint, base_url);
+
+    if (query_params) {
+      try {
+        const params =
+          typeof query_params === "string"
+            ? JSON.parse(query_params)
+            : query_params;
+        Object.keys(params).forEach((key) => {
+          url.searchParams.append(key, params[key]);
+        });
+      } catch (err) {
+        console.error("Error parsing query_params:", err);
+      }
+    }
+
+    const headers = {
+      Accept: "application/json, */*",
+    };
+
+    if (request_headers) {
+      try {
+        const parsedHeaders =
+          typeof request_headers === "string"
+            ? JSON.parse(request_headers)
+            : request_headers;
+        Object.assign(headers, parsedHeaders);
+      } catch (err) {
+        console.error("Error parsing request_headers:", err);
+      }
+    }
+
+    if (auth_type === "BEARER" && auth_config) {
+      try {
+        const auth =
+          typeof auth_config === "string"
+            ? JSON.parse(auth_config)
+            : auth_config;
+        if (auth.bearer_token || auth.token) {
+          headers["Authorization"] = `Bearer ${
+            auth.bearer_token || auth.token
+          }`;
+        }
+      } catch (err) {
+        console.error("Error parsing auth_config:", err);
+      }
+    } else if (auth_type === "BASIC" && auth_config) {
+      try {
+        const auth =
+          typeof auth_config === "string"
+            ? JSON.parse(auth_config)
+            : auth_config;
+        if (auth.username && auth.password) {
+          const credentials = Buffer.from(
+            `${auth.username}:${auth.password}`
+          ).toString("base64");
+          headers["Authorization"] = `Basic ${credentials}`;
+        }
+      } catch (err) {
+        console.error("Error parsing auth_config:", err);
+      }
+    } else if (auth_type === "API_KEY" && auth_config) {
+      try {
+        const auth =
+          typeof auth_config === "string"
+            ? JSON.parse(auth_config)
+            : auth_config;
+        if (auth.api_key && auth.api_key_header) {
+          headers[auth.api_key_header] = auth.api_key;
+        } else if (auth.api_key) {
+          headers["X-API-Key"] = auth.api_key;
+        }
+      } catch (err) {
+        console.error("Error parsing auth_config:", err);
+      }
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const response = await fetch(url.toString(), {
+        method: http_method || "GET",
+        headers: headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return res.status(response.status).json({
+          error: `API request failed with status ${response.status}`,
+          status: response.status,
+        });
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      let data;
+      let sampleData = [];
+
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+
+        if (Array.isArray(data)) {
+          sampleData = data.slice(0, 10);
+        } else if (typeof data === "object" && data !== null) {
+          if (data.data && Array.isArray(data.data)) {
+            sampleData = data.data.slice(0, 10);
+          } else if (data.results && Array.isArray(data.results)) {
+            sampleData = data.results.slice(0, 10);
+          } else {
+            sampleData = [data];
+          }
+        }
+      } else {
+        const text = await response.text();
+        data = text;
+        sampleData = [{ raw_response: text.substring(0, 500) }];
+      }
+
+      res.json({
+        success: true,
+        status: response.status,
+        contentType: contentType,
+        sampleData: sampleData,
+        totalItems: Array.isArray(data)
+          ? data.length
+          : data.data?.length || data.results?.length || 1,
+        fullData: data,
+      });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === "AbortError") {
+        return res.status(408).json({ error: "Request timeout" });
+      }
+      throw err;
+    }
+  } catch (err) {
+    console.error("Error previewing API:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error previewing API",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
 const extractClusterName = (connectionString, dbEngine) => {
   if (dbEngine === "MongoDB") {
     const srvMatch = connectionString.match(/mongodb\+srv:\/\/[^@]+@([^.]+)/);

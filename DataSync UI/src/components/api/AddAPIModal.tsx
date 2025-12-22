@@ -8,6 +8,7 @@ import {
   Select,
 } from '../shared/BaseComponents';
 import { theme } from '../../theme/theme';
+import { apiCatalogApi } from '../../services/api';
 
 const fadeIn = keyframes`
   from {
@@ -516,6 +517,10 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const lastScannedUrl = useRef<string>('');
 
@@ -1044,6 +1049,36 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
     }));
   }, []);
 
+  const handlePreviewAPI = useCallback(async () => {
+    if (!formData.base_url || !formData.endpoint) {
+      setPreviewError('Base URL and endpoint are required');
+      return;
+    }
+
+    setIsPreviewing(true);
+    setPreviewError(null);
+    setPreviewData(null);
+    setShowPreview(true);
+
+    try {
+      const result = await apiCatalogApi.previewAPI({
+        base_url: formData.base_url,
+        endpoint: formData.endpoint,
+        http_method: formData.http_method,
+        auth_type: formData.auth_type,
+        auth_config: formData.auth_config,
+        request_headers: formData.request_headers,
+        query_params: formData.query_params,
+      });
+
+      setPreviewData(result);
+    } catch (err: any) {
+      setPreviewError(err.message || 'Error previewing API');
+    } finally {
+      setIsPreviewing(false);
+    }
+  }, [formData]);
+
   return (
     <>
       <BlurOverlay style={{ animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in' }} onClick={handleClose} />
@@ -1090,6 +1125,16 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
                   </svg>
                 )}
               </RefreshButton>
+              <Button
+                type="button"
+                $variant="secondary"
+                onClick={handlePreviewAPI}
+                disabled={isPreviewing || !formData.base_url || !formData.endpoint || (!formData.base_url.startsWith('http://') && !formData.base_url.startsWith('https://'))}
+                style={{ padding: '8px 16px', fontSize: '0.9em', minWidth: 'auto' }}
+                title="Preview API data"
+              >
+                {isPreviewing ? 'Loading...' : 'Preview'}
+              </Button>
             </UrlInputContainer>
             {isScanning && (
               <ScanningIndicator>
@@ -1117,6 +1162,46 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
                   </EndpointItem>
                 ))}
               </EndpointsList>
+            )}
+            {showPreview && (
+              <CollapsibleSection $isOpen={true} style={{ marginTop: theme.spacing.md }}>
+                <CollapsibleHeader onClick={() => setShowPreview(!showPreview)}>
+                  <span>API Preview {previewData ? `(${previewData.totalItems || previewData.sampleData?.length || 0} items)` : ''}</span>
+                  <span>{showPreview ? '▼' : '▶'}</span>
+                </CollapsibleHeader>
+                <CollapsibleContent $isOpen={showPreview}>
+                  {isPreviewing && (
+                    <ScanningIndicator>
+                      <Spinner />
+                      <span>Fetching API data...</span>
+                    </ScanningIndicator>
+                  )}
+                  {previewError && (
+                    <ErrorMessage>{previewError}</ErrorMessage>
+                  )}
+                  {previewData && previewData.sampleData && (
+                    <div style={{ marginTop: theme.spacing.sm }}>
+                      <div style={{ marginBottom: theme.spacing.sm, fontSize: '0.9em', color: theme.colors.text.secondary }}>
+                        Showing {previewData.sampleData.length} of {previewData.totalItems || previewData.sampleData.length} items
+                      </div>
+                      <div style={{ 
+                        maxHeight: '400px', 
+                        overflow: 'auto', 
+                        border: `1px solid ${theme.colors.border.light}`, 
+                        borderRadius: theme.borderRadius.md,
+                        padding: theme.spacing.sm,
+                        background: theme.colors.background.secondary,
+                        fontFamily: 'monospace',
+                        fontSize: '0.85em'
+                      }}>
+                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                          {JSON.stringify(previewData.sampleData, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </CollapsibleSection>
             )}
           </FormGroup>
 
