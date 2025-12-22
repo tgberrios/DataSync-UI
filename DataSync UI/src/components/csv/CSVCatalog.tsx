@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AddCSVModal from './AddCSVModal';
 import CSVCatalogTreeView from './CSVCatalogTreeView';
+import { ExecutionTimeline } from '../shared/ExecutionTimeline';
+import { MappingGraph } from '../shared/MappingGraph';
 import {
   Container,
   Header,
@@ -16,12 +18,13 @@ import {
 } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
-import { csvCatalogApi, CSVCatalogEntry } from '../../services/api';
+import { csvCatalogApi } from '../../services/api';
+import type { CSVCatalogEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
 
 const CSVCatalog = () => {
-  const { page, limit, setPage } = usePagination(1, 20);
+  const { setPage } = usePagination(1, 20);
   const { filters, setFilter } = useTableFilters({
     source_type: '',
     target_db_engine: '',
@@ -31,54 +34,18 @@ const CSVCatalog = () => {
   
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [data, setData] = useState<CSVCatalogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [duplicateData, setDuplicateData] = useState<any>(null);
   const [allEntries, setAllEntries] = useState<CSVCatalogEntry[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
+  const [selectedCSV, setSelectedCSV] = useState<CSVCatalogEntry | null>(null);
+  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [tableStructure, setTableStructure] = useState<any>(null);
+  const [loadingStructure, setLoadingStructure] = useState(false);
   const isMountedRef = useRef(true);
 
-  const fetchData = useCallback(async () => {
-    if (!isMountedRef.current) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const sanitizedSearch = sanitizeSearch(search, 100);
-      const params: any = {
-        page,
-        limit,
-        search: sanitizedSearch
-      };
-      
-      if (filters.source_type) params.source_type = filters.source_type;
-      if (filters.target_db_engine) params.target_db_engine = filters.target_db_engine;
-      if (filters.status) params.status = filters.status;
-      if (filters.active) params.active = filters.active;
-      
-      const response = await csvCatalogApi.getCSVs(params);
-      if (isMountedRef.current) {
-        setData(response.data);
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(extractApiError(err));
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [
-    page, 
-    limit, 
-    filters.source_type, 
-    filters.target_db_engine, 
-    filters.status, 
-    filters.active, 
-    search
-  ]);
 
   const fetchAllEntries = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -143,45 +110,75 @@ const CSVCatalog = () => {
   }, [setFilter, setPage]);
 
   const handleAdd = useCallback(
-    async (newEntry: any) => {
+    async (newEntry: {
+      csv_name: string;
+      source_type: string;
+      source_path: string;
+      has_header: boolean;
+      delimiter: string;
+      skip_rows: number;
+      skip_empty_rows: boolean;
+      target_db_engine: string;
+      target_connection_string: string;
+      target_schema: string;
+      target_table: string;
+      sync_interval: number;
+      status: string;
+      active: boolean;
+    }) => {
       try {
-        setLoading(true);
         setError(null);
         await csvCatalogApi.createCSV(newEntry);
         await fetchAllEntries();
         setShowAddModal(false);
         alert(`CSV "${newEntry.csv_name}" added successfully.`);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMountedRef.current) {
-          if (err.message && err.message.includes('Network Error')) {
+          const error = err as { message?: string };
+          if (error.message && error.message.includes('Network Error')) {
             setError('Network error. Please check if the server is running and try again.');
           } else {
             setError(extractApiError(err));
           }
-        }
-      } finally {
-        if (isMountedRef.current) {
-          setLoading(false);
         }
       }
     },
     [fetchAllEntries]
   );
 
-  const handleToggleActive = useCallback(async (csvName: string, currentActive: boolean) => {
-    try {
-      await csvCatalogApi.updateActive(csvName, !currentActive);
-      fetchAllEntries();
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(extractApiError(err));
-      }
-    }
-  }, [fetchAllEntries]);
 
   const handleDuplicate = useCallback((entry: CSVCatalogEntry) => {
     setDuplicateData(entry);
     setShowAddModal(true);
+  }, []);
+
+  const handleCSVClick = useCallback(async (entry: CSVCatalogEntry) => {
+    setSelectedCSV(entry);
+    setLoadingHistory(true);
+    setLoadingStructure(true);
+    
+    try {
+      const [history, structure] = await Promise.all([
+        csvCatalogApi.getHistory(entry.csv_name),
+        csvCatalogApi.getTableStructure(entry.csv_name).catch(() => null)
+      ]);
+      
+      if (isMountedRef.current) {
+        setExecutionHistory(history);
+        setTableStructure(structure);
+      }
+    } catch (err) {
+      if (isMountedRef.current) {
+        setError(extractApiError(err));
+        setExecutionHistory([]);
+        setTableStructure(null);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingHistory(false);
+        setLoadingStructure(false);
+      }
+    }
   }, []);
 
   if (loadingTree && allEntries.length === 0) {
@@ -270,8 +267,39 @@ const CSVCatalog = () => {
       ) : (
         <CSVCatalogTreeView 
           entries={allEntries}
-          onEntryClick={(entry) => handleToggleActive(entry.csv_name, entry.active)}
+          onEntryClick={(entry: CSVCatalogEntry) => handleCSVClick(entry)}
           onDuplicate={handleDuplicate}
+        />
+      )}
+
+      {selectedCSV && (
+        <ExecutionTimeline
+          title={`Execution Timeline: ${selectedCSV.csv_name}`}
+          history={executionHistory}
+          loading={loadingHistory}
+          tableStructure={tableStructure}
+          loadingStructure={loadingStructure}
+          onClose={() => {
+            setSelectedCSV(null);
+            setExecutionHistory([]);
+            setTableStructure(null);
+          }}
+          renderMappingGraph={(tableStructure: any, loadingStructure: boolean) => (
+            <MappingGraph
+              tableStructure={tableStructure}
+              loading={loadingStructure}
+              sourceTitle="Source: CSV"
+              sourceType={selectedCSV.source_type}
+              sourceInfo={[
+                { label: 'CSV Name', value: selectedCSV.csv_name },
+                { label: 'Source Path', value: selectedCSV.source_path },
+                { label: 'Source Type', value: selectedCSV.source_type },
+                { label: 'Delimiter', value: selectedCSV.delimiter || ',' },
+                { label: 'Has Header', value: selectedCSV.has_header ? 'Yes' : 'No' },
+                { label: 'Skip Rows', value: String(selectedCSV.skip_rows || 0) },
+              ]}
+            />
+          )}
         />
       )}
 

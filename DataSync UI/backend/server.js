@@ -7921,6 +7921,325 @@ app.patch("/api/csv-catalog/active", async (req, res) => {
   }
 });
 
+app.get("/api/csv-catalog/:csvName/history", async (req, res) => {
+  try {
+    const csvName = validateIdentifier(req.params.csvName);
+    if (!csvName) {
+      return res.status(400).json({ error: "Invalid csvName" });
+    }
+    const limit = validateLimit(req.query.limit, 1, 100, 50);
+
+    const result = await pool.query(
+      `SELECT 
+        id,
+        process_type,
+        process_name,
+        status,
+        start_time,
+        end_time,
+        COALESCE(duration_seconds, EXTRACT(EPOCH FROM (end_time - start_time))::integer) as duration_seconds,
+        total_rows_processed,
+        error_message,
+        metadata,
+        created_at
+       FROM metadata.process_log 
+       WHERE process_type = 'CSV_SYNC' AND LOWER(process_name) = LOWER($1) 
+       ORDER BY created_at DESC 
+       LIMIT $2`,
+      [csvName, limit]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching CSV history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial del CSV",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/csv-catalog/:csvName/table-structure", async (req, res) => {
+  try {
+    const csvName = validateIdentifier(req.params.csvName);
+    if (!csvName) {
+      return res.status(400).json({ error: "Invalid csvName" });
+    }
+
+    const apiResult = await pool.query(
+      `SELECT target_db_engine, target_connection_string, target_schema, target_table 
+       FROM metadata.csv_catalog 
+       WHERE LOWER(csv_name) = LOWER($1)`,
+      [csvName]
+    );
+
+    if (apiResult.rows.length === 0) {
+      return res.status(404).json({ error: "CSV not found" });
+    }
+
+    const csv = apiResult.rows[0];
+    const {
+      target_db_engine,
+      target_connection_string,
+      target_schema,
+      target_table,
+    } = csv;
+
+    if (
+      !target_db_engine ||
+      !target_connection_string ||
+      !target_schema ||
+      !target_table
+    ) {
+      return res.status(400).json({
+        error:
+          "CSV configuration incomplete. Missing target database information.",
+      });
+    }
+
+    let columns = [];
+
+    switch (target_db_engine) {
+      case "PostgreSQL": {
+        const { Pool } = pkg;
+        let config;
+
+        if (
+          target_connection_string.includes("postgresql://") ||
+          target_connection_string.includes("postgres://")
+        ) {
+          config = {
+            connectionString: target_connection_string,
+            connectionTimeoutMillis: 10000,
+          };
+        } else {
+          const params = {};
+          const parts = target_connection_string.split(";");
+          for (const part of parts) {
+            const [key, value] = part.split("=").map((s) => s.trim());
+            if (key && value) {
+              switch (key.toLowerCase()) {
+                case "host":
+                case "hostname":
+                  params.host = value;
+                  break;
+                case "user":
+                case "username":
+                  params.user = value;
+                  break;
+                case "password":
+                  params.password = value;
+                  break;
+                case "db":
+                case "database":
+                  params.database = value;
+                  break;
+                case "port":
+                  params.port = parseInt(value, 10);
+                  break;
+              }
+            }
+          }
+          config = {
+            ...params,
+            connectionTimeoutMillis: 10000,
+          };
+        }
+
+        const tempPool = new Pool(config);
+        let client;
+        try {
+          client = await tempPool.connect();
+          console.log(
+            `Querying table structure for ${target_schema}.${target_table}`
+          );
+          const result = await client.query(
+            `
+            SELECT 
+              column_name,
+              data_type,
+              character_maximum_length,
+              is_nullable,
+              column_default
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position
+          `,
+            [target_schema, target_table]
+          );
+          console.log(`Found ${result.rows.length} columns`);
+          columns = result.rows.map((row) => ({
+            name: row.column_name,
+            type:
+              row.data_type +
+              (row.character_maximum_length
+                ? `(${row.character_maximum_length})`
+                : ""),
+            nullable: row.is_nullable === "YES",
+            default: row.column_default,
+          }));
+        } catch (pgErr) {
+          console.error("PostgreSQL query error:", pgErr);
+          console.error("Error details:", {
+            message: pgErr.message,
+            code: pgErr.code,
+            schema: target_schema,
+            table: target_table,
+          });
+          throw new Error(`Failed to query table structure: ${pgErr.message}`);
+        } finally {
+          if (client) {
+            client.release();
+          }
+          await tempPool.end();
+        }
+        break;
+      }
+      case "MariaDB": {
+        const mysql = (await import("mysql2/promise")).default;
+        const connection = await mysql.createConnection(
+          target_connection_string
+        );
+        const [rows] = await connection.execute(
+          `
+          SELECT 
+            COLUMN_NAME,
+            DATA_TYPE,
+            CHARACTER_MAXIMUM_LENGTH,
+            IS_NULLABLE,
+            COLUMN_DEFAULT
+          FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+          ORDER BY ORDINAL_POSITION
+        `,
+          [target_schema, target_table]
+        );
+        columns = rows.map((row) => ({
+          name: row.COLUMN_NAME,
+          type:
+            row.DATA_TYPE +
+            (row.CHARACTER_MAXIMUM_LENGTH
+              ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+              : ""),
+          nullable: row.IS_NULLABLE === "YES",
+          default: row.COLUMN_DEFAULT,
+        }));
+        await connection.end();
+        break;
+      }
+      case "MSSQL": {
+        const sql = (await import("mssql")).default;
+        const pool = await sql.connect(target_connection_string);
+        const result = await pool
+          .request()
+          .input("schema", sql.VarChar, target_schema)
+          .input("table", sql.VarChar, target_table).query(`
+            SELECT 
+              COLUMN_NAME,
+              DATA_TYPE,
+              CHARACTER_MAXIMUM_LENGTH,
+              IS_NULLABLE,
+              COLUMN_DEFAULT
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+            ORDER BY ORDINAL_POSITION
+          `);
+        columns = result.recordset.map((row) => ({
+          name: row.COLUMN_NAME,
+          type:
+            row.DATA_TYPE +
+            (row.CHARACTER_MAXIMUM_LENGTH
+              ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+              : ""),
+          nullable: row.IS_NULLABLE === "YES",
+          default: row.COLUMN_DEFAULT,
+        }));
+        await pool.close();
+        break;
+      }
+      case "Oracle": {
+        const oracledb = (await import("oracledb")).default;
+        const connection = await oracledb.getConnection(
+          target_connection_string
+        );
+        const result = await connection.execute(
+          `
+          SELECT 
+            COLUMN_NAME,
+            DATA_TYPE,
+            DATA_LENGTH,
+            NULLABLE,
+            DATA_DEFAULT
+          FROM ALL_TAB_COLUMNS
+          WHERE OWNER = :owner AND TABLE_NAME = :table
+          ORDER BY COLUMN_ID
+        `,
+          {
+            owner: target_schema.toUpperCase(),
+            table: target_table.toUpperCase(),
+          }
+        );
+        columns = result.rows.map((row) => ({
+          name: row[0],
+          type: row[1] + (row[2] ? `(${row[2]})` : ""),
+          nullable: row[3] === "Y",
+          default: row[4],
+        }));
+        await connection.close();
+        break;
+      }
+      case "MongoDB": {
+        const { MongoClient } = await import("mongodb");
+        const client = new MongoClient(target_connection_string);
+        await client.connect();
+        const db = client.db();
+        const collection = db.collection(target_table);
+        const sample = await collection.findOne({});
+        if (sample) {
+          columns = Object.keys(sample).map((key) => ({
+            name: key,
+            type:
+              typeof sample[key] === "object" ? "object" : typeof sample[key],
+            nullable: true,
+            default: null,
+          }));
+        }
+        await client.close();
+        break;
+      }
+      default:
+        return res
+          .status(400)
+          .json({ error: `Unsupported database engine: ${target_db_engine}` });
+    }
+
+    res.json({
+      db_engine: target_db_engine,
+      schema: target_schema,
+      table: target_table,
+      columns: columns,
+    });
+  } catch (err) {
+    console.error("Error fetching table structure:", err);
+    console.error("Error stack:", err.stack);
+    console.error("Error details:", {
+      message: err.message,
+      csvName: req.params.csvName,
+    });
+    const safeError = sanitizeError(
+      err,
+      `Error al obtener estructura de la tabla: ${err.message}`,
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({
+      error: safeError,
+      details: process.env.NODE_ENV !== "production" ? err.message : undefined,
+    });
+  }
+});
+
 app.get("/api/csv-catalog/metrics", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -8510,6 +8829,331 @@ app.patch("/api/google-sheets-catalog/active", async (req, res) => {
     });
   }
 });
+
+app.get("/api/google-sheets-catalog/:sheetName/history", async (req, res) => {
+  try {
+    const sheetName = validateIdentifier(req.params.sheetName);
+    if (!sheetName) {
+      return res.status(400).json({ error: "Invalid sheetName" });
+    }
+    const limit = validateLimit(req.query.limit, 1, 100, 50);
+
+    const result = await pool.query(
+      `SELECT 
+        id,
+        process_type,
+        process_name,
+        status,
+        start_time,
+        end_time,
+        COALESCE(duration_seconds, EXTRACT(EPOCH FROM (end_time - start_time))::integer) as duration_seconds,
+        total_rows_processed,
+        error_message,
+        metadata,
+        created_at
+       FROM metadata.process_log 
+       WHERE process_type = 'GOOGLE_SHEETS_SYNC' AND LOWER(process_name) = LOWER($1) 
+       ORDER BY created_at DESC 
+       LIMIT $2`,
+      [sheetName, limit]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching Google Sheets history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de Google Sheets",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get(
+  "/api/google-sheets-catalog/:sheetName/table-structure",
+  async (req, res) => {
+    try {
+      const sheetName = validateIdentifier(req.params.sheetName);
+      if (!sheetName) {
+        return res.status(400).json({ error: "Invalid sheetName" });
+      }
+
+      const apiResult = await pool.query(
+        `SELECT target_db_engine, target_connection_string, target_schema, target_table 
+       FROM metadata.google_sheets_catalog 
+       WHERE LOWER(sheet_name) = LOWER($1)`,
+        [sheetName]
+      );
+
+      if (apiResult.rows.length === 0) {
+        return res.status(404).json({ error: "Google Sheet not found" });
+      }
+
+      const sheet = apiResult.rows[0];
+      const {
+        target_db_engine,
+        target_connection_string,
+        target_schema,
+        target_table,
+      } = sheet;
+
+      if (
+        !target_db_engine ||
+        !target_connection_string ||
+        !target_schema ||
+        !target_table
+      ) {
+        return res.status(400).json({
+          error:
+            "Google Sheet configuration incomplete. Missing target database information.",
+        });
+      }
+
+      let columns = [];
+
+      switch (target_db_engine) {
+        case "PostgreSQL": {
+          const { Pool } = pkg;
+          let config;
+
+          if (
+            target_connection_string.includes("postgresql://") ||
+            target_connection_string.includes("postgres://")
+          ) {
+            config = {
+              connectionString: target_connection_string,
+              connectionTimeoutMillis: 10000,
+            };
+          } else {
+            const params = {};
+            const parts = target_connection_string.split(";");
+            for (const part of parts) {
+              const [key, value] = part.split("=").map((s) => s.trim());
+              if (key && value) {
+                switch (key.toLowerCase()) {
+                  case "host":
+                  case "hostname":
+                    params.host = value;
+                    break;
+                  case "user":
+                  case "username":
+                    params.user = value;
+                    break;
+                  case "password":
+                    params.password = value;
+                    break;
+                  case "db":
+                  case "database":
+                    params.database = value;
+                    break;
+                  case "port":
+                    params.port = parseInt(value, 10);
+                    break;
+                }
+              }
+            }
+            config = {
+              ...params,
+              connectionTimeoutMillis: 10000,
+            };
+          }
+
+          const tempPool = new Pool(config);
+          let client;
+          try {
+            client = await tempPool.connect();
+            console.log(
+              `Querying table structure for ${target_schema}.${target_table}`
+            );
+            const result = await client.query(
+              `
+            SELECT 
+              column_name,
+              data_type,
+              character_maximum_length,
+              is_nullable,
+              column_default
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position
+          `,
+              [target_schema, target_table]
+            );
+            console.log(`Found ${result.rows.length} columns`);
+            columns = result.rows.map((row) => ({
+              name: row.column_name,
+              type:
+                row.data_type +
+                (row.character_maximum_length
+                  ? `(${row.character_maximum_length})`
+                  : ""),
+              nullable: row.is_nullable === "YES",
+              default: row.column_default,
+            }));
+          } catch (pgErr) {
+            console.error("PostgreSQL query error:", pgErr);
+            console.error("Error details:", {
+              message: pgErr.message,
+              code: pgErr.code,
+              schema: target_schema,
+              table: target_table,
+            });
+            throw new Error(
+              `Failed to query table structure: ${pgErr.message}`
+            );
+          } finally {
+            if (client) {
+              client.release();
+            }
+            await tempPool.end();
+          }
+          break;
+        }
+        case "MariaDB": {
+          const mysql = (await import("mysql2/promise")).default;
+          const connection = await mysql.createConnection(
+            target_connection_string
+          );
+          const [rows] = await connection.execute(
+            `
+          SELECT 
+            COLUMN_NAME,
+            DATA_TYPE,
+            CHARACTER_MAXIMUM_LENGTH,
+            IS_NULLABLE,
+            COLUMN_DEFAULT
+          FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+          ORDER BY ORDINAL_POSITION
+        `,
+            [target_schema, target_table]
+          );
+          columns = rows.map((row) => ({
+            name: row.COLUMN_NAME,
+            type:
+              row.DATA_TYPE +
+              (row.CHARACTER_MAXIMUM_LENGTH
+                ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+                : ""),
+            nullable: row.IS_NULLABLE === "YES",
+            default: row.COLUMN_DEFAULT,
+          }));
+          await connection.end();
+          break;
+        }
+        case "MSSQL": {
+          const sql = (await import("mssql")).default;
+          const pool = await sql.connect(target_connection_string);
+          const result = await pool
+            .request()
+            .input("schema", sql.VarChar, target_schema)
+            .input("table", sql.VarChar, target_table).query(`
+            SELECT 
+              COLUMN_NAME,
+              DATA_TYPE,
+              CHARACTER_MAXIMUM_LENGTH,
+              IS_NULLABLE,
+              COLUMN_DEFAULT
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+            ORDER BY ORDINAL_POSITION
+          `);
+          columns = result.recordset.map((row) => ({
+            name: row.COLUMN_NAME,
+            type:
+              row.DATA_TYPE +
+              (row.CHARACTER_MAXIMUM_LENGTH
+                ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+                : ""),
+            nullable: row.IS_NULLABLE === "YES",
+            default: row.COLUMN_DEFAULT,
+          }));
+          await pool.close();
+          break;
+        }
+        case "Oracle": {
+          const oracledb = (await import("oracledb")).default;
+          const connection = await oracledb.getConnection(
+            target_connection_string
+          );
+          const result = await connection.execute(
+            `
+          SELECT 
+            COLUMN_NAME,
+            DATA_TYPE,
+            DATA_LENGTH,
+            NULLABLE,
+            DATA_DEFAULT
+          FROM ALL_TAB_COLUMNS
+          WHERE OWNER = :owner AND TABLE_NAME = :table
+          ORDER BY COLUMN_ID
+        `,
+            {
+              owner: target_schema.toUpperCase(),
+              table: target_table.toUpperCase(),
+            }
+          );
+          columns = result.rows.map((row) => ({
+            name: row[0],
+            type: row[1] + (row[2] ? `(${row[2]})` : ""),
+            nullable: row[3] === "Y",
+            default: row[4],
+          }));
+          await connection.close();
+          break;
+        }
+        case "MongoDB": {
+          const { MongoClient } = await import("mongodb");
+          const client = new MongoClient(target_connection_string);
+          await client.connect();
+          const db = client.db();
+          const collection = db.collection(target_table);
+          const sample = await collection.findOne({});
+          if (sample) {
+            columns = Object.keys(sample).map((key) => ({
+              name: key,
+              type:
+                typeof sample[key] === "object" ? "object" : typeof sample[key],
+              nullable: true,
+              default: null,
+            }));
+          }
+          await client.close();
+          break;
+        }
+        default:
+          return res.status(400).json({
+            error: `Unsupported database engine: ${target_db_engine}`,
+          });
+      }
+
+      res.json({
+        db_engine: target_db_engine,
+        schema: target_schema,
+        table: target_table,
+        columns: columns,
+      });
+    } catch (err) {
+      console.error("Error fetching table structure:", err);
+      console.error("Error stack:", err.stack);
+      console.error("Error details:", {
+        message: err.message,
+        sheetName: req.params.sheetName,
+      });
+      const safeError = sanitizeError(
+        err,
+        `Error al obtener estructura de la tabla: ${err.message}`,
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({
+        error: safeError,
+        details:
+          process.env.NODE_ENV !== "production" ? err.message : undefined,
+      });
+    }
+  }
+);
 
 app.get("/api/google-sheets-catalog/metrics", async (req, res) => {
   try {

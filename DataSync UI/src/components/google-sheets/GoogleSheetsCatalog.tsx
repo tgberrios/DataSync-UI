@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AddGoogleSheetsModal from './AddGoogleSheetsModal';
 import GoogleSheetsCatalogTreeView from './GoogleSheetsCatalogTreeView';
+import { ExecutionTimeline } from '../shared/ExecutionTimeline';
+import { MappingGraph } from '../shared/MappingGraph';
 import {
   Container,
   Header,
@@ -36,6 +38,11 @@ const GoogleSheetsCatalog = () => {
   const [duplicateData, setDuplicateData] = useState<GoogleSheetsCatalogEntry | null>(null);
   const [allEntries, setAllEntries] = useState<GoogleSheetsCatalogEntry[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
+  const [selectedSheet, setSelectedSheet] = useState<GoogleSheetsCatalogEntry | null>(null);
+  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [tableStructure, setTableStructure] = useState<any>(null);
+  const [loadingStructure, setLoadingStructure] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllEntries = useCallback(async () => {
@@ -134,20 +141,39 @@ const GoogleSheetsCatalog = () => {
     [fetchAllEntries]
   );
 
-  const handleToggleActive = useCallback(async (sheetName: string, currentActive: boolean) => {
-    try {
-      await googleSheetsCatalogApi.updateActive(sheetName, !currentActive);
-      fetchAllEntries();
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(extractApiError(err));
-      }
-    }
-  }, [fetchAllEntries]);
 
   const handleDuplicate = useCallback((entry: GoogleSheetsCatalogEntry) => {
     setDuplicateData(entry);
     setShowAddModal(true);
+  }, []);
+
+  const handleSheetClick = useCallback(async (entry: GoogleSheetsCatalogEntry) => {
+    setSelectedSheet(entry);
+    setLoadingHistory(true);
+    setLoadingStructure(true);
+    
+    try {
+      const [history, structure] = await Promise.all([
+        googleSheetsCatalogApi.getHistory(entry.sheet_name),
+        googleSheetsCatalogApi.getTableStructure(entry.sheet_name).catch(() => null)
+      ]);
+      
+      if (isMountedRef.current) {
+        setExecutionHistory(history);
+        setTableStructure(structure);
+      }
+    } catch (err) {
+      if (isMountedRef.current) {
+        setError(extractApiError(err));
+        setExecutionHistory([]);
+        setTableStructure(null);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingHistory(false);
+        setLoadingStructure(false);
+      }
+    }
   }, []);
 
   if (loadingTree && allEntries.length === 0) {
@@ -225,8 +251,37 @@ const GoogleSheetsCatalog = () => {
       ) : (
         <GoogleSheetsCatalogTreeView 
           entries={allEntries}
-          onEntryClick={(entry) => handleToggleActive(entry.sheet_name, entry.active)}
+          onEntryClick={(entry) => handleSheetClick(entry)}
           onDuplicate={handleDuplicate}
+        />
+      )}
+
+      {selectedSheet && (
+        <ExecutionTimeline
+          title={`Execution Timeline: ${selectedSheet.sheet_name}`}
+          history={executionHistory}
+          loading={loadingHistory}
+          tableStructure={tableStructure}
+          loadingStructure={loadingStructure}
+          onClose={() => {
+            setSelectedSheet(null);
+            setExecutionHistory([]);
+            setTableStructure(null);
+          }}
+          renderMappingGraph={(tableStructure: any, loadingStructure: boolean) => (
+            <MappingGraph
+              tableStructure={tableStructure}
+              loading={loadingStructure}
+              sourceTitle="Source: Google Sheets"
+              sourceType="Google Sheets"
+              sourceInfo={[
+                { label: 'Sheet Name', value: selectedSheet.sheet_name },
+                { label: 'Spreadsheet ID', value: selectedSheet.spreadsheet_id },
+                { label: 'Range', value: selectedSheet.range || 'Default' },
+                { label: 'Auth Type', value: selectedSheet.api_key ? 'API Key' : selectedSheet.access_token ? 'OAuth' : 'None' },
+              ]}
+            />
+          )}
         />
       )}
 

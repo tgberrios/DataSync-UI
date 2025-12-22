@@ -2388,6 +2388,47 @@ export const csvCatalogApi = {
       throw error;
     }
   },
+
+  getHistory: async (csvName: string, limit: number = 50) => {
+    try {
+      const response = await api.get(
+        `/csv-catalog/${encodeURIComponent(csvName)}/history`,
+        {
+          params: { limit },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching CSV history:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTableStructure: async (csvName: string) => {
+    try {
+      const response = await api.get(
+        `/csv-catalog/${encodeURIComponent(csvName)}/table-structure`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching table structure:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
 
 export const googleSheetsCatalogApi = {
@@ -2471,6 +2512,49 @@ export const googleSheetsCatalogApi = {
       return response.data;
     } catch (error) {
       console.error("Error fetching Google Sheets catalog metrics:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getHistory: async (sheetName: string, limit: number = 50) => {
+    try {
+      const response = await api.get(
+        `/google-sheets-catalog/${encodeURIComponent(sheetName)}/history`,
+        {
+          params: { limit },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching Google Sheets history:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTableStructure: async (sheetName: string) => {
+    try {
+      const response = await api.get(
+        `/google-sheets-catalog/${encodeURIComponent(
+          sheetName
+        )}/table-structure`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching table structure:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||
