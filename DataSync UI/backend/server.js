@@ -5451,6 +5451,46 @@ app.get("/api/api-catalog/metrics", async (req, res) => {
   }
 });
 
+app.get("/api/api-catalog/:apiName/history", async (req, res) => {
+  try {
+    const apiName = validateIdentifier(req.params.apiName);
+    if (!apiName) {
+      return res.status(400).json({ error: "Invalid apiName" });
+    }
+    const limit = validateLimit(req.query.limit, 1, 100, 50);
+
+    const result = await pool.query(
+      `SELECT 
+        id,
+        process_type,
+        process_name,
+        status,
+        start_time,
+        end_time,
+        COALESCE(duration_seconds, EXTRACT(EPOCH FROM (end_time - start_time))::integer) as duration_seconds,
+        total_rows_processed,
+        error_message,
+        metadata,
+        created_at
+       FROM metadata.process_log 
+       WHERE process_type = 'API_SYNC' AND process_name = $1 
+       ORDER BY created_at DESC 
+       LIMIT $2`,
+      [apiName, limit]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching API history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de la API",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 app.post("/api/api-catalog/preview", async (req, res) => {
   try {
     const {

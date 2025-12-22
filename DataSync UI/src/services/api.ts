@@ -2031,6 +2031,28 @@ export const apiCatalogApi = {
       throw error;
     }
   },
+
+  getHistory: async (apiName: string, limit: number = 50) => {
+    try {
+      const response = await api.get(
+        `/api-catalog/${encodeURIComponent(apiName)}/history`,
+        {
+          params: { limit },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching API history:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
 
 export interface CustomJobEntry {
