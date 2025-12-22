@@ -2053,6 +2053,25 @@ export const apiCatalogApi = {
       throw error;
     }
   },
+
+  getTableStructure: async (apiName: string) => {
+    try {
+      const response = await api.get(
+        `/api-catalog/${encodeURIComponent(apiName)}/table-structure`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching table structure:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
 
 export interface CustomJobEntry {
