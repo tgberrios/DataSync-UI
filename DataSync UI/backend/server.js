@@ -2091,6 +2091,39 @@ app.delete(
   }
 );
 
+// Obtener conexión del DataLake desde config.json
+app.get("/api/datalake-connection", requireAuth, async (req, res) => {
+  try {
+    const pgConfig = config.database.postgres;
+    // Construir connection string en formato PostgreSQL URI
+    const connectionString = `postgresql://${encodeURIComponent(
+      pgConfig.user
+    )}:${encodeURIComponent(pgConfig.password)}@${pgConfig.host}:${
+      pgConfig.port
+    }/${pgConfig.database}`;
+
+    res.json({
+      success: true,
+      connection_string: connectionString,
+      db_engine: "PostgreSQL",
+      host: pgConfig.host,
+      port: pgConfig.port,
+      database: pgConfig.database,
+      user: pgConfig.user,
+    });
+  } catch (err) {
+    console.error("Error getting DataLake connection:", err);
+    res.status(500).json({
+      success: false,
+      error: sanitizeError(
+        err,
+        "Error al obtener conexión del DataLake",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
 // Obtener configuración de batch size específicamente
 app.get("/api/config/batch", async (req, res) => {
   try {
@@ -6953,6 +6986,368 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/api/discover-columns", requireAuth, async (req, res) => {
+  const { db_engine, connection_string, schema_name, table_name } = req.body;
+
+  if (!db_engine || !connection_string || !schema_name || !table_name) {
+    return res.status(400).json({
+      success: false,
+      error:
+        "Missing required fields: db_engine, connection_string, schema_name, and table_name",
+    });
+  }
+
+  const validEngine = validateEnum(
+    db_engine,
+    ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+    null
+  );
+
+  if (!validEngine) {
+    return res.status(400).json({
+      success: false,
+      error:
+        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle",
+    });
+  }
+
+  try {
+    let columns = [];
+
+    switch (db_engine) {
+      case "PostgreSQL": {
+        try {
+          let config;
+          if (
+            connection_string.includes("postgresql://") ||
+            connection_string.includes("postgres://")
+          ) {
+            config = {
+              connectionString: connection_string,
+              connectionTimeoutMillis: 5000,
+            };
+          } else {
+            const params = {};
+            const parts = connection_string.split(";");
+            for (const part of parts) {
+              const [key, value] = part.split("=").map((s) => s.trim());
+              if (key && value) {
+                switch (key.toLowerCase()) {
+                  case "host":
+                  case "hostname":
+                    params.host = value;
+                    break;
+                  case "user":
+                  case "username":
+                    params.user = value;
+                    break;
+                  case "password":
+                    params.password = value;
+                    break;
+                  case "db":
+                  case "database":
+                    params.database = value;
+                    break;
+                  case "port":
+                    params.port = parseInt(value, 10);
+                    break;
+                }
+              }
+            }
+            config = {
+              ...params,
+              connectionTimeoutMillis: 5000,
+            };
+          }
+
+          const { Pool } = pkg;
+          const testPool = new Pool(config);
+          const result = await testPool.query(
+            `SELECT 
+              column_name,
+              data_type,
+              character_maximum_length,
+              is_nullable,
+              column_default,
+              ordinal_position
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position`,
+            [schema_name, table_name]
+          );
+          columns = result.rows.map((row) => ({
+            name: row.column_name,
+            type:
+              row.data_type +
+              (row.character_maximum_length
+                ? `(${row.character_maximum_length})`
+                : ""),
+            nullable: row.is_nullable === "YES",
+            default: row.column_default,
+            position: row.ordinal_position,
+          }));
+          await testPool.end();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover columns: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "MariaDB": {
+        try {
+          const mysql = await import("mysql2/promise").catch(() => null);
+          if (!mysql) {
+            return res.status(400).json({
+              success: false,
+              error:
+                "MariaDB driver (mysql2) is not installed. Please install it with: npm install mysql2",
+            });
+          }
+
+          const params = {};
+          const parts = connection_string.split(";");
+          for (const part of parts) {
+            const [key, value] = part.split("=").map((s) => s.trim());
+            if (key && value) {
+              switch (key.toLowerCase()) {
+                case "host":
+                case "hostname":
+                  params.host = value;
+                  break;
+                case "user":
+                case "username":
+                  params.user = value;
+                  break;
+                case "password":
+                  params.password = value;
+                  break;
+                case "db":
+                case "database":
+                  params.database = value;
+                  break;
+                case "port":
+                  params.port = parseInt(value, 10);
+                  break;
+              }
+            }
+          }
+
+          const connection = await mysql.createConnection({
+            host: params.host || "localhost",
+            port: params.port || 3306,
+            user: params.user || "",
+            password: params.password || "",
+            database: params.database || "",
+            connectTimeout: 5000,
+          });
+
+          const [rows] = await connection.execute(
+            `SELECT 
+              COLUMN_NAME,
+              DATA_TYPE,
+              CHARACTER_MAXIMUM_LENGTH,
+              IS_NULLABLE,
+              COLUMN_DEFAULT,
+              ORDINAL_POSITION
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+            ORDER BY ORDINAL_POSITION`,
+            [schema_name, table_name]
+          );
+
+          columns = rows.map((row) => ({
+            name: row.COLUMN_NAME,
+            type:
+              row.DATA_TYPE +
+              (row.CHARACTER_MAXIMUM_LENGTH
+                ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+                : ""),
+            nullable: row.IS_NULLABLE === "YES",
+            default: row.COLUMN_DEFAULT,
+            position: row.ORDINAL_POSITION,
+          }));
+
+          await connection.end();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover columns: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "MSSQL": {
+        try {
+          const sql = await import("mssql").catch(() => null);
+          if (!sql) {
+            return res.status(400).json({
+              success: false,
+              error:
+                "MSSQL driver (mssql) is not installed. Please install it with: npm install mssql",
+            });
+          }
+
+          const pool = await sql.connect(connection_string);
+          const result = await pool
+            .request()
+            .input("schema", sql.NVarChar, schema_name)
+            .input("table", sql.NVarChar, table_name).query(`
+              SELECT 
+                COLUMN_NAME,
+                DATA_TYPE,
+                CHARACTER_MAXIMUM_LENGTH,
+                IS_NULLABLE,
+                COLUMN_DEFAULT,
+                ORDINAL_POSITION
+              FROM INFORMATION_SCHEMA.COLUMNS
+              WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+              ORDER BY ORDINAL_POSITION
+            `);
+
+          columns = result.recordset.map((row) => ({
+            name: row.COLUMN_NAME,
+            type:
+              row.DATA_TYPE +
+              (row.CHARACTER_MAXIMUM_LENGTH
+                ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+                : ""),
+            nullable: row.IS_NULLABLE === "YES",
+            default: row.COLUMN_DEFAULT,
+            position: row.ORDINAL_POSITION,
+          }));
+
+          await pool.close();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover columns: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "Oracle": {
+        try {
+          const oracledb = await import("oracledb").catch(() => null);
+          if (!oracledb) {
+            return res.status(400).json({
+              success: false,
+              error:
+                "Oracle driver (oracledb) is not installed. Please install it with: npm install oracledb",
+            });
+          }
+
+          const connStr = connection_string;
+          const params = {};
+          connStr.split(";").forEach((param) => {
+            const [key, value] = param.split("=");
+            if (key && value) {
+              params[key.trim().toLowerCase()] = value.trim();
+            }
+          });
+
+          const connection = await oracledb.getConnection({
+            user: params.user || "",
+            password: params.password || "",
+            connectString: `${params.host || "localhost"}:${
+              params.port || 1521
+            }/${params.db || params.database || ""}`,
+            connectionTimeout: 5000,
+          });
+
+          const result = await connection.execute(
+            `SELECT 
+              COLUMN_NAME,
+              DATA_TYPE,
+              DATA_LENGTH,
+              NULLABLE,
+              DATA_DEFAULT,
+              COLUMN_ID
+            FROM ALL_TAB_COLUMNS
+            WHERE OWNER = :owner AND TABLE_NAME = :table
+            ORDER BY COLUMN_ID`,
+            {
+              owner: schema_name.toUpperCase(),
+              table: table_name.toUpperCase(),
+            }
+          );
+
+          columns = result.rows.map((row) => ({
+            name: row[0],
+            type: row[1] + (row[2] ? `(${row[2]})` : ""),
+            nullable: row[3] === "Y",
+            default: row[4],
+            position: row[5],
+          }));
+
+          await connection.close();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover columns: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "MongoDB": {
+        try {
+          const { MongoClient } = await import("mongodb");
+          const client = new MongoClient(connection_string, {
+            serverSelectionTimeoutMS: 5000,
+          });
+          await client.connect();
+          const db = client.db(schema_name);
+          const collection = db.collection(table_name);
+          const sample = await collection.findOne({});
+          if (sample) {
+            columns = Object.keys(sample).map((key, index) => ({
+              name: key,
+              type:
+                typeof sample[key] === "object" ? "object" : typeof sample[key],
+              nullable: true,
+              default: null,
+              position: index + 1,
+            }));
+          }
+          await client.close();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover columns: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      default:
+        return res.status(400).json({
+          success: false,
+          error: `Unsupported database engine: ${db_engine}`,
+        });
+    }
+
+    res.json({
+      success: true,
+      columns: columns,
+    });
+  } catch (err) {
+    console.error("Error discovering columns:", err);
+    res.status(500).json({
+      success: false,
+      error: sanitizeError(
+        err,
+        "Error discovering columns",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
 app.get("/api/custom-jobs/scripts", async (req, res) => {
   try {
     const scriptsPath1 = path.join(process.cwd(), "..", "..", "scripts");
@@ -6983,6 +7378,308 @@ app.get("/api/custom-jobs/scripts", async (req, res) => {
       process.env.NODE_ENV === "production"
     );
     res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/custom-jobs/preview-query", requireAuth, async (req, res) => {
+  try {
+    const { db_engine, connection_string, query_sql, limit = 100 } = req.body;
+
+    if (!db_engine || !connection_string || !query_sql) {
+      return res.status(400).json({
+        success: false,
+        error: "db_engine, connection_string, and query_sql are required",
+      });
+    }
+
+    let rows = [];
+    let columns = [];
+    let rowCount = 0;
+
+    switch (db_engine) {
+      case "PostgreSQL": {
+        const { Pool } = pkg;
+        let config;
+
+        if (
+          connection_string.includes("postgresql://") ||
+          connection_string.includes("postgres://")
+        ) {
+          config = {
+            connectionString: connection_string,
+            connectionTimeoutMillis: 10000,
+          };
+        } else {
+          const params = {};
+          const parts = connection_string.split(";");
+          for (const part of parts) {
+            const [key, value] = part.split("=").map((s) => s.trim());
+            if (key && value) {
+              switch (key.toLowerCase()) {
+                case "host":
+                case "hostname":
+                  params.host = value;
+                  break;
+                case "user":
+                case "username":
+                  params.user = value;
+                  break;
+                case "password":
+                  params.password = value;
+                  break;
+                case "db":
+                case "database":
+                  params.database = value;
+                  break;
+                case "port":
+                  params.port = parseInt(value, 10);
+                  break;
+              }
+            }
+          }
+          config = {
+            ...params,
+            connectionTimeoutMillis: 10000,
+          };
+        }
+
+        const tempPool = new Pool(config);
+        let client;
+        try {
+          client = await tempPool.connect();
+          const limitedQuery = query_sql.trim().endsWith(";")
+            ? query_sql.trim().slice(0, -1)
+            : query_sql.trim();
+          const previewQuery = `SELECT * FROM (${limitedQuery}) AS preview_query LIMIT ${Math.min(
+            parseInt(limit, 10) || 100,
+            1000
+          )}`;
+          const result = await client.query(previewQuery);
+          rows = result.rows;
+          columns =
+            result.fields?.map((field) => field.name) ||
+            Object.keys(result.rows[0] || {});
+          rowCount = result.rowCount || 0;
+        } catch (pgErr) {
+          console.error("PostgreSQL query error:", pgErr);
+          throw new Error(`Query execution failed: ${pgErr.message}`);
+        } finally {
+          if (client) {
+            client.release();
+          }
+          await tempPool.end();
+        }
+        break;
+      }
+      case "MariaDB": {
+        const mysql = await import("mysql2/promise").catch(() => null);
+        if (!mysql) {
+          throw new Error("mysql2 package not available");
+        }
+
+        let config;
+        if (
+          connection_string.includes("mysql://") ||
+          connection_string.includes("mariadb://")
+        ) {
+          const url = new URL(connection_string);
+          config = {
+            host: url.hostname,
+            port: parseInt(url.port) || 3306,
+            user: url.username,
+            password: url.password,
+            database: url.pathname.slice(1),
+          };
+        } else {
+          config = {};
+          const parts = connection_string.split(";");
+          for (const part of parts) {
+            const [key, value] = part.split("=").map((s) => s.trim());
+            if (key && value) {
+              switch (key.toLowerCase()) {
+                case "host":
+                case "hostname":
+                  config.host = value;
+                  break;
+                case "user":
+                case "username":
+                  config.user = value;
+                  break;
+                case "password":
+                  config.password = value;
+                  break;
+                case "db":
+                case "database":
+                  config.database = value;
+                  break;
+                case "port":
+                  config.port = parseInt(value, 10);
+                  break;
+              }
+            }
+          }
+        }
+
+        const connection = await mysql.createConnection(config);
+        try {
+          const limitedQuery = query_sql.trim().endsWith(";")
+            ? query_sql.trim().slice(0, -1)
+            : query_sql.trim();
+          const previewQuery = `SELECT * FROM (${limitedQuery}) AS preview_query LIMIT ${Math.min(
+            parseInt(limit, 10) || 100,
+            1000
+          )}`;
+          const [rowsData] = await connection.execute(previewQuery);
+          rows = rowsData;
+          if (rows.length > 0) {
+            columns = Object.keys(rows[0]);
+          }
+          rowCount = rows.length;
+        } finally {
+          await connection.end();
+        }
+        break;
+      }
+      case "MSSQL": {
+        const sql = await import("mssql").catch(() => null);
+        if (!sql) {
+          throw new Error("mssql package not available");
+        }
+
+        const config = {};
+        const parts = connection_string.split(";");
+        for (const part of parts) {
+          const [key, value] = part.split("=").map((s) => s.trim());
+          if (key && value) {
+            switch (key.toLowerCase()) {
+              case "server":
+              case "host":
+              case "hostname":
+                config.server = value;
+                break;
+              case "port":
+                config.port = parseInt(value, 10);
+                break;
+              case "database":
+              case "db":
+                config.database = value;
+                break;
+              case "user":
+              case "username":
+                config.user = value;
+                break;
+              case "password":
+                config.password = value;
+                break;
+            }
+          }
+        }
+
+        const pool = await sql.connect(config);
+        try {
+          const limitedQuery = query_sql.trim().endsWith(";")
+            ? query_sql.trim().slice(0, -1)
+            : query_sql.trim();
+          const previewQuery = `SELECT TOP ${Math.min(
+            parseInt(limit, 10) || 100,
+            1000
+          )} * FROM (${limitedQuery}) AS preview_query`;
+          const result = await pool.request().query(previewQuery);
+          rows = result.recordset;
+          if (rows.length > 0) {
+            columns = Object.keys(rows[0]);
+          }
+          rowCount = rows.length;
+        } finally {
+          await pool.close();
+        }
+        break;
+      }
+      case "Oracle": {
+        const oracledb = await import("oracledb").catch(() => null);
+        if (!oracledb) {
+          throw new Error("oracledb package not available");
+        }
+
+        const config = {};
+        const parts = connection_string.split(";");
+        for (const part of parts) {
+          const [key, value] = part.split("=").map((s) => s.trim());
+          if (key && value) {
+            switch (key.toLowerCase()) {
+              case "host":
+              case "hostname":
+                config.host = value;
+                break;
+              case "port":
+                config.port = parseInt(value, 10) || 1521;
+                break;
+              case "user":
+              case "username":
+                config.user = value;
+                break;
+              case "password":
+                config.password = value;
+                break;
+              case "database":
+              case "db":
+              case "service":
+                config.connectString = value;
+                break;
+            }
+          }
+        }
+
+        const connection = await oracledb.getConnection(config);
+        try {
+          const limitedQuery = query_sql.trim().endsWith(";")
+            ? query_sql.trim().slice(0, -1)
+            : query_sql.trim();
+          const previewQuery = `SELECT * FROM (${limitedQuery}) WHERE ROWNUM <= ${Math.min(
+            parseInt(limit, 10) || 100,
+            1000
+          )}`;
+          const result = await connection.execute(previewQuery);
+          rows = result.rows.map((row) => {
+            const obj = {};
+            result.metaData.forEach((meta, index) => {
+              obj[meta.name] = row[index];
+            });
+            return obj;
+          });
+          if (result.metaData) {
+            columns = result.metaData.map((meta) => meta.name);
+          }
+          rowCount = rows.length;
+        } finally {
+          await connection.close();
+        }
+        break;
+      }
+      default:
+        return res.status(400).json({
+          success: false,
+          error: `Unsupported database engine: ${db_engine}`,
+        });
+    }
+
+    res.json({
+      success: true,
+      columns: columns,
+      rows: rows,
+      rowCount: rowCount,
+      limit: Math.min(parseInt(limit, 10) || 100, 1000),
+    });
+  } catch (err) {
+    console.error("Error previewing query:", err);
+    res.status(500).json({
+      success: false,
+      error: sanitizeError(
+        err,
+        "Error al ejecutar preview de query",
+        process.env.NODE_ENV === "production"
+      ),
+    });
   }
 });
 
@@ -7291,12 +7988,17 @@ app.get("/api/custom-jobs/:jobName/history", async (req, res) => {
     if (!jobName) {
       return res.status(400).json({ error: "Invalid jobName" });
     }
+    const limit = validateLimit(req.query.limit, 1, 100, 50);
     const result = await pool.query(
-      `SELECT * FROM metadata.process_log 
+      `SELECT 
+        id, process_type, process_name, status, start_time, end_time,
+        COALESCE(duration_seconds, EXTRACT(EPOCH FROM (end_time - start_time))::integer) as duration_seconds,
+        total_rows_processed, error_message, metadata, created_at
+       FROM metadata.process_log 
        WHERE process_type = 'CUSTOM_JOB' AND process_name = $1 
        ORDER BY created_at DESC 
-       LIMIT 50`,
-      [jobName]
+       LIMIT $2`,
+      [jobName, limit]
     );
     res.json(result.rows);
   } catch (err) {
@@ -7307,6 +8009,352 @@ app.get("/api/custom-jobs/:jobName/history", async (req, res) => {
       process.env.NODE_ENV === "production"
     );
     res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/custom-jobs/:jobName/table-structure", async (req, res) => {
+  try {
+    const jobName = validateIdentifier(req.params.jobName);
+    if (!jobName) {
+      return res.status(400).json({ error: "Invalid jobName" });
+    }
+
+    const jobResult = await pool.query(
+      `SELECT target_db_engine, target_connection_string, target_schema, target_table 
+       FROM metadata.custom_jobs 
+       WHERE job_name = $1`,
+      [jobName]
+    );
+
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    const {
+      target_db_engine,
+      target_connection_string,
+      target_schema,
+      target_table,
+    } = jobResult.rows[0];
+
+    if (
+      !target_db_engine ||
+      !target_connection_string ||
+      !target_schema ||
+      !target_table
+    ) {
+      return res.status(400).json({
+        error:
+          "Job configuration incomplete. Missing target database information.",
+      });
+    }
+
+    let columns = [];
+
+    switch (target_db_engine) {
+      case "PostgreSQL": {
+        const { Pool } = pkg;
+        let config;
+
+        if (
+          target_connection_string.includes("postgresql://") ||
+          target_connection_string.includes("postgres://")
+        ) {
+          config = {
+            connectionString: target_connection_string,
+            connectionTimeoutMillis: 10000,
+          };
+        } else {
+          const params = {};
+          const parts = target_connection_string.split(";");
+          for (const part of parts) {
+            const [key, value] = part.split("=").map((s) => s.trim());
+            if (key && value) {
+              switch (key.toLowerCase()) {
+                case "host":
+                case "hostname":
+                  params.host = value;
+                  break;
+                case "user":
+                case "username":
+                  params.user = value;
+                  break;
+                case "password":
+                  params.password = value;
+                  break;
+                case "db":
+                case "database":
+                  params.database = value;
+                  break;
+                case "port":
+                  params.port = parseInt(value, 10);
+                  break;
+              }
+            }
+          }
+          config = {
+            ...params,
+            connectionTimeoutMillis: 10000,
+          };
+        }
+
+        const tempPool = new Pool(config);
+        let client;
+        try {
+          client = await tempPool.connect();
+          const result = await client.query(
+            `
+                   SELECT 
+                     column_name,
+                     data_type,
+                     character_maximum_length,
+                     is_nullable,
+                     column_default
+                   FROM information_schema.columns
+                   WHERE table_schema = $1 AND table_name = $2
+                   ORDER BY ordinal_position
+                 `,
+            [target_schema, target_table]
+          );
+          columns = result.rows.map((row) => ({
+            name: row.column_name,
+            type:
+              row.data_type +
+              (row.character_maximum_length
+                ? `(${row.character_maximum_length})`
+                : ""),
+            nullable: row.is_nullable === "YES",
+            default: row.column_default,
+          }));
+        } catch (pgErr) {
+          console.error("PostgreSQL query error:", pgErr);
+          throw new Error(`Failed to query table structure: ${pgErr.message}`);
+        } finally {
+          if (client) {
+            client.release();
+          }
+          await tempPool.end();
+        }
+        break;
+      }
+      case "MariaDB": {
+        const mysql = await import("mysql2/promise").catch(() => null);
+        if (!mysql) {
+          throw new Error("mysql2 package not available");
+        }
+
+        let config;
+        if (
+          target_connection_string.includes("mysql://") ||
+          target_connection_string.includes("mariadb://")
+        ) {
+          const url = new URL(target_connection_string);
+          config = {
+            host: url.hostname,
+            port: parseInt(url.port) || 3306,
+            user: url.username,
+            password: url.password,
+            database: url.pathname.slice(1),
+          };
+        } else {
+          config = {};
+          const parts = target_connection_string.split(";");
+          for (const part of parts) {
+            const [key, value] = part.split("=").map((s) => s.trim());
+            if (key && value) {
+              switch (key.toLowerCase()) {
+                case "host":
+                case "hostname":
+                  config.host = value;
+                  break;
+                case "user":
+                case "username":
+                  config.user = value;
+                  break;
+                case "password":
+                  config.password = value;
+                  break;
+                case "db":
+                case "database":
+                  config.database = value;
+                  break;
+                case "port":
+                  config.port = parseInt(value, 10);
+                  break;
+              }
+            }
+          }
+        }
+
+        const connection = await mysql.createConnection(config);
+        try {
+          const [rows] = await connection.execute(
+            `SELECT 
+                   COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT, ORDINAL_POSITION
+                 FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+                 ORDER BY ORDINAL_POSITION`,
+            [target_schema, target_table]
+          );
+          columns = rows.map((row) => ({
+            name: row.COLUMN_NAME,
+            type:
+              row.DATA_TYPE +
+              (row.CHARACTER_MAXIMUM_LENGTH
+                ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+                : ""),
+            nullable: row.IS_NULLABLE === "YES",
+            default: row.COLUMN_DEFAULT,
+          }));
+        } finally {
+          await connection.end();
+        }
+        break;
+      }
+      case "MSSQL": {
+        const sql = await import("mssql").catch(() => null);
+        if (!sql) {
+          throw new Error("mssql package not available");
+        }
+
+        const config = {};
+        const parts = target_connection_string.split(";");
+        for (const part of parts) {
+          const [key, value] = part.split("=").map((s) => s.trim());
+          if (key && value) {
+            switch (key.toLowerCase()) {
+              case "server":
+              case "host":
+              case "hostname":
+                config.server = value;
+                break;
+              case "port":
+                config.port = parseInt(value, 10);
+                break;
+              case "database":
+              case "db":
+                config.database = value;
+                break;
+              case "user":
+              case "username":
+                config.user = value;
+                break;
+              case "password":
+                config.password = value;
+                break;
+            }
+          }
+        }
+
+        const pool = await sql.connect(config);
+        try {
+          const result = await pool
+            .request()
+            .input("schema", sql.NVarChar, target_schema)
+            .input("table", sql.NVarChar, target_table).query(`
+                   SELECT 
+                     COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT, ORDINAL_POSITION
+                   FROM INFORMATION_SCHEMA.COLUMNS
+                   WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+                   ORDER BY ORDINAL_POSITION
+                 `);
+          columns = result.recordset.map((row) => ({
+            name: row.COLUMN_NAME,
+            type:
+              row.DATA_TYPE +
+              (row.CHARACTER_MAXIMUM_LENGTH
+                ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+                : ""),
+            nullable: row.IS_NULLABLE === "YES",
+            default: row.COLUMN_DEFAULT,
+          }));
+        } finally {
+          await pool.close();
+        }
+        break;
+      }
+      case "Oracle": {
+        const oracledb = await import("oracledb").catch(() => null);
+        if (!oracledb) {
+          throw new Error("oracledb package not available");
+        }
+
+        const config = {};
+        const parts = target_connection_string.split(";");
+        for (const part of parts) {
+          const [key, value] = part.split("=").map((s) => s.trim());
+          if (key && value) {
+            switch (key.toLowerCase()) {
+              case "host":
+              case "hostname":
+                config.host = value;
+                break;
+              case "port":
+                config.port = parseInt(value, 10) || 1521;
+                break;
+              case "user":
+              case "username":
+                config.user = value;
+                break;
+              case "password":
+                config.password = value;
+                break;
+              case "database":
+              case "db":
+              case "service":
+                config.connectString = value;
+                break;
+            }
+          }
+        }
+
+        const connection = await oracledb.getConnection(config);
+        try {
+          const result = await connection.execute(
+            `SELECT 
+                   COLUMN_NAME, DATA_TYPE, DATA_LENGTH, NULLABLE, DATA_DEFAULT, COLUMN_ID
+                 FROM ALL_TAB_COLUMNS
+                 WHERE OWNER = :owner AND TABLE_NAME = :table
+                 ORDER BY COLUMN_ID`,
+            {
+              owner: target_schema.toUpperCase(),
+              table: target_table.toUpperCase(),
+            }
+          );
+          columns = result.rows.map((row) => ({
+            name: row[0],
+            type: row[1] + (row[2] ? `(${row[2]})` : ""),
+            nullable: row[3] === "Y",
+            default: row[4],
+          }));
+        } finally {
+          await connection.close();
+        }
+        break;
+      }
+      default:
+        return res.status(400).json({
+          error: `Unsupported database engine: ${target_db_engine}`,
+        });
+    }
+
+    res.json({
+      db_engine: target_db_engine,
+      schema: target_schema,
+      table: target_table,
+      columns: columns,
+    });
+  } catch (err) {
+    console.error("Error fetching table structure:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estructura de la tabla",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({
+      error: safeError,
+      details: process.env.NODE_ENV !== "production" ? err.message : undefined,
+    });
   }
 });
 

@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import styled from 'styled-components';
 import { authApi, getCurrentUser } from '../../services/api';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
 const LayoutContainer = styled.div`
   display: flex;
@@ -9,15 +10,16 @@ const LayoutContainer = styled.div`
 `;
 
 const Sidebar = styled.div`
-  width: 250px;
-  background: linear-gradient(180deg, #1a1a1a 0%, #1a1a1a 100%);
-  color: white;
-  padding: 20px 0;
-  border-right: 1px solid #333;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  width: 280px;
+  background: ${asciiColors.background};
+  color: ${asciiColors.foreground};
+  padding: 16px 0;
+  border-right: 2px solid ${asciiColors.border};
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  font-family: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace";
+  font-size: 12px;
 `;
 
 const MainContent = styled.div`
@@ -30,76 +32,52 @@ const MainContent = styled.div`
 const NavItem = styled(NavLink)`
   display: flex;
   align-items: center;
-  padding: 15px 25px;
-  color: #888;
+  padding: 10px 20px;
+  color: ${asciiColors.muted};
   text-decoration: none;
-  font-family: monospace;
-  font-size: 1.1em;
-  border-left: 3px solid transparent;
+  font-size: 12px;
+  border-left: 2px solid transparent;
   transition: all 0.2s ease;
   position: relative;
   
   &:hover {
-    background: linear-gradient(90deg, #252525 0%, rgba(10, 25, 41, 0.3) 100%);
-    color: white;
-    transform: translateX(3px);
-    border-left-color: #1e3a5f;
+    background: ${asciiColors.backgroundSoft};
+    color: ${asciiColors.foreground};
+    transform: translateX(2px);
+    border-left-color: ${asciiColors.accent};
   }
   
   &.active {
-    background: linear-gradient(90deg, #252525 0%, rgba(10, 25, 41, 0.5) 100%);
-    color: white;
-    border-left-color: #0d1b2a;
-    font-weight: bold;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: linear-gradient(180deg, #0d1b2a 0%, #1e3a5f 50%, #2d4a6f 100%);
-      box-shadow: 0 0 8px rgba(13, 27, 42, 0.6);
-    }
+    background: ${asciiColors.backgroundSoft};
+    color: ${asciiColors.accent};
+    border-left-color: ${asciiColors.accent};
+    font-weight: 600;
   }
 `;
 
 const NavSubItem = styled(NavLink)`
   display: flex;
   align-items: center;
-  padding: 12px 25px 12px 40px;
-  color: #888;
+  padding: 8px 20px 8px 36px;
+  color: ${asciiColors.muted};
   text-decoration: none;
-  font-family: monospace;
-  font-size: 0.95em;
-  border-left: 3px solid transparent;
+  font-size: 11px;
+  border-left: 2px solid transparent;
   transition: all 0.2s ease;
   position: relative;
   
   &:hover {
-    background: linear-gradient(90deg, #252525 0%, rgba(10, 25, 41, 0.3) 100%);
-    color: white;
-    transform: translateX(3px);
-    border-left-color: #1e3a5f;
+    background: ${asciiColors.backgroundSoft};
+    color: ${asciiColors.foreground};
+    transform: translateX(2px);
+    border-left-color: ${asciiColors.accent};
   }
   
   &.active {
-    background: linear-gradient(90deg, #252525 0%, rgba(10, 25, 41, 0.5) 100%);
-    color: white;
-    border-left-color: #0d1b2a;
-    font-weight: bold;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: linear-gradient(180deg, #0d1b2a 0%, #1e3a5f 50%, #2d4a6f 100%);
-      box-shadow: 0 0 8px rgba(13, 27, 42, 0.6);
-    }
+    background: ${asciiColors.backgroundSoft};
+    color: ${asciiColors.accent};
+    border-left-color: ${asciiColors.accent};
+    font-weight: 600;
   }
 `;
 
@@ -110,27 +88,29 @@ const NavGroup = styled.div`
 const NavGroupHeader = styled.div<{ $isOpen: boolean }>`
   display: flex;
   align-items: center;
-  padding: 12px 25px;
-  color: #aaa;
-  font-family: monospace;
-  font-size: 0.9em;
-  font-weight: bold;
+  padding: 10px 20px;
+  color: ${asciiColors.foreground};
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
+  border-left: 2px solid transparent;
   
   &:hover {
-    background: linear-gradient(90deg, #252525 0%, rgba(10, 25, 41, 0.2) 100%);
-    color: white;
+    background: ${asciiColors.backgroundSoft};
+    border-left-color: ${asciiColors.accent};
   }
   
   &::before {
-    content: '${props => props.$isOpen ? '▼' : '▶'}';
-    margin-right: 10px;
-    font-size: 0.8em;
-    transition: transform 0.2s ease;
+    content: '${props => props.$isOpen ? ascii.arrowDown : ascii.arrowRight}';
+    margin-right: 8px;
+    font-size: 10px;
+    transition: transform 0.3s ease;
+    transform: ${props => props.$isOpen ? 'rotate(90deg)' : 'rotate(0deg)'};
+    display: inline-block;
   }
 `;
 
@@ -143,63 +123,60 @@ const NavGroupContent = styled.div<{ $isOpen: boolean }>`
 `;
 
 const Logo = styled.div`
-  padding: 20px 25px;
-  font-size: 1.3em;
-  color: white;
-  font-weight: bold;
-  border-bottom: 1px solid #333;
-  margin-bottom: 20px;
-  font-family: monospace;
-  background: linear-gradient(90deg, transparent 0%, rgba(10, 25, 41, 0.2) 50%, transparent 100%);
+  padding: 16px 20px;
+  font-size: 14px;
+  color: ${asciiColors.foreground};
+  font-weight: 600;
+  border-bottom: 1px solid ${asciiColors.border};
+  margin-bottom: 16px;
   transition: all 0.2s ease;
   
   &:hover {
-    background: linear-gradient(90deg, transparent 0%, rgba(10, 25, 41, 0.4) 50%, transparent 100%);
-    transform: scale(1.02);
+    background: ${asciiColors.backgroundSoft};
+    transform: translateX(2px);
   }
 `;
 
 const UserInfo = styled.div`
-  padding: 20px 25px;
-  border-top: 1px solid #333;
+  padding: 16px 20px;
+  border-top: 1px solid ${asciiColors.border};
   margin-top: auto;
 `;
 
 const UsernameDisplay = styled.div`
-  font-size: 1.1em;
+  font-size: 12px;
   font-weight: 600;
-  color: #fff;
-  margin-bottom: 8px;
-  font-family: monospace;
+  color: ${asciiColors.foreground};
+  margin-bottom: 6px;
   letter-spacing: 0.5px;
 `;
 
 const RoleDisplay = styled.div`
-  font-size: 0.95em;
+  font-size: 11px;
   font-weight: 500;
-  color: #4a9eff;
-  margin-bottom: 15px;
+  color: ${asciiColors.accent};
+  margin-bottom: 12px;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-family: monospace;
+  letter-spacing: 0.5px;
 `;
 
 const LogoutButton = styled.button`
   width: 100%;
-  padding: 10px 15px;
-  margin-top: 10px;
-  background: transparent;
-  border: 1px solid #555;
-  color: #aaa;
+  padding: 8px 12px;
+  margin-top: 8px;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  color: ${asciiColors.foreground};
   cursor: pointer;
-  border-radius: 4px;
-  font-family: monospace;
+  border-radius: 2px;
+  font-size: 11px;
   transition: all 0.2s ease;
   
   &:hover {
-    background: rgba(255, 0, 0, 0.1);
-    border-color: #ff4444;
-    color: #ff6666;
+    background: ${asciiColors.danger};
+    border-color: ${asciiColors.danger};
+    color: #ffffff;
+    transform: translateY(-1px);
   }
 `;
 
@@ -210,7 +187,6 @@ const Layout = () => {
     catalog: false,
     lineage: false,
     governance: false,
-    dataSources: false,
     quality: false,
     operations: false,
     system: false,
@@ -231,7 +207,9 @@ const Layout = () => {
   return (
     <LayoutContainer>
       <Sidebar>
-        <Logo>DataSync</Logo>
+        <Logo>
+          {ascii.thickTl}{ascii.thickH.repeat(6)}{ascii.thickTr} DATASYNC
+        </Logo>
         
         <NavItem to="/" end>
           ■ Dashboard
@@ -246,20 +224,23 @@ const Layout = () => {
             $isOpen={openGroups.catalog} 
             onClick={() => toggleGroup('catalog')}
           >
-            Catalog
+            Data Integration
           </NavGroupHeader>
           <NavGroupContent $isOpen={openGroups.catalog}>
             <NavSubItem to="/catalog">
-              ■ Catalog - Catalog
+              ■ Data Integration - DataLake
             </NavSubItem>
             <NavSubItem to="/api-catalog">
-              ■ Catalog - API ETL
+              ■ Data Integration - API
             </NavSubItem>
             <NavSubItem to="/csv-catalog">
-              ■ Catalog - CSV ETL
+              ■ Data Integration - CSV
             </NavSubItem>
             <NavSubItem to="/google-sheets-catalog">
-              ■ Catalog - Google Sheets ETL
+              ■ Data Integration - Google Sheets
+            </NavSubItem>
+            <NavSubItem to="/custom-jobs">
+              ■ Data Integration - Pipeline Orchestration
             </NavSubItem>
           </NavGroupContent>
         </NavGroup>
@@ -330,19 +311,6 @@ const Layout = () => {
           </NavGroupContent>
         </NavGroup>
 
-        <NavGroup>
-          <NavGroupHeader 
-            $isOpen={openGroups.dataSources} 
-            onClick={() => toggleGroup('dataSources')}
-          >
-            Data Sources
-          </NavGroupHeader>
-          <NavGroupContent $isOpen={openGroups.dataSources}>
-            <NavSubItem to="/custom-jobs">
-              ■ Custom Jobs
-            </NavSubItem>
-          </NavGroupContent>
-        </NavGroup>
 
         <NavGroup>
           <NavGroupHeader 

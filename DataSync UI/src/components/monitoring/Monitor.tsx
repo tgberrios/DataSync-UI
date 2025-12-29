@@ -1,139 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import styled from 'styled-components';
-import {
-  Container,
-  Header,
-  ErrorMessage,
-  LoadingOverlay,
-  Button,
-} from '../shared/BaseComponents';
 import { monitorApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
-import { theme } from '../../theme/theme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
-const CopyButton = styled(Button)`
-  margin-top: ${theme.spacing.sm};
-`;
-
-const CopySuccess = styled.div`
-  color: ${theme.colors.status.success.text};
-  font-size: 0.8em;
-  margin-top: 5px;
-  font-weight: 500;
-  animation: fadeIn 0.3s ease-in;
-`;
-
-const QueryList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${theme.spacing.sm};
-  animation: slideUp 0.25s ease-out;
-  animation-delay: 0.1s;
-  animation-fill-mode: both;
-`;
-
-const QueryItem = styled.div`
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.md};
-  background-color: ${theme.colors.background.secondary};
-  overflow: hidden;
-  transition: all ${theme.transitions.normal};
-  box-shadow: ${theme.shadows.sm};
-  
-  &:hover {
-    border-color: rgba(10, 25, 41, 0.2);
-    background-color: ${theme.colors.background.main};
-    box-shadow: ${theme.shadows.md};
-    transform: translateY(-2px);
-  }
-`;
-
-const QuerySummary = styled.div`
-  display: grid;
-  grid-template-columns: 80px 120px 120px 1fr 100px 100px;
-  align-items: center;
-  padding: 12px 15px;
-  cursor: pointer;
-  gap: 10px;
-  font-size: 0.9em;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: linear-gradient(90deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  }
-`;
-
-const QueryDetails = styled.div<{ $isOpen: boolean }>`
-  max-height: ${props => props.$isOpen ? '500px' : '0'};
-  opacity: ${props => props.$isOpen ? '1' : '0'};
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  border-top: ${props => props.$isOpen ? `1px solid ${theme.colors.border.light}` : 'none'};
-  background-color: ${theme.colors.background.main};
-  overflow: hidden;
-`;
-
-const DetailGrid = styled.div`
-  display: grid;
-  grid-template-columns: 150px 1fr;
-  padding: ${theme.spacing.md};
-  gap: ${theme.spacing.sm};
-  font-size: 0.9em;
-`;
-
-const DetailLabel = styled.div`
-  color: ${theme.colors.text.secondary};
-  font-weight: 500;
-`;
-
-const DetailValue = styled.div`
-  color: ${theme.colors.text.primary};
-`;
-
-const QueryText = styled.pre`
-  margin: 0;
-  padding: ${theme.spacing.md};
-  background-color: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.md};
-  overflow-x: auto;
-  font-size: 0.9em;
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    border-color: rgba(10, 25, 41, 0.2);
-    box-shadow: ${theme.shadows.sm};
-  }
-`;
-
-const QueryState = styled.span<{ $state: string }>`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.85em;
-  font-weight: 500;
-  display: inline-block;
-  transition: all ${theme.transitions.normal};
-  background-color: ${props => {
-    switch (props.$state) {
-      case 'active': return theme.colors.status.success.bg;
-      case 'idle in transaction': return theme.colors.status.warning.bg;
-      case 'idle in transaction (aborted)': return theme.colors.status.error.bg;
-      default: return theme.colors.background.secondary;
-    }
-  }};
-  color: ${props => {
-    switch (props.$state) {
-      case 'active': return theme.colors.status.success.text;
-      case 'idle in transaction': return theme.colors.status.warning.text;
-      case 'idle in transaction (aborted)': return theme.colors.status.error.text;
-      default: return theme.colors.text.secondary;
-    }
-  }};
-  
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: ${theme.shadows.sm};
-  }
-`;
 
 /**
  * Monitor component
@@ -220,77 +91,296 @@ const Monitor = () => {
 
   if (loading && queries.length === 0) {
     return (
-      <Container>
-        <Header>Query Monitor</Header>
-        <LoadingOverlay>Loading queries...</LoadingOverlay>
-      </Container>
+      <div style={{
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+        fontSize: 12,
+        color: asciiColors.foreground,
+        backgroundColor: asciiColors.background,
+        gap: 12
+      }}>
+        <div style={{
+          fontSize: 24,
+          animation: "spin 1s linear infinite"
+        }}>
+          {ascii.blockFull}
+        </div>
+        <div style={{
+          display: "flex",
+          gap: 4,
+          alignItems: "center"
+        }}>
+          <span>Loading queries</span>
+          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
+            {ascii.dot.repeat(3)}
+          </span>
+        </div>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          @keyframes dots {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+        `}</style>
+      </div>
     );
   }
 
-  return (
-    <Container>
-      <Header>Query Monitor</Header>
+  const getStateColor = (state: string) => {
+    switch (state) {
+      case 'active': return asciiColors.success;
+      case 'idle in transaction': return asciiColors.warning;
+      case 'idle in transaction (aborted)': return asciiColors.danger;
+      default: return asciiColors.muted;
+    }
+  };
 
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+  return (
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <div style={{
+        fontSize: 16,
+        fontWeight: 600,
+        marginBottom: 16,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        {ascii.thickTl}{ascii.thickH.repeat(8)}{ascii.thickTr} QUERY MONITOR
+      </div>
+
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ color: asciiColors.danger, fontWeight: 600 }}>
+              {ascii.blockFull} {error}
+            </span>
+          </div>
+        </AsciiPanel>
+      )}
 
       {!loading && !error && (
-        <QueryList>
+        <AsciiPanel title="ACTIVE QUERIES">
           {queries.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: theme.colors.text.secondary }}>
-              No active queries found
+            <div style={{
+              padding: 16,
+              color: asciiColors.muted,
+              fontSize: 11,
+              border: `1px dashed ${asciiColors.border}`,
+              borderRadius: 2,
+              textAlign: "center"
+            }}>
+              {ascii.dot} No active queries found
             </div>
           ) : (
-            queries.map((query) => (
-              <QueryItem key={query.pid}>
-                <QuerySummary onClick={() => toggleQuery(query.pid)}>
-                  <div>PID: {query.pid}</div>
-                  <div>{query.usename}</div>
-                  <div>{query.datname}</div>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {query.query?.substring(0, 50)}...
-                  </div>
-                  <div>{query.duration}</div>
-                  <QueryState $state={query.state}>
-                    {query.state === 'idle in transaction (aborted)' ? 'aborted' :
-                     query.state === 'idle in transaction' ? 'in trans' : 
-                     query.state}
-                  </QueryState>
-                </QuerySummary>
-                
-                <QueryDetails $isOpen={openQueryId === query.pid}>
-                  <DetailGrid>
-                    <DetailLabel>Application:</DetailLabel>
-                    <DetailValue>{query.application_name || '-'}</DetailValue>
-                    
-                    <DetailLabel>Client Address:</DetailLabel>
-                    <DetailValue>{query.client_addr || '-'}</DetailValue>
-                    
-                    <DetailLabel>Started At:</DetailLabel>
-                    <DetailValue>{formatDate(query.query_start)}</DetailValue>
-                    
-                    <DetailLabel>Wait Event:</DetailLabel>
-                    <DetailValue>
-                      {query.wait_event_type ? `${query.wait_event_type} (${query.wait_event})` : 'None'}
-                    </DetailValue>
-                    
-                    <DetailLabel>Full Query:</DetailLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {queries.map((query) => (
+                <div
+                  key={query.pid}
+                  style={{
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    backgroundColor: asciiColors.backgroundSoft,
+                    overflow: "hidden",
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  <div
+                    onClick={() => toggleQuery(query.pid)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "80px 120px 120px 1fr 100px 100px",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      cursor: "pointer",
+                      gap: 12,
+                      transition: "background-color 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = asciiColors.background;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
                     <div>
-                      <QueryText>{query.query}</QueryText>
-                      <CopyButton onClick={() => copyQuery(query.query, query.pid)}>
-                        {copiedQueryId === query.pid ? '✓ Copied!' : 'Copy Query'}
-                      </CopyButton>
-                      {copiedQueryId === query.pid && (
-                        <CopySuccess>Query copied to clipboard!</CopySuccess>
-                      )}
+                      <span style={{ color: asciiColors.muted }}>PID:</span> {query.pid}
                     </div>
-                  </DetailGrid>
-                </QueryDetails>
-              </QueryItem>
-            ))
+                    <div>
+                      <span style={{ color: asciiColors.muted }}>{ascii.v}</span> {query.usename}
+                    </div>
+                    <div>
+                      <span style={{ color: asciiColors.muted }}>{ascii.v}</span> {query.datname}
+                    </div>
+                    <div style={{ 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis', 
+                      whiteSpace: 'nowrap',
+                      color: asciiColors.foreground
+                    }}>
+                      {query.query?.substring(0, 50)}...
+                    </div>
+                    <div style={{ color: asciiColors.accent, fontWeight: 600 }}>
+                      {query.duration}
+                    </div>
+                    <div>
+                      <span style={{
+                        padding: "4px 8px",
+                        borderRadius: 2,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        border: `1px solid ${getStateColor(query.state)}`,
+                        color: getStateColor(query.state),
+                        backgroundColor: openQueryId === query.pid ? getStateColor(query.state) + "20" : "transparent"
+                      }}>
+                        {query.state === 'idle in transaction (aborted)' ? 'aborted' :
+                         query.state === 'idle in transaction' ? 'in trans' : 
+                         query.state}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {openQueryId === query.pid && (
+                    <div style={{
+                      borderTop: `1px solid ${asciiColors.border}`,
+                      padding: "16px",
+                      backgroundColor: asciiColors.background,
+                      animation: "slideDown 0.3s ease-out"
+                    }}>
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "150px 1fr",
+                        gap: 12,
+                        marginBottom: 16
+                      }}>
+                        <div style={{ color: asciiColors.muted, fontWeight: 500 }}>
+                          Application:
+                        </div>
+                        <div style={{ color: asciiColors.foreground }}>
+                          {query.application_name || '-'}
+                        </div>
+                        
+                        <div style={{ color: asciiColors.muted, fontWeight: 500 }}>
+                          Client Address:
+                        </div>
+                        <div style={{ color: asciiColors.foreground }}>
+                          {query.client_addr || '-'}
+                        </div>
+                        
+                        <div style={{ color: asciiColors.muted, fontWeight: 500 }}>
+                          Started At:
+                        </div>
+                        <div style={{ color: asciiColors.foreground }}>
+                          {formatDate(query.query_start)}
+                        </div>
+                        
+                        <div style={{ color: asciiColors.muted, fontWeight: 500 }}>
+                          Wait Event:
+                        </div>
+                        <div style={{ color: asciiColors.foreground }}>
+                          {query.wait_event_type ? `${query.wait_event_type} (${query.wait_event})` : 'None'}
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ 
+                          color: asciiColors.muted, 
+                          fontWeight: 500,
+                          marginBottom: 8
+                        }}>
+                          Full Query:
+                        </div>
+                        <pre style={{
+                          margin: 0,
+                          padding: "12px",
+                          backgroundColor: asciiColors.backgroundSoft,
+                          borderRadius: 2,
+                          overflowX: "auto",
+                          fontSize: 11,
+                          border: `1px solid ${asciiColors.border}`,
+                          fontFamily: "inherit",
+                          color: asciiColors.foreground
+                        }}>
+                          {query.query}
+                        </pre>
+                      </div>
+                      
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <AsciiButton
+                          label={copiedQueryId === query.pid ? 'Copied!' : 'Copy Query'}
+                          onClick={() => copyQuery(query.query, query.pid)}
+                          variant="primary"
+                        />
+                        {copiedQueryId === query.pid && (
+                          <span style={{
+                            color: asciiColors.success,
+                            fontSize: 11,
+                            animation: "fadeIn 0.3s ease-in"
+                          }}>
+                            {ascii.bullet} Query copied to clipboard!
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
-        </QueryList>
+        </AsciiPanel>
       )}
-    </Container>
+      <style>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            max-height: 0;
+          }
+          to {
+            opacity: 1;
+            max-height: 500px;
+          }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes dots {
+          0%, 20% { opacity: 0; }
+          50% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+    </div>
   );
 };
 

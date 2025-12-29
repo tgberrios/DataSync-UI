@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { theme } from '../../theme/theme';
-import { Container, Header, ErrorMessage, LoadingOverlay } from '../shared/BaseComponents';
 import { monitorApi, queryPerformanceApi, dashboardApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
 const fadeIn = keyframes`
   from {
@@ -1325,11 +1327,30 @@ const UnifiedMonitor: React.FC = () => {
   const renderTree = () => {
     if (treeData.size === 0) {
       return (
-        <EmptyState>
-          No data available for {activeTab}
-        </EmptyState>
+        <div style={{
+          padding: 40,
+          textAlign: "center",
+          color: asciiColors.muted,
+          fontSize: 12
+        }}>
+          {ascii.dot} No data available for {activeTab}
+        </div>
       );
     }
+
+    const getStatusColor = (status: string) => {
+      const upperStatus = (status || '').toUpperCase();
+      if (upperStatus.includes('ERROR') || upperStatus.includes('FAILED') || upperStatus === 'POOR') {
+        return asciiColors.danger;
+      }
+      if (upperStatus.includes('WARNING') || upperStatus === 'FAIR') {
+        return asciiColors.warning;
+      }
+      if (upperStatus.includes('SUCCESS') || upperStatus === 'EXCELLENT' || upperStatus === 'GOOD') {
+        return asciiColors.success;
+      }
+      return asciiColors.muted;
+    };
 
     const entries = Array.from(treeData.entries() as any) as [string, any][];
     return entries.map(([dbName, data]) => {
@@ -1347,104 +1368,260 @@ const UnifiedMonitor: React.FC = () => {
       const totalItems = items.length;
 
       return (
-        <TreeNode key={dbKey}>
-          <TreeContent
-            $level={0}
-            $isExpanded={isDbExpanded}
-            $nodeType="database"
+        <div key={dbKey} style={{ marginBottom: 4 }}>
+          <div
             onClick={() => toggleNode(dbKey)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              padding: "10px 8px",
+              cursor: "pointer",
+              borderLeft: `2px solid ${asciiColors.accent}`,
+              backgroundColor: isDbExpanded ? asciiColors.backgroundSoft : asciiColors.background,
+              transition: "all 0.2s ease",
+              marginBottom: 2
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+              e.currentTarget.style.transform = "translateX(2px)";
+            }}
+            onMouseLeave={(e) => {
+              if (!isDbExpanded) {
+                e.currentTarget.style.backgroundColor = asciiColors.background;
+              }
+              e.currentTarget.style.transform = "translateX(0)";
+            }}
           >
-            <ExpandIconContainer $isExpanded={isDbExpanded}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </ExpandIconContainer>
-            <NodeLabel $isDatabase>{dbName}</NodeLabel>
-            <CountBadge>{totalItems}</CountBadge>
-          </TreeContent>
-          <ExpandableContent $isExpanded={isDbExpanded} $level={0}>
-            {isDbExpanded && items.map((item: any, idx: number) => {
-              const isSelected = selectedItem === item;
-              
-              return (
-                <QueryItem
-                  key={idx}
-                  $selected={isSelected}
-                  onClick={() => setSelectedItem(item)}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <span style={{
+              marginRight: 8,
+              color: isDbExpanded ? asciiColors.accent : asciiColors.muted,
+              fontSize: 10,
+              transition: "transform 0.2s ease",
+              display: "inline-block",
+              transform: isDbExpanded ? "rotate(90deg)" : "rotate(0deg)"
+            }}>
+              {ascii.arrowRight}
+            </span>
+            <span style={{
+              fontWeight: 600,
+              color: asciiColors.accent,
+              fontSize: 12,
+              flex: 1
+            }}>
+              {dbName}
+            </span>
+            <span style={{
+              padding: "2px 8px",
+              borderRadius: 2,
+              fontSize: 10,
+              fontWeight: 500,
+              border: `1px solid ${asciiColors.border}`,
+              backgroundColor: asciiColors.backgroundSoft,
+              color: asciiColors.foreground
+            }}>
+              {totalItems}
+            </span>
+          </div>
+          {isDbExpanded && (
+            <div style={{
+              paddingLeft: 24,
+              animation: "slideDown 0.3s ease-out"
+            }}>
+              {items.map((item: any, idx: number) => {
+                const isSelected = selectedItem === item;
+                const isLast = idx === items.length - 1;
+                
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedItem(item)}
+                    style={{
+                      padding: "8px 8px",
+                      marginLeft: 8,
+                      marginBottom: 2,
+                      cursor: "pointer",
+                      borderLeft: `2px solid ${isSelected ? asciiColors.accent : asciiColors.border}`,
+                      backgroundColor: isSelected ? asciiColors.accentLight : "transparent",
+                      transition: "all 0.2s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                        e.currentTarget.style.borderLeftColor = asciiColors.accent;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.borderLeftColor = asciiColors.border;
+                      }
+                    }}
+                  >
+                    <span style={{ color: asciiColors.muted, fontSize: 10 }}>
+                      {isLast ? ascii.bl : ascii.tRight}
+                    </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {activeTab === 'monitor' && (
                         <>
-                          <div style={{ fontWeight: 500, color: theme.colors.text.primary }}>
+                          <div style={{ fontWeight: 500, color: asciiColors.foreground, fontSize: 11 }}>
                             PID: {item.pid}
                           </div>
-                          <div style={{ fontSize: '0.85em', color: theme.colors.text.secondary, marginTop: '4px' }}>
-                            Schema: {item.schema_name || 'N/A'} | Table: {item.table_name || 'N/A'}
+                          <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: 4 }}>
+                            Schema: {item.schema_name || 'N/A'} {ascii.v} Table: {item.table_name || 'N/A'}
                           </div>
-                          <QueryPreview>{item.query?.substring(0, 60)}...</QueryPreview>
+                          <div style={{
+                            fontSize: 10,
+                            color: asciiColors.muted,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            marginTop: 4,
+                            fontFamily: "monospace"
+                          }}>
+                            {item.query?.substring(0, 60)}...
+                          </div>
                         </>
                       )}
                       {activeTab === 'live' && (
                         <>
-                          <div style={{ fontWeight: 500, color: theme.colors.text.primary }}>
+                          <div style={{ fontWeight: 500, color: asciiColors.foreground, fontSize: 11 }}>
                             {item.table_name || 'N/A'}
                           </div>
-                          <QueryPreview>{item.db_engine} - {formatDate(item.processed_at)}</QueryPreview>
+                          <div style={{
+                            fontSize: 10,
+                            color: asciiColors.muted,
+                            marginTop: 4,
+                            fontFamily: "monospace"
+                          }}>
+                            {item.db_engine} {ascii.v} {formatDate(item.processed_at)}
+                          </div>
                         </>
                       )}
                       {activeTab === 'performance' && (
                         <>
-                          <div style={{ fontWeight: 500, color: theme.colors.text.primary }}>
+                          <div style={{ fontWeight: 500, color: asciiColors.foreground, fontSize: 11 }}>
                             {formatTime(item.mean_time_ms || item.query_duration_ms)}
                           </div>
-                          <QueryPreview>{item.query_text?.substring(0, 60)}...</QueryPreview>
+                          <div style={{
+                            fontSize: 10,
+                            color: asciiColors.muted,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            marginTop: 4,
+                            fontFamily: "monospace"
+                          }}>
+                            {item.query_text?.substring(0, 60)}...
+                          </div>
                         </>
                       )}
                       {activeTab === 'transfer' && (
                         <>
-                          <div style={{ fontWeight: 500, color: theme.colors.text.primary }}>
+                          <div style={{ fontWeight: 500, color: asciiColors.foreground, fontSize: 11 }}>
                             {item.schema_name}.{item.table_name}
                           </div>
-                          <QueryPreview>{item.db_engine} - {formatDate(item.created_at)}</QueryPreview>
+                          <div style={{
+                            fontSize: 10,
+                            color: asciiColors.muted,
+                            marginTop: 4,
+                            fontFamily: "monospace"
+                          }}>
+                            {item.db_engine} {ascii.v} {formatDate(item.created_at)}
+                          </div>
                         </>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {activeTab === 'monitor' && (
                         <>
-                          <StatusBadge $status={item.state}>{item.state}</StatusBadge>
-                          <KillButton
+                          <span style={{
+                            padding: "2px 6px",
+                            borderRadius: 2,
+                            fontSize: 10,
+                            fontWeight: 500,
+                            border: `1px solid ${getStatusColor(item.state)}`,
+                            color: getStatusColor(item.state),
+                            backgroundColor: getStatusColor(item.state) + "20"
+                          }}>
+                            {item.state}
+                          </span>
+                          <button
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                               handleKillQuery(item.pid);
                             }}
-                            title="Kill Query"
+                            style={{
+                              padding: "4px 8px",
+                              border: `1px solid ${asciiColors.danger}`,
+                              backgroundColor: asciiColors.background,
+                              color: asciiColors.danger,
+                              cursor: "pointer",
+                              fontSize: 10,
+                              borderRadius: 2,
+                              transition: "all 0.2s ease"
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = asciiColors.danger;
+                              e.currentTarget.style.color = "#ffffff";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = asciiColors.background;
+                              e.currentTarget.style.color = asciiColors.danger;
+                            }}
                           >
                             Kill
-                          </KillButton>
+                          </button>
                         </>
                       )}
                       {activeTab === 'live' && (
-                        <StatusBadge $status={item.status}>{item.status}</StatusBadge>
+                        <span style={{
+                          padding: "2px 6px",
+                          borderRadius: 2,
+                          fontSize: 10,
+                          fontWeight: 500,
+                          border: `1px solid ${getStatusColor(item.status)}`,
+                          color: getStatusColor(item.status),
+                          backgroundColor: getStatusColor(item.status) + "20"
+                        }}>
+                          {item.status}
+                        </span>
                       )}
                       {activeTab === 'performance' && (
-                        <StatusBadge $status={item.performance_tier || 'N/A'}>
+                        <span style={{
+                          padding: "2px 6px",
+                          borderRadius: 2,
+                          fontSize: 10,
+                          fontWeight: 500,
+                          border: `1px solid ${getStatusColor(item.performance_tier || 'N/A')}`,
+                          color: getStatusColor(item.performance_tier || 'N/A'),
+                          backgroundColor: getStatusColor(item.performance_tier || 'N/A') + "20"
+                        }}>
                           {item.performance_tier || 'N/A'}
-                        </StatusBadge>
+                        </span>
                       )}
                       {activeTab === 'transfer' && (
-                        <StatusBadge $status={item.status || 'PENDING'}>
+                        <span style={{
+                          padding: "2px 6px",
+                          borderRadius: 2,
+                          fontSize: 10,
+                          fontWeight: 500,
+                          border: `1px solid ${getStatusColor(item.status || 'PENDING')}`,
+                          color: getStatusColor(item.status || 'PENDING'),
+                          backgroundColor: getStatusColor(item.status || 'PENDING') + "20"
+                        }}>
                           {item.status || 'PENDING'}
-                        </StatusBadge>
+                        </span>
                       )}
                     </div>
                   </div>
-                </QueryItem>
-              );
-            })}
-          </ExpandableContent>
-        </TreeNode>
+                );
+              })}
+            </div>
+          )}
+        </div>
       );
     });
   };
@@ -2489,176 +2666,313 @@ const UnifiedMonitor: React.FC = () => {
   };
 
   const getStats = () => {
+    const renderStatCard = (value: string | number, label: string) => (
+      <div
+        style={{
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          padding: "12px 16px",
+          backgroundColor: asciiColors.backgroundSoft,
+          transition: "all 0.2s ease",
+          fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-2px)";
+          e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+          e.currentTarget.style.borderColor = asciiColors.accent;
+          e.currentTarget.style.backgroundColor = asciiColors.background;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+          e.currentTarget.style.borderColor = asciiColors.border;
+          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+        }}
+      >
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 8
+        }}>
+          <span style={{ color: asciiColors.accent, fontSize: 12 }}>{ascii.blockFull}</span>
+          <div style={{
+            fontSize: "1.6em",
+            fontWeight: 600,
+            color: asciiColors.accent,
+            fontFamily: "inherit"
+          }}>
+            {value}
+          </div>
+        </div>
+        <div style={{
+          fontSize: 10,
+          color: asciiColors.muted,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          fontWeight: 500,
+          borderTop: `1px solid ${asciiColors.border}`,
+          paddingTop: 8,
+          marginTop: 8
+        }}>
+          {ascii.v} {label}
+        </div>
+      </div>
+    );
+
     if (activeTab === 'monitor') {
       return (
-        <StatsContainer>
-          <StatCard>
-            <StatValue>{activeQueries.length}</StatValue>
-            <StatLabel>Active Queries</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{processingStats.total || 0}</StatValue>
-            <StatLabel>Total Events</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{processingStats.listeningChanges || 0}</StatValue>
-            <StatLabel>Listening</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{processingStats.errors || 0}</StatValue>
-            <StatLabel>Errors</StatLabel>
-          </StatCard>
-        </StatsContainer>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 16,
+          marginBottom: 20
+        }}>
+          {renderStatCard(activeQueries.length, "Active Queries")}
+          {renderStatCard(processingStats.total || 0, "Total Events")}
+          {renderStatCard(processingStats.listeningChanges || 0, "Listening")}
+          {renderStatCard(processingStats.errors || 0, "Errors")}
+        </div>
       );
     } else if (activeTab === 'live') {
       return (
-        <StatsContainer>
-          <StatCard>
-            <StatValue>{processingStats.total || 0}</StatValue>
-            <StatLabel>Total Events</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{processingStats.last24h || 0}</StatValue>
-            <StatLabel>Last 24h</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{processingStats.listeningChanges || 0}</StatValue>
-            <StatLabel>Listening</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{processingStats.fullLoad || 0}</StatValue>
-            <StatLabel>Full Load</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{processingStats.errors || 0}</StatValue>
-            <StatLabel>Errors</StatLabel>
-          </StatCard>
-        </StatsContainer>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 16,
+          marginBottom: 20
+        }}>
+          {renderStatCard(processingStats.total || 0, "Total Events")}
+          {renderStatCard(processingStats.last24h || 0, "Last 24h")}
+          {renderStatCard(processingStats.listeningChanges || 0, "Listening")}
+          {renderStatCard(processingStats.fullLoad || 0, "Full Load")}
+          {renderStatCard(processingStats.errors || 0, "Errors")}
+        </div>
       );
     } else if (activeTab === 'transfer') {
       return (
-        <StatsContainer>
-          <StatCard>
-            <StatValue>{transferStats.total_transfers || 0}</StatValue>
-            <StatLabel>Total Transfers</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{transferStats.successful || 0}</StatValue>
-            <StatLabel>Successful</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{transferStats.failed || 0}</StatValue>
-            <StatLabel>Failed</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{transferStats.pending || 0}</StatValue>
-            <StatLabel>Pending</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>
-              {transferStats.total_records 
-                ? `${(transferStats.total_records / 1000000).toFixed(1)}M` 
-                : '0'}
-            </StatValue>
-            <StatLabel>Total Records</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>
-              {transferStats.total_bytes 
-                ? `${(transferStats.total_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB` 
-                : '0 GB'}
-            </StatValue>
-            <StatLabel>Total Bytes</StatLabel>
-          </StatCard>
-        </StatsContainer>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 16,
+          marginBottom: 20
+        }}>
+          {renderStatCard(transferStats.total_transfers || 0, "Total Transfers")}
+          {renderStatCard(transferStats.successful || 0, "Successful")}
+          {renderStatCard(transferStats.failed || 0, "Failed")}
+          {renderStatCard(transferStats.pending || 0, "Pending")}
+          {renderStatCard(
+            transferStats.total_records 
+              ? `${(transferStats.total_records / 1000000).toFixed(1)}M` 
+              : '0',
+            "Total Records"
+          )}
+          {renderStatCard(
+            transferStats.total_bytes 
+              ? `${(transferStats.total_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB` 
+              : '0 GB',
+            "Total Bytes"
+          )}
+        </div>
       );
     } else {
       return (
-        <StatsContainer>
-          <StatCard>
-            <StatValue>{performanceMetrics.total_queries || 0}</StatValue>
-            <StatLabel>Total Queries</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{performanceMetrics.excellent_count || 0}</StatValue>
-            <StatLabel>Excellent</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{performanceMetrics.good_count || 0}</StatValue>
-            <StatLabel>Good</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{performanceMetrics.fair_count || 0}</StatValue>
-            <StatLabel>Fair</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{performanceMetrics.poor_count || 0}</StatValue>
-            <StatLabel>Poor</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>
-              {performanceMetrics.avg_efficiency 
-                ? `${Number(performanceMetrics.avg_efficiency).toFixed(1)}%` 
-                : 'N/A'}
-            </StatValue>
-            <StatLabel>Avg Efficiency</StatLabel>
-          </StatCard>
-        </StatsContainer>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gap: 16,
+          marginBottom: 20
+        }}>
+          {renderStatCard(performanceMetrics.total_queries || 0, "Total Queries")}
+          {renderStatCard(performanceMetrics.excellent_count || 0, "Excellent")}
+          {renderStatCard(performanceMetrics.good_count || 0, "Good")}
+          {renderStatCard(performanceMetrics.fair_count || 0, "Fair")}
+          {renderStatCard(performanceMetrics.poor_count || 0, "Poor")}
+          {renderStatCard(
+            performanceMetrics.avg_efficiency 
+              ? `${Number(performanceMetrics.avg_efficiency).toFixed(1)}%` 
+              : 'N/A',
+            "Avg Efficiency"
+          )}
+        </div>
       );
     }
   };
 
   if (loading && activeQueries.length === 0 && processingLogs.length === 0 && queryPerformance.length === 0) {
     return (
-      <Container>
-        <Header>Monitor</Header>
-        <LoadingOverlay>Loading monitor data...</LoadingOverlay>
-      </Container>
+      <div style={{
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+        fontSize: 12,
+        color: asciiColors.foreground,
+        backgroundColor: asciiColors.background,
+        gap: 12
+      }}>
+        <div style={{
+          fontSize: 24,
+          animation: "spin 1s linear infinite"
+        }}>
+          {ascii.blockFull}
+        </div>
+        <div style={{
+          display: "flex",
+          gap: 4,
+          alignItems: "center"
+        }}>
+          <span>Loading monitor data</span>
+          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
+            {ascii.dot.repeat(3)}
+          </span>
+        </div>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          @keyframes dots {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+        `}</style>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <Header>Monitor</Header>
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <div style={{
+        fontSize: 16,
+        fontWeight: 600,
+        marginBottom: 8,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        {ascii.thickTl}{ascii.thickH.repeat(8)}{ascii.thickTr} MONITOR
+      </div>
+
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ color: asciiColors.danger, fontWeight: 600 }}>
+              {ascii.blockFull} {error}
+            </span>
+          </div>
+        </AsciiPanel>
+      )}
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      <div style={{
+        display: "flex",
+        gap: 8,
+        marginBottom: 16,
+        borderBottom: `1px solid ${asciiColors.border}`,
+        paddingBottom: 8
+      }}>
+        {(['monitor', 'live', 'performance', 'transfer', 'system'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: "8px 16px",
+              border: `1px solid ${activeTab === tab ? asciiColors.accent : asciiColors.border}`,
+              backgroundColor: activeTab === tab ? asciiColors.accent : asciiColors.background,
+              color: activeTab === tab ? "#ffffff" : asciiColors.foreground,
+              borderRadius: 2,
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: activeTab === tab ? 600 : 500,
+              transition: "all 0.2s ease",
+              textTransform: "capitalize"
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== tab) {
+                e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== tab) {
+                e.currentTarget.style.backgroundColor = asciiColors.background;
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }
+            }}
+          >
+            {tab === 'live' ? 'Live Changes' : 
+             tab === 'performance' ? 'Query Performance' :
+             tab === 'transfer' ? 'Transfer Metrics' :
+             tab === 'system' ? 'System Resources' : tab}
+          </button>
+        ))}
+      </div>
       
-      <TabContainer>
-        <Tab $active={activeTab === 'monitor'} onClick={() => setActiveTab('monitor')}>
-          Monitor
-        </Tab>
-        <Tab $active={activeTab === 'live'} onClick={() => setActiveTab('live')}>
-          Live Changes
-        </Tab>
-        <Tab $active={activeTab === 'performance'} onClick={() => setActiveTab('performance')}>
-          Query Performance
-        </Tab>
-        <Tab $active={activeTab === 'transfer'} onClick={() => setActiveTab('transfer')}>
-          Transfer Metrics
-        </Tab>
-        <Tab $active={activeTab === 'system'} onClick={() => setActiveTab('system')}>
-          System Resources
-        </Tab>
-      </TabContainer>
-      
-      {activeTab !== 'system' && getStats()}
+      {activeTab !== 'system' && (
+        <div style={{ marginBottom: 16 }}>
+          {getStats()}
+        </div>
+      )}
       
       {activeTab === 'system' ? (
-        renderSystemResources()
+        <div style={{ width: "100%" }}>
+          {renderSystemResources()}
+        </div>
       ) : (
-        <MainLayout>
-          <TreePanel>
-            <TreeContainer>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 500px",
+          gap: 20,
+          height: "calc(100vh - 300px)",
+          minHeight: 600
+        }}>
+          <AsciiPanel title="TREE VIEW">
+            <div style={{
+              fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+              fontSize: 12,
+              maxHeight: "calc(100vh - 400px)",
+              overflowY: "auto"
+            }}>
               {renderTree()}
-            </TreeContainer>
-          </TreePanel>
+            </div>
+          </AsciiPanel>
           
-          <DetailsPanel>
-            {renderDetails()}
-          </DetailsPanel>
-        </MainLayout>
+          <AsciiPanel title="DETAILS">
+            <div style={{
+              maxHeight: "calc(100vh - 400px)",
+              overflowY: "auto"
+            }}>
+              {renderDetails()}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
-    </Container>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes dots {
+          0%, 20% { opacity: 0; }
+          50% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+    </div>
   );
 };
 

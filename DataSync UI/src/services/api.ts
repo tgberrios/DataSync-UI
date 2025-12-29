@@ -2095,6 +2095,87 @@ export interface CustomJobEntry {
 }
 
 export const customJobsApi = {
+  previewQuery: async (params: {
+    db_engine: string;
+    connection_string: string;
+    query_sql: string;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.post("/custom-jobs/preview-query", params);
+      return response.data;
+    } catch (error) {
+      console.error("Error previewing query:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+  getHistory: async (jobName: string, limit: number = 50) => {
+    try {
+      const response = await api.get(`/custom-jobs/${jobName}/history`, {
+        params: { limit },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching job history:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+  getTableStructure: async (jobName: string) => {
+    try {
+      const response = await api.get(`/custom-jobs/${jobName}/table-structure`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching table structure:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+  discoverColumns: async (
+    db_engine: string,
+    connection_string: string,
+    schema_name: string,
+    table_name: string
+  ) => {
+    try {
+      const response = await api.post("/discover-columns", {
+        db_engine,
+        connection_string,
+        schema_name,
+        table_name,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error discovering columns:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
   getJobs: async (params: {
     page?: number;
     limit?: number;
@@ -2213,6 +2294,40 @@ export const customJobsApi = {
       return response.data;
     } catch (error) {
       console.error("Error fetching Python scripts:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createJob: async (jobData: any) => {
+    try {
+      const response = await api.post("/custom-jobs", jobData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating custom job:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateJob: async (jobName: string, jobData: any) => {
+    try {
+      const response = await api.put(`/custom-jobs/${jobName}`, jobData);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating custom job ${jobName}:`, error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||

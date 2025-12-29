@@ -1,31 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { format } from 'date-fns';
 import {
   Container,
   Header,
   FiltersContainer,
   Select,
-  TableContainer,
-  Table,
-  Th,
-  Td,
-  TableRow,
-  Pagination,
-  PageButton,
   ErrorMessage,
   LoadingOverlay,
   SearchContainer,
   Input,
   Button,
-  ActiveBadge,
-  ActionButton,
-  PlayButton,
   FormGroup,
   Label,
   SearchInput,
   SearchButton,
   ClearSearchButton,
-  PaginationInfo,
   ModalOverlay,
   ModalContent,
   ModalHeader,
@@ -41,6 +29,30 @@ import { sanitizeSearch } from '../../utils/validation';
 import styled from 'styled-components';
 import { theme } from '../../theme/theme';
 import CustomJobsTreeView from './CustomJobsTreeView';
+import { ExecutionTimeline } from '../shared/ExecutionTimeline';
+import { MappingGraph } from '../shared/MappingGraph';
+import { SQLEditor } from './SQLEditor';
+
+const ConnectionStringExample = styled.div`
+  margin-top: ${theme.spacing.xs};
+  padding: ${theme.spacing.sm};
+  background: ${theme.colors.background.secondary};
+  border-radius: ${theme.borderRadius.sm};
+  border-left: 3px solid ${theme.colors.primary.main};
+  font-family: monospace;
+  font-size: 0.85em;
+  color: ${theme.colors.text.secondary};
+  white-space: pre-wrap;
+  word-break: break-all;
+`;
+
+const connectionStringExamples: Record<string, string> = {
+  MariaDB: 'host=localhost;user=myuser;password=mypassword;db=mydatabase;port=3306',
+  MSSQL: 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost,1433;DATABASE=mydatabase;UID=myuser;PWD=mypassword',
+  Oracle: 'host=localhost;user=myuser;password=mypassword;db=mydatabase;port=1521',
+  PostgreSQL: 'postgresql://myuser:mypassword@localhost:5432/mydatabase',
+  MongoDB: 'mongodb://myuser:mypassword@localhost:27017/mydatabase',
+};
 
 const HeaderContent = styled.div`
   display: flex;
@@ -80,22 +92,65 @@ const ButtonGroup = styled.div`
   border-top: 1px solid ${theme.colors.border.light};
 `;
 
-const QueryPreview = styled.div`
-  max-width: 300px;
+
+const CollapsibleSection = styled.div`
+  margin-top: ${theme.spacing.lg};
+  border: 1px solid ${theme.colors.border.light};
+  border-radius: ${theme.borderRadius.md};
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  cursor: help;
+`;
+
+const CollapsibleHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: ${theme.spacing.md};
+  background: ${theme.colors.background.secondary};
+  cursor: pointer;
+  user-select: none;
   
   &:hover {
-    color: ${theme.colors.text.primary};
+    background: ${theme.colors.background.tertiary};
   }
 `;
 
+const CollapsibleContent = styled.div<{ $isOpen: boolean }>`
+  max-height: ${props => props.$isOpen ? '2000px' : '0'};
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
+  padding: ${props => props.$isOpen ? theme.spacing.md : '0'};
+  background: ${theme.colors.background.main};
+`;
+
+const SectionTitle = styled.h4`
+  margin: 0;
+  font-size: 1em;
+  color: ${theme.colors.text.primary};
+`;
+
+const SubSection = styled.div`
+  margin-top: ${theme.spacing.md};
+  padding: ${theme.spacing.md};
+  background: ${theme.colors.background.secondary};
+  border-radius: ${theme.borderRadius.sm};
+`;
+
+const ConnectionTestResult = styled.div<{ $success: boolean }>`
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: ${theme.borderRadius.sm};
+  font-size: 0.9em;
+  background-color: ${props => props.$success 
+    ? theme.colors.status.success.bg 
+    : theme.colors.status.error.bg};
+  color: ${props => props.$success 
+    ? theme.colors.status.success.text 
+    : theme.colors.status.error.text};
+  animation: fadeIn 0.3s ease-out;
+`;
+
 const CustomJobs = () => {
-  const { page, limit, setPage } = usePagination(1, 20);
+  const { setPage } = usePagination(1, 20);
   const { filters, setFilter } = useTableFilters({
     source_db_engine: '',
     target_db_engine: '',
@@ -105,17 +160,9 @@ const CustomJobs = () => {
   
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [data, setData] = useState<CustomJobEntry[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allJobs, setAllJobs] = useState<CustomJobEntry[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    totalPages: 0,
-    currentPage: 1,
-    limit: 20
-  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<CustomJobEntry | null>(null);
   const [duplicateData, setDuplicateData] = useState<CustomJobEntry | null>(null);
@@ -133,8 +180,34 @@ const CustomJobs = () => {
     target_table: '',
     schedule_cron: '',
     active: true,
-    enabled: true
+    enabled: true,
+    transform_config: {
+      column_mapping: {} as Record<string, string>,
+      filters: [] as Array<{column: string; op: string; value: any}>,
+      column_transforms: [] as Array<{target_column: string; expression: string; columns?: string[]; separator?: string}>,
+      validations: [] as Array<{column: string; rule: string; [key: string]: any}>
+    },
+    metadata: {
+      load_strategy: 'TRUNCATE' as 'TRUNCATE',
+    }
   });
+  const [showLoadStrategySection, setShowLoadStrategySection] = useState(false);
+  const [connectionTested, setConnectionTested] = useState(false);
+  const [previewData, setPreviewData] = useState<{ columns: string[]; rows: any[]; rowCount: number } | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<CustomJobEntry | null>(null);
+  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [tableStructure, setTableStructure] = useState<any>(null);
+  const [loadingStructure, setLoadingStructure] = useState(false);
+  const [sourceSchemas, setSourceSchemas] = useState<string[]>([]);
+  const [sourceTables, setSourceTables] = useState<string[]>([]);
+  const [sourceColumns, setSourceColumns] = useState<string[]>([]);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [datalakeConnection, setDatalakeConnection] = useState<string>('');
+  const [isDataLake, setIsDataLake] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllJobs = useCallback(async () => {
@@ -175,8 +248,36 @@ const CustomJobs = () => {
     search
   ]);
 
+  const loadDataLakeConnection = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/datalake-connection', {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.connection_string) {
+          setDatalakeConnection(data.connection_string);
+          // Si el formulario está abierto y no hay connection string, y es PostgreSQL, usar DataLake por defecto
+          if (isModalOpen && !jobForm.source_connection_string && jobForm.source_db_engine === 'PostgreSQL' && !editingJob) {
+            setJobForm(prev => ({
+              ...prev,
+              source_connection_string: data.connection_string
+            }));
+            setIsDataLake(true);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error loading DataLake connection:', err);
+    }
+  }, [isModalOpen, jobForm.source_connection_string, jobForm.source_db_engine, editingJob]);
+
   useEffect(() => {
     isMountedRef.current = true;
+    loadDataLakeConnection();
     fetchAllJobs();
     const interval = setInterval(() => {
       if (isMountedRef.current) {
@@ -187,7 +288,7 @@ const CustomJobs = () => {
       isMountedRef.current = false;
       clearInterval(interval);
     };
-  }, [fetchAllJobs]);
+  }, [fetchAllJobs, loadDataLakeConnection]);
 
   const handleSearch = useCallback(() => {
     setSearch(searchInput);
@@ -251,11 +352,156 @@ const CustomJobs = () => {
     }
   }, []);
 
+  const handleTestConnection = useCallback(async () => {
+    if (!jobForm.source_db_engine) {
+      setConnectionTestResult({ success: false, message: 'Please select a source database engine first' });
+      return;
+    }
+
+    // Si es DataLake, usar datalakeConnection; de lo contrario, usar el connection string del formulario
+    const connectionStringToTest = isDataLake && datalakeConnection 
+      ? datalakeConnection 
+      : jobForm.source_connection_string.trim();
+
+    if (!connectionStringToTest) {
+      setConnectionTestResult({ success: false, message: isDataLake ? 'DataLake connection not loaded yet. Please wait...' : 'Please enter a source connection string' });
+      return;
+    }
+
+    setIsTestingConnection(true);
+    setConnectionTestResult(null);
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/test-connection', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          db_engine: jobForm.source_db_engine,
+          connection_string: connectionStringToTest,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setConnectionTestResult({ success: false, message: 'Authentication required. Please log in again.' });
+          return;
+        }
+        if (response.status === 0 || response.status >= 500) {
+          setConnectionTestResult({ success: false, message: 'Server error. Please check if the server is running.' });
+          return;
+        }
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        setConnectionTestResult({ success: false, message: 'Invalid response from server' });
+        return;
+      }
+
+      if (response.ok && data.success) {
+        setConnectionTestResult({ success: true, message: 'Connection successful!' });
+        setConnectionTested(true);
+      } else {
+        setConnectionTestResult({ 
+          success: false, 
+          message: data.error || data.message || 'Connection failed' 
+        });
+        setConnectionTested(false);
+      }
+    } catch (err: any) {
+      setConnectionTestResult({ 
+        success: false, 
+        message: err.message || 'Error testing connection' 
+      });
+      setConnectionTested(false);
+    } finally {
+      setIsTestingConnection(false);
+    }
+  }, [jobForm.source_db_engine, jobForm.source_connection_string, isDataLake, datalakeConnection]);
+
+  const handlePreviewQuery = useCallback(async () => {
+    if (!jobForm.source_db_engine || !jobForm.source_connection_string.trim() || !jobForm.query_sql.trim()) {
+      setPreviewError('Please fill in source DB engine, connection string, and SQL query');
+      return;
+    }
+
+    setIsPreviewing(true);
+    setPreviewError(null);
+    setPreviewData(null);
+
+    try {
+      const connectionStringToTest = isDataLake && datalakeConnection 
+        ? datalakeConnection 
+        : jobForm.source_connection_string.trim();
+
+      const result = await customJobsApi.previewQuery({
+        db_engine: jobForm.source_db_engine,
+        connection_string: connectionStringToTest,
+        query_sql: jobForm.query_sql.trim(),
+        limit: 100,
+      });
+
+      if (result.success) {
+        setPreviewData({
+          columns: result.columns || [],
+          rows: result.rows || [],
+          rowCount: result.rowCount || 0,
+        });
+        setSourceColumns(result.columns || []);
+        setPreviewError(null);
+      } else {
+        setPreviewError(result.error || 'Failed to preview query');
+      }
+    } catch (err: any) {
+      setPreviewError(err.message || 'Error previewing query');
+    } finally {
+      setIsPreviewing(false);
+    }
+  }, [jobForm.source_db_engine, jobForm.source_connection_string, jobForm.query_sql, isDataLake, datalakeConnection]);
+
+  const handleJobClick = useCallback(async (job: CustomJobEntry) => {
+    setSelectedJob(job);
+    setLoadingHistory(true);
+    setExecutionHistory([]);
+    setTableStructure(null);
+    setLoadingStructure(true);
+    
+    try {
+      const history = await customJobsApi.getHistory(job.job_name, 50);
+      setExecutionHistory(history);
+    } catch (err) {
+      setError(extractApiError(err));
+    } finally {
+      setLoadingHistory(false);
+    }
+
+    try {
+      const structure = await customJobsApi.getTableStructure(job.job_name);
+      setTableStructure(structure);
+    } catch (err) {
+      setError(extractApiError(err));
+    } finally {
+      setLoadingStructure(false);
+    }
+  }, []);
+
   const handleOpenModal = useCallback((job?: CustomJobEntry, isDuplicate?: boolean) => {
     if (job) {
+      const transformConfig = job.transform_config || {};
+      const metadata = job.metadata || {};
+      // Comparar con datalakeConnection si está disponible
+      const isJobDataLake = !!(datalakeConnection && job.source_connection_string === datalakeConnection);
+      
       if (isDuplicate) {
         setEditingJob(null);
         setDuplicateData(job);
+        setIsDataLake(isJobDataLake);
         setJobForm({
           job_name: `${job.job_name} (Copy)`,
           description: job.description || '',
@@ -268,11 +514,21 @@ const CustomJobs = () => {
           target_table: job.target_table || '',
           schedule_cron: job.schedule_cron || '',
           active: job.active,
-          enabled: job.enabled
+          enabled: job.enabled,
+          transform_config: {
+            column_mapping: (transformConfig.column_mapping as Record<string, string>) || {},
+            filters: Array.isArray(transformConfig.filters) ? transformConfig.filters : [],
+            column_transforms: Array.isArray(transformConfig.column_transforms) ? transformConfig.column_transforms : [],
+            validations: Array.isArray(transformConfig.validations) ? transformConfig.validations : []
+          },
+          metadata: {
+            load_strategy: (metadata.load_strategy as any) || 'TRUNCATE',
+          }
         });
       } else {
         setEditingJob(job);
         setDuplicateData(null);
+        setIsDataLake(isJobDataLake);
         setJobForm({
           job_name: job.job_name,
           description: job.description || '',
@@ -285,17 +541,29 @@ const CustomJobs = () => {
           target_table: job.target_table || '',
           schedule_cron: job.schedule_cron || '',
           active: job.active,
-          enabled: job.enabled
+          enabled: job.enabled,
+          transform_config: {
+            column_mapping: (transformConfig.column_mapping as Record<string, string>) || {},
+            filters: Array.isArray(transformConfig.filters) ? transformConfig.filters : [],
+            column_transforms: Array.isArray(transformConfig.column_transforms) ? transformConfig.column_transforms : [],
+            validations: Array.isArray(transformConfig.validations) ? transformConfig.validations : []
+          },
+          metadata: {
+            load_strategy: (metadata.load_strategy as any) || 'TRUNCATE',
+          }
         });
       }
     } else {
       setEditingJob(null);
       setDuplicateData(null);
+      // Si datalakeConnection está disponible, usarlo por defecto
+      const defaultConnection = datalakeConnection || '';
+      setIsDataLake(!!defaultConnection);
       setJobForm({
         job_name: '',
         description: '',
         source_db_engine: 'PostgreSQL',
-        source_connection_string: '',
+        source_connection_string: defaultConnection,
         query_sql: '',
         target_db_engine: 'PostgreSQL',
         target_connection_string: '',
@@ -303,12 +571,29 @@ const CustomJobs = () => {
         target_table: '',
         schedule_cron: '',
         active: true,
-        enabled: true
+        enabled: true,
+        transform_config: {
+          column_mapping: {},
+          filters: [],
+          column_transforms: [],
+          validations: []
+        },
+        metadata: {
+          load_strategy: 'TRUNCATE',
+        }
       });
     }
     setSelectedScript('');
+    setShowLoadStrategySection(false);
+    setConnectionTested(false);
+    setConnectionTestResult(null);
+    setPreviewData(null);
+    setPreviewError(null);
+    setSourceSchemas([]);
+    setSourceTables([]);
+    setSourceColumns([]);
     setIsModalOpen(true);
-  }, []);
+  }, [datalakeConnection]);
 
   const handleDuplicate = useCallback((job: CustomJobEntry) => {
     handleOpenModal(job, true);
@@ -319,6 +604,11 @@ const CustomJobs = () => {
     setEditingJob(null);
     setDuplicateData(null);
     setSelectedScript('');
+    setConnectionTested(false);
+    setConnectionTestResult(null);
+    setIsDataLake(false);
+    setPreviewData(null);
+    setPreviewError(null);
   }, []);
 
   const handleScriptSelect = useCallback((scriptName: string) => {
@@ -346,15 +636,10 @@ const CustomJobs = () => {
         return;
       }
 
-      const response = await fetch('/api/custom-jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(jobForm)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || error.details || 'Error saving job');
+      if (editingJob) {
+        await customJobsApi.updateJob(editingJob.job_name, jobForm);
+      } else {
+        await customJobsApi.createJob(jobForm);
       }
       
       await fetchAllJobs();
@@ -364,7 +649,7 @@ const CustomJobs = () => {
         setError(extractApiError(err));
       }
     }
-  }, [jobForm, fetchAllJobs, handleCloseModal]);
+  }, [jobForm, editingJob, fetchAllJobs, handleCloseModal]);
 
   useEffect(() => {
     if (isModalOpen && jobForm.source_db_engine === 'Python') {
@@ -375,8 +660,8 @@ const CustomJobs = () => {
   if (loadingTree && allJobs.length === 0) {
     return (
       <Container>
-        <Header>Custom Jobs</Header>
-        <LoadingOverlay>Loading Custom Jobs...</LoadingOverlay>
+        <Header>Pipeline Orchestration</Header>
+        <LoadingOverlay>Loading Pipeline Orchestration...</LoadingOverlay>
       </Container>
     );
   }
@@ -385,9 +670,9 @@ const CustomJobs = () => {
     <Container>
       <Header>
         <HeaderContent>
-          <span>■ Custom Jobs</span>
+          <span>■ Pipeline Orchestration</span>
           <Button onClick={() => handleOpenModal()}>
-            + Add Job
+            + Add Pipeline
           </Button>
         </HeaderContent>
       </Header>
@@ -397,7 +682,7 @@ const CustomJobs = () => {
       <SearchContainer>
         <SearchInput
           type="text"
-          placeholder="Search by job name, description, target schema/table..."
+          placeholder="Search by pipeline name, description, target schema/table..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -458,7 +743,7 @@ const CustomJobs = () => {
       ) : (
         <CustomJobsTreeView 
           jobs={allJobs}
-          onJobClick={(job) => handleOpenModal(job)}
+          onJobClick={handleJobClick}
           onJobEdit={(job) => handleOpenModal(job)}
           onJobExecute={handleExecute}
           onJobToggleActive={handleToggleActive}
@@ -468,18 +753,18 @@ const CustomJobs = () => {
       )}
 
       <ModalOverlay $isOpen={isModalOpen} onClick={handleCloseModal}>
-        <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalContent onClick={(e) => e.stopPropagation()} style={{ position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
           <ModalHeader>
-            <ModalTitle>{editingJob ? 'Edit Job' : duplicateData ? 'Duplicate Job' : 'Create New Job'}</ModalTitle>
+            <ModalTitle>{editingJob ? 'Edit Pipeline' : duplicateData ? 'Duplicate Pipeline' : 'Create New Pipeline'}</ModalTitle>
             <CloseButton onClick={handleCloseModal}>×</CloseButton>
           </ModalHeader>
 
           <FormGroup>
-            <Label>Job Name *</Label>
+            <Label>Pipeline Name *</Label>
             <Input
               value={jobForm.job_name}
               onChange={(e) => setJobForm(prev => ({ ...prev, job_name: e.target.value }))}
-              placeholder="Enter unique job name"
+              placeholder="Enter unique pipeline name"
               disabled={!!editingJob}
             />
           </FormGroup>
@@ -489,24 +774,64 @@ const CustomJobs = () => {
             <Input
               value={jobForm.description}
               onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Job description"
+              placeholder="Pipeline description"
             />
           </FormGroup>
 
           <FormGroup>
             <Label>Source DB Engine *</Label>
             <Select
-              value={jobForm.source_db_engine}
-              onChange={(e) => {
-                setJobForm(prev => ({ 
-                  ...prev, 
-                  source_db_engine: e.target.value,
-                  query_sql: e.target.value === 'Python' ? '' : prev.query_sql
-                }));
-                setSelectedScript('');
+              value={isDataLake ? 'DataLake' : jobForm.source_db_engine}
+              onChange={async (e) => {
+                const selectedEngine = e.target.value;
+                if (selectedEngine === 'DataLake') {
+                  // Si datalakeConnection no está cargado, cargarlo primero
+                  let connectionToUse = datalakeConnection;
+                  if (!connectionToUse) {
+                    try {
+                      const token = localStorage.getItem('authToken');
+                      const response = await fetch('/api/datalake-connection', {
+                        headers: {
+                          ...(token && { 'Authorization': `Bearer ${token}` }),
+                        },
+                      });
+                      if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.connection_string) {
+                          setDatalakeConnection(data.connection_string);
+                          connectionToUse = data.connection_string;
+                        }
+                      }
+                    } catch (err) {
+                      console.error('Error loading DataLake connection:', err);
+                    }
+                  }
+                  
+                  setIsDataLake(true);
+                  setJobForm(prev => ({
+                    ...prev,
+                    source_db_engine: 'PostgreSQL', // Internamente es PostgreSQL
+                    source_connection_string: connectionToUse || prev.source_connection_string,
+                    query_sql: prev.query_sql
+                  }));
+                  setConnectionTestResult(null);
+                  setConnectionTested(false);
+                } else {
+                  setIsDataLake(false);
+                  setJobForm(prev => ({
+                    ...prev,
+                    source_db_engine: selectedEngine,
+                    source_connection_string: selectedEngine === 'Python' ? prev.source_connection_string : '',
+                    query_sql: selectedEngine === 'Python' ? prev.query_sql : ''
+                  }));
+                  setSelectedScript('');
+                  setConnectionTestResult(null);
+                  setConnectionTested(false);
+                }
               }}
             >
-              <option value="PostgreSQL">PostgreSQL</option>
+              <option value="DataLake">DataLake (Default)</option>
+              <option value="PostgreSQL">PostgreSQL (External)</option>
               <option value="MariaDB">MariaDB</option>
               <option value="MSSQL">MSSQL</option>
               <option value="MongoDB">MongoDB</option>
@@ -517,12 +842,79 @@ const CustomJobs = () => {
 
           {jobForm.source_db_engine !== 'Python' && (
             <FormGroup>
-              <Label>Source Connection String</Label>
-              <Input
-                value={jobForm.source_connection_string}
-                onChange={(e) => setJobForm(prev => ({ ...prev, source_connection_string: e.target.value }))}
-                placeholder="host=localhost port=5432 dbname=..."
-              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <Label style={{ marginBottom: 0 }}>
+                  Source Connection String
+                  {isDataLake && (
+                    <span style={{ marginLeft: '8px', fontSize: '0.85em', color: theme.colors.text.secondary }}>
+                      (DataLake - Auto-filled)
+                    </span>
+                  )}
+                </Label>
+                <Button
+                  type="button"
+                  $variant="secondary"
+                  onClick={handleTestConnection}
+                  disabled={
+                    isTestingConnection || 
+                    !jobForm.source_db_engine || 
+                    (!isDataLake && !jobForm.source_connection_string.trim()) ||
+                    (isDataLake && !datalakeConnection)
+                  }
+                  style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
+                >
+                  {isTestingConnection ? 'Testing...' : 'Test Connection'}
+                </Button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <Input
+                  value={jobForm.source_connection_string}
+                  onChange={(e) => {
+                    setJobForm(prev => ({ ...prev, source_connection_string: e.target.value }));
+                    setConnectionTestResult(null);
+                    setConnectionTested(false);
+                    if (isDataLake && e.target.value !== datalakeConnection) {
+                      setIsDataLake(false);
+                    }
+                  }}
+                  placeholder={isDataLake ? "DataLake connection (auto-filled)" : "host=localhost port=5432 dbname=..."}
+                  readOnly={isDataLake}
+                  style={isDataLake ? { background: theme.colors.background.secondary, cursor: 'not-allowed', paddingRight: '80px' } : {}}
+                />
+                {isDataLake && (
+                  <Button
+                    type="button"
+                    $variant="secondary"
+                    onClick={() => {
+                      setIsDataLake(false);
+                      setJobForm(prev => ({ ...prev, source_connection_string: '' }));
+                    }}
+                    style={{
+                      position: 'absolute',
+                      right: '4px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      padding: '4px 8px',
+                      fontSize: '0.75em',
+                      minWidth: 'auto',
+                      height: 'auto'
+                    }}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </div>
+              {connectionTestResult && (
+                <ConnectionTestResult $success={connectionTestResult.success}>
+                  {connectionTestResult.success ? '✓ ' : '✗ '}
+                  {connectionTestResult.message}
+                </ConnectionTestResult>
+              )}
+              {connectionTested && (
+                <div style={{ marginTop: '8px', padding: '8px 12px', background: theme.colors.status.info.bg, color: theme.colors.status.info.text, borderRadius: theme.borderRadius.sm, fontSize: '0.9em' }}>
+                  Connection successful! You can now write your SQL query and preview the results.
+                </div>
+              )}
             </FormGroup>
           )}
 
@@ -543,16 +935,78 @@ const CustomJobs = () => {
             </FormGroup>
           )}
 
-          <FormGroup>
-            <Label>{jobForm.source_db_engine === 'Python' ? 'Python Script *' : 'SQL Query *'}</Label>
-            <TextArea
-              value={jobForm.query_sql}
-              onChange={(e) => setJobForm(prev => ({ ...prev, query_sql: e.target.value }))}
-              placeholder={jobForm.source_db_engine === 'Python' 
-                ? 'import json\n\ndata = [...]\nprint(json.dumps(data))'
-                : 'SELECT * FROM table...'}
-            />
-          </FormGroup>
+          {jobForm.source_db_engine !== 'Python' && (
+            <FormGroup>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <Label>SQL Query *</Label>
+                <Button
+                  type="button"
+                  $variant="secondary"
+                  onClick={handlePreviewQuery}
+                  disabled={isPreviewing || !jobForm.source_db_engine || !jobForm.source_connection_string.trim() || !jobForm.query_sql.trim()}
+                  style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
+                >
+                  {isPreviewing ? 'Previewing...' : 'Preview Query'}
+                </Button>
+              </div>
+              <SQLEditor
+                value={jobForm.query_sql}
+                onChange={(newValue) => {
+                  setJobForm(prev => ({ ...prev, query_sql: newValue }));
+                  setPreviewData(null);
+                  setPreviewError(null);
+                }}
+                placeholder="SELECT * FROM table_name WHERE condition..."
+                schemas={sourceSchemas}
+                tables={sourceTables}
+                columns={sourceColumns}
+              />
+              {previewError && (
+                <ErrorMessage style={{ marginTop: '8px' }}>{previewError}</ErrorMessage>
+              )}
+              {previewData && (
+                <div style={{ marginTop: '16px', border: `1px solid ${theme.colors.border.light}`, borderRadius: theme.borderRadius.md, overflow: 'auto', maxHeight: '400px' }}>
+                  <div style={{ padding: '8px 12px', background: theme.colors.background.secondary, borderBottom: `1px solid ${theme.colors.border.light}`, fontSize: '0.85em', fontWeight: 'bold' }}>
+                    Preview Results ({previewData.rowCount} rows)
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
+                    <thead>
+                      <tr style={{ background: theme.colors.background.secondary }}>
+                        {previewData.columns.map((col, idx) => (
+                          <th key={idx} style={{ padding: '8px', textAlign: 'left', borderBottom: `1px solid ${theme.colors.border.light}`, fontWeight: 'bold' }}>
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewData.rows.map((row, rowIdx) => (
+                        <tr key={rowIdx} style={{ borderBottom: `1px solid ${theme.colors.border.light}` }}>
+                          {previewData.columns.map((col, colIdx) => (
+                            <td key={colIdx} style={{ padding: '8px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {row[col] !== null && row[col] !== undefined ? String(row[col]) : 'NULL'}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </FormGroup>
+          )}
+
+          {jobForm.source_db_engine === 'Python' && (
+            <FormGroup>
+              <Label>Python Script *</Label>
+              <TextArea
+                value={jobForm.query_sql}
+                onChange={(e) => setJobForm(prev => ({ ...prev, query_sql: e.target.value }))}
+                placeholder="import json\n\ndata = [...]\nprint(json.dumps(data))"
+                style={{ minHeight: '150px', fontFamily: 'monospace', fontSize: '0.9em' }}
+              />
+            </FormGroup>
+          )}
 
           <FormGroup>
             <Label>Target DB Engine *</Label>
@@ -570,11 +1024,18 @@ const CustomJobs = () => {
 
           <FormGroup>
             <Label>Target Connection String *</Label>
-            <Input
+            <TextArea
               value={jobForm.target_connection_string}
               onChange={(e) => setJobForm(prev => ({ ...prev, target_connection_string: e.target.value }))}
-              placeholder="host=localhost port=5432 dbname=..."
+              placeholder={connectionStringExamples[jobForm.target_db_engine] || "host=localhost port=5432 dbname=..."}
+              rows={3}
+              style={{ fontFamily: 'monospace', fontSize: '0.9em' }}
             />
+            {jobForm.target_db_engine && connectionStringExamples[jobForm.target_db_engine] && (
+              <ConnectionStringExample>
+                Example: {connectionStringExamples[jobForm.target_db_engine]}
+              </ConnectionStringExample>
+            )}
           </FormGroup>
 
           <FormGroup>
@@ -626,6 +1087,30 @@ const CustomJobs = () => {
             </Label>
           </FormGroup>
 
+          <CollapsibleSection>
+            <CollapsibleHeader onClick={() => setShowLoadStrategySection(!showLoadStrategySection)}>
+              <SectionTitle>📊 Load Strategy (Data Warehouse)</SectionTitle>
+              <span>{showLoadStrategySection ? '▼' : '▶'}</span>
+            </CollapsibleHeader>
+            <CollapsibleContent $isOpen={showLoadStrategySection}>
+              <SubSection>
+                <Label>Load Strategy</Label>
+                <Select
+                  value={jobForm.metadata.load_strategy}
+                  onChange={(e) => {
+                    setJobForm(prev => ({
+                      ...prev,
+                      metadata: { ...prev.metadata, load_strategy: e.target.value as any }
+                    }));
+                  }}
+                >
+                  <option value="TRUNCATE">TRUNCATE (Full Load - Data Lake)</option>
+                </Select>
+              </SubSection>
+
+            </CollapsibleContent>
+          </CollapsibleSection>
+
           <ButtonGroup>
             <Button onClick={handleCloseModal} $variant="secondary">
               Cancel
@@ -636,6 +1121,30 @@ const CustomJobs = () => {
           </ButtonGroup>
         </ModalContent>
       </ModalOverlay>
+
+      {selectedJob && (
+        <ExecutionTimeline
+          title={`Execution Timeline: ${selectedJob.job_name}`}
+          history={executionHistory}
+          loading={loadingHistory}
+          tableStructure={tableStructure}
+          loadingStructure={loadingStructure}
+          onClose={() => setSelectedJob(null)}
+          renderMappingGraph={(tableStructure, loadingStructure) => (
+            <MappingGraph
+              sourceTitle="Source: SQL Query"
+              sourceType="Pipeline Orchestration"
+              sourceInfo={[
+                { label: "Pipeline Name", value: selectedJob.job_name },
+                { label: "Source DB Engine", value: selectedJob.source_db_engine },
+                { label: "Query", value: selectedJob.query_sql?.substring(0, 100) + (selectedJob.query_sql?.length > 100 ? '...' : '') || 'N/A' },
+              ]}
+              tableStructure={tableStructure}
+              loading={loadingStructure}
+            />
+          )}
+        />
+      )}
     </Container>
   );
 };
