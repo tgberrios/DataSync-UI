@@ -60,12 +60,14 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
           style={{
             border: `1px solid ${asciiColors.border}`,
             padding: 4,
-            overflow: "hidden",
+            overflow: "visible",
+            overflowY: "auto",
             fontSize: 12,
             fontFamily: "Consolas",
             backgroundColor: asciiColors.background,
             borderRadius: 2,
-            transition: "border-color 0.3s ease, background-color 0.3s ease"
+            transition: "border-color 0.3s ease, background-color 0.3s ease",
+            minHeight: 0
           }}
         >
           {children}
