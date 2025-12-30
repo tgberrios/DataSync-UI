@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
-import { asciiColors } from '../../ui/theme/asciiTheme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { dataWarehouseApi, type DataWarehouseEntry } from '../../services/api';
@@ -156,249 +156,534 @@ const DataWarehouse = () => {
   });
 
   return (
-    <div style={{ display: 'flex', gap: 16, height: '100%', minHeight: 'calc(100vh - 100px)' }}>
-      <div style={{ flex: '0 0 400px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <AsciiPanel>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Search warehouses..."
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  fontSize: 12,
-                  fontFamily: 'Consolas',
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground,
-                  outline: 'none'
-                }}
-              />
-              <AsciiButton label="Search" onClick={handleSearch} />
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              <select
-                value={filters.schema_type}
-                onChange={(e) => setFilter('schema_type', e.target.value)}
-                style={{
-                  flex: 1,
-                  minWidth: 120,
-                  padding: '6px 10px',
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  fontSize: 11,
-                  fontFamily: 'Consolas',
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground
-                }}
-              >
-                <option value="">All Schemas</option>
-                <option value="STAR_SCHEMA">Star Schema</option>
-                <option value="SNOWFLAKE_SCHEMA">Snowflake Schema</option>
-              </select>
-
-              <select
-                value={filters.source_db_engine}
-                onChange={(e) => setFilter('source_db_engine', e.target.value)}
-                style={{
-                  flex: 1,
-                  minWidth: 120,
-                  padding: '6px 10px',
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  fontSize: 11,
-                  fontFamily: 'Consolas',
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground
-                }}
-              >
-                <option value="">All Sources</option>
-                <option value="PostgreSQL">PostgreSQL</option>
-                <option value="MariaDB">MariaDB</option>
-                <option value="MSSQL">MSSQL</option>
-                <option value="Oracle">Oracle</option>
-                <option value="MongoDB">MongoDB</option>
-              </select>
-
-              <select
-                value={filters.target_db_engine}
-                onChange={(e) => setFilter('target_db_engine', e.target.value)}
-                style={{
-                  flex: 1,
-                  minWidth: 120,
-                  padding: '6px 10px',
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  fontSize: 11,
-                  fontFamily: 'Consolas',
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground
-                }}
-              >
-                <option value="">All Targets</option>
-                <option value="PostgreSQL">PostgreSQL</option>
-                <option value="Snowflake">Snowflake</option>
-                <option value="BigQuery">BigQuery</option>
-                <option value="Redshift">Redshift</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <AsciiButton
-                label="+ New Warehouse"
-                onClick={() => handleOpenModal()}
-              />
-            </div>
-          </div>
-
-          {error && (
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+      <h1 style={{
+        fontSize: 14,
+        fontWeight: 600,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
+      }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+        DATA WAREHOUSE
+      </h1>
+      
+      {error && (
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
             <div style={{
-              padding: '12px',
-              marginBottom: 12,
-                backgroundColor: asciiColors.danger + '20',
-                border: `1px solid ${asciiColors.danger}`,
-                borderRadius: 2,
-                color: asciiColors.danger,
+              padding: "12px",
+              color: asciiColors.danger,
               fontSize: 12,
-              fontFamily: 'Consolas'
+              fontFamily: "Consolas"
             }}>
               {error}
             </div>
-          )}
+          </AsciiPanel>
+        </div>
+      )}
 
-          {loadingTree ? (
-            <div style={{ padding: 20, textAlign: 'center', color: asciiColors.muted }}>
-              Loading warehouses...
-            </div>
-          ) : (
-            <DataWarehouseTreeView
-              warehouses={filteredWarehouses}
-              onWarehouseClick={handleWarehouseClick}
-              onWarehouseEdit={handleOpenModal}
-              onWarehouseBuild={handleBuild}
-              onWarehouseToggleActive={handleToggleActive}
-              onWarehouseDelete={handleDelete}
+      <AsciiPanel title="SEARCH">
+        <div style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0"
+        }}>
+          <input
+            type="text"
+            placeholder="Search by warehouse name, schema, or target..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            style={{
+              flex: 1,
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          />
+          <AsciiButton
+            label="Search"
+            onClick={handleSearch}
+            variant="primary"
+          />
+          {search && (
+            <AsciiButton
+              label="Clear"
+              onClick={() => {
+                setSearchInput('');
+                setSearch('');
+                setPage(1);
+              }}
+              variant="ghost"
             />
           )}
+        </div>
+      </AsciiPanel>
+
+      <div style={{ marginTop: 20 }}>
+        <AsciiPanel title="FILTERS">
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            padding: "8px 0"
+          }}>
+            <AsciiButton
+              label="Add Warehouse"
+              onClick={() => handleOpenModal()}
+              variant="primary"
+            />
+            
+            <select
+              value={filters.schema_type}
+              onChange={(e) => setFilter('schema_type', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Schemas</option>
+              <option value="STAR_SCHEMA">Star Schema</option>
+              <option value="SNOWFLAKE_SCHEMA">Snowflake Schema</option>
+            </select>
+
+            <select
+              value={filters.source_db_engine}
+              onChange={(e) => setFilter('source_db_engine', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Sources</option>
+              <option value="PostgreSQL">PostgreSQL</option>
+              <option value="MariaDB">MariaDB</option>
+              <option value="MSSQL">MSSQL</option>
+              <option value="Oracle">Oracle</option>
+              <option value="MongoDB">MongoDB</option>
+            </select>
+
+            <select
+              value={filters.target_db_engine}
+              onChange={(e) => setFilter('target_db_engine', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Targets</option>
+              <option value="PostgreSQL">PostgreSQL</option>
+              <option value="Snowflake">Snowflake</option>
+              <option value="BigQuery">BigQuery</option>
+              <option value="Redshift">Redshift</option>
+            </select>
+
+            <select
+              value={filters.active}
+              onChange={(e) => setFilter('active', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+
+            <select
+              value={filters.enabled}
+              onChange={(e) => setFilter('enabled', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All</option>
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </div>
         </AsciiPanel>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {selectedWarehouse ? (
-          <>
-            <AsciiPanel>
-              <div style={{ marginBottom: 16 }}>
-                <h2 style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontFamily: 'Consolas',
-                  color: asciiColors.foreground,
-                  marginBottom: 8
-                }}>
-                  {selectedWarehouse.warehouse_name}
-                </h2>
+      {loadingTree ? (
+        <div style={{ marginTop: 20 }}>
+          <AsciiPanel title="LOADING">
+            <div style={{
+              padding: "40px",
+              textAlign: "center",
+              fontSize: 12,
+              fontFamily: "Consolas",
+              color: asciiColors.muted
+            }}>
+              {ascii.blockFull} Loading tree view...
+            </div>
+          </AsciiPanel>
+        </div>
+      ) : (
+        <div style={{ marginTop: 20, display: 'flex', gap: 20 }}>
+          <div style={{ flex: '0 0 400px' }}>
+            <AsciiPanel title="WAREHOUSE TREE">
+              <div style={{
+                maxHeight: 800,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
+                <DataWarehouseTreeView
+                  warehouses={filteredWarehouses}
+                  onWarehouseClick={handleWarehouseClick}
+                  onWarehouseEdit={handleOpenModal}
+                  onWarehouseBuild={handleBuild}
+                  onWarehouseToggleActive={handleToggleActive}
+                  onWarehouseDelete={handleDelete}
+                />
+              </div>
+            </AsciiPanel>
+          </div>
+
+          <div style={{ flex: 1 }}>
+            {selectedWarehouse ? (
+              <AsciiPanel title={`WAREHOUSE DETAILS: ${selectedWarehouse.warehouse_name}`}>
                 {selectedWarehouse.description && (
                   <p style={{
                     margin: 0,
+                    marginBottom: 16,
                     fontSize: 12,
                     color: asciiColors.muted,
-                    fontFamily: 'Consolas'
+                    fontFamily: 'Consolas',
+                    lineHeight: 1.5
                   }}>
                     {selectedWarehouse.description}
                   </p>
                 )}
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>Schema Type</div>
-                  <div style={{ fontSize: 12, fontFamily: 'Consolas' }}>{selectedWarehouse.schema_type}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>Source Engine</div>
-                  <div style={{ fontSize: 12, fontFamily: 'Consolas' }}>{selectedWarehouse.source_db_engine}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>Target Engine</div>
-                  <div style={{ fontSize: 12, fontFamily: 'Consolas' }}>{selectedWarehouse.target_db_engine}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>Target Schema</div>
-                  <div style={{ fontSize: 12, fontFamily: 'Consolas' }}>{selectedWarehouse.target_schema}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>Status</div>
-                  <div style={{
-                    fontSize: 12,
-                    fontFamily: 'Consolas',
-                    color: selectedWarehouse.last_build_status === 'SUCCESS' ? asciiColors.success :
-                           selectedWarehouse.last_build_status === 'ERROR' ? asciiColors.danger :
-                           asciiColors.muted
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: 16, 
+                    marginBottom: 20,
+                    padding: '16px',
+                    backgroundColor: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    border: `1px solid ${asciiColors.border}`
                   }}>
-                    {selectedWarehouse.last_build_status || 'Never built'}
-                  </div>
-                  {selectedWarehouse.last_build_status === 'ERROR' && selectedWarehouse.notes && (
-                    <div style={{
-                      marginTop: 8,
-                      padding: '8px 12px',
-                      backgroundColor: asciiColors.danger + '20',
-                      border: `1px solid ${asciiColors.danger}`,
-                      borderRadius: 2,
-                      color: asciiColors.danger,
-                      fontSize: 11,
-                      fontFamily: 'Consolas',
-                      wordBreak: 'break-word',
-                    }}>
-                      <strong>Error:</strong> {selectedWarehouse.notes}
+                    <div>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 6, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Schema Type
+                      </div>
+                      <div style={{ 
+                        fontSize: 12, 
+                        fontFamily: 'Consolas',
+                        fontWeight: 500
+                      }}>
+                        {selectedWarehouse.schema_type.replace('_', ' ')}
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>Last Build</div>
-                  <div style={{ fontSize: 12, fontFamily: 'Consolas' }}>
-                    {selectedWarehouse.last_build_time ? new Date(selectedWarehouse.last_build_time).toLocaleString() : 'N/A'}
+                    <div>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 6, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Source Engine
+                      </div>
+                      <div style={{ fontSize: 12, fontFamily: 'Consolas', fontWeight: 500 }}>
+                        {selectedWarehouse.source_db_engine}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 6, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Target Engine
+                      </div>
+                      <div style={{ fontSize: 12, fontFamily: 'Consolas', fontWeight: 500 }}>
+                        {selectedWarehouse.target_db_engine}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 6, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Target Schema
+                      </div>
+                      <div style={{ fontSize: 12, fontFamily: 'Consolas', fontWeight: 500 }}>
+                        {selectedWarehouse.target_schema}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 6, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Build Status
+                      </div>
+                      <div style={{
+                        fontSize: 12,
+                        fontFamily: 'Consolas',
+                        fontWeight: 500,
+                        color: selectedWarehouse.last_build_status === 'SUCCESS' ? asciiColors.success :
+                               selectedWarehouse.last_build_status === 'ERROR' ? asciiColors.danger :
+                               asciiColors.muted,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}>
+                        {selectedWarehouse.last_build_status === 'SUCCESS' && <span>✓</span>}
+                        {selectedWarehouse.last_build_status === 'ERROR' && <span>✗</span>}
+                        <span>{selectedWarehouse.last_build_status || 'Never built'}</span>
+                      </div>
+                      {selectedWarehouse.last_build_status === 'ERROR' && selectedWarehouse.notes && (
+                        <div style={{
+                          marginTop: 8,
+                          padding: '10px 12px',
+                          backgroundColor: asciiColors.danger + '20',
+                          border: `1px solid ${asciiColors.danger}`,
+                          borderRadius: 2,
+                          color: asciiColors.danger,
+                          fontSize: 11,
+                          fontFamily: 'Consolas',
+                          wordBreak: 'break-word',
+                          lineHeight: 1.4
+                        }}>
+                          <strong>Error:</strong> {selectedWarehouse.notes}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 6, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Last Build
+                      </div>
+                      <div style={{ fontSize: 12, fontFamily: 'Consolas', fontWeight: 500 }}>
+                        {selectedWarehouse.last_build_time 
+                          ? new Date(selectedWarehouse.last_build_time).toLocaleString() 
+                          : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: 12, 
+                    marginBottom: 20,
+                    padding: '12px 16px',
+                    backgroundColor: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    border: `1px solid ${asciiColors.border}`
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 4, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Dimensions
+                      </div>
+                      <div style={{ 
+                        fontSize: 18, 
+                        fontFamily: 'Consolas', 
+                        fontWeight: 600,
+                        color: asciiColors.accent
+                      }}>
+                        {selectedWarehouse.dimensions.length}
+                      </div>
+                    </div>
+                    <div style={{ 
+                      width: 1, 
+                      backgroundColor: asciiColors.border 
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontSize: 11, 
+                        color: asciiColors.muted, 
+                        marginBottom: 4, 
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Facts
+                      </div>
+                      <div style={{ 
+                        fontSize: 18, 
+                        fontFamily: 'Consolas', 
+                        fontWeight: 600,
+                        color: asciiColors.accent
+                      }}>
+                        {selectedWarehouse.facts.length}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <AsciiButton
+                      label="▶ Build Now"
+                      onClick={() => handleBuild(selectedWarehouse.warehouse_name)}
+                    />
+                    <AsciiButton
+                      label="✎ Edit"
+                      onClick={() => handleOpenModal(selectedWarehouse)}
+                      variant="ghost"
+                    />
+                  </div>
+              </AsciiPanel>
+            ) : (
+              <AsciiPanel title="WAREHOUSE DETAILS">
+                <div style={{ 
+                  padding: 60, 
+                  textAlign: 'center', 
+                  color: asciiColors.muted,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 300
+                }}>
+                  <div style={{ 
+                    fontSize: 48, 
+                    marginBottom: 16,
+                    opacity: 0.5
+                  }}>
+                    {ascii.blockFull}
+                  </div>
+                  <div style={{ 
+                    fontSize: 13, 
+                    fontFamily: 'Consolas', 
+                    marginBottom: 8,
+                    color: asciiColors.foreground,
+                    fontWeight: 600
+                  }}>
+                    No warehouse selected
+                  </div>
+                  <div style={{ 
+                    fontSize: 12, 
+                    color: asciiColors.muted, 
+                    fontFamily: 'Consolas',
+                    opacity: 0.7
+                  }}>
+                    Click on a warehouse from the list to see its configuration and build history
                   </div>
                 </div>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: asciiColors.muted, marginBottom: 8 }}>Dimensions: {selectedWarehouse.dimensions.length}</div>
-                <div style={{ fontSize: 12, color: asciiColors.muted, marginBottom: 8 }}>Facts: {selectedWarehouse.facts.length}</div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <AsciiButton
-                  label="▶ Build Now"
-                  onClick={() => handleBuild(selectedWarehouse.warehouse_name)}
-                />
-                <AsciiButton
-                  label="✎ Edit"
-                  onClick={() => handleOpenModal(selectedWarehouse)}
-                />
-              </div>
-            </AsciiPanel>
-
-          </>
-        ) : (
-          <AsciiPanel>
-            <div style={{ padding: 40, textAlign: 'center', color: asciiColors.muted }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
-              <div style={{ fontSize: 14, fontFamily: 'Consolas', marginBottom: 8 }}>
-                Select a warehouse to view details
-              </div>
-              <div style={{ fontSize: 12, color: asciiColors.muted }}>
-                Click on a warehouse from the list to see its configuration and build history
-              </div>
-            </div>
-          </AsciiPanel>
-        )}
-      </div>
+              </AsciiPanel>
+            )}
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <AddDataWarehouseModal

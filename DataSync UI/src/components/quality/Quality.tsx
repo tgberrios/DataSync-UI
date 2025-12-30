@@ -103,19 +103,34 @@ const Quality = () => {
   }, []);
 
   return (
-    <Container>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
       {loading && <LoadingOverlay>Loading quality metrics...</LoadingOverlay>}
 
-      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>
-        Data Quality Monitor
+      <h1 style={{
+        fontSize: 14,
+        fontWeight: 600,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
+      }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+        DATA QUALITY MONITOR
       </h1>
 
       {error && (
+        <div style={{ marginBottom: 20 }}>
         <AsciiPanel title="ERROR">
-          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
-            {ascii.blockFull} {error}
+          <div style={{
+            padding: "12px",
+            color: asciiColors.danger,
+            fontSize: 12,
+            fontFamily: "Consolas"
+          }}>
+            {error}
           </div>
         </AsciiPanel>
+        </div>
       )}
 
       <AsciiPanel title="FILTERS">
@@ -275,7 +290,7 @@ const Quality = () => {
           </AsciiPanel>
         )}
       </div>
-    </Container>
+    </div>
   );
 };
 

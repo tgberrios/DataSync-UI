@@ -337,7 +337,7 @@ const UserManagement = () => {
     <div style={{
       width: "100%",
       minHeight: "100vh",
-      padding: "24px 32px",
+      padding: "20px",
       fontFamily: "Consolas",
       fontSize: 12,
       color: asciiColors.foreground,
@@ -346,148 +346,184 @@ const UserManagement = () => {
       flexDirection: "column",
       gap: 20
     }}>
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        width: "100%",
-        marginBottom: 16,
-        padding: "12px 8px",
-        borderBottom: `2px solid ${asciiColors.border}`
+      <h1 style={{
+        fontSize: 14,
+        fontWeight: 600,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
       }}>
-        <h1 style={{
-          fontSize: 18,
-          fontFamily: "Consolas",
-          fontWeight: 600,
-          margin: 0
-        }}>
-          USER MANAGEMENT
-        </h1>
-        <AsciiButton 
-          label={`${ascii.blockFull} Add User`}
-          onClick={() => handleOpenModal()}
-          variant="primary"
-        />
-      </div>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+        USER MANAGEMENT
+      </h1>
 
-      {loading && (
-        <div style={{
-          padding: theme.spacing.lg,
-          textAlign: "center",
-          fontFamily: "Consolas",
-          fontSize: 12,
-          color: asciiColors.muted
-        }}>
-          {ascii.blockFull} Loading users...
+      {error && (
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
         </div>
       )}
-      {error && (
-        <AsciiPanel title="ERROR">
-          <div style={{ 
-            color: asciiColors.danger, 
-            fontFamily: "Consolas", 
-            fontSize: 12,
-            padding: "8px 0"
-          }}>
-            {ascii.blockFull} {error}
-          </div>
-        </AsciiPanel>
-      )}
 
-      <AsciiPanel title="FILTERS">
+      <AsciiPanel title="SEARCH">
         <div style={{
           display: "flex",
-          gap: theme.spacing.md,
-          flexWrap: "wrap",
-          alignItems: "end",
-          fontFamily: "Consolas",
-          fontSize: 12
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0"
         }}>
-          <div style={{ display: "flex", gap: theme.spacing.sm, alignItems: "center" }}>
-            <input
-              type="text"
-              placeholder="Search by username or email..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              style={{
-                padding: "8px 12px",
-                border: `1px solid ${asciiColors.border}`,
-                borderRadius: 2,
-                backgroundColor: asciiColors.background,
-                color: asciiColors.foreground,
-                fontFamily: "Consolas",
-                fontSize: 12,
-                minWidth: "200px"
-              }}
-            />
-            <AsciiButton label="Search" onClick={handleSearch} variant="primary" />
-            {search && (
-              <AsciiButton label="Clear" onClick={handleClearSearch} variant="ghost" />
-            )}
-          </div>
-
-          <select
-            value={filters.role}
-            onChange={(e) => handleFilterChange('role', e.target.value)}
+          <input
+            type="text"
+            placeholder="Search by username or email..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             style={{
-              padding: "8px 12px",
+              flex: 1,
+              padding: "6px 10px",
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
               backgroundColor: asciiColors.background,
               color: asciiColors.foreground,
-              fontFamily: "Consolas",
-              fontSize: 12
+              outline: "none",
+              transition: "border-color 0.2s, box-shadow 0.2s"
             }}
-          >
-            <option value="">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="user">User</option>
-            <option value="viewer">Viewer</option>
-          </select>
-
-          <select
-            value={filters.active}
-            onChange={(e) => handleFilterChange('active', e.target.value)}
-            style={{
-              padding: "8px 12px",
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              backgroundColor: asciiColors.background,
-              color: asciiColors.foreground,
-              fontFamily: "Consolas",
-              fontSize: 12
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+              e.currentTarget.style.boxShadow = `0 0 0 2px ${asciiColors.accent}20`;
             }}
-          >
-            <option value="">All Status</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          />
+          <AsciiButton label="Search" onClick={handleSearch} variant="primary" />
+          {search && (
+            <AsciiButton label="Clear" onClick={handleClearSearch} variant="ghost" />
+          )}
         </div>
       </AsciiPanel>
 
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        marginBottom: theme.spacing.md,
-        fontFamily: "Consolas",
-        fontSize: 12
-      }}>
-        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-          <AsciiButton
-            label="Tree View"
-            onClick={() => setViewMode('tree')}
-            variant={viewMode === 'tree' ? 'primary' : 'ghost'}
-          />
-          <AsciiButton
-            label="Table View"
-            onClick={() => setViewMode('table')}
-            variant={viewMode === 'table' ? 'primary' : 'ghost'}
-          />
-        </div>
+      <div style={{ marginTop: 20 }}>
+        <AsciiPanel title="FILTERS">
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            padding: "8px 0"
+          }}>
+            <AsciiButton 
+              label="Add User"
+              onClick={() => handleOpenModal()}
+              variant="primary"
+            />
+            <select
+              value={filters.role}
+              onChange={(e) => handleFilterChange('role', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none",
+                transition: "border-color 0.2s"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
+              <option value="viewer">Viewer</option>
+            </select>
+
+            <select
+              value={filters.active}
+              onChange={(e) => handleFilterChange('active', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none",
+                transition: "border-color 0.2s"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+        </AsciiPanel>
       </div>
 
-      {viewMode === 'tree' ? (
+      {loading ? (
+        <div style={{ marginTop: 20 }}>
+          <AsciiPanel title="LOADING">
+            <div style={{
+              padding: "40px",
+              textAlign: "center",
+              fontSize: 12,
+              fontFamily: "Consolas",
+              color: asciiColors.muted
+            }}>
+              {ascii.blockFull} Loading users...
+            </div>
+          </AsciiPanel>
+        </div>
+      ) : (
+        <>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            marginTop: 20,
+            marginBottom: 12,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <AsciiButton
+                label="Tree View"
+                onClick={() => setViewMode('tree')}
+                variant={viewMode === 'tree' ? 'primary' : 'ghost'}
+              />
+              <AsciiButton
+                label="Table View"
+                onClick={() => setViewMode('table')}
+                variant={viewMode === 'table' ? 'primary' : 'ghost'}
+              />
+            </div>
+          </div>
+
+          {viewMode === 'tree' ? (
         <div style={{ display: 'grid', gridTemplateColumns: selectedUser ? '1fr 400px' : '1fr', gap: theme.spacing.lg }}>
           <UserManagementTreeView 
             users={data} 
@@ -676,8 +712,8 @@ const UserManagement = () => {
               </Table>
             </TableContainer>
 
-            <div style={{
-              padding: theme.spacing.md,
+          <div style={{
+            padding: theme.spacing.md,
               fontFamily: "Consolas",
               fontSize: 11,
               color: asciiColors.muted,
@@ -688,7 +724,7 @@ const UserManagement = () => {
             </div>
           </AsciiPanel>
 
-      {pagination.totalPages > 1 && (
+          {pagination.totalPages > 1 && (
         <Pagination>
           <AsciiButton
             label="Previous"
@@ -833,9 +869,11 @@ const UserManagement = () => {
                 onClick={handleResetPassword}
                 variant="primary"
               />
-            </ButtonGroup>
-          </ModalContent>
-        </ModalOverlay>
+          </ButtonGroup>
+        </ModalContent>
+      </ModalOverlay>
+      )}
+        </>
       )}
     </div>
   );

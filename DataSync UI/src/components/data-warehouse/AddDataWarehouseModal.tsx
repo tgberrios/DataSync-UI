@@ -445,8 +445,8 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
       >
         <div
           style={{
-            padding: '16px 20px',
-            borderBottom: `1px solid ${asciiColors.border}`,
+            padding: '18px 24px',
+            borderBottom: `2px solid ${asciiColors.border}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -455,94 +455,176 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
         >
           <h2 style={{
             margin: 0,
-            fontSize: 16,
+            fontSize: 14,
             fontFamily: 'Consolas',
             color: asciiColors.foreground,
             fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
           }}>
-            {initialData ? 'Edit Data Warehouse' : 'Create Data Warehouse'}
+            <span>{initialData ? '✎' : '+'}</span>
+            <span>{initialData ? 'Edit Data Warehouse' : 'Create Data Warehouse'}</span>
           </h2>
           <AsciiButton label="×" onClick={onClose} variant="ghost" />
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           <div style={{
-            width: 200,
+            width: 220,
             borderRight: `1px solid ${asciiColors.border}`,
             backgroundColor: asciiColors.backgroundSoft,
-            padding: '12px 0',
+            padding: '16px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4
           }}>
             <div
               style={{
-                padding: '10px 16px',
+                padding: '12px 20px',
                 cursor: 'pointer',
                 backgroundColor: activeTab === 'basic' ? asciiColors.background : 'transparent',
-                borderLeft: activeTab === 'basic' ? `3px solid ${asciiColors.accent}` : '3px solid transparent',
+                borderLeft: activeTab === 'basic' ? `4px solid ${asciiColors.accent}` : '4px solid transparent',
                 fontSize: 12,
                 fontFamily: 'Consolas',
                 color: activeTab === 'basic' ? asciiColors.accent : asciiColors.foreground,
+                fontWeight: activeTab === 'basic' ? 600 : 400,
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
               }}
               onClick={() => setActiveTab('basic')}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'basic') {
+                  e.currentTarget.style.backgroundColor = asciiColors.background;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'basic') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
             >
-              Basic Info
+              <span>⚙</span>
+              <span>Basic Info</span>
             </div>
             <div
               style={{
-                padding: '10px 16px',
+                padding: '12px 20px',
                 cursor: 'pointer',
                 backgroundColor: activeTab === 'dimensions' ? asciiColors.background : 'transparent',
-                borderLeft: activeTab === 'dimensions' ? `3px solid ${asciiColors.accent}` : '3px solid transparent',
+                borderLeft: activeTab === 'dimensions' ? `4px solid ${asciiColors.accent}` : '4px solid transparent',
                 fontSize: 12,
                 fontFamily: 'Consolas',
                 color: activeTab === 'dimensions' ? asciiColors.accent : asciiColors.foreground,
+                fontWeight: activeTab === 'dimensions' ? 600 : 400,
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
               }}
               onClick={() => setActiveTab('dimensions')}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'dimensions') {
+                  e.currentTarget.style.backgroundColor = asciiColors.background;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'dimensions') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
             >
-              Dimensions ({dimensions.length})
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>📐</span>
+                <span>Dimensions</span>
+              </div>
+              <span style={{
+                fontSize: 11,
+                padding: '2px 8px',
+                backgroundColor: activeTab === 'dimensions' ? asciiColors.accent + '20' : asciiColors.background,
+                borderRadius: 10,
+                fontWeight: 500
+              }}>
+                {dimensions.length}
+              </span>
             </div>
             <div
               style={{
-                padding: '10px 16px',
+                padding: '12px 20px',
                 cursor: 'pointer',
                 backgroundColor: activeTab === 'facts' ? asciiColors.background : 'transparent',
-                borderLeft: activeTab === 'facts' ? `3px solid ${asciiColors.accent}` : '3px solid transparent',
+                borderLeft: activeTab === 'facts' ? `4px solid ${asciiColors.accent}` : '4px solid transparent',
                 fontSize: 12,
                 fontFamily: 'Consolas',
                 color: activeTab === 'facts' ? asciiColors.accent : asciiColors.foreground,
+                fontWeight: activeTab === 'facts' ? 600 : 400,
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
               }}
               onClick={() => setActiveTab('facts')}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'facts') {
+                  e.currentTarget.style.backgroundColor = asciiColors.background;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'facts') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
             >
-              Facts ({facts.length})
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>📈</span>
+                <span>Facts</span>
+              </div>
+              <span style={{
+                fontSize: 11,
+                padding: '2px 8px',
+                backgroundColor: activeTab === 'facts' ? asciiColors.accent + '20' : asciiColors.background,
+                borderRadius: 10,
+                fontWeight: 500
+              }}>
+                {facts.length}
+              </span>
             </div>
           </div>
 
-          <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+          <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
             {error && (
               <div style={{
-                padding: '12px',
-                marginBottom: 16,
+                padding: '14px 16px',
+                marginBottom: 20,
                 backgroundColor: asciiColors.danger + '20',
                 border: `1px solid ${asciiColors.danger}`,
                 borderRadius: 2,
                 color: asciiColors.danger,
                 fontSize: 12,
                 fontFamily: 'Consolas',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10
               }}>
-                {error}
+                <span style={{ fontSize: 16 }}>⚠</span>
+                <span>{error}</span>
               </div>
             )}
 
             {activeTab === 'basic' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 600,
                     color: asciiColors.foreground,
-                    marginBottom: 6,
+                    marginBottom: 8,
                     fontFamily: 'Consolas',
                     textTransform: 'uppercase',
+                    letterSpacing: 0.5
                   }}>
                     Warehouse Name *
                   </label>
@@ -553,7 +635,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                     placeholder="my_warehouse"
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '10px 14px',
                       border: `1px solid ${asciiColors.border}`,
                       borderRadius: 2,
                       fontSize: 12,
@@ -561,6 +643,15 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       outline: 'none',
+                      transition: 'border-color 0.2s, box-shadow 0.2s'
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${asciiColors.accent}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   />
                 </div>
@@ -568,7 +659,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 600,
                     color: asciiColors.foreground,
                     marginBottom: 6,
@@ -601,7 +692,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <label style={{
                       display: 'block',
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: 600,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
@@ -625,14 +716,14 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       fontSize: 11,
                       fontFamily: 'Consolas',
                     }}>
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: 13, color: asciiColors.accent, fontFamily: 'Consolas' }}>
+                      <h3 style={{ margin: '0 0 12px 0', fontSize: 13, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                         📚 Data Warehouse Schema Guide
-                      </h4>
+                      </h3>
                       
                       <div style={{ marginBottom: 16 }}>
-                        <h5 style={{ margin: '0 0 8px 0', fontSize: 12, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: 13, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
                           What are Dimensions?
-                        </h5>
+                        </h3>
                         <p style={{ margin: '0 0 8px 0', color: asciiColors.muted, lineHeight: 1.6 }}>
                           Dimensions are descriptive attributes that provide context for analysis. They are things you <strong>cannot measure</strong> directly, but use to group, filter, and categorize your data.
                         </p>
@@ -642,9 +733,9 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       </div>
 
                       <div style={{ marginBottom: 16 }}>
-                        <h5 style={{ margin: '0 0 8px 0', fontSize: 12, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: 13, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
                           What are Facts?
-                        </h5>
+                        </h3>
                         <p style={{ margin: '0 0 8px 0', color: asciiColors.muted, lineHeight: 1.6 }}>
                           Facts are numeric measures and business metrics. They are things you <strong>can measure</strong> - values that can be summed, averaged, counted, etc.
                         </p>
@@ -654,14 +745,14 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       </div>
 
                       <div style={{ marginBottom: 16 }}>
-                        <h5 style={{ margin: '0 0 8px 0', fontSize: 12, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: 13, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
                           Star Schema ⭐
-                        </h5>
+                        </h3>
                         <div style={{ 
                           padding: 12, 
                           backgroundColor: asciiColors.background, 
                           borderRadius: 2, 
-                          fontFamily: 'monospace',
+                          fontFamily: 'Consolas',
                           fontSize: 10,
                           lineHeight: 1.8,
                           marginTop: 8
@@ -680,14 +771,14 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       </div>
 
                       <div>
-                        <h5 style={{ margin: '0 0 8px 0', fontSize: 12, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: 13, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
                           Snowflake Schema ❄️
-                        </h5>
+                        </h3>
                         <div style={{ 
                           padding: 12, 
                           backgroundColor: asciiColors.background, 
                           borderRadius: 2, 
-                          fontFamily: 'monospace',
+                          fontFamily: 'Consolas',
                           fontSize: 10,
                           lineHeight: 1.8,
                           marginTop: 8
@@ -746,7 +837,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 600,
                     color: asciiColors.foreground,
                     marginBottom: 6,
@@ -783,7 +874,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <label style={{
                       display: 'block',
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: 600,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
@@ -838,7 +929,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 600,
                     color: asciiColors.foreground,
                     marginBottom: 6,
@@ -874,7 +965,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <label style={{
                       display: 'block',
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: 600,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
@@ -929,7 +1020,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 600,
                     color: asciiColors.foreground,
                     marginBottom: 6,
@@ -965,7 +1056,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 <div>
                   <label style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 600,
                     color: asciiColors.foreground,
                     marginBottom: 6,
@@ -1023,7 +1114,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
             {activeTab === 'dimensions' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, fontSize: 14, fontFamily: 'Consolas', color: asciiColors.foreground }}>
+                  <h3 style={{ margin: 0, fontSize: 13, fontFamily: 'Consolas', color: asciiColors.foreground }}>
                     Dimensions
                   </h3>
                   <AsciiButton label="+ Add Dimension" onClick={handleAddDimension} />
@@ -1047,9 +1138,9 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <h4 style={{ margin: 0, fontSize: 13, fontFamily: 'Consolas', color: asciiColors.accent }}>
+                        <h3 style={{ margin: 0, fontSize: 13, fontFamily: 'Consolas', color: asciiColors.accent }}>
                           Dimension {index + 1}
-                        </h4>
+                        </h3>
                         <AsciiButton
                           label="✗ Remove"
                           onClick={() => handleRemoveDimension(index)}
@@ -1248,7 +1339,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                               border: `1px solid ${queryTestResults[`dimension-${index}`].success ? asciiColors.success : asciiColors.danger}`,
                               borderRadius: 2,
                               color: queryTestResults[`dimension-${index}`].success ? asciiColors.success : asciiColors.danger,
-                              fontSize: 10,
+                              fontSize: 11,
                               fontFamily: 'Consolas',
                             }}>
                               {queryTestResults[`dimension-${index}`].success ? '✓ ' : '✗ '}
@@ -1340,7 +1431,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
             {activeTab === 'facts' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, fontSize: 14, fontFamily: 'Consolas', color: asciiColors.foreground }}>
+                  <h3 style={{ margin: 0, fontSize: 13, fontFamily: 'Consolas', color: asciiColors.foreground }}>
                     Fact Tables
                   </h3>
                   <AsciiButton label="+ Add Fact Table" onClick={handleAddFact} />
@@ -1364,9 +1455,9 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <h4 style={{ margin: 0, fontSize: 13, fontFamily: 'Consolas', color: asciiColors.accent }}>
+                        <h3 style={{ margin: 0, fontSize: 13, fontFamily: 'Consolas', color: asciiColors.accent }}>
                           Fact Table {index + 1}
-                        </h4>
+                        </h3>
                         <AsciiButton
                           label="✗ Remove"
                           onClick={() => handleRemoveFact(index)}
@@ -1446,7 +1537,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                               border: `1px solid ${queryTestResults[`fact-${index}`].success ? asciiColors.success : asciiColors.danger}`,
                               borderRadius: 2,
                               color: queryTestResults[`fact-${index}`].success ? asciiColors.success : asciiColors.danger,
-                              fontSize: 10,
+                              fontSize: 11,
                               fontFamily: 'Consolas',
                             }}>
                               {queryTestResults[`fact-${index}`].success ? '✓ ' : '✗ '}
@@ -1585,8 +1676,8 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
 
         <div
           style={{
-            padding: '16px 20px',
-            borderTop: `1px solid ${asciiColors.border}`,
+            padding: '18px 24px',
+            borderTop: `2px solid ${asciiColors.border}`,
             display: 'flex',
             justifyContent: 'flex-end',
             gap: 12,

@@ -298,23 +298,50 @@ const DataLineageOracle = () => {
 
   if ((loading && lineage.length === 0 && viewMode === "table") || (loadingTree && allEdges.length === 0 && viewMode === "tree")) {
     return (
-      <Container>
-        <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Data Lineage - Oracle</h1>
+      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: "0 0 20px 0",
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          DATA LINEAGE - ORACLE
+        </h1>
         <LoadingOverlay>Loading data lineage...</LoadingOverlay>
-      </Container>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Data Lineage - Oracle</h1>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+      <h1 style={{
+        fontSize: 14,
+        fontWeight: 600,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
+      }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+        DATA LINEAGE - ORACLE
+      </h1>
       
       {error && (
-        <AsciiPanel title="ERROR">
-          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
-            {ascii.blockFull} {error}
-          </div>
-        </AsciiPanel>
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
       
       <div style={{ 
@@ -881,7 +908,7 @@ const DataLineageOracle = () => {
           </PageButton>
         </Pagination>
       )}
-    </Container>
+    </div>
   );
 };
 

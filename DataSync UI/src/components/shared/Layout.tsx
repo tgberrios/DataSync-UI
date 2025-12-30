@@ -26,7 +26,7 @@ const MainContent = styled.div`
   flex: 1;
   background-color: white;
   overflow-y: auto;
-  animation: fadeIn 0.2s ease-in;
+  animation: fadeIn 0.15s ease-out;
 `;
 
 const NavItem = styled(NavLink)`
@@ -38,7 +38,7 @@ const NavItem = styled(NavLink)`
   font-size: 12px;
   font-family: "Consolas, 'Source Code Pro', monospace";
   border-left: 2px solid transparent;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s ease-out, color 0.12s ease-out, transform 0.12s ease-out, border-left-color 0.12s ease-out;
   position: relative;
   
   &:hover {
@@ -65,7 +65,7 @@ const NavSubItem = styled(NavLink)`
   font-size: 11px;
   font-family: "Consolas, 'Source Code Pro', monospace";
   border-left: 2px solid transparent;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s ease-out, color 0.12s ease-out, transform 0.12s ease-out, border-left-color 0.12s ease-out;
   position: relative;
   
   &:hover {
@@ -98,7 +98,7 @@ const NavGroupHeader = styled.h2<{ $isOpen: boolean }>`
   margin: 0;
   cursor: pointer;
   user-select: none;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s ease-out, border-left-color 0.12s ease-out;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-left: 2px solid transparent;
@@ -112,9 +112,10 @@ const NavGroupHeader = styled.h2<{ $isOpen: boolean }>`
     content: '${props => props.$isOpen ? ascii.arrowDown : ascii.arrowRight}';
     margin-right: 8px;
     font-size: 12px;
-    transition: transform 0.3s ease;
+    transition: transform 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     transform: ${props => props.$isOpen ? 'rotate(90deg)' : 'rotate(0deg)'};
     display: inline-block;
+    will-change: transform;
   }
 `;
 
@@ -122,8 +123,9 @@ const NavGroupContent = styled.div<{ $isOpen: boolean }>`
   display: block;
   max-height: ${props => props.$isOpen ? '2000px' : '0'};
   overflow: hidden;
-  transition: max-height 0.3s ease;
-  visibility: ${props => props.$isOpen ? 'visible' : 'hidden'};
+  transition: max-height 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.12s ease-out;
+  opacity: ${props => props.$isOpen ? '1' : '0'};
+  will-change: max-height, opacity;
 `;
 
 const Logo = styled.h1`
@@ -135,7 +137,7 @@ const Logo = styled.h1`
   margin: 0;
   border-bottom: 1px solid ${asciiColors.border};
   margin-bottom: 16px;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s ease-out, transform 0.12s ease-out;
   
   &:hover {
     background: ${asciiColors.backgroundSoft};
@@ -179,7 +181,7 @@ const LogoutButton = styled.button`
   border-radius: 2px;
   font-size: 11px;
   font-family: "Consolas, 'Source Code Pro', monospace";
-  transition: all 0.2s ease;
+  transition: background-color 0.12s ease-out, border-color 0.12s ease-out, color 0.12s ease-out, transform 0.12s ease-out;
   
   &:hover {
     background: ${asciiColors.danger};

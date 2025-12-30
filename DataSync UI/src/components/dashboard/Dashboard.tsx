@@ -531,27 +531,16 @@ const Dashboard = () => {
   }
 
   return (
-    <div style={{
-      width: "100%",
-      minHeight: "100vh",
-      padding: "24px 32px",
-      fontFamily: "Consolas, 'Source Code Pro', monospace",
-      fontSize: 12,
-      color: asciiColors.foreground,
-      backgroundColor: asciiColors.background,
-      display: "flex",
-      flexDirection: "column",
-      gap: 20
-    }}>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
       <h1 style={{
-        fontSize: 18,
+        fontSize: 14,
         fontWeight: 600,
-        margin: 0,
-        marginBottom: 16,
-        padding: "12px 8px",
-        borderBottom: `2px solid ${asciiColors.border}`,
-        fontFamily: "Consolas, 'Source Code Pro', monospace"
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
       }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
         DATASYNC REAL-TIME DASHBOARD
       </h1>
 

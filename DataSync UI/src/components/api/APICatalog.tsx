@@ -173,27 +173,16 @@ const APICatalog = () => {
 
   if (loadingTree && allEntries.length === 0) {
     return (
-      <div style={{
-        width: "100%",
-        minHeight: "100vh",
-        padding: "24px 32px",
-        fontFamily: "Consolas",
-        fontSize: 12,
-        color: asciiColors.foreground,
-        backgroundColor: asciiColors.background,
-        display: "flex",
-        flexDirection: "column",
-        gap: 20
-      }}>
+      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
         <h1 style={{
-          fontSize: 18,
+          fontSize: 14,
           fontWeight: 600,
-          margin: 0,
-          marginBottom: 16,
-          padding: "12px 8px",
-          borderBottom: `2px solid ${asciiColors.border}`,
+          margin: "0 0 20px 0",
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
           fontFamily: "Consolas"
         }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
           API CATALOG
         </h1>
         <AsciiPanel title="LOADING">
@@ -212,41 +201,32 @@ const APICatalog = () => {
   }
 
   return (
-    <div style={{
-      width: "100%",
-      minHeight: "100vh",
-      padding: "24px 32px",
-      fontFamily: "Consolas",
-      fontSize: 12,
-      color: asciiColors.foreground,
-      backgroundColor: asciiColors.background,
-      display: "flex",
-      flexDirection: "column",
-      gap: 20
-    }}>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
       <h1 style={{
-        fontSize: 18,
+        fontSize: 14,
         fontWeight: 600,
-        margin: 0,
-        marginBottom: 16,
-        padding: "12px 8px",
-        borderBottom: `2px solid ${asciiColors.border}`,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
         fontFamily: "Consolas"
       }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
         API CATALOG
       </h1>
-
+      
       {error && (
-        <AsciiPanel title="ERROR">
-          <div style={{ 
-            color: asciiColors.danger, 
-            fontSize: 12,
-            fontFamily: "Consolas",
-            padding: "8px 0"
-          }}>
-            {ascii.blockFull} {error}
-          </div>
-        </AsciiPanel>
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
 
       <AsciiPanel title="SEARCH">
@@ -421,23 +401,27 @@ const APICatalog = () => {
       </AsciiPanel>
 
       {loadingTree ? (
-        <AsciiPanel title="LOADING">
-          <div style={{
-            padding: "40px",
-            textAlign: "center",
-            fontSize: 12,
-            fontFamily: "Consolas",
-            color: asciiColors.muted
-          }}>
-            {ascii.blockFull} Loading tree view...
-          </div>
-        </AsciiPanel>
+        <div style={{ marginTop: 20 }}>
+          <AsciiPanel title="LOADING">
+            <div style={{
+              padding: "40px",
+              textAlign: "center",
+              fontSize: 12,
+              fontFamily: "Consolas",
+              color: asciiColors.muted
+            }}>
+              {ascii.blockFull} Loading tree view...
+            </div>
+          </AsciiPanel>
+        </div>
       ) : (
-        <APICatalogTreeView 
-          entries={allEntries}
-          onEntryClick={handleAPIClick}
-          onDuplicate={handleDuplicate}
-        />
+        <div style={{ marginTop: 20 }}>
+          <APICatalogTreeView 
+            entries={allEntries}
+            onEntryClick={handleAPIClick}
+            onDuplicate={handleDuplicate}
+          />
+        </div>
       )}
 
       {selectedAPI && (

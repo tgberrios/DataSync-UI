@@ -352,8 +352,9 @@ const CountBadge = styled.span`
 
 const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
   overflow: hidden;
-  animation: ${props => props.$isExpanded ? slideDown : slideUp} 0.3s ease-out;
+  animation: ${props => props.$isExpanded ? slideDown : slideUp} 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   padding-left: ${props => props.$level * 24 + 36}px;
+  will-change: max-height, opacity;
 `;
 
 const QueryItem = styled.div<{ $selected: boolean }>`
@@ -898,7 +899,14 @@ const UnifiedMonitor: React.FC = () => {
   
   useEffect(() => {
     setActiveTab(getInitialTab());
+    setSelectedItem(null);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (activeTab !== 'monitor') {
+      setSelectedItem(null);
+    }
+  }, [activeTab]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -906,6 +914,18 @@ const UnifiedMonitor: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   
   const [activeQueries, setActiveQueries] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (selectedItem && activeQueries.length > 0) {
+      const itemExists = activeQueries.some(q => 
+        q.id === selectedItem.id || 
+        (q.pid === selectedItem.pid && q.query === selectedItem.query)
+      );
+      if (!itemExists) {
+        setSelectedItem(null);
+      }
+    }
+  }, [activeQueries, selectedItem]);
   const [processingLogs, setProcessingLogs] = useState<any[]>([]);
   const [processingStats, setProcessingStats] = useState<any>({});
   const [queryPerformance, setQueryPerformance] = useState<any[]>([]);
@@ -1306,7 +1326,29 @@ const UnifiedMonitor: React.FC = () => {
       return (
         <div key={dbKey} style={{ marginBottom: 4 }}>
           <div
+            data-first-level="true"
             onClick={() => toggleNode(dbKey)}
+            onMouseEnter={(e) => {
+              const container = e.currentTarget.closest('.tree-view-container');
+              if (container) {
+                container.classList.add('showing-scrollbar');
+              }
+              e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+              e.currentTarget.style.transform = "translateX(2px)";
+            }}
+            onMouseLeave={(e) => {
+              const container = e.currentTarget.closest('.tree-view-container');
+              if (container) {
+                const relatedTarget = e.relatedTarget as HTMLElement;
+                if (!relatedTarget || !container.contains(relatedTarget)) {
+                  container.classList.remove('showing-scrollbar');
+                }
+              }
+              if (!isDbExpanded) {
+                e.currentTarget.style.backgroundColor = asciiColors.background;
+              }
+              e.currentTarget.style.transform = "translateX(0)";
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -1316,16 +1358,6 @@ const UnifiedMonitor: React.FC = () => {
               backgroundColor: isDbExpanded ? asciiColors.backgroundSoft : asciiColors.background,
               transition: "all 0.2s ease",
               marginBottom: 2
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-              e.currentTarget.style.transform = "translateX(2px)";
-            }}
-            onMouseLeave={(e) => {
-              if (!isDbExpanded) {
-                e.currentTarget.style.backgroundColor = asciiColors.background;
-              }
-              e.currentTarget.style.transform = "translateX(0)";
             }}
           >
             <span style={{
@@ -1361,7 +1393,7 @@ const UnifiedMonitor: React.FC = () => {
           {isDbExpanded && (
             <div style={{
               paddingLeft: 24,
-              animation: "slideDown 0.3s ease-out"
+              animation: "slideDown 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
             }}>
               {items.map((item: any, idx: number) => {
                 const isSelected = selectedItem === item;
@@ -1371,19 +1403,11 @@ const UnifiedMonitor: React.FC = () => {
                   <div
                     key={idx}
                     onClick={() => setSelectedItem(item)}
-                    style={{
-                      padding: "8px 8px",
-                      marginLeft: 8,
-                      marginBottom: 2,
-                      cursor: "pointer",
-                      borderLeft: `2px solid ${isSelected ? asciiColors.accent : asciiColors.border}`,
-                      backgroundColor: isSelected ? asciiColors.accentLight : "transparent",
-                      transition: "all 0.2s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8
-                    }}
                     onMouseEnter={(e) => {
+                      const container = e.currentTarget.closest('.tree-view-container');
+                      if (container) {
+                        container.classList.remove('showing-scrollbar');
+                      }
                       if (!isSelected) {
                         e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
                         e.currentTarget.style.borderLeftColor = asciiColors.accent;
@@ -1395,8 +1419,28 @@ const UnifiedMonitor: React.FC = () => {
                         e.currentTarget.style.borderLeftColor = asciiColors.border;
                       }
                     }}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      padding: "8px 8px",
+                      marginLeft: 8,
+                      marginBottom: 2,
+                      cursor: "pointer",
+                      borderLeft: `2px solid ${isSelected ? asciiColors.accent : asciiColors.border}`,
+                      backgroundColor: isSelected ? asciiColors.accentLight : "transparent",
+                      transition: "all 0.2s ease",
+                      gap: 8
+                    }}
                   >
-                    <span style={{ color: asciiColors.muted, fontSize: 10 }}>
+                    <span style={{ 
+                      color: asciiColors.muted, 
+                      fontSize: 10,
+                      lineHeight: "1.5",
+                      paddingTop: "2px",
+                      flexShrink: 0,
+                      width: "12px",
+                      fontFamily: "Consolas"
+                    }}>
                       {isLast ? ascii.bl : ascii.tRight}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -3439,38 +3483,32 @@ const UnifiedMonitor: React.FC = () => {
   }
 
   return (
-    <div style={{
-      width: "100%",
-      minHeight: "100vh",
-      padding: "24px 32px",
-      fontFamily: "Consolas",
-      fontSize: 12,
-      color: asciiColors.foreground,
-      backgroundColor: asciiColors.background,
-      display: "flex",
-      flexDirection: "column",
-      gap: 20
-    }}>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
       <h1 style={{
-        fontSize: 18,
-        fontFamily: "Consolas",
+        fontSize: 14,
         fontWeight: 600,
-        margin: 0,
-        marginBottom: 8,
-        padding: "12px 8px",
-        borderBottom: `2px solid ${asciiColors.border}`
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
       }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
         MONITOR
       </h1>
-
+      
       {error && (
-        <AsciiPanel title="ERROR">
-          <div style={{ marginBottom: 10 }}>
-            <span style={{ color: asciiColors.danger, fontWeight: 600 }}>
-              {ascii.blockFull} {error}
-            </span>
-          </div>
-        </AsciiPanel>
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
       
       <div style={{
@@ -3543,7 +3581,7 @@ const UnifiedMonitor: React.FC = () => {
             </div>
           </AsciiPanel>
 
-          {selectedItem && (
+          {selectedItem && selectedItem.query && (
             <>
               <div
                 style={{
@@ -3552,10 +3590,11 @@ const UnifiedMonitor: React.FC = () => {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
-                  backdropFilter: "blur(2px)",
+                  backgroundColor: "rgba(0, 0, 0, 0.6)",
                   zIndex: 999,
-                  animation: "fadeInUp 0.2s ease-out"
+                  opacity: 0,
+                  animation: "fadeIn 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                  willChange: "opacity"
                 }}
                 onClick={() => setSelectedItem(null)}
               />
@@ -3564,9 +3603,11 @@ const UnifiedMonitor: React.FC = () => {
                   position: "fixed",
                   top: "50%",
                   left: "50%",
-                  transform: "translate(-50%, -50%)",
+                  transform: "translate(-50%, -50%) scale(0.95)",
                   width: "85%",
                   height: "85%",
+                  maxWidth: "1400px",
+                  maxHeight: "900px",
                   backgroundColor: asciiColors.background,
                   border: `2px solid ${asciiColors.border}`,
                   borderRadius: 2,
@@ -3576,8 +3617,10 @@ const UnifiedMonitor: React.FC = () => {
                   fontFamily: "Consolas",
                   fontSize: 12,
                   color: asciiColors.foreground,
-                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-                  animation: "fadeInUp 0.3s ease-out"
+                  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+                  opacity: 0,
+                  animation: "modalSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                  willChange: "transform, opacity"
                 }}
               >
                 <div style={{
@@ -3608,7 +3651,8 @@ const UnifiedMonitor: React.FC = () => {
                       cursor: "pointer",
                       fontFamily: "Consolas",
                       fontSize: 11,
-                      transition: "all 0.2s ease"
+                      transition: "background-color 0.12s ease-out, border-color 0.12s ease-out, color 0.12s ease-out",
+                      willChange: "background-color, color"
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = asciiColors.danger;
@@ -3687,8 +3731,7 @@ const UnifiedMonitor: React.FC = () => {
                     </h3>
                     <div style={{
                       overflowY: "auto",
-                      flex: 1,
-                      animation: "fadeInUp 0.4s ease-out"
+                      flex: 1
                     }}>
                       {renderDetails()}
                     </div>
@@ -3712,8 +3755,12 @@ const UnifiedMonitor: React.FC = () => {
               fontSize: 12,
               maxHeight: "calc(100vh - 400px)",
               overflowY: "auto",
-              animation: "slideIn 0.3s ease-out"
-            }}>
+              overflowX: "hidden",
+              scrollbarWidth: "thin",
+              scrollbarColor: `${asciiColors.border} transparent`
+            }}
+            className="tree-view-container"
+            >
               {renderTree()}
             </div>
           </AsciiPanel>
@@ -3738,6 +3785,24 @@ const UnifiedMonitor: React.FC = () => {
           0%, 20% { opacity: 0; }
           50% { opacity: 1; }
           100% { opacity: 0; }
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes modalSlideIn {
+          from {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.92);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+          }
         }
         @keyframes fadeInUp {
           from {
@@ -3780,6 +3845,27 @@ const UnifiedMonitor: React.FC = () => {
             opacity: 1;
             transform: translateX(0);
           }
+        }
+        .tree-view-container::-webkit-scrollbar {
+          width: 6px;
+        }
+        .tree-view-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .tree-view-container::-webkit-scrollbar-thumb {
+          background: ${asciiColors.border};
+          border-radius: 3px;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+        .tree-view-container.showing-scrollbar::-webkit-scrollbar-thumb {
+          opacity: 0.6;
+        }
+        .tree-view-container:not(.showing-scrollbar)::-webkit-scrollbar-thumb {
+          opacity: 0 !important;
+        }
+        .tree-view-container::-webkit-scrollbar-thumb:hover {
+          opacity: 1;
         }
         * {
           transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;

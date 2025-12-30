@@ -532,23 +532,50 @@ const GovernanceCatalogMongoDB = () => {
 
   if (loadingTree && allItems.length === 0) {
     return (
-      <Container>
-        <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Governance Catalog - MongoDB</h1>
+      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: "0 0 20px 0",
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          GOVERNANCE CATALOG - MONGODB
+        </h1>
         <LoadingOverlay>Loading governance catalog...</LoadingOverlay>
-      </Container>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Governance Catalog - MongoDB</h1>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+      <h1 style={{
+        fontSize: 14,
+        fontWeight: 600,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
+      }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+        GOVERNANCE CATALOG - MONGODB
+      </h1>
       
       {error && (
-        <AsciiPanel title="ERROR">
-          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
-            {ascii.blockFull} {error}
-          </div>
-        </AsciiPanel>
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
       
       <div style={{ 
@@ -741,12 +768,13 @@ const GovernanceCatalogMongoDB = () => {
           />
           
           {selectedItem && (
-            <AsciiPanel title="DETAILS" style={{ 
+            <div style={{ 
               position: 'sticky', 
               top: 16, 
               maxHeight: 'calc(100vh - 200px)',
               overflowY: 'auto'
             }}>
+              <AsciiPanel title="DETAILS">
               <div style={{ 
                 display: 'flex', 
                 gap: 4, 
@@ -781,11 +809,12 @@ const GovernanceCatalogMongoDB = () => {
               {activeTab === 'indexes' && renderIndexesTab(selectedItem)}
               {activeTab === 'performance' && renderPerformanceTab(selectedItem)}
               {activeTab === 'recommendations' && renderRecommendationsTab(selectedItem)}
-            </AsciiPanel>
+              </AsciiPanel>
+            </div>
           )}
         </div>
       )}
-    </Container>
+    </div>
   );
 };
 

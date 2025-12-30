@@ -287,41 +287,32 @@ const Catalog = () => {
 
 
   return (
-    <div style={{
-      width: "100%",
-      minHeight: "100vh",
-      padding: "24px 32px",
-      fontFamily: "Consolas",
-      fontSize: 12,
-      color: asciiColors.foreground,
-      backgroundColor: asciiColors.background,
-      display: "flex",
-      flexDirection: "column",
-      gap: 20
-    }}>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
       <h1 style={{
-        fontSize: 18,
+        fontSize: 14,
         fontWeight: 600,
-        margin: 0,
-        marginBottom: 16,
-        padding: "12px 8px",
-        borderBottom: `2px solid ${asciiColors.border}`,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
         fontFamily: "Consolas"
       }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
         DATALAKE CATALOG MANAGER
       </h1>
-
+      
       {error && (
-        <AsciiPanel title="ERROR">
-          <div style={{ 
-            color: asciiColors.danger, 
-            fontSize: 12,
-            fontFamily: "Consolas",
-            padding: "8px 0"
-          }}>
-            {ascii.blockFull} {error}
-          </div>
-        </AsciiPanel>
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
 
       <AsciiPanel title="SEARCH">
@@ -580,22 +571,26 @@ const Catalog = () => {
       </AsciiPanel>
 
       {loadingTree ? (
-        <AsciiPanel title="LOADING">
-          <div style={{
-            padding: "40px",
-            textAlign: "center",
-            fontSize: 12,
-            fontFamily: "Consolas",
-            color: asciiColors.muted
-          }}>
-            {ascii.blockFull} Loading tree view...
-          </div>
-        </AsciiPanel>
+        <div style={{ marginTop: 20 }}>
+          <AsciiPanel title="LOADING">
+            <div style={{
+              padding: "40px",
+              textAlign: "center",
+              fontSize: 12,
+              fontFamily: "Consolas",
+              color: asciiColors.muted
+            }}>
+              {ascii.blockFull} Loading tree view...
+            </div>
+          </AsciiPanel>
+        </div>
       ) : (
-        <CatalogTreeView 
-          entries={allEntries}
-          onEntryClick={(entry) => setSelectedEntry(entry)}
-        />
+        <div style={{ marginTop: 20 }}>
+          <CatalogTreeView 
+            entries={allEntries}
+            onEntryClick={(entry) => setSelectedEntry(entry)}
+          />
+        </div>
       )}
 
       {selectedEntry && (

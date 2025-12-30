@@ -620,7 +620,7 @@ const LogsViewer = () => {
       <div style={{
         width: "100%",
         minHeight: "100vh",
-        padding: "24px 32px",
+        padding: "20px",
         fontFamily: "Consolas",
         fontSize: 12,
         color: asciiColors.foreground,
@@ -630,32 +630,34 @@ const LogsViewer = () => {
         gap: 20
       }}>
         <h1 style={{
-          fontSize: 18,
-          fontFamily: "Consolas",
+          fontSize: 14,
           fontWeight: 600,
-          margin: 0,
-          marginBottom: 16,
-          padding: "12px 8px",
-          borderBottom: `2px solid ${asciiColors.border}`
+          margin: "0 0 20px 0",
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
         }}>
-          DATASYNC LOGS VIEWER
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          LOGS
         </h1>
-        <AsciiPanel title="ERROR">
-          <div style={{ 
-            color: asciiColors.danger, 
-            fontFamily: "Consolas", 
-            fontSize: 12,
-            padding: "8px 0",
-            marginBottom: 12
-          }}>
-            {ascii.blockFull} Error loading logs: {error}
-          </div>
-          <AsciiButton 
-            label="Retry"
-            onClick={fetchLogs}
-            variant="primary"
-          />
-        </AsciiPanel>
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              marginBottom: 12
+            }}>
+              Error loading logs: {error}
+            </div>
+            <AsciiButton 
+              label="Retry"
+              onClick={fetchLogs}
+              variant="primary"
+            />
+          </AsciiPanel>
+        </div>
       </div>
     );
   }
@@ -664,7 +666,7 @@ const LogsViewer = () => {
     <div style={{
       width: "100%",
       minHeight: "100vh",
-      padding: "24px 32px",
+      padding: "20px",
       fontFamily: "Consolas",
       fontSize: 12,
       color: asciiColors.foreground,
@@ -674,28 +676,30 @@ const LogsViewer = () => {
       gap: 20
     }}>
       <h1 style={{
-        fontSize: 18,
-        fontFamily: "Consolas",
+        fontSize: 14,
         fontWeight: 600,
-        margin: 0,
-        marginBottom: 16,
-        padding: "12px 8px",
-        borderBottom: `2px solid ${asciiColors.border}`
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
       }}>
-        DATASYNC LOGS VIEWER
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+        LOGS
       </h1>
       
       {error && (
-        <AsciiPanel title="ERROR">
-          <div style={{ 
-            color: asciiColors.danger, 
-            fontFamily: "Consolas", 
-            fontSize: 12,
-            padding: "8px 0"
-          }}>
-            {ascii.blockFull} {error}
-          </div>
-        </AsciiPanel>
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
       
       <AsciiPanel title="LOG CONTROLS">
