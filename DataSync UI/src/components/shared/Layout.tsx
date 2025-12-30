@@ -308,6 +308,9 @@ const Layout = () => {
             <NavSubItem to="/governance">
               ■ Governance
             </NavSubItem>
+            <NavSubItem to="/webhooks">
+              ■ Webhooks & Notifications
+            </NavSubItem>
           </NavGroupContent>
         </NavGroup>
 

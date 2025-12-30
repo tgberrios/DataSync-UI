@@ -338,6 +338,9 @@ const ColumnCatalog = () => {
             <option value="PostgreSQL">PostgreSQL</option>
             <option value="MariaDB">MariaDB</option>
             <option value="MSSQL">MSSQL</option>
+            <option value="MongoDB">MongoDB</option>
+            <option value="Oracle">Oracle</option>
+            <option value="DB2">DB2</option>
           </select>
           
           <select

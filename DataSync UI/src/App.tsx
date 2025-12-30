@@ -43,6 +43,7 @@ const DataWarehouse = lazy(() => import("./components/data-warehouse/DataWarehou
 const CSVCatalog = lazy(() => import("./components/csv/CSVCatalog"));
 const GoogleSheetsCatalog = lazy(() => import("./components/google-sheets/GoogleSheetsCatalog"));
 const UserManagement = lazy(() => import("./components/security/UserManagement"));
+const Webhooks = lazy(() => import("./components/governance/Webhooks"));
 const Login = lazy(() => import("./components/auth/Login"));
 
 function App() {
@@ -321,6 +322,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <UserManagement />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="webhooks"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <Webhooks />
                 </Suspense>
               </ProtectedRoute>
             }

@@ -6304,7 +6304,7 @@ app.post("/api/test-connection", requireAuth, async (req, res) => {
     return res.status(400).json({
       success: false,
       error:
-        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle",
+        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle, DB2",
     });
   }
 
@@ -6534,6 +6534,178 @@ app.post("/api/test-connection", requireAuth, async (req, res) => {
         break;
       }
 
+      case "Redshift": {
+        try {
+          let config;
+
+          if (
+            connection_string.includes("postgresql://") ||
+            connection_string.includes("postgres://")
+          ) {
+            config = {
+              connectionString: connection_string,
+              connectionTimeoutMillis: 5000,
+            };
+          } else {
+            const params = {};
+            const parts = connection_string.split(";");
+
+            for (const part of parts) {
+              const [key, value] = part.split("=").map((s) => s.trim());
+              if (key && value) {
+                switch (key.toLowerCase()) {
+                  case "host":
+                  case "hostname":
+                    params.host = value;
+                    break;
+                  case "user":
+                  case "username":
+                    params.user = value;
+                    break;
+                  case "password":
+                    params.password = value;
+                    break;
+                  case "db":
+                  case "database":
+                    params.database = value;
+                    break;
+                  case "port":
+                    params.port = parseInt(value, 10);
+                    break;
+                }
+              }
+            }
+
+            config = {
+              ...params,
+              connectionTimeoutMillis: 5000,
+            };
+          }
+
+          const testPool = new Pool(config);
+          const client = await testPool.connect();
+          await client.query("SELECT 1");
+          client.release();
+          await testPool.end();
+          testResult = true;
+          message = "Redshift connection successful!";
+        } catch (err) {
+          console.error("Redshift connection error:", err);
+          message = `Redshift connection failed: ${err.message}`;
+        }
+        break;
+      }
+
+      case "Snowflake": {
+        try {
+          const connStr = connection_string;
+          const params = {};
+          connStr.split(";").forEach((param) => {
+            const [key, value] = param.split("=");
+            if (key && value) {
+              const k = key.trim().toUpperCase();
+              params[k] = value.trim();
+            }
+          });
+
+          if (!params.SERVER || !params.UID || !params.PWD) {
+            message =
+              "Snowflake connection string must include SERVER, UID, and PWD";
+            break;
+          }
+
+          const odbc = await import("odbc").catch(() => null);
+          if (!odbc) {
+            message =
+              "ODBC driver is not available. Snowflake requires ODBC driver installed on the server.";
+            break;
+          }
+
+          const connectionString = `DRIVER={Snowflake Driver};${connStr}`;
+          const connection = await odbc.connect(connectionString);
+          await connection.query("SELECT 1");
+          await connection.close();
+          testResult = true;
+          message = "Snowflake connection successful!";
+        } catch (err) {
+          console.error("Snowflake connection error:", err);
+          message = `Snowflake connection failed: ${err.message}. Make sure Snowflake ODBC driver is installed.`;
+        }
+        break;
+      }
+
+      case "BigQuery": {
+        try {
+          let config;
+          try {
+            config = JSON.parse(connection_string);
+          } catch (parseErr) {
+            message =
+              'BigQuery connection string must be valid JSON. Example: {"project_id": "...", "dataset_id": "...", "access_token": "..."}';
+            break;
+          }
+
+          if (!config.project_id) {
+            message = "BigQuery connection string must include project_id";
+            break;
+          }
+
+          if (!config.access_token && !config.credentials_json) {
+            message =
+              "BigQuery connection string must include either access_token or credentials_json";
+            break;
+          }
+
+          const https = await import("https");
+          const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${config.project_id}/datasets`;
+
+          const options = {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${config.access_token || "test"}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 5000,
+          };
+
+          const response = await new Promise((resolve, reject) => {
+            const req = https.request(url, options, (res) => {
+              let data = "";
+              res.on("data", (chunk) => {
+                data += chunk;
+              });
+              res.on("end", () => {
+                resolve({ statusCode: res.statusCode, data });
+              });
+            });
+
+            req.on("error", reject);
+            req.on("timeout", () => {
+              req.destroy();
+              reject(new Error("Request timeout"));
+            });
+
+            req.end();
+          });
+
+          if (response.statusCode === 200 || response.statusCode === 401) {
+            if (response.statusCode === 401) {
+              message =
+                "BigQuery authentication failed. Please check your access_token or credentials_json";
+            } else {
+              testResult = true;
+              message = "BigQuery connection successful!";
+            }
+          } else {
+            message = `BigQuery connection failed with status ${response.statusCode}`;
+          }
+        } catch (err) {
+          console.error("BigQuery connection error:", err);
+          message = `BigQuery connection failed: ${err.message}`;
+        }
+        break;
+      }
+
       default:
         return res.status(400).json({
           success: false,
@@ -6587,7 +6759,7 @@ app.post("/api/discover-schemas", requireAuth, async (req, res) => {
     return res.status(400).json({
       success: false,
       error:
-        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle",
+        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle, DB2",
     });
   }
 
@@ -6888,7 +7060,7 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
     return res.status(400).json({
       success: false,
       error:
-        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle",
+        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle, DB2",
     });
   }
 
@@ -7272,7 +7444,7 @@ app.post("/api/discover-columns", requireAuth, async (req, res) => {
     return res.status(400).json({
       success: false,
       error:
-        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle",
+        "Invalid db_engine. Must be one of: PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle, DB2",
     });
   }
 
@@ -11152,6 +11324,269 @@ app.get("/api/google-sheets-catalog/metrics", async (req, res) => {
     });
   }
 });
+
+app.get("/api/webhooks", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, webhook_type, url, api_key, bot_token, chat_id, 
+             email_address, 
+             COALESCE(log_levels, '[]'::jsonb) as log_levels,
+             COALESCE(log_categories, '[]'::jsonb) as log_categories,
+             enabled, created_at, updated_at
+      FROM metadata.webhooks
+      ORDER BY created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting webhooks:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting webhooks",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/webhooks",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        name,
+        webhook_type,
+        url,
+        api_key,
+        bot_token,
+        chat_id,
+        email_address,
+        event_types,
+        severities,
+        enabled,
+      } = req.body;
+
+      if (!name || !webhook_type) {
+        return res.status(400).json({
+          error: "Missing required fields: name, webhook_type",
+        });
+      }
+
+      const validWebhookType = validateEnum(
+        webhook_type,
+        ["HTTP", "SLACK", "TEAMS", "TELEGRAM", "EMAIL"],
+        null
+      );
+      if (!validWebhookType) {
+        return res.status(400).json({ error: "Invalid webhook_type" });
+      }
+
+      if (webhook_type === "TELEGRAM" && (!bot_token || !chat_id)) {
+        return res.status(400).json({
+          error: "bot_token and chat_id are required for TELEGRAM webhooks",
+        });
+      }
+
+      if (webhook_type === "EMAIL" && !email_address) {
+        return res.status(400).json({
+          error: "email_address is required for EMAIL webhooks",
+        });
+      }
+
+      if (
+        (webhook_type === "HTTP" ||
+          webhook_type === "SLACK" ||
+          webhook_type === "TEAMS") &&
+        !url
+      ) {
+        return res.status(400).json({
+          error: "url is required for " + webhook_type + " webhooks",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.webhooks 
+        (name, webhook_type, url, api_key, bot_token, chat_id, email_address, 
+         log_levels, log_categories, enabled)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10)
+        RETURNING *`,
+        [
+          name,
+          webhook_type,
+          url || null,
+          api_key || null,
+          bot_token || null,
+          chat_id || null,
+          email_address || null,
+          JSON.stringify(log_levels || []),
+          JSON.stringify(log_categories || []),
+          enabled !== undefined ? enabled : true,
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating webhook:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating webhook",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/webhooks/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const webhookId = parseInt(req.params.id);
+      if (isNaN(webhookId)) {
+        return res.status(400).json({ error: "Invalid webhook ID" });
+      }
+
+      const {
+        name,
+        webhook_type,
+        url,
+        api_key,
+        bot_token,
+        chat_id,
+        email_address,
+        log_levels,
+        log_categories,
+        enabled,
+      } = req.body;
+
+      if (!name || !webhook_type) {
+        return res.status(400).json({
+          error: "Missing required fields: name, webhook_type",
+        });
+      }
+
+      const validWebhookType = validateEnum(
+        webhook_type,
+        ["HTTP", "SLACK", "TEAMS", "TELEGRAM", "EMAIL"],
+        null
+      );
+      if (!validWebhookType) {
+        return res.status(400).json({ error: "Invalid webhook_type" });
+      }
+
+      const result = await pool.query(
+        `UPDATE metadata.webhooks 
+       SET name = $1, webhook_type = $2, url = $3, api_key = $4, 
+           bot_token = $5, chat_id = $6, email_address = $7,
+           log_levels = $8::jsonb, log_categories = $9::jsonb, enabled = $10,
+           updated_at = NOW()
+       WHERE id = $11
+       RETURNING *`,
+        [
+          name,
+          webhook_type,
+          url || null,
+          api_key || null,
+          bot_token || null,
+          chat_id || null,
+          email_address || null,
+          JSON.stringify(log_levels || []),
+          JSON.stringify(log_categories || []),
+          enabled !== undefined ? enabled : true,
+          webhookId,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating webhook:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating webhook",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/webhooks/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const webhookId = parseInt(req.params.id);
+      if (isNaN(webhookId)) {
+        return res.status(400).json({ error: "Invalid webhook ID" });
+      }
+
+      const result = await pool.query(
+        `DELETE FROM metadata.webhooks WHERE id = $1 RETURNING id`,
+        [webhookId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+
+      res.json({ message: "Webhook deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting webhook:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error deleting webhook",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.patch(
+  "/api/webhooks/:id/enable",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const webhookId = parseInt(req.params.id);
+      if (isNaN(webhookId)) {
+        return res.status(400).json({ error: "Invalid webhook ID" });
+      }
+
+      const enabled = validateBoolean(req.body.enabled, true);
+
+      const result = await pool.query(
+        `UPDATE metadata.webhooks 
+       SET enabled = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+        [enabled, webhookId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating webhook status:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating webhook status",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
 
 // Export app for testing
 export default app;

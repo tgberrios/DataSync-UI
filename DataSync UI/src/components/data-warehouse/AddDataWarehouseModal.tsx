@@ -16,9 +16,24 @@ const connectionStringExamples: Record<string, string> = {
   Oracle: 'host=localhost;user=myuser;password=mypassword;db=mydatabase;port=1521',
   PostgreSQL: 'postgresql://myuser:mypassword@localhost:5432/mydatabase',
   MongoDB: 'mongodb://myuser:mypassword@localhost:27017/mydatabase',
-  Snowflake: 'account=myaccount;user=myuser;password=mypassword;warehouse=mywarehouse;database=mydatabase;schema=myschema',
-  BigQuery: 'project=myproject;dataset=mydataset;credentials=/path/to/key.json',
-  Redshift: 'host=mycluster.region.redshift.amazonaws.com;port=5439;user=myuser;password=mypassword;db=mydatabase',
+  Snowflake: 'DRIVER={Snowflake Driver};SERVER=myaccount.snowflakecomputing.com;UID=myuser;PWD=mypassword;WAREHOUSE=mywarehouse;DATABASE=mydatabase;SCHEMA=myschema',
+  BigQuery: JSON.stringify({
+    project_id: 'my-project-id',
+    dataset_id: 'my_dataset',
+    access_token: 'ya29.xxx...'
+  }, null, 2),
+  Redshift: 'postgresql://myuser:mypassword@mycluster.region.redshift.amazonaws.com:5439/mydatabase',
+};
+
+const connectionStringHelp: Record<string, string> = {
+  PostgreSQL: 'Format: postgresql://user:password@host:port/database\nOr: host=hostname;user=username;password=password;db=database;port=5432',
+  MariaDB: 'Format: host=hostname;user=username;password=password;db=database;port=3306',
+  MSSQL: 'Format: DRIVER={ODBC Driver 17 for SQL Server};SERVER=hostname,port;DATABASE=database;UID=username;PWD=password',
+  Oracle: 'Format: host=hostname;user=username;password=password;db=database;port=1521',
+  MongoDB: 'Format: mongodb://user:password@host:port/database',
+  Snowflake: 'Format: DRIVER={Snowflake Driver};SERVER=account.snowflakecomputing.com;UID=username;PWD=password;WAREHOUSE=warehouse;DATABASE=database;SCHEMA=schema\n\nNote: Requires Snowflake ODBC driver installed on the server.',
+  BigQuery: 'Format: JSON object with project_id, dataset_id, and access_token\n\nExample:\n{\n  "project_id": "my-project-id",\n  "dataset_id": "my_dataset",\n  "access_token": "ya29.xxx..."\n}\n\nTo get access_token:\n1. Use gcloud CLI: gcloud auth application-default print-access-token\n2. Or use service account JSON key file path in credentials_json field',
+  Redshift: 'Format: postgresql://user:password@cluster.region.redshift.amazonaws.com:5439/database\nOr: host=cluster.region.redshift.amazonaws.com;port=5439;user=username;password=password;db=database',
 };
 
 const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, onSave, initialData }) => {
@@ -57,6 +72,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
   const [showSchemaGuide, setShowSchemaGuide] = useState(false);
   const [testingQueryIndex, setTestingQueryIndex] = useState<{ type: 'dimension' | 'fact'; index: number } | null>(null);
   const [queryTestResults, setQueryTestResults] = useState<Record<string, { success: boolean; message: string; data?: any }>>({});
+  const [showConnectionHelp, setShowConnectionHelp] = useState(false);
 
   const handleAddDimension = useCallback(() => {
     const newDimension: DimensionTable = {
@@ -392,6 +408,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
         ...formData,
         dimensions,
         facts,
+        notes: initialData?.notes || null,
       };
 
       if (initialData) {
@@ -963,16 +980,35 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
 
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <label style={{
-                      display: 'block',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontFamily: 'Consolas',
-                      textTransform: 'uppercase',
-                    }}>
-                      Target Connection String *
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={{
+                        display: 'block',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: asciiColors.foreground,
+                        fontFamily: 'Consolas',
+                        textTransform: 'uppercase',
+                      }}>
+                        Target Connection String *
+                      </label>
+                      <button
+                        onClick={() => setShowConnectionHelp(!showConnectionHelp)}
+                        style={{
+                          border: `1px solid ${asciiColors.border}`,
+                          backgroundColor: asciiColors.background,
+                          color: asciiColors.foreground,
+                          padding: '2px 6px',
+                          fontSize: 10,
+                          fontFamily: 'Consolas',
+                          cursor: 'pointer',
+                          borderRadius: 2,
+                          minWidth: '24px',
+                          height: '20px',
+                        }}
+                      >
+                        ?
+                      </button>
+                    </div>
                     <AsciiButton
                       label={isTestingTargetConnection ? 'Testing...' : 'Test Connection'}
                       onClick={handleTestTargetConnection}
@@ -980,6 +1016,26 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       disabled={isTestingTargetConnection || !formData.target_db_engine || !formData.target_connection_string.trim()}
                     />
                   </div>
+                  {showConnectionHelp && formData.target_db_engine && connectionStringHelp[formData.target_db_engine] && (
+                    <div style={{
+                      padding: '12px',
+                      marginBottom: 8,
+                      backgroundColor: asciiColors.background,
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 11,
+                      fontFamily: 'Consolas',
+                      color: asciiColors.foreground,
+                      whiteSpace: 'pre-wrap',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                    }}>
+                      <div style={{ fontWeight: 600, marginBottom: 8, color: asciiColors.accent }}>
+                        {formData.target_db_engine} Connection Format:
+                      </div>
+                      {connectionStringHelp[formData.target_db_engine]}
+                    </div>
+                  )}
                   {targetConnectionTestResult && (
                     <div style={{
                       padding: '8px 12px',

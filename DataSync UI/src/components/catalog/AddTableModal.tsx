@@ -152,6 +152,7 @@ const connectionStringExamples: Record<string, string> = {
   Oracle: 'host=localhost;user=myuser;password=mypassword;db=mydatabase;port=1521',
   PostgreSQL: 'host=localhost;user=myuser;password=mypassword;db=mydatabase;port=5432',
   MongoDB: 'mongodb://myuser:mypassword@localhost:27017/mydatabase',
+  DB2: 'DRIVER={IBM DB2 ODBC Driver};DATABASE=MYDB;HOSTNAME=localhost;PORT=50000;UID=myuser;PWD=mypassword',
 };
 
 const connectionStringHelp: Record<string, string> = {
@@ -160,6 +161,7 @@ const connectionStringHelp: Record<string, string> = {
   Oracle: 'Format: host=server;user=username;password=password;db=database;port=1521\n\nExample:\nhost=oracle.example.com;user=system;password=oracle123;db=ORCL;port=1521',
   PostgreSQL: 'Format: host=server;user=username;password=password;db=database;port=5432\n\nExample:\nhost=postgres.example.com;user=postgres;password=postgres123;db=mydb;port=5432',
   MongoDB: 'Format: mongodb://username:password@host:port/database\n\nFor MongoDB Atlas (cloud): mongodb+srv://username:password@cluster.mongodb.net/database\n\nExample:\nmongodb://admin:secret123@localhost:27017/mydb\nmongodb+srv://admin:secret123@cluster0.xxxxx.mongodb.net/mydb',
+  DB2: 'Format: DRIVER={IBM DB2 ODBC Driver};DATABASE=database;HOSTNAME=hostname;PORT=port;UID=username;PWD=password\n\nExample:\nDRIVER={IBM DB2 ODBC Driver};DATABASE=MYDB;HOSTNAME=db2.example.com;PORT=50000;UID=db2admin;PWD=MyPassword123',
 };
 
 const extractClusterName = (connectionString: string, dbEngine: string): string => {
@@ -269,6 +271,14 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
       }
     } else if (formData.db_engine === 'MSSQL') {
       const requiredParams = ['server', 'uid', 'pwd', 'database'];
+      const connStr = formData.connection_string.toLowerCase();
+      const missing = requiredParams.filter(param => !connStr.includes(`${param}=`));
+      if (missing.length > 0) {
+        setError(`Connection string must include: ${missing.join(', ')}`);
+        return;
+      }
+    } else if (formData.db_engine === 'DB2') {
+      const requiredParams = ['database', 'uid', 'pwd'];
       const connStr = formData.connection_string.toLowerCase();
       const missing = requiredParams.filter(param => !connStr.includes(`${param}=`));
       if (missing.length > 0) {
@@ -474,6 +484,7 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
               <option value="MongoDB">MongoDB</option>
               <option value="Oracle">Oracle</option>
               <option value="PostgreSQL">PostgreSQL</option>
+              <option value="DB2">DB2</option>
             </Select>
           </FormGroup>
 
