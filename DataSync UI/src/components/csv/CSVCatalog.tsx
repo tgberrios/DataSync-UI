@@ -3,19 +3,9 @@ import AddCSVModal from './AddCSVModal';
 import CSVCatalogTreeView from './CSVCatalogTreeView';
 import { ExecutionTimeline } from '../shared/ExecutionTimeline';
 import { MappingGraph } from '../shared/MappingGraph';
-import {
-  Container,
-  Header,
-  FiltersContainer,
-  Select,
-  ErrorMessage,
-  LoadingOverlay,
-  SearchContainer,
-  Button,
-  SearchInput,
-  SearchButton,
-  ClearSearchButton,
-} from '../shared/BaseComponents';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { csvCatalogApi } from '../../services/api';
@@ -183,93 +173,258 @@ const CSVCatalog = () => {
 
   if (loadingTree && allEntries.length === 0) {
     return (
-      <Container>
-        <Header>CSV Catalog</Header>
-        <LoadingOverlay>Loading CSV Catalog...</LoadingOverlay>
-      </Container>
+      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: "0 0 20px 0",
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          CSV CATALOG
+        </h1>
+        <AsciiPanel title="LOADING">
+          <div style={{
+            padding: "40px",
+            textAlign: "center",
+            fontSize: 12,
+            fontFamily: "Consolas",
+            color: asciiColors.muted
+          }}>
+            {ascii.blockFull} Loading CSV Catalog...
+          </div>
+        </AsciiPanel>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <Header>CSV Catalog</Header>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+      <h1 style={{
+        fontSize: 14,
+        fontWeight: 600,
+        margin: "0 0 20px 0",
+        color: asciiColors.foreground,
+        textTransform: "uppercase",
+        fontFamily: "Consolas"
+      }}>
+        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+        CSV CATALOG
+      </h1>
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
+      )}
 
-      <SearchContainer>
-        <SearchInput
-          type="text"
-          placeholder="Search by CSV name, source path, or target..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-        />
-        <SearchButton onClick={handleSearch}>Search</SearchButton>
-        {search && (
-          <ClearSearchButton onClick={handleClearSearch}>Clear</ClearSearchButton>
-        )}
-      </SearchContainer>
+      <AsciiPanel title="SEARCH">
+        <div style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0"
+        }}>
+          <input
+            type="text"
+            placeholder="Search by CSV name, source path, or target..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            style={{
+              flex: 1,
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          />
+          <AsciiButton
+            label="Search"
+            onClick={handleSearch}
+            variant="primary"
+          />
+          {search && (
+            <AsciiButton
+              label="Clear"
+              onClick={handleClearSearch}
+              variant="ghost"
+            />
+          )}
+        </div>
+      </AsciiPanel>
 
-      <FiltersContainer>
-        <Button
-          $variant="primary"
-          onClick={() => setShowAddModal(true)}
-        >
-          Add CSV
-        </Button>
-        
-        <Select
-          value={filters.source_type as string}
-          onChange={(e) => handleFilterChange('source_type', e.target.value)}
-        >
-          <option value="">All Source Types</option>
-          <option value="FILEPATH">File Path</option>
-          <option value="URL">URL</option>
-          <option value="ENDPOINT">Endpoint</option>
-          <option value="UPLOADED_FILE">Uploaded File</option>
-        </Select>
+      <div style={{ marginTop: 20 }}>
+        <AsciiPanel title="FILTERS">
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          padding: "8px 0"
+        }}>
+          <AsciiButton
+            label="Add CSV"
+            onClick={() => setShowAddModal(true)}
+            variant="primary"
+          />
+          
+          <select
+            value={filters.source_type as string}
+            onChange={(e) => handleFilterChange('source_type', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All Source Types</option>
+            <option value="FILEPATH">File Path</option>
+            <option value="URL">URL</option>
+            <option value="ENDPOINT">Endpoint</option>
+            <option value="UPLOADED_FILE">Uploaded File</option>
+          </select>
 
-        <Select
-          value={filters.target_db_engine as string}
-          onChange={(e) => handleFilterChange('target_db_engine', e.target.value)}
-        >
-          <option value="">All Target Engines</option>
-          <option value="PostgreSQL">PostgreSQL</option>
-          <option value="MariaDB">MariaDB</option>
-          <option value="MSSQL">MSSQL</option>
-          <option value="MongoDB">MongoDB</option>
-          <option value="Oracle">Oracle</option>
-        </Select>
+          <select
+            value={filters.target_db_engine as string}
+            onChange={(e) => handleFilterChange('target_db_engine', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All Target Engines</option>
+            <option value="PostgreSQL">PostgreSQL</option>
+            <option value="MariaDB">MariaDB</option>
+            <option value="MSSQL">MSSQL</option>
+            <option value="MongoDB">MongoDB</option>
+            <option value="Oracle">Oracle</option>
+          </select>
 
-        <Select
-          value={filters.status as string}
-          onChange={(e) => handleFilterChange('status', e.target.value)}
-        >
-          <option value="">All Statuses</option>
-          <option value="SUCCESS">SUCCESS</option>
-          <option value="ERROR">ERROR</option>
-          <option value="IN_PROGRESS">IN_PROGRESS</option>
-          <option value="PENDING">PENDING</option>
-        </Select>
+          <select
+            value={filters.status as string}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All Statuses</option>
+            <option value="SUCCESS">SUCCESS</option>
+            <option value="ERROR">ERROR</option>
+            <option value="IN_PROGRESS">IN_PROGRESS</option>
+            <option value="PENDING">PENDING</option>
+          </select>
 
-        <Select
-          value={filters.active as string}
-          onChange={(e) => handleFilterChange('active', e.target.value)}
-        >
-          <option value="">All</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </Select>
-      </FiltersContainer>
+          <select
+            value={filters.active as string}
+            onChange={(e) => handleFilterChange('active', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+        </AsciiPanel>
+      </div>
 
       {loadingTree ? (
-        <LoadingOverlay>Loading tree view...</LoadingOverlay>
+        <div style={{ marginTop: 20 }}>
+          <AsciiPanel title="LOADING">
+          <div style={{
+            padding: "40px",
+            textAlign: "center",
+            fontSize: 12,
+            fontFamily: "Consolas",
+            color: asciiColors.muted
+          }}>
+            {ascii.blockFull} Loading tree view...
+          </div>
+          </AsciiPanel>
+        </div>
       ) : (
-        <CSVCatalogTreeView 
-          entries={allEntries}
-          onEntryClick={(entry: CSVCatalogEntry) => handleCSVClick(entry)}
-          onDuplicate={handleDuplicate}
-        />
+        <div style={{ marginTop: 20 }}>
+          <CSVCatalogTreeView 
+            entries={allEntries}
+            onEntryClick={(entry: CSVCatalogEntry) => handleCSVClick(entry)}
+            onDuplicate={handleDuplicate}
+          />
+        </div>
       )}
 
       {selectedCSV && (
@@ -313,7 +468,7 @@ const CSVCatalog = () => {
           initialData={duplicateData}
         />
       )}
-    </Container>
+    </div>
   );
 };
 

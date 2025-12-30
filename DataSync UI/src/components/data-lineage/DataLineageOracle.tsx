@@ -2,23 +2,13 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import styled, { keyframes } from 'styled-components';
 import {
   Container,
-  Header,
-  ErrorMessage,
   LoadingOverlay,
-  Grid,
-  Value,
   Pagination,
   PageButton,
-  FiltersContainer,
-  Select,
-  Input,
-  TableContainer,
   Table,
   Th,
   Td,
   TableRow,
-  Button,
-  PaginationInfo,
 } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
@@ -26,343 +16,19 @@ import { dataLineageOracleApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import DataLineageOracleTreeView from './DataLineageOracleTreeView';
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const MetricsGrid = styled(Grid)`
-  margin-bottom: ${theme.spacing.xxl};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: 0.1s;
-  animation-fill-mode: both;
-`;
-
-const MetricCard = styled(Value)<{ $index?: number }>`
-  padding: ${theme.spacing.lg};
-  min-height: 100px;
-  background: linear-gradient(135deg, ${theme.colors.background.main} 0%, ${theme.colors.background.secondary} 100%);
-  border: 2px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  border-radius: ${theme.borderRadius.lg};
-  box-shadow: ${theme.shadows.md};
-  transition: all ${theme.transitions.normal};
-  animation: ${fadeIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: ${props => (props.$index || 0) * 0.1}s;
-  animation-fill-mode: both;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-  }
-  
-  &:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: ${theme.shadows.xl};
-    border-color: ${theme.colors.primary.main};
-    border-left-color: ${theme.colors.primary.dark};
-    
-    &::before {
-      left: 100%;
-    }
-  }
-`;
-
-const MetricLabel = styled.div`
-  font-size: 0.9em;
-  color: ${theme.colors.text.secondary};
-  margin-bottom: ${theme.spacing.sm};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
-const MetricValue = styled.div`
-  font-size: 2.2em;
-  font-weight: 700;
-  color: ${theme.colors.primary.main};
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  background: linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-`;
-
-const TableActions = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${theme.spacing.md};
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.md};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  box-shadow: ${theme.shadows.sm};
-  animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    box-shadow: ${theme.shadows.md};
-    transform: translateY(-1px);
-  }
-`;
-
-const ExportButton = styled(Button)`
-  padding: 8px 16px;
-  font-size: 0.9em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
-
-const SortableTh = styled(Th)<{ $sortable?: boolean; $active?: boolean; $direction?: "asc" | "desc" }>`
-  cursor: ${props => props.$sortable ? "pointer" : "default"};
-  user-select: none;
-  position: relative;
-  transition: all ${theme.transitions.normal};
-  
-  ${props => props.$sortable && `
-    &:hover {
-      background: linear-gradient(180deg, ${theme.colors.primary.light} 0%, ${theme.colors.primary.main} 100%);
-      color: ${theme.colors.text.white};
-    }
-  `}
-  
-  ${props => props.$active && `
-    background: linear-gradient(180deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.dark} 100%);
-    color: ${theme.colors.text.white};
-    
-    &::after {
-      content: "${props.$direction === "asc" ? "▲" : "▼"}";
-      position: absolute;
-      right: 8px;
-      font-size: 0.8em;
-    }
-  `}
-`;
-
-const Badge = styled.span<{ $type?: string; $level?: number }>`
-  padding: 6px 12px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all ${theme.transitions.normal};
-  border: 2px solid transparent;
-  box-shadow: ${theme.shadows.sm};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  position: relative;
-  overflow: hidden;
-  
-  ${props => {
-    if (props.$type) {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-        color: ${theme.colors.text.primary};
-        border-color: ${theme.colors.border.medium};
-      `;
-    }
-    if (props.$level !== undefined) {
-      if (props.$level === 0) return `
-        background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-        color: ${theme.colors.status.success.text};
-        border-color: ${theme.colors.status.success.text}40;
-      `;
-      if (props.$level === 1) return `
-        background: linear-gradient(135deg, ${theme.colors.status.warning.bg} 0%, ${theme.colors.status.warning.text}15 100%);
-        color: ${theme.colors.status.warning.text};
-        border-color: ${theme.colors.status.warning.text}40;
-      `;
-      if (props.$level === 2) return `
-        background: linear-gradient(135deg, ${theme.colors.status.error.bg} 0%, ${theme.colors.status.error.text}15 100%);
-        color: ${theme.colors.status.error.text};
-        border-color: ${theme.colors.status.error.text}40;
-      `;
-      return `
-        background: ${theme.colors.background.secondary};
-        color: ${theme.colors.text.secondary};
-        border-color: ${theme.colors.border.medium};
-      `;
-    }
-    return `
-      background: ${theme.colors.background.secondary};
-      color: ${theme.colors.text.secondary};
-      border-color: ${theme.colors.border.medium};
-    `;
-  }}
-  
-  &:hover {
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: ${theme.shadows.lg};
-    border-width: 2px;
-  }
-`;
-
-const StyledTableRow = styled(TableRow)<{ $delay?: number }>`
-  transition: all ${theme.transitions.normal};
-  animation: ${fadeIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: ${props => (props.$delay || 0) * 0.05}s;
-  animation-fill-mode: both;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  border-left: 3px solid transparent;
-  position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 0;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(13, 27, 42, 0.05), transparent);
-    transition: width 0.3s;
-  }
-  
-  &:hover {
-    background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%) !important;
-    transform: translateX(4px) scale(1.01);
-    box-shadow: ${theme.shadows.md};
-    border-left-color: ${theme.colors.primary.main};
-    
-    &::before {
-      width: 100%;
-    }
-  }
-  
-  &:active {
-    transform: translateX(2px) scale(0.99);
-  }
-`;
-
-const StyledTableContainer = styled(TableContainer)`
-  border-radius: ${theme.borderRadius.lg};
-  border: 1px solid ${theme.colors.border.light};
-  box-shadow: ${theme.shadows.md};
-  background: ${theme.colors.background.main};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  
-  &::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    transition: background ${theme.transitions.normal};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
-`;
-
-const RelationshipArrow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${theme.colors.primary.main};
-  font-weight: bold;
-  font-size: 1.2em;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: scale(1.2);
-    color: ${theme.colors.primary.dark};
-  }
-`;
-
-const LineageDetails = styled.div<{ $isOpen: boolean }>`
-  max-height: ${props => props.$isOpen ? '700px' : '0'};
-  opacity: ${props => props.$isOpen ? '1' : '0'};
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  border-top: ${props => props.$isOpen ? `1px solid ${theme.colors.border.light}` : 'none'};
-  background-color: ${theme.colors.background.main};
-  overflow: hidden;
-`;
-
-const DetailGrid = styled.div`
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  padding: ${theme.spacing.md};
-  gap: ${theme.spacing.sm};
-  font-size: 0.9em;
-`;
-
-const DetailLabel = styled.div`
-  color: ${theme.colors.text.secondary};
-  font-weight: 500;
-`;
-
-const DetailValue = styled.div`
-  color: ${theme.colors.text.primary};
-`;
-
-const DefinitionText = styled.pre`
-  margin: 0;
-  padding: ${theme.spacing.md};
-  background-color: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.md};
-  overflow-x: auto;
-  font-size: 0.85em;
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    border-color: rgba(10, 25, 41, 0.2);
-    box-shadow: ${theme.shadows.sm};
-  }
-`;
+const getConfidenceColor = (score: number | string | null | undefined) => {
+  if (score === null || score === undefined) return asciiColors.muted;
+  const numScore = Number(score);
+  if (isNaN(numScore)) return asciiColors.muted;
+  if (numScore >= 0.8) return asciiColors.success;
+  if (numScore >= 0.5) return asciiColors.warning;
+  return asciiColors.danger;
+};
 
 const DataLineageOracle = () => {
   const { page, limit, setPage } = usePagination(1, 20);
@@ -633,182 +299,213 @@ const DataLineageOracle = () => {
   if ((loading && lineage.length === 0 && viewMode === "table") || (loadingTree && allEdges.length === 0 && viewMode === "tree")) {
     return (
       <Container>
-        <Header>Data Lineage - Oracle</Header>
+        <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Data Lineage - Oracle</h1>
         <LoadingOverlay>Loading data lineage...</LoadingOverlay>
       </Container>
     );
   }
 
-
   return (
     <Container>
-      <Header>Data Lineage - Oracle</Header>
+      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Data Lineage - Oracle</h1>
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
       
-      <MetricsGrid $columns="repeat(auto-fit, minmax(180px, 1fr))">
-        <MetricCard $index={0}>
-          <MetricLabel>
-            <span>→</span>
-            Total Relationships
-          </MetricLabel>
-          <MetricValue>{metrics.total_relationships || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={1}>
-          <MetricLabel>
-            <span>■</span>
-            Unique Objects
-          </MetricLabel>
-          <MetricValue>{metrics.unique_objects || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={2}>
-          <MetricLabel>
-            <span>[S]</span>
-            Unique Servers
-          </MetricLabel>
-          <MetricValue>{metrics.unique_servers || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={3}>
-          <MetricLabel>
-            <span>[SC]</span>
-            Unique Schemas
-          </MetricLabel>
-          <MetricValue>{metrics.unique_schemas || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={4}>
-          <MetricLabel>
-            <span>&lt;-&gt;</span>
-            Relationship Types
-          </MetricLabel>
-          <MetricValue>{metrics.unique_relationship_types || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={5}>
-          <MetricLabel>
-            <span>✓</span>
-            High Confidence
-          </MetricLabel>
-          <MetricValue>{metrics.high_confidence || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={6}>
-          <MetricLabel>
-            <span>[!]</span>
-            Low Confidence
-          </MetricLabel>
-          <MetricValue>{metrics.low_confidence || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={7}>
-          <MetricLabel>
-            <span>%</span>
-            Avg Confidence
-          </MetricLabel>
-          <MetricValue>{metrics.avg_confidence ? `${(Number(metrics.avg_confidence) * 100).toFixed(1)}%` : 'N/A'}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={8}>
-          <MetricLabel>
-            <span>[#]</span>
-            Avg Dependency Level
-          </MetricLabel>
-          <MetricValue>{metrics.avg_dependency_level ? Number(metrics.avg_dependency_level).toFixed(1) : 'N/A'}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={9}>
-          <MetricLabel>
-            <span>[+]</span>
-            Discovered (24h)
-          </MetricLabel>
-          <MetricValue>{metrics.discovered_last_24h || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={10}>
-          <MetricLabel>
-            <span>[*]</span>
-            Discovery Methods
-          </MetricLabel>
-          <MetricValue>{metrics.unique_discovery_methods || 0}</MetricValue>
-        </MetricCard>
-      </MetricsGrid>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+        gap: 12, 
+        marginBottom: 24 
+      }}>
+        <AsciiPanel title="Total Relationships">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.total_relationships || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Unique Objects">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.unique_objects || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Unique Servers">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.unique_servers || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Unique Schemas">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.unique_schemas || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Relationship Types">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.unique_relationship_types || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="High Confidence">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.high_confidence || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Low Confidence">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.low_confidence || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Avg Confidence">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.avg_confidence ? `${(Number(metrics.avg_confidence) * 100).toFixed(1)}%` : 'N/A'}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Avg Dependency Level">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.avg_dependency_level ? Number(metrics.avg_dependency_level).toFixed(1) : 'N/A'}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Discovered (24h)">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.discovered_last_24h || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Discovery Methods">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.unique_discovery_methods || 0}
+          </div>
+        </AsciiPanel>
+      </div>
 
-      <FiltersContainer>
-        <Select
+      <AsciiPanel title="FILTERS">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
           value={filters.server_name as string}
           onChange={(e) => handleFilterChange('server_name', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
         >
           <option value="">All Servers</option>
           {servers.map(server => (
             <option key={server} value={server}>{server}</option>
           ))}
-        </Select>
+          </select>
         
-        <Select
+          <select
           value={filters.schema_name as string}
           onChange={(e) => handleFilterChange('schema_name', e.target.value)}
           disabled={!filters.server_name}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              opacity: !filters.server_name ? 0.5 : 1
+            }}
         >
           <option value="">All Schemas</option>
           {schemas.map(schema => (
             <option key={schema} value={schema}>{schema}</option>
           ))}
-        </Select>
+          </select>
         
-        <Select
+          <select
           value={filters.relationship_type as string}
           onChange={(e) => handleFilterChange('relationship_type', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
         >
           <option value="">All Relationships</option>
           <option value="FOREIGN_KEY">FOREIGN_KEY</option>
           <option value="VIEW_READS_TABLE">VIEW_READS_TABLE</option>
           <option value="TRIGGER_ON_TABLE">TRIGGER_ON_TABLE</option>
           <option value="TRIGGER_READS_TABLE">TRIGGER_READS_TABLE</option>
-        </Select>
+          </select>
         
-        <Input
+          <input
           type="text"
           placeholder="Search object name..."
           value={filters.search as string}
           onChange={(e) => handleFilterChange('search', e.target.value)}
-          style={{ flex: 1, minWidth: "200px" }}
-        />
-        
-        <Button
-          $variant="secondary"
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          />
+          
+          <AsciiButton
+            label="Reset All"
           onClick={() => {
             clearFilters();
             setPage(1);
           }}
-          style={{ padding: "8px 16px", fontSize: "0.9em" }}
-        >
-          Reset All
-        </Button>
-      </FiltersContainer>
+            variant="ghost"
+          />
+        </div>
+      </AsciiPanel>
 
-      <TableActions>
-        <PaginationInfo>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: 16,
+        fontFamily: 'Consolas',
+        fontSize: 12
+      }}>
+        <div style={{ color: asciiColors.muted }}>
           {viewMode === "table" 
             ? `Showing ${sortedLineage.length} of ${pagination.total} relationships (Page ${pagination.currentPage} of ${pagination.totalPages})`
             : `Total: ${allEdges.length} relationships`
           }
-        </PaginationInfo>
-        <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <Button
-            $variant={viewMode === "table" ? "primary" : "secondary"}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <AsciiButton
+            label="Table View"
             onClick={() => setViewMode("table")}
-            style={{ padding: "6px 12px", fontSize: "0.85em" }}
-          >
-            Table View
-          </Button>
-          <Button
-            $variant={viewMode === "tree" ? "primary" : "secondary"}
+            variant={viewMode === "table" ? "primary" : "ghost"}
+          />
+          <AsciiButton
+            label="Tree View"
             onClick={() => {
               setViewMode("tree");
               fetchAllEdges();
             }}
-            style={{ padding: "6px 12px", fontSize: "0.85em" }}
-          >
-            Tree View
-          </Button>
-          <ExportButton $variant="secondary" onClick={handleExportCSV}>
-            Export CSV
-          </ExportButton>
+            variant={viewMode === "tree" ? "primary" : "ghost"}
+          />
+          <AsciiButton
+            label="Export CSV"
+            onClick={handleExportCSV}
+            variant="ghost"
+          />
         </div>
-      </TableActions>
+      </div>
 
       {viewMode === "tree" ? (
         loadingTree ? (
@@ -817,211 +514,352 @@ const DataLineageOracle = () => {
           <DataLineageOracleTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
         )
       ) : (
-        <StyledTableContainer>
-        <Table $minWidth="1400px">
+        <AsciiPanel title="LINEAGE RELATIONSHIPS">
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ 
+              width: '100%', 
+              minWidth: '1400px',
+              borderCollapse: 'collapse',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
           <thead>
             <tr>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "schema_name"} 
-                $direction={sortDirection}
+                  <th 
                 onClick={() => handleSort("schema_name")}
-              >
-                Schema
-              </SortableTh>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "object_name"} 
-                $direction={sortDirection}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "schema_name" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "schema_name" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Schema {sortField === "schema_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th 
                 onClick={() => handleSort("object_name")}
-              >
-                Object
-              </SortableTh>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "object_type"} 
-                $direction={sortDirection}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "object_name" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "object_name" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Object {sortField === "object_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th 
                 onClick={() => handleSort("object_type")}
-              >
-                Type
-              </SortableTh>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "target_object_name"} 
-                $direction={sortDirection}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "object_type" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "object_type" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Type {sortField === "object_type" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th 
                 onClick={() => handleSort("target_object_name")}
-              >
-                Target Object
-              </SortableTh>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "target_object_type"} 
-                $direction={sortDirection}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "target_object_name" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "target_object_name" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Target Object {sortField === "target_object_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th 
                 onClick={() => handleSort("target_object_type")}
-              >
-                Target Type
-              </SortableTh>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "server_name"} 
-                $direction={sortDirection}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "target_object_type" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "target_object_type" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Target Type {sortField === "target_object_type" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th 
                 onClick={() => handleSort("server_name")}
-              >
-                Server
-              </SortableTh>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "relationship_type"} 
-                $direction={sortDirection}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "server_name" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "server_name" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Server {sortField === "server_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th 
                 onClick={() => handleSort("relationship_type")}
-              >
-                Relationship
-              </SortableTh>
-              <SortableTh 
-                $sortable 
-                $active={sortField === "confidence_score"} 
-                $direction={sortDirection}
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "relationship_type" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "relationship_type" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Relationship {sortField === "relationship_type" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th 
                 onClick={() => handleSort("confidence_score")}
-              >
-                Confidence
-              </SortableTh>
-              <Th>Method</Th>
+                    style={{
+                      padding: '8px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.border}`,
+                      cursor: 'pointer',
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: sortField === "confidence_score" ? asciiColors.accent : asciiColors.foreground,
+                      backgroundColor: sortField === "confidence_score" ? asciiColors.accentLight : 'transparent'
+                    }}
+                  >
+                    Confidence {sortField === "confidence_score" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th style={{
+                    padding: '8px',
+                    textAlign: 'left',
+                    borderBottom: `2px solid ${asciiColors.border}`,
+                    fontFamily: 'Consolas',
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>
+                    Method
+                  </th>
             </tr>
           </thead>
           <tbody>
             {sortedLineage.length === 0 ? (
-              <TableRow>
-                <Td colSpan={9} style={{ padding: '60px 40px', textAlign: 'center', color: theme.colors.text.secondary }}>
-                  <div style={{ 
-                    fontSize: '3em', 
-                    marginBottom: theme.spacing.md,
-                    animation: `${fadeIn} 0.5s ease-out`,
-                    fontFamily: "'Courier New', monospace",
-                    opacity: 0.5
-                  }}>
-                    →
+                  <tr>
+                    <td colSpan={10} style={{ padding: '60px 40px', textAlign: 'center', color: asciiColors.muted, fontFamily: 'Consolas' }}>
+                      <div style={{ fontSize: 48, marginBottom: 16, fontFamily: 'Consolas', opacity: 0.5 }}>
+                        {ascii.arrowRight}
                   </div>
-                  <div style={{ 
-                    fontSize: '1.1em',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", sans-serif',
-                    fontWeight: 500,
-                    marginBottom: theme.spacing.sm
-                  }}>
+                      <div style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
                     No lineage data available
                   </div>
-                  <div style={{ fontSize: '0.9em', opacity: 0.7 }}>
+                      <div style={{ fontSize: 12, fontFamily: 'Consolas', opacity: 0.7, color: asciiColors.muted }}>
                     Lineage relationships will appear here once extracted.
                   </div>
-                </Td>
-              </TableRow>
+                    </td>
+                  </tr>
             ) : (
               sortedLineage.map((edge, index) => (
                 <React.Fragment key={edge.id}>
-                  <StyledTableRow onClick={() => toggleEdge(edge.id)} style={{ cursor: 'pointer' }} $delay={index}>
-                    <Td style={{ color: theme.colors.text.secondary }}>
+                      <tr 
+                        onClick={() => toggleEdge(edge.id)} 
+                        style={{ 
+                          cursor: 'pointer',
+                          borderBottom: `1px solid ${asciiColors.border}`,
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                          e.currentTarget.style.transform = 'translateX(4px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.transform = 'translateX(0)';
+                        }}
+                      >
+                        <td style={{ padding: '8px', color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
                       {edge.schema_name || 'N/A'}
-                    </Td>
-                    <Td>
-                      <strong style={{ color: theme.colors.primary.main }}>
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
+                          <strong style={{ color: asciiColors.accent }}>
                         {edge.object_name || 'N/A'}
                       </strong>
                       {edge.column_name && (
-                        <div style={{ fontSize: '0.8em', color: theme.colors.text.secondary }}>.{edge.column_name}</div>
-                      )}
-                    </Td>
-                    <Td>
-                      <Badge $type={edge.object_type}>{edge.object_type || 'N/A'}</Badge>
-                    </Td>
-                    <Td>
-                      <strong>{edge.target_object_name || 'N/A'}</strong>
+                            <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>.{edge.column_name}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: 2,
+                            fontSize: 11,
+                            fontFamily: 'Consolas',
+                            backgroundColor: asciiColors.backgroundSoft,
+                            color: asciiColors.foreground,
+                            border: `1px solid ${asciiColors.border}`
+                          }}>
+                            {edge.object_type || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
+                          <strong style={{ color: asciiColors.foreground }}>{edge.target_object_name || 'N/A'}</strong>
                       {edge.target_column_name && (
-                        <div style={{ fontSize: '0.8em', color: theme.colors.text.secondary }}>.{edge.target_column_name}</div>
-                      )}
-                    </Td>
-                    <Td>
-                      <Badge $type={edge.target_object_type}>{edge.target_object_type || 'N/A'}</Badge>
-                    </Td>
-                    <Td style={{ color: theme.colors.text.secondary }}>
+                            <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>.{edge.target_column_name}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: 2,
+                            fontSize: 11,
+                            fontFamily: 'Consolas',
+                            backgroundColor: asciiColors.backgroundSoft,
+                            color: asciiColors.foreground,
+                            border: `1px solid ${asciiColors.border}`
+                          }}>
+                            {edge.target_object_type || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px', color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
                       {edge.server_name || 'N/A'}
-                    </Td>
-                    <Td>
-                      <RelationshipArrow>→</RelationshipArrow>
-                      <div style={{ fontSize: '0.75em', color: theme.colors.text.secondary, marginTop: '4px' }}>
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
+                          <div style={{ color: asciiColors.accent, fontSize: 14, fontWeight: 'bold' }}>
+                            {ascii.arrowRight}
+                          </div>
+                          <div style={{ fontSize: 11, color: asciiColors.muted, marginTop: 4, fontFamily: 'Consolas' }}>
                         {edge.relationship_type || 'N/A'}
                       </div>
-                    </Td>
-                    <Td>
-                      <Badge $level={edge.confidence_score ? (edge.confidence_score >= 0.8 ? 0 : edge.confidence_score >= 0.5 ? 1 : 2) : 2}>
+                        </td>
+                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: 2,
+                            fontSize: 11,
+                            fontFamily: 'Consolas',
+                            backgroundColor: getConfidenceColor(edge.confidence_score) + '20',
+                            color: getConfidenceColor(edge.confidence_score),
+                            border: `1px solid ${getConfidenceColor(edge.confidence_score)}`
+                          }}>
                         {formatConfidence(edge.confidence_score)}
-                      </Badge>
-                    </Td>
-                    <Td style={{ color: theme.colors.text.secondary }}>
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px', color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
                       {edge.discovery_method || 'N/A'}
-                    </Td>
-                  </StyledTableRow>
+                        </td>
+                      </tr>
                   {openEdgeId === edge.id && (
-                    <TableRow>
-                      <Td colSpan={9} style={{ padding: 0, border: 'none' }}>
-                        <LineageDetails $isOpen={openEdgeId === edge.id}>
-                          <DetailGrid>
-                            <DetailLabel>Edge Key:</DetailLabel>
-                            <DetailValue>{edge.edge_key || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Schema:</DetailLabel>
-                            <DetailValue>{edge.schema_name || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Object Name:</DetailLabel>
-                            <DetailValue>{edge.object_name || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Object Type:</DetailLabel>
-                            <DetailValue>{edge.object_type || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Column Name:</DetailLabel>
-                            <DetailValue>{edge.column_name || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Target Object:</DetailLabel>
-                            <DetailValue>{edge.target_object_name || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Target Type:</DetailLabel>
-                            <DetailValue>{edge.target_object_type || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Target Column:</DetailLabel>
-                            <DetailValue>{edge.target_column_name || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Dependency Level:</DetailLabel>
-                            <DetailValue>{edge.dependency_level !== null && edge.dependency_level !== undefined ? edge.dependency_level : 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Discovery Method:</DetailLabel>
-                            <DetailValue>{edge.discovery_method || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>Discovered By:</DetailLabel>
-                            <DetailValue>{edge.discovered_by || 'N/A'}</DetailValue>
-                            
-                            <DetailLabel>First Seen:</DetailLabel>
-                            <DetailValue>{formatDate(edge.first_seen_at)}</DetailValue>
-                            
-                            <DetailLabel>Last Seen:</DetailLabel>
-                            <DetailValue>{formatDate(edge.last_seen_at)}</DetailValue>
-                          </DetailGrid>
+                        <tr>
+                          <td colSpan={10} style={{ padding: 0, border: 'none' }}>
+                            <div style={{
+                              maxHeight: openEdgeId === edge.id ? '700px' : '0',
+                              opacity: openEdgeId === edge.id ? '1' : '0',
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              borderTop: openEdgeId === edge.id ? `1px solid ${asciiColors.border}` : 'none',
+                              backgroundColor: asciiColors.background,
+                              overflow: 'hidden'
+                            }}>
+                              <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '200px 1fr', 
+                                padding: 16, 
+                                gap: 12,
+                                fontFamily: 'Consolas',
+                                fontSize: 12
+                              }}>
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Edge Key:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.edge_key || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Schema:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.schema_name || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Object Name:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.object_name || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Object Type:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.object_type || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Column Name:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.column_name || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Target Object:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.target_object_name || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Target Type:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.target_object_type || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Target Column:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.target_column_name || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Dependency Level:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.dependency_level !== null && edge.dependency_level !== undefined ? edge.dependency_level : 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Discovery Method:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.discovery_method || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Discovered By:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.discovered_by || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>First Seen:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.first_seen_at)}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Last Seen:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.last_seen_at)}</div>
+                              </div>
                           
                           {edge.definition_text && (
                             <>
-                              <div style={{ padding: '15px 15px 5px 15px', fontWeight: 'bold', color: theme.colors.text.secondary }}>
+                                  <div style={{ padding: '15px 15px 5px 15px', fontWeight: 600, color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
                                 Definition:
                               </div>
-                              <DefinitionText>{edge.definition_text}</DefinitionText>
+                                  <pre style={{
+                                    margin: 0,
+                                    padding: 16,
+                                    backgroundColor: asciiColors.backgroundSoft,
+                                    borderRadius: 2,
+                                    overflowX: 'auto',
+                                    fontSize: 11,
+                                    border: `1px solid ${asciiColors.border}`,
+                                    fontFamily: 'Consolas',
+                                    color: asciiColors.foreground
+                                  }}>
+                                    {edge.definition_text}
+                                  </pre>
                             </>
                           )}
-                        </LineageDetails>
-                      </Td>
-                    </TableRow>
+                            </div>
+                          </td>
+                        </tr>
                   )}
                 </React.Fragment>
               ))
             )}
           </tbody>
-        </Table>
-      </StyledTableContainer>
+            </table>
+          </div>
+        </AsciiPanel>
       )}
 
       {viewMode === "table" && pagination.totalPages > 1 && (

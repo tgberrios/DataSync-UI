@@ -60,6 +60,41 @@ const globalStyles = `
     50% { opacity: 1; }
     100% { opacity: 0; }
   }
+  @keyframes smoothUpdate {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes dataPulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  * {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
 `;
 
 const AsciiProgressBar: React.FC<{ progress: number }> = ({ progress }) => {
@@ -103,8 +138,8 @@ const AsciiProgressBar: React.FC<{ progress: number }> = ({ progress }) => {
     <div 
       ref={containerRef}
       style={{ 
-        fontFamily: "monospace", 
-        fontSize: 11,
+        fontFamily: "Consolas, 'Source Code Pro', monospace", 
+        fontSize: 12,
         color: asciiColors.foreground,
         margin: "8px 0",
         width: "100%"
@@ -182,14 +217,9 @@ const AnimatedStat: React.FC<{
       display: "flex", 
       alignItems: "center", 
       gap: 4,
-      transition: "transform 0.2s ease",
-      cursor: "default"
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = "scale(1.05)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = "scale(1)";
+      cursor: "default",
+      fontFamily: "Consolas, 'Source Code Pro', monospace",
+      fontSize: 12
     }}
     >
       <span style={{ 
@@ -446,7 +476,7 @@ const Dashboard = () => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "monospace",
+          fontFamily: "Consolas, 'Source Code Pro', monospace",
           fontSize: 12,
           color: asciiColors.foreground,
           backgroundColor: asciiColors.background,
@@ -480,7 +510,7 @@ const Dashboard = () => {
         width: "100%",
         height: "100vh",
         padding: 20,
-        fontFamily: "monospace",
+        fontFamily: "Consolas, 'Source Code Pro', monospace",
         fontSize: 12,
         color: asciiColors.foreground,
         backgroundColor: asciiColors.background
@@ -505,7 +535,7 @@ const Dashboard = () => {
       width: "100%",
       minHeight: "100vh",
       padding: "24px 32px",
-      fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+      fontFamily: "Consolas, 'Source Code Pro', monospace",
       fontSize: 12,
       color: asciiColors.foreground,
       backgroundColor: asciiColors.background,
@@ -513,58 +543,59 @@ const Dashboard = () => {
       flexDirection: "column",
       gap: 20
     }}>
-      <div style={{
-        fontSize: 16,
+      <h1 style={{
+        fontSize: 18,
         fontWeight: 600,
+        margin: 0,
         marginBottom: 16,
         padding: "12px 8px",
-        borderBottom: `2px solid ${asciiColors.border}`
+        borderBottom: `2px solid ${asciiColors.border}`,
+        fontFamily: "Consolas, 'Source Code Pro', monospace"
       }}>
-        {ascii.thickTl}{ascii.thickH.repeat(12)}{ascii.thickTr} DATASYNC REAL-TIME DASHBOARD
-      </div>
+        DATASYNC REAL-TIME DASHBOARD
+      </h1>
 
       <AsciiPanel title="SYNCHRONIZATION STATUS">
         <AsciiProgressBar progress={progressPercentage} />
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gridTemplateColumns: "repeat(3, 1fr)",
           gap: 12,
-          marginTop: 16
+          marginTop: 16,
+          animation: "fadeInUp 0.4s ease-out"
         }}>
           <AnimatedStat
             icon={ascii.blockFull}
             label="Listening Changes"
             value={stats.syncStatus.listeningChanges || 0}
-            color={asciiColors.success}
-            pulse={true}
+            color={asciiColors.muted}
           />
           <AnimatedStat
-            icon={ascii.blockSemi}
+            icon={ascii.blockFull}
             label="Pending"
             value={stats.syncStatus.pending || 0}
-            color={asciiColors.warning}
+            color={asciiColors.muted}
           />
           <AnimatedStat
             icon={ascii.blockFull}
             label="Active"
             value={stats.syncStatus.fullLoadActive || 0}
-            color={asciiColors.accent}
-            pulse={true}
+            color={asciiColors.muted}
           />
           <AnimatedStat
-            icon={ascii.blockLight}
+            icon={ascii.blockFull}
             label="Inactive"
             value={stats.syncStatus.fullLoadInactive || 0}
             color={asciiColors.muted}
           />
           <AnimatedStat
-            icon={ascii.dot}
+            icon={ascii.blockFull}
             label="No Data"
             value={stats.syncStatus.noData || 0}
             color={asciiColors.muted}
           />
           <AnimatedStat
-            icon={ascii.dot}
+            icon={ascii.blockFull}
             label="Skip"
             value={stats.syncStatus.skip || 0}
             color={asciiColors.muted}
@@ -573,25 +604,28 @@ const Dashboard = () => {
             icon={ascii.blockFull}
             label="Errors"
             value={stats.syncStatus.errors || 0}
-            color={asciiColors.danger}
-            pulse={stats.syncStatus.errors > 0}
+            color={asciiColors.muted}
           />
           <AnimatedStat
-            icon={ascii.blockSemi}
+            icon={ascii.blockFull}
             label="In Progress"
             value={stats.syncStatus.inProgress || 0}
-            color={asciiColors.warning}
-            pulse={stats.syncStatus.inProgress > 0}
+            color={asciiColors.muted}
           />
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
-            <span style={{ color: asciiColors.muted }}>{ascii.v}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ 
+              color: asciiColors.muted,
+              display: "inline-block"
+            }}>
+              {ascii.blockFull}
+            </span>
             <span>Total Tables:</span>
-            <AnimatedStat
-              icon={ascii.blockFull}
-              label=""
-              value={(stats.syncStatus.listeningChanges || 0) + (stats.syncStatus.pending || 0) + (stats.syncStatus.fullLoadActive || 0) + (stats.syncStatus.fullLoadInactive || 0) + (stats.syncStatus.noData || 0) + (stats.syncStatus.skip || 0) + (stats.syncStatus.inProgress || 0)}
-              color={asciiColors.accent}
-            />
+            <span style={{ 
+              color: asciiColors.muted, 
+              fontWeight: 600
+            }}>
+              {(stats.syncStatus.listeningChanges || 0) + (stats.syncStatus.pending || 0) + (stats.syncStatus.fullLoadActive || 0) + (stats.syncStatus.fullLoadInactive || 0) + (stats.syncStatus.noData || 0) + (stats.syncStatus.skip || 0) + (stats.syncStatus.inProgress || 0)}
+            </span>
           </div>
         </div>
 
@@ -633,7 +667,8 @@ const Dashboard = () => {
           <div style={{
             padding: 16,
             color: asciiColors.muted,
-            fontSize: 11,
+            fontSize: 12,
+            fontFamily: "Consolas, 'Source Code Pro', monospace",
             border: `1px dashed ${asciiColors.border}`,
             borderRadius: 2
           }}>
@@ -650,18 +685,23 @@ const Dashboard = () => {
                     padding: "12px 16px",
                     borderRadius: 2,
                     backgroundColor: asciiColors.backgroundSoft,
-                    transition: "all 0.2s ease"
+                    transition: "all 0.3s ease",
+                    animation: "fadeInUp 0.4s ease-out",
+                    animationDelay: `${index * 0.1}s`
                   }}
                 >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div>
-                      <span style={{ fontWeight: 600 }}>
-                        {item.schema_name}.{item.table_name}
-                      </span>
-                      <span style={{ color: asciiColors.muted, marginLeft: 4 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, fontFamily: "Consolas, 'Source Code Pro', monospace" }}>
+                    <h3 style={{ 
+                      fontSize: 13, 
+                      fontWeight: 600, 
+                      margin: 0,
+                      fontFamily: "Consolas, 'Source Code Pro', monospace"
+                    }}>
+                      <span>{item.schema_name}.{item.table_name}</span>
+                      <span style={{ color: asciiColors.muted, marginLeft: 4, fontSize: 12 }}>
                         [{item.db_engine}]
                       </span>
-                    </div>
+                    </h3>
                     <div style={{ 
                       fontSize: 11, 
                       color: asciiColors.muted, 
@@ -711,7 +751,7 @@ const Dashboard = () => {
                   disabled={!processingPagination.hasPrev}
                   variant="ghost"
                 />
-                <span style={{ fontSize: 11, color: asciiColors.muted }}>
+                <span style={{ fontSize: 12, color: asciiColors.muted, fontFamily: "Consolas, 'Source Code Pro', monospace" }}>
                   {ascii.v} Page {processingPagination.page} of {processingPagination.totalPages} {ascii.v}
                 </span>
                 <AsciiButton
@@ -734,7 +774,9 @@ const Dashboard = () => {
           display: "flex",
           gap: 24,
           alignItems: "center",
-          padding: "8px 0"
+          padding: "8px 0",
+          fontFamily: "Consolas, 'Source Code Pro', monospace",
+          fontSize: 12
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ color: asciiColors.muted }}>{ascii.v}</span>

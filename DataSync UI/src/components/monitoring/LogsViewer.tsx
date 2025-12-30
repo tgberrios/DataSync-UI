@@ -11,50 +11,35 @@ import { logsApi, type LogEntry, type LogInfo } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 
 const Section = styled.div`
   margin-bottom: ${theme.spacing.xxl};
   padding: ${theme.spacing.lg};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.md};
-  background-color: ${theme.colors.background.secondary};
-  box-shadow: ${theme.shadows.sm};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  background-color: ${asciiColors.backgroundSoft};
   transition: all ${theme.transitions.normal};
   animation: slideUp 0.25s ease-out;
   animation-fill-mode: both;
-  
-  &:hover {
-    box-shadow: ${theme.shadows.md};
-    transform: translateY(-2px);
-    border-color: rgba(10, 25, 41, 0.2);
-  }
+  font-family: "Consolas";
+  font-size: 12px;
   
   &:nth-child(1) { animation-delay: 0.05s; }
   &:nth-child(2) { animation-delay: 0.1s; }
 `;
 
-const SectionTitle = styled.h3`
+const SectionTitle = styled.h2`
+  margin: 0;
   margin-bottom: ${theme.spacing.md};
-  font-size: 1.2em;
-  color: ${theme.colors.text.primary};
-  border-bottom: 2px solid ${theme.colors.border.dark};
+  font-size: 14px;
+  font-family: "Consolas";
+  color: ${asciiColors.accent};
+  border-bottom: 1px solid ${asciiColors.border};
   padding-bottom: 8px;
-  position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 60px;
-    height: 2px;
-    background: linear-gradient(90deg, ${theme.colors.primary.main}, ${theme.colors.primary.dark});
-    transition: width 0.3s ease;
-  }
-  
-  &:hover::after {
-    width: 100%;
-  }
+  font-weight: 600;
 `;
 
 const Controls = styled.div`
@@ -62,15 +47,16 @@ const Controls = styled.div`
   gap: ${theme.spacing.lg};
   margin-bottom: ${theme.spacing.lg};
   padding: ${theme.spacing.lg};
-  background-color: ${theme.colors.background.secondary};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.md};
+  background-color: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
   flex-wrap: wrap;
   align-items: end;
-  box-shadow: ${theme.shadows.sm};
   animation: slideUp 0.25s ease-out;
   animation-delay: 0.08s;
   animation-fill-mode: both;
+  font-family: "Consolas";
+  font-size: 12px;
 `;
 
 const ControlGroup = styled.div`
@@ -81,19 +67,19 @@ const ControlGroup = styled.div`
 `;
 
 const Label = styled.label`
-  font-size: 1em;
+  font-size: 12px;
   font-weight: bold;
-  color: ${theme.colors.text.primary};
-  font-family: ${theme.fonts.primary};
+  color: ${asciiColors.foreground};
+  font-family: "Consolas";
 `;
 
 const Select = styled.select`
   padding: 8px 12px;
-  border: 1px solid ${theme.colors.border.medium};
-  border-radius: ${theme.borderRadius.md};
-  background-color: ${theme.colors.background.main};
-  font-family: ${theme.fonts.primary};
-  font-size: 1em;
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  background-color: ${asciiColors.background};
+  font-family: "Consolas";
+  font-size: 12px;
   transition: all ${theme.transitions.normal};
   cursor: pointer;
 
@@ -131,96 +117,102 @@ const Input = styled.input`
 
 const LogsArea = styled.div<{ $isTransitioning?: boolean }>`
   flex: 1;
-  border: 1px solid ${theme.colors.border.medium};
-  border-radius: ${theme.borderRadius.md};
-  background-color: ${theme.colors.background.main};
-  color: ${theme.colors.text.primary};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  background-color: ${asciiColors.background};
+  color: ${asciiColors.foreground};
   overflow-y: auto;
   padding: ${theme.spacing.md};
-  font-size: 0.9em;
+  font-size: 11px;
+  font-family: "Consolas";
   line-height: 1.6;
   max-height: 500px;
-  box-shadow: ${theme.shadows.sm};
   transition: all ${theme.transitions.normal};
   animation: ${props => props.$isTransitioning ? 'pageTransition 0.2s ease-out' : 'none'};
-  
-  &:hover {
-    box-shadow: ${theme.shadows.md};
-  }
 `;
 
 const LogLine = styled.div<{ $level: string; $category: string }>`
   margin-bottom: 2px;
   padding: 4px 0;
-  border-left: 3px solid ${props => {
+  border-left: 2px solid ${props => {
     switch (props.$level) {
       case 'ERROR':
       case 'CRITICAL':
-        return theme.colors.status.error.text;
+        return asciiColors.danger;
       case 'WARNING':
-        return theme.colors.status.warning.text;
+        return asciiColors.warning;
       case 'INFO':
-        return theme.colors.primary.main;
+        return asciiColors.accent;
       case 'DEBUG':
-        return theme.colors.text.secondary;
+        return asciiColors.muted;
       default:
-        return theme.colors.text.light;
+        return asciiColors.muted;
     }
   }};
   padding-left: 8px;
   position: relative;
   transition: all 0.15s ease;
+  font-family: "Consolas";
+  font-size: 11px;
 
   &:hover {
-    background-color: ${theme.colors.background.secondary};
+    background-color: ${asciiColors.backgroundSoft};
     transform: translateX(2px);
   }
 `;
 
 const LogTimestamp = styled.span`
-  color: ${theme.colors.text.secondary};
+  color: ${asciiColors.muted};
   margin-right: 10px;
-  font-size: 0.9em;
+  font-size: 11px;
+  font-family: "Consolas";
 `;
 
 const LogLevel = styled.span<{ $level: string }>`
   font-weight: bold;
   margin-right: 10px;
+  font-family: "Consolas";
+  font-size: 11px;
   color: ${props => {
     switch (props.$level) {
       case 'ERROR':
       case 'CRITICAL':
-        return theme.colors.status.error.text;
+        return asciiColors.danger;
       case 'WARNING':
-        return theme.colors.status.warning.text;
+        return asciiColors.warning;
       case 'INFO':
-        return theme.colors.primary.main;
+        return asciiColors.accent;
       case 'DEBUG':
-        return theme.colors.text.secondary;
+        return asciiColors.muted;
       default:
-        return theme.colors.text.primary;
+        return asciiColors.foreground;
     }
   }};
 `;
 
 const LogFunction = styled.span`
-  color: ${theme.colors.text.secondary};
+  color: ${asciiColors.muted};
   margin-right: 10px;
-  font-size: 0.9em;
+  font-size: 11px;
+  font-family: "Consolas";
 `;
 
 const LogCategory = styled.span<{ $category: string }>`
-  color: ${theme.colors.text.secondary};
+  color: ${asciiColors.muted};
   margin-right: 10px;
-  font-size: 0.8em;
+  font-size: 11px;
   font-weight: 500;
-  background-color: ${theme.colors.background.secondary};
+  font-family: "Consolas";
+  background-color: ${asciiColors.backgroundSoft};
   padding: 2px 6px;
-  border-radius: ${theme.borderRadius.sm};
+  border-radius: 2px;
+  border: 1px solid ${asciiColors.border};
 `;
 
 const LogMessage = styled.span`
-  color: ${theme.colors.text.primary};
+  color: ${asciiColors.foreground};
+  font-family: "Consolas";
+  font-size: 11px;
 `;
 
 const Pagination = styled.div`
@@ -230,32 +222,30 @@ const Pagination = styled.div`
   gap: ${theme.spacing.sm};
   margin-top: ${theme.spacing.md};
   padding: ${theme.spacing.md};
-  background-color: ${theme.colors.background.secondary};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.sm};
+  background-color: ${asciiColors.backgroundSoft};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  font-family: "Consolas";
+  font-size: 12px;
 `;
 
-const PageButton = styled(Button)`
-  padding: 8px 14px;
-  font-size: 0.9em;
-`;
 
 const PageInfo = styled.span`
-  color: ${theme.colors.text.secondary};
-  font-family: ${theme.fonts.primary};
-  font-size: 0.9em;
+  color: ${asciiColors.muted};
+  font-family: "Consolas";
+  font-size: 11px;
 `;
 
 const SuccessMessage = styled.div`
   margin-top: ${theme.spacing.md};
   padding: ${theme.spacing.sm} ${theme.spacing.md};
-  backgroundColor: ${theme.colors.status.success.bg};
-  border: 1px solid ${theme.colors.status.success.text};
-  borderRadius: ${theme.borderRadius.sm};
-  color: ${theme.colors.status.success.text};
-  textAlign: center;
-  fontFamily: ${theme.fonts.primary};
-  fontSize: 0.9em;
+  background-color: ${asciiColors.success}20;
+  border: 1px solid ${asciiColors.success};
+  border-radius: 2px;
+  color: ${asciiColors.success};
+  text-align: center;
+  font-family: "Consolas";
+  font-size: 12px;
 `;
 
 const ModalOverlay = styled.div`
@@ -272,13 +262,14 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: ${theme.colors.background.main};
+  background: ${asciiColors.background};
   padding: ${theme.spacing.xxl};
-  borderRadius: ${theme.borderRadius.lg};
-  border: 2px solid ${theme.colors.border.dark};
-  maxWidth: 500px;
-  textAlign: center;
-  fontFamily: ${theme.fonts.primary};
+  border-radius: 2px;
+  border: 2px solid ${asciiColors.border};
+  max-width: 500px;
+  text-align: center;
+  font-family: "Consolas";
+  font-size: 12px;
 `;
 
 /**
@@ -580,39 +571,134 @@ const LogsViewer = () => {
 
   if (loading) {
     return (
-      <Container>
-        <Header>DataSync Logs Viewer</Header>
-        <LoadingOverlay>Loading logs...</LoadingOverlay>
-      </Container>
+      <div style={{
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Consolas",
+        fontSize: 12,
+        color: asciiColors.foreground,
+        backgroundColor: asciiColors.background,
+        gap: 12
+      }}>
+        <div style={{
+          fontSize: 24,
+          animation: "spin 1s linear infinite"
+        }}>
+          {ascii.blockFull}
+        </div>
+        <div style={{
+          display: "flex",
+          gap: 4,
+          alignItems: "center"
+        }}>
+          <span>Loading logs</span>
+          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
+            {ascii.dot.repeat(3)}
+          </span>
+        </div>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          @keyframes dots {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+        `}</style>
+      </div>
     );
   }
 
   if (error && logs.length === 0) {
     return (
-      <Container>
-        <Header>DataSync Logs Viewer</Header>
-        <ErrorMessage>
-          <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>Error loading logs:</div>
-          <div>{error}</div>
-          <Button 
+      <div style={{
+        width: "100%",
+        minHeight: "100vh",
+        padding: "24px 32px",
+        fontFamily: "Consolas",
+        fontSize: 12,
+        color: asciiColors.foreground,
+        backgroundColor: asciiColors.background,
+        display: "flex",
+        flexDirection: "column",
+        gap: 20
+      }}>
+        <h1 style={{
+          fontSize: 18,
+          fontFamily: "Consolas",
+          fontWeight: 600,
+          margin: 0,
+          marginBottom: 16,
+          padding: "12px 8px",
+          borderBottom: `2px solid ${asciiColors.border}`
+        }}>
+          DATASYNC LOGS VIEWER
+        </h1>
+        <AsciiPanel title="ERROR">
+          <div style={{ 
+            color: asciiColors.danger, 
+            fontFamily: "Consolas", 
+            fontSize: 12,
+            padding: "8px 0",
+            marginBottom: 12
+          }}>
+            {ascii.blockFull} Error loading logs: {error}
+          </div>
+          <AsciiButton 
+            label="Retry"
             onClick={fetchLogs}
-            style={{ marginTop: '10px' }}
-          >
-            Retry
-          </Button>
-        </ErrorMessage>
-      </Container>
+            variant="primary"
+          />
+        </AsciiPanel>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <Header>DataSync Logs Viewer</Header>
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Consolas",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <h1 style={{
+        fontSize: 18,
+        fontFamily: "Consolas",
+        fontWeight: 600,
+        margin: 0,
+        marginBottom: 16,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        DATASYNC LOGS VIEWER
+      </h1>
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ 
+            color: asciiColors.danger, 
+            fontFamily: "Consolas", 
+            fontSize: 12,
+            padding: "8px 0"
+          }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
       
-      <Section>
-        <SectionTitle>⚙ LOG CONTROLS</SectionTitle>
+      <AsciiPanel title="LOG CONTROLS">
         <Controls>
           <ControlGroup>
             <Label>Lines to show:</Label>
@@ -688,13 +774,11 @@ const LogsViewer = () => {
           
           <ControlGroup>
             <Label>Auto Refresh:</Label>
-            <Button
-              $variant={autoRefresh ? 'secondary' : 'primary'}
+            <AsciiButton
+              label={autoRefresh ? 'ON' : 'OFF'}
               onClick={() => setAutoRefresh(!autoRefresh)}
-              style={{ width: '120px' }}
-            >
-              {autoRefresh ? 'ON' : 'OFF'}
-            </Button>
+              variant={autoRefresh ? 'primary' : 'ghost'}
+            />
           </ControlGroup>
           
           {autoRefresh && (
@@ -702,13 +786,13 @@ const LogsViewer = () => {
               <Label>Next Refresh:</Label>
               <div style={{
                 padding: '8px 12px',
-                border: `1px solid ${theme.colors.border.medium}`,
-                borderRadius: theme.borderRadius.sm,
-                backgroundColor: theme.colors.background.secondary,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                backgroundColor: asciiColors.background,
                 textAlign: 'center',
-                fontFamily: theme.fonts.primary,
-                fontSize: '1em',
-                color: theme.colors.text.primary,
+                fontFamily: "Consolas",
+                fontSize: 12,
+                color: asciiColors.foreground,
                 minWidth: '60px'
               }}>
                 {refreshCountdown}s
@@ -716,49 +800,61 @@ const LogsViewer = () => {
             </ControlGroup>
           )}
           
-          <Button onClick={fetchLogs} disabled={isRefreshing}>
-            {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
-          </Button>
+          <AsciiButton 
+            label={isRefreshing ? 'Refreshing...' : 'Refresh Now'}
+            onClick={fetchLogs} 
+            disabled={isRefreshing}
+            variant="primary"
+          />
           
-          <Button $variant="secondary" onClick={clearFilters}>
-            Clear Filters
-          </Button>
+          <AsciiButton 
+            label="Clear Filters"
+            onClick={clearFilters}
+            variant="ghost"
+          />
           
-          <Button $variant="secondary" onClick={scrollToBottom}>
-            Scroll to Bottom
-          </Button>
+          <AsciiButton 
+            label="Scroll to Bottom"
+            onClick={scrollToBottom}
+            variant="ghost"
+          />
           
-          <Button $variant="secondary" onClick={() => goToPage(1)}>
-            Go to Latest
-          </Button>
+          <AsciiButton 
+            label="Go to Latest"
+            onClick={() => goToPage(1)}
+            variant="ghost"
+          />
           
-          <Button 
-            $variant="secondary" 
+          <AsciiButton 
+            label={isCopying ? 'Copying...' : 'Copy Logs'}
             onClick={handleCopyAllLogs}
             disabled={isCopying || isRefreshing}
-          >
-            {isCopying ? 'Copying...' : 'Copy Logs'}
-          </Button>
+            variant="ghost"
+          />
           
-          <Button 
-            $variant="secondary" 
+          <AsciiButton 
+            label={isClearing ? 'Clearing...' : 'Clear Logs'}
             onClick={() => setShowClearDialog(true)}
             disabled={isClearing || isRefreshing}
-            style={{ backgroundColor: theme.colors.status.error.bg, color: theme.colors.status.error.text }}
-          >
-            {isClearing ? 'Clearing...' : 'Clear Logs'}
-          </Button>
+            variant="ghost"
+          />
         </Controls>
         
         {copySuccess && (
-          <SuccessMessage>
-            ✅ Logs copied to clipboard successfully!
-          </SuccessMessage>
+          <AsciiPanel title="SUCCESS">
+            <div style={{ 
+              color: asciiColors.success, 
+              fontFamily: "Consolas", 
+              fontSize: 12,
+              padding: "8px 0"
+            }}>
+              {ascii.blockFull} Logs copied to clipboard successfully!
+            </div>
+          </AsciiPanel>
         )}
-      </Section>
+      </AsciiPanel>
 
-      <Section>
-        <SectionTitle>■ LOG ENTRIES (DB)</SectionTitle>
+      <AsciiPanel title="LOG ENTRIES (DB)">
         <LogsArea $isTransitioning={isPageTransitioning}>
           {logs.map((log, index) => (
             <LogLine key={log.id || index} $level={log.level} $category={log.category || 'SYSTEM'}>
@@ -774,12 +870,18 @@ const LogsViewer = () => {
         
         {totalPages > 1 && (
           <Pagination>
-            <PageButton onClick={goToFirstPage} disabled={currentPage === 1}>
-              ««
-            </PageButton>
-            <PageButton onClick={goToPreviousPage} disabled={currentPage === 1}>
-              «
-            </PageButton>
+            <AsciiButton 
+              label="««"
+              onClick={goToFirstPage} 
+              disabled={currentPage === 1}
+              variant="ghost"
+            />
+            <AsciiButton 
+              label="«"
+              onClick={goToPreviousPage} 
+              disabled={currentPage === 1}
+              variant="ghost"
+            />
             
             {Array.from({ length: Math.min(20, totalPages) }, (_, i) => {
               const startPage = Math.max(1, currentPage - 9);
@@ -787,40 +889,45 @@ const LogsViewer = () => {
               if (page > totalPages) return null;
               
               return (
-                <PageButton
+                <AsciiButton
                   key={page}
-                  $variant={currentPage === page ? 'primary' : 'secondary'}
+                  label={page.toString()}
                   onClick={() => goToPage(page)}
-                >
-                  {page}
-                </PageButton>
+                  variant={currentPage === page ? 'primary' : 'ghost'}
+                />
               );
             })}
             
             {totalPages > 20 && currentPage < totalPages - 9 && (
-              <PageInfo style={{ color: theme.colors.text.light, fontSize: '0.8em' }}>
+              <PageInfo style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>
                 ...
               </PageInfo>
             )}
             
-            <PageButton onClick={goToNextPage} disabled={currentPage === totalPages}>
-              »
-            </PageButton>
-            <PageButton onClick={goToLastPage} disabled={currentPage === totalPages}>
-              »»
-            </PageButton>
+            <AsciiButton 
+              label="»"
+              onClick={goToNextPage} 
+              disabled={currentPage === totalPages}
+              variant="ghost"
+            />
+            <AsciiButton 
+              label="»»"
+              onClick={goToLastPage} 
+              disabled={currentPage === totalPages}
+              variant="ghost"
+            />
             
             <PageInfo>
               Page {currentPage} of {totalPages}
             </PageInfo>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '0.9em', color: theme.colors.text.secondary }}>Go to:</span>
+              <span style={{ fontSize: 11, color: asciiColors.muted, fontFamily: "Consolas" }}>Go to:</span>
               <Input
                 type="number"
                 min="1"
                 max={totalPages}
-                style={{ width: '60px', padding: '4px 8px', fontSize: '0.9em' }}
+                style={{ width: '60px', padding: '4px 8px', fontSize: 11, fontFamily: "Consolas" }}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
                     const targetPage = parseInt((e.target as HTMLInputElement).value);
@@ -835,42 +942,61 @@ const LogsViewer = () => {
             </div>
           </Pagination>
         )}
-      </Section>
+      </AsciiPanel>
 
       {showClearDialog && (
         <ModalOverlay>
-          <ModalContent>
-            <h3 style={{ marginBottom: '20px', color: theme.colors.status.error.text }}>
-              ⚠️ CLEAR LOGS CONFIRMATION
+          <ModalContent style={{
+            background: asciiColors.background,
+            padding: theme.spacing.xxl,
+            borderRadius: 2,
+            border: `2px solid ${asciiColors.border}`,
+            maxWidth: 500,
+            textAlign: 'center',
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            <h3 style={{ 
+              margin: 0,
+              marginBottom: 20, 
+              color: asciiColors.danger,
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600
+            }}>
+              {ascii.blockFull} CLEAR LOGS CONFIRMATION
             </h3>
-            <p style={{ marginBottom: '25px', lineHeight: '1.5' }}>
+            <p style={{ 
+              marginBottom: 25, 
+              lineHeight: 1.5,
+              color: asciiColors.foreground,
+              fontFamily: "Consolas",
+              fontSize: 12
+            }}>
               This action will TRUNCATE the database table:
               <br />
-              • metadata.logs (all log entries will be removed)
+              {ascii.dot} metadata.logs (all log entries will be removed)
               <br />
               <strong>This operation cannot be undone!</strong>
             </p>
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-              <Button
+            <div style={{ display: 'flex', gap: 15, justifyContent: 'center' }}>
+              <AsciiButton
+                label="Cancel"
                 onClick={() => setShowClearDialog(false)}
                 disabled={isClearing}
-                $variant="secondary"
-                style={{ backgroundColor: theme.colors.text.secondary, color: theme.colors.text.white }}
-              >
-                Cancel
-              </Button>
-              <Button
+                variant="ghost"
+              />
+              <AsciiButton
+                label={isClearing ? 'Clearing...' : 'Clear Logs'}
                 onClick={handleClearLogs}
                 disabled={isClearing}
-                style={{ backgroundColor: theme.colors.status.error.bg, color: theme.colors.status.error.text }}
-              >
-                {isClearing ? 'Clearing...' : 'Clear Logs'}
-              </Button>
+                variant="ghost"
+              />
             </div>
           </ModalContent>
         </ModalOverlay>
       )}
-    </Container>
+    </div>
   );
 };
 

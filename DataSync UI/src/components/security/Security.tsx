@@ -1,207 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import { securityApi } from '../../services/api';
-import { Container, Header, Section, SectionTitle, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import { Container, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
 import { extractApiError } from '../../utils/errorHandler';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
-  align-items: stretch;
-`;
-
-const Value = styled.div`
-  font-size: 1.1em;
-  padding: 12px;
-  background-color: #fff;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  text-align: center;
-  min-height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    border-color: rgba(10, 25, 41, 0.3);
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  }
-`;
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  border-radius: 6px;
-  overflow: hidden;
-`;
-
-const Th = styled.th`
-  padding: 15px 12px;
-  text-align: left;
-  border-bottom: 2px solid #333;
-  background: linear-gradient(180deg, #f5f5f5 0%, #fafafa 100%);
-  white-space: nowrap;
-  font-weight: 600;
-  font-size: 0.95em;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-`;
-
-const Td = styled.td`
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-  vertical-align: middle;
-  transition: all 0.2s ease;
-`;
-
-const Badge = styled.span<{ type: string }>`
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.9em;
-  font-weight: 500;
-  display: inline-block;
-  transition: all 0.2s ease;
-  background-color: ${props => {
-    switch (props.type) {
-      case 'SUPERUSER': return '#ffebee';
-      case 'CREATEDB': return '#e3f2fd';
-      case 'CREATEROLE': return '#f3e5f5';
-      case 'LOGIN': return '#e8f5e9';
-      case 'ACTIVE': return '#e8f5e9';
-      case 'INACTIVE': return '#ffebee';
-      case 'SELECT': return '#e8f5e9';
-      case 'INSERT': return '#e3f2fd';
-      case 'UPDATE': return '#fff3e0';
-      case 'DELETE': return '#ffebee';
-      case 'ALL': return '#f1f8e9';
-      default: return '#f5f5f5';
-    }
-  }};
-  color: ${props => {
-    switch (props.type) {
-      case 'SUPERUSER': return '#c62828';
-      case 'CREATEDB': return '#1565c0';
+const getBadgeColor = (type: string) => {
+  switch (type) {
+    case 'SUPERUSER': return asciiColors.danger;
+    case 'CREATEDB': return asciiColors.accent;
       case 'CREATEROLE': return '#6a1b9a';
-      case 'LOGIN': return '#2e7d32';
-      case 'ACTIVE': return '#2e7d32';
-      case 'INACTIVE': return '#c62828';
-      case 'SELECT': return '#2e7d32';
-      case 'INSERT': return '#1565c0';
-      case 'UPDATE': return '#ef6c00';
-      case 'DELETE': return '#c62828';
-      case 'ALL': return '#558b2f';
-      default: return '#757575';
-    }
-  }};
-  
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    case 'LOGIN': return asciiColors.success;
+    case 'ACTIVE': return asciiColors.success;
+    case 'INACTIVE': return asciiColors.danger;
+    case 'SELECT': return asciiColors.success;
+    case 'INSERT': return asciiColors.accent;
+    case 'UPDATE': return asciiColors.warning;
+    case 'DELETE': return asciiColors.danger;
+    case 'ALL': return asciiColors.success;
+    default: return asciiColors.muted;
   }
-`;
-
-const ExpandableRow = styled.tr<{ $expanded: boolean }>`
-  cursor: pointer;
-  background-color: ${props => props.$expanded ? '#f8f9fa' : 'white'};
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background: linear-gradient(90deg, #f0f0f0 0%, #f8f9fa 100%);
-    transform: scale(1.001);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    
-    ${Td} {
-      border-bottom-color: rgba(10, 25, 41, 0.1);
-    }
-  }
-`;
-
-const ExpandableTd = styled.td`
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-  vertical-align: middle;
-  position: relative;
-  transition: all 0.2s ease;
-`;
-
-const ConnectionCount = styled.span`
-  background: linear-gradient(135deg, #0d1b2a 0%, #1e3a5f 100%);
-  color: white;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 0.8em;
-  font-weight: 500;
-  margin-left: 8px;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    transform: scale(1.1);
-    box-shadow: 0 2px 6px rgba(13, 27, 42, 0.3);
-  }
-`;
-
-const StatusSummary = styled.div`
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-`;
-
-const ExpandedRow = styled.tr`
-  background-color: #fafafa;
-  animation: slideUp 0.2s ease-out;
-`;
-
-const ExpandedTd = styled.td`
-  padding: 0;
-  border-bottom: 1px solid #eee;
-  background-color: #fafafa;
-`;
-
-const ExpandedContent = styled.div`
-  padding: 15px 20px;
-  border-left: 3px solid #0d1b2a;
-  margin-left: 20px;
-  animation: fadeIn 0.2s ease-in;
-`;
-
-const DetailRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 15px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 0.9em;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background-color: #f8f9fa;
-    padding-left: 5px;
-  }
-  
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const DetailLabel = styled.div`
-  font-weight: 500;
-  color: #666;
-`;
-
-const DetailValue = styled.div`
-  color: #333;
-`;
+};
 
 /**
  * Formatea una fecha a formato legible
@@ -334,55 +154,254 @@ const Security = () => {
 
   return (
     <Container>
-      <Header>
+      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>
         Security & Compliance Monitor
-      </Header>
+      </h1>
 
       {loading && <LoadingOverlay>Loading security data...</LoadingOverlay>}
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
 
       {!loading && !error && (
         <>
-          <Section>
-            <SectionTitle>■ USER MANAGEMENT</SectionTitle>
-            <Grid>
-              <Value>Total Users: {securityData.users.total}</Value>
-              <Value>Active Users: {securityData.users.active}</Value>
-              <Value>Superusers: {securityData.users.superusers}</Value>
-              <Value>With Login: {securityData.users.withLogin}</Value>
-            </Grid>
-          </Section>
+          <AsciiPanel title="USER MANAGEMENT">
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              gap: 12, 
+              marginTop: 8 
+            }}>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Total Users: {securityData.users.total}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Active Users: {securityData.users.active}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Superusers: {securityData.users.superusers}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                With Login: {securityData.users.withLogin}
+              </div>
+            </div>
+          </AsciiPanel>
 
-          <Section>
-            <SectionTitle>● CONNECTION STATUS</SectionTitle>
-            <Grid>
-              <Value>Current: {securityData.connections.current}</Value>
-              <Value>Max Allowed: {securityData.connections.max}</Value>
-              <Value>Idle: {securityData.connections.idle}</Value>
-              <Value>Active: {securityData.connections.active}</Value>
-            </Grid>
-          </Section>
+          <AsciiPanel title="CONNECTION STATUS">
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              gap: 12, 
+              marginTop: 8 
+            }}>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Current: {securityData.connections.current}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Max Allowed: {securityData.connections.max}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Idle: {securityData.connections.idle}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Active: {securityData.connections.active}
+              </div>
+            </div>
+          </AsciiPanel>
 
-          <Section>
-            <SectionTitle>■ PERMISSIONS OVERVIEW</SectionTitle>
-            <Grid>
-              <Value>Total Grants: {securityData.permissions.totalGrants}</Value>
-              <Value>Schemas: {securityData.permissions.schemasWithAccess}</Value>
-              <Value>Tables: {securityData.permissions.tablesWithAccess}</Value>
-            </Grid>
-          </Section>
+          <AsciiPanel title="PERMISSIONS OVERVIEW">
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              gap: 12, 
+              marginTop: 8 
+            }}>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Total Grants: {securityData.permissions.totalGrants}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Schemas: {securityData.permissions.schemasWithAccess}
+              </div>
+              <div style={{
+                padding: 8,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                textAlign: 'center',
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background
+              }}>
+                Tables: {securityData.permissions.tablesWithAccess}
+              </div>
+            </div>
+          </AsciiPanel>
 
-          <Section>
-            <SectionTitle>● ACTIVE USERS</SectionTitle>
-            <Table>
+          <AsciiPanel title="ACTIVE USERS">
+            <div style={{ marginTop: 8, overflowX: 'auto' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontFamily: 'Consolas',
+                fontSize: 12
+              }}>
               <thead>
                 <tr>
-                  <Th>Username</Th>
-                  <Th>Role</Th>
-                  <Th>Status</Th>
-                  <Th>Last Activity</Th>
-                  <Th>Client IP</Th>
-                  <Th>Application</Th>
+                    <th style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.borderStrong}`,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      fontFamily: 'Consolas',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
+                    }}>Username</th>
+                    <th style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.borderStrong}`,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      fontFamily: 'Consolas',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
+                    }}>Role</th>
+                    <th style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.borderStrong}`,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      fontFamily: 'Consolas',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
+                    }}>Status</th>
+                    <th style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.borderStrong}`,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      fontFamily: 'Consolas',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
+                    }}>Last Activity</th>
+                    <th style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.borderStrong}`,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      fontFamily: 'Consolas',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
+                    }}>Client IP</th>
+                    <th style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      borderBottom: `2px solid ${asciiColors.borderStrong}`,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      fontFamily: 'Consolas',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
+                    }}>Application</th>
                 </tr>
               </thead>
               <tbody>
@@ -390,69 +409,168 @@ const Security = () => {
                   const isExpanded = expandedUsers.has(user.username);
                   return (
                     <React.Fragment key={index}>
-                      <ExpandableRow 
-                        $expanded={isExpanded}
+                        <tr 
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: isExpanded ? asciiColors.backgroundSoft : asciiColors.background,
+                            transition: 'all 0.2s ease'
+                          }}
                         onClick={() => toggleUserExpansion(user.username)}
-                      >
-                        <ExpandableTd>
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isExpanded) {
+                              e.currentTarget.style.backgroundColor = asciiColors.background;
+                            }
+                          }}
+                        >
+                          <td style={{
+                            padding: '8px 12px',
+                            borderBottom: `1px solid ${asciiColors.border}`,
+                            fontFamily: 'Consolas',
+                            fontSize: 12
+                          }}>
                           {user.username}
-                          <ConnectionCount>
+                            <span style={{
+                              backgroundColor: asciiColors.accent,
+                              color: '#ffffff',
+                              padding: '2px 8px',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontFamily: 'Consolas',
+                              marginLeft: 8
+                            }}>
                             {user.connections.length}
-                          </ConnectionCount>
-                        </ExpandableTd>
-                        <ExpandableTd>
-                          <Badge type={user.role_type}>
+                            </span>
+                          </td>
+                          <td style={{
+                            padding: '8px 12px',
+                            borderBottom: `1px solid ${asciiColors.border}`,
+                            fontFamily: 'Consolas',
+                            fontSize: 12
+                          }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: 2,
+                              fontSize: 11,
+                              fontFamily: 'Consolas',
+                              backgroundColor: getBadgeColor(user.role_type) + '20',
+                              color: getBadgeColor(user.role_type),
+                              border: `1px solid ${getBadgeColor(user.role_type)}`
+                            }}>
                             {user.role_type}
-                          </Badge>
-                        </ExpandableTd>
-                        <ExpandableTd>
-                          <StatusSummary>
+                            </span>
+                          </td>
+                          <td style={{
+                            padding: '8px 12px',
+                            borderBottom: `1px solid ${asciiColors.border}`,
+                            fontFamily: 'Consolas',
+                            fontSize: 12
+                          }}>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
                             {Object.entries(user.statusCounts).map(([status, count]) => (
-                              <Badge key={status} type={status}>
+                                <span key={status} style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 2,
+                                  fontSize: 11,
+                                  fontFamily: 'Consolas',
+                                  backgroundColor: getBadgeColor(status) + '20',
+                                  color: getBadgeColor(status),
+                                  border: `1px solid ${getBadgeColor(status)}`
+                                }}>
                                 {status}: {count as number}
-                              </Badge>
-                            ))}
-                          </StatusSummary>
-                        </ExpandableTd>
-                        <ExpandableTd>{formatDate(user.mostRecentActivity)}</ExpandableTd>
-                        <ExpandableTd>
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td style={{
+                            padding: '8px 12px',
+                            borderBottom: `1px solid ${asciiColors.border}`,
+                            fontFamily: 'Consolas',
+                            fontSize: 12
+                          }}>{formatDate(user.mostRecentActivity)}</td>
+                          <td style={{
+                            padding: '8px 12px',
+                            borderBottom: `1px solid ${asciiColors.border}`,
+                            fontFamily: 'Consolas',
+                            fontSize: 12
+                          }}>
                           {user.connections.length > 0 ? user.connections[0].client_addr || '-' : '-'}
-                        </ExpandableTd>
-                        <ExpandableTd>
+                          </td>
+                          <td style={{
+                            padding: '8px 12px',
+                            borderBottom: `1px solid ${asciiColors.border}`,
+                            fontFamily: 'Consolas',
+                            fontSize: 12
+                          }}>
                           {user.connections.length > 0 ? user.connections[0].application_name || '-' : '-'}
-                        </ExpandableTd>
-                      </ExpandableRow>
+                          </td>
+                        </tr>
                       {isExpanded && (
-                        <ExpandedRow>
-                          <ExpandedTd colSpan={6}>
-                            <ExpandedContent>
-                              <div style={{ marginBottom: '15px', fontWeight: '500', color: '#666' }}>
+                          <tr style={{ backgroundColor: asciiColors.backgroundSoft }}>
+                            <td colSpan={6} style={{ padding: 0, borderBottom: `1px solid ${asciiColors.border}` }}>
+                              <div style={{
+                                padding: '12px 16px',
+                                borderLeft: `3px solid ${asciiColors.accent}`,
+                                marginLeft: 16,
+                                fontFamily: 'Consolas',
+                                fontSize: 12
+                              }}>
+                                <div style={{ marginBottom: 12, fontWeight: 600, color: asciiColors.foreground }}>
                                 All Connections for {user.username}
                               </div>
                               {user.connections.map((conn: any, connIndex: number) => (
-                                <DetailRow key={connIndex}>
-                                  <DetailLabel>Status:</DetailLabel>
-                                  <DetailValue>
-                                    <Badge type={conn.status}>{conn.status}</Badge>
-                                  </DetailValue>
-                                  <DetailLabel>IP:</DetailLabel>
-                                  <DetailValue>{conn.client_addr || '-'}</DetailValue>
-                                  <DetailLabel>App:</DetailLabel>
-                                  <DetailValue>{conn.application_name || '-'}</DetailValue>
-                                  <DetailLabel>Activity:</DetailLabel>
-                                  <DetailValue>{formatDate(conn.last_activity)}</DetailValue>
-                                </DetailRow>
-                              ))}
-                            </ExpandedContent>
-                          </ExpandedTd>
-                        </ExpandedRow>
+                                  <div key={connIndex} style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr 1fr 1fr',
+                                    gap: 12,
+                                    padding: '6px 0',
+                                    borderBottom: connIndex < user.connections.length - 1 ? `1px solid ${asciiColors.border}` : 'none',
+                                    fontFamily: 'Consolas',
+                                    fontSize: 12
+                                  }}>
+                                    <div>
+                                      <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11 }}>Status:</div>
+                                      <div>
+                                        <span style={{
+                                          padding: '2px 8px',
+                                          borderRadius: 2,
+                                          fontSize: 11,
+                                          fontFamily: 'Consolas',
+                                          backgroundColor: getBadgeColor(conn.status) + '20',
+                                          color: getBadgeColor(conn.status),
+                                          border: `1px solid ${getBadgeColor(conn.status)}`
+                                        }}>
+                                          {conn.status}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11 }}>IP:</div>
+                                      <div style={{ color: asciiColors.foreground }}>{conn.client_addr || '-'}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11 }}>App:</div>
+                                      <div style={{ color: asciiColors.foreground }}>{conn.application_name || '-'}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11 }}>Activity:</div>
+                                      <div style={{ color: asciiColors.foreground }}>{formatDate(conn.last_activity)}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
                       )}
                     </React.Fragment>
                   );
                 })}
               </tbody>
-            </Table>
-          </Section>
+              </table>
+            </div>
+          </AsciiPanel>
 
         </>
       )}

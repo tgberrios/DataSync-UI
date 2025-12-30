@@ -98,7 +98,7 @@ const Monitor = () => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+        fontFamily: "Consolas",
         fontSize: 12,
         color: asciiColors.foreground,
         backgroundColor: asciiColors.background,
@@ -149,7 +149,7 @@ const Monitor = () => {
       width: "100%",
       minHeight: "100vh",
       padding: "24px 32px",
-      fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+      fontFamily: "Consolas",
       fontSize: 12,
       color: asciiColors.foreground,
       backgroundColor: asciiColors.background,
@@ -157,15 +157,17 @@ const Monitor = () => {
       flexDirection: "column",
       gap: 20
     }}>
-      <div style={{
-        fontSize: 16,
+      <h1 style={{
+        fontSize: 18,
+        fontFamily: "Consolas",
         fontWeight: 600,
+        margin: 0,
         marginBottom: 16,
         padding: "12px 8px",
         borderBottom: `2px solid ${asciiColors.border}`
       }}>
-        {ascii.thickTl}{ascii.thickH.repeat(8)}{ascii.thickTr} QUERY MONITOR
-      </div>
+        QUERY MONITOR
+      </h1>
 
       {error && (
         <AsciiPanel title="ERROR">

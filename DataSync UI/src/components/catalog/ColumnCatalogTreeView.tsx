@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
 const fadeIn = keyframes`
   from {
@@ -36,16 +37,15 @@ const slideUp = keyframes`
 `;
 
 const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 0.95em;
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
+  font-family: Consolas;
+  font-size: 12px;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  padding: 16px;
   max-height: 800px;
   overflow-y: auto;
   overflow-x: hidden;
-  box-shadow: ${theme.shadows.md};
   position: relative;
   
   &::-webkit-scrollbar {
@@ -53,17 +53,17 @@ const TreeContainer = styled.div`
   }
   
   &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
+    background: ${asciiColors.backgroundSoft};
+    border-radius: 2px;
   }
   
   &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    transition: background ${theme.transitions.normal};
+    background: ${asciiColors.border};
+    border-radius: 2px;
+    transition: background 0.2s ease;
     
     &:hover {
-      background: ${theme.colors.primary.main};
+      background: ${asciiColors.accent};
     }
   }
 `;
@@ -75,52 +75,53 @@ const TreeNode = styled.div`
 `;
 
 const TreeLine = styled.span<{ $isLast?: boolean }>`
-  color: ${theme.colors.border.medium};
+  color: ${asciiColors.muted};
   margin-right: 6px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.9em;
-  transition: color ${theme.transitions.normal};
+  font-family: Consolas;
+  font-size: 12px;
+  transition: color 0.2s ease;
 `;
 
 const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeType?: 'schema' | 'table' | 'column' }>`
   display: flex;
   align-items: center;
-  padding: ${props => props.$level === 0 ? '12px 8px' : props.$level === 1 ? '10px 8px' : '8px 8px'};
+  padding: ${props => props.$level === 0 ? '8px' : props.$level === 1 ? '6px 8px' : '6px 8px'};
   padding-left: ${props => props.$level * 24 + 8}px;
   cursor: pointer;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
+  border-radius: 2px;
+  transition: all 0.2s ease;
   position: relative;
   margin: 2px 0;
+  font-family: Consolas;
+  font-size: 12px;
   
   ${props => {
     if (props.$nodeType === 'schema') {
       return `
-        background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
-        border-left: 3px solid ${theme.colors.primary.main};
+        background: ${asciiColors.accentLight};
+        border-left: 3px solid ${asciiColors.accent};
         font-weight: 600;
       `;
     }
     if (props.$nodeType === 'table') {
       return `
-        background: ${theme.colors.background.secondary};
-        border-left: 2px solid ${theme.colors.border.medium};
+        background: ${asciiColors.backgroundSoft};
+        border-left: 2px solid ${asciiColors.border};
       `;
     }
     return `
-      border-left: 1px solid ${theme.colors.border.light};
+      border-left: 1px solid ${asciiColors.border};
     `;
   }}
   
   &:hover {
     background: ${props => {
       if (props.$nodeType === 'schema') {
-        return `linear-gradient(135deg, ${theme.colors.primary.light}15 0%, ${theme.colors.primary.main}10 100%)`;
+        return asciiColors.accentLight;
       }
-      return theme.colors.background.secondary;
+      return asciiColors.backgroundSoft;
     }};
     transform: translateX(2px);
-    box-shadow: ${theme.shadows.sm};
   }
   
   &:active {
@@ -132,46 +133,35 @@ const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   margin-right: 8px;
-  border-radius: ${theme.borderRadius.sm};
-  background: ${props => props.$isExpanded 
-    ? `linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%)`
-    : theme.colors.background.secondary
-  };
-  color: ${props => props.$isExpanded ? theme.colors.text.white : theme.colors.primary.main};
-  font-size: 0.7em;
+  border-radius: 2px;
+  background: ${props => props.$isExpanded ? asciiColors.accent : asciiColors.backgroundSoft};
+  color: ${props => props.$isExpanded ? '#ffffff' : asciiColors.accent};
+  font-size: 10px;
   font-weight: bold;
-  transition: all ${theme.transitions.normal};
+  font-family: Consolas;
+  transition: all 0.2s ease;
   flex-shrink: 0;
   
   &:hover {
     transform: scale(1.1);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  svg {
-    transition: transform ${theme.transitions.normal};
-    transform: ${props => props.$isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'};
   }
 `;
 
 const NodeLabel = styled.span<{ $isSchema?: boolean; $isTable?: boolean; $isColumn?: boolean }>`
   font-weight: ${props => props.$isSchema ? '700' : props.$isTable ? '600' : '500'};
-  font-size: ${props => props.$isSchema ? '1.05em' : props.$isTable ? '0.98em' : '0.92em'};
+  font-size: ${props => props.$isSchema ? '13px' : props.$isTable ? '12px' : '12px'};
+  font-family: Consolas;
   color: ${props => {
-    if (props.$isSchema) return theme.colors.primary.main;
-    if (props.$isTable) return theme.colors.text.primary;
-    return theme.colors.text.secondary;
+    if (props.$isSchema) return asciiColors.accent;
+    if (props.$isTable) return asciiColors.foreground;
+    return asciiColors.foreground;
   }};
   margin-right: 12px;
-  transition: color ${theme.transitions.normal};
+  transition: color 0.2s ease;
   letter-spacing: ${props => props.$isSchema ? '0.3px' : '0'};
-  
-  ${props => props.$isSchema && `
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  `}
 `;
 
 const ColumnInfo = styled.div`
@@ -180,99 +170,52 @@ const ColumnInfo = styled.div`
   align-items: center;
   margin-left: auto;
   flex-wrap: wrap;
-  font-size: 0.85em;
+  font-size: 11px;
+  font-family: Consolas;
 `;
 
 const CountBadge = styled.span`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 11px;
   font-weight: 500;
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  color: ${theme.colors.text.secondary};
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
+  font-family: Consolas;
+  background: ${asciiColors.backgroundSoft};
+  color: ${asciiColors.foreground};
+  border: 1px solid ${asciiColors.border};
+  transition: all 0.2s ease;
   
   &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    color: ${theme.colors.primary.main};
+    background: ${asciiColors.accentLight};
+    border-color: ${asciiColors.accent};
+    color: ${asciiColors.accent};
     transform: translateY(-1px);
   }
 `;
 
-const Badge = styled.span<{ $type?: string; $level?: string; $flag?: boolean }>`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.75em;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all ${theme.transitions.normal};
-  white-space: nowrap;
-  
-  ${props => {
-    if (props.$type) {
-      const typeColors: Record<string, { bg: string; text: string }> = {
-        'PK': { bg: theme.colors.status.info.bg, text: theme.colors.status.info.text },
-        'FK': { bg: theme.colors.status.warning.bg, text: theme.colors.status.warning.text },
-        'UQ': { bg: theme.colors.status.success.bg, text: theme.colors.status.success.text },
-        'IDX': { bg: '#e8eaf6', text: '#3f51b5' },
-      };
-      const colors = typeColors[props.$type] || { bg: theme.colors.background.secondary, text: theme.colors.text.primary };
-      return `
-        background-color: ${colors.bg};
-        color: ${colors.text};
-        border: 1px solid ${colors.text}20;
-      `;
+const getBadgeColor = (type?: string, level?: string, flag?: boolean) => {
+  if (type) {
+    switch (type) {
+      case 'PK': return asciiColors.accent;
+      case 'FK': return asciiColors.warning;
+      case 'UQ': return asciiColors.success;
+      case 'IDX': return asciiColors.accent;
+      default: return asciiColors.muted;
     }
-    if (props.$level) {
-      switch (props.$level) {
-        case 'HIGH': return `
-          background-color: ${theme.colors.status.error.bg};
-          color: ${theme.colors.status.error.text};
-          border: 1px solid ${theme.colors.status.error.text}30;
-        `;
-        case 'MEDIUM': return `
-          background-color: ${theme.colors.status.warning.bg};
-          color: ${theme.colors.status.warning.text};
-          border: 1px solid ${theme.colors.status.warning.text}30;
-        `;
-        case 'LOW': return `
-          background-color: ${theme.colors.status.success.bg};
-          color: ${theme.colors.status.success.text};
-          border: 1px solid ${theme.colors.status.success.text}30;
-        `;
-        default: return `
-          background-color: ${theme.colors.background.secondary};
-          color: ${theme.colors.text.secondary};
-        `;
-      }
-    }
-    if (props.$flag !== undefined) {
-      return props.$flag 
-        ? `
-          background-color: ${theme.colors.status.error.bg};
-          color: ${theme.colors.status.error.text};
-          border: 1px solid ${theme.colors.status.error.text}30;
-        `
-        : `
-          background-color: ${theme.colors.status.success.bg};
-          color: ${theme.colors.status.success.text};
-        `;
-    }
-    return `
-      background-color: ${theme.colors.background.secondary};
-      color: ${theme.colors.text.primary};
-    `;
-  }}
-  
-  &:hover {
-    transform: translateY(-2px) scale(1.05);
-    box-shadow: ${theme.shadows.md};
   }
-`;
+  if (level) {
+    switch (level) {
+      case 'HIGH': return asciiColors.danger;
+      case 'MEDIUM': return asciiColors.warning;
+      case 'LOW': return asciiColors.success;
+      default: return asciiColors.muted;
+    }
+  }
+  if (flag !== undefined) {
+    return flag ? asciiColors.danger : asciiColors.success;
+  }
+  return asciiColors.muted;
+};
 
 const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
   overflow: hidden;
@@ -280,68 +223,14 @@ const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
   padding-left: ${props => props.$level * 24 + 36}px;
 `;
 
-const ColumnDetailsRow = styled.div<{ $level: number }>`
-  padding: 12px 16px;
-  margin: 4px 0 8px 0;
-  font-size: 0.88em;
-  color: ${theme.colors.text.secondary};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border-left: 3px solid ${theme.colors.primary.main};
-  border-radius: ${theme.borderRadius.md};
-  box-shadow: ${theme.shadows.sm};
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  animation: ${fadeIn} 0.3s ease-out;
-  
-  div {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    
-    strong {
-      color: ${theme.colors.text.primary};
-      font-weight: 600;
-      min-width: 80px;
-    }
-  }
-`;
-
 const EmptyState = styled.div`
   padding: 60px 40px;
   text-align: center;
-  color: ${theme.colors.text.secondary};
+  color: ${asciiColors.muted};
   animation: ${fadeIn} 0.5s ease-out;
-  
-  &::before {
-    content: '📊';
-    font-size: 3em;
-    display: block;
-    margin-bottom: ${theme.spacing.md};
-    opacity: 0.5;
-  }
+  font-family: Consolas;
 `;
 
-const IconSchema = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-    <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
-    <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-  </svg>
-);
-
-const IconTable = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/>
-  </svg>
-);
-
-const IconColumn = () => (
-  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <line x1="12" y1="5" x2="12" y2="19"/>
-    <line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-);
 
 interface Column {
   id: number;
@@ -503,54 +392,173 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
         >
           {renderTreeLine(level, isLastColumn)}
           <ExpandIconContainer $isExpanded={isExpanded}>
-            {isExpanded ? (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="18 15 12 9 6 15"/>
-              </svg>
-            ) : (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            )}
+            {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <IconColumn />
-          <span style={{ marginRight: '8px' }}></span>
+          <span style={{ marginRight: '8px', color: asciiColors.muted, fontFamily: 'Consolas' }}>
+            {ascii.blockFull}
+          </span>
           <NodeLabel $isColumn>{column.column_name}</NodeLabel>
           <ColumnInfo>
             {column.data_type && (
-              <Badge $type={column.data_type}>
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: asciiColors.backgroundSoft,
+                color: asciiColors.foreground,
+                border: `1px solid ${asciiColors.border}`,
+                marginRight: 4
+              }}>
                 {column.data_type}
-              </Badge>
+              </span>
             )}
             {column.sensitivity_level && (
-              <Badge $level={column.sensitivity_level}>
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: getBadgeColor(undefined, column.sensitivity_level) + '20',
+                color: getBadgeColor(undefined, column.sensitivity_level),
+                border: `1px solid ${getBadgeColor(undefined, column.sensitivity_level)}`,
+                marginRight: 4
+              }}>
                 {column.sensitivity_level}
-              </Badge>
+              </span>
             )}
-            {column.contains_pii && <Badge $flag={true}>PII</Badge>}
-            {column.contains_phi && <Badge $flag={true}>PHI</Badge>}
-            {column.is_primary_key && <Badge $type="PK">PK</Badge>}
-            {column.is_foreign_key && <Badge $type="FK">FK</Badge>}
-            {column.is_unique && <Badge $type="UQ">UQ</Badge>}
-            {column.is_indexed && <Badge $type="IDX">IDX</Badge>}
+            {column.contains_pii && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: getBadgeColor(undefined, undefined, true) + '20',
+                color: getBadgeColor(undefined, undefined, true),
+                border: `1px solid ${getBadgeColor(undefined, undefined, true)}`,
+                marginRight: 4
+              }}>
+                PII
+              </span>
+            )}
+            {column.contains_phi && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: getBadgeColor(undefined, undefined, true) + '20',
+                color: getBadgeColor(undefined, undefined, true),
+                border: `1px solid ${getBadgeColor(undefined, undefined, true)}`,
+                marginRight: 4
+              }}>
+                PHI
+              </span>
+            )}
+            {column.is_primary_key && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: getBadgeColor('PK') + '20',
+                color: getBadgeColor('PK'),
+                border: `1px solid ${getBadgeColor('PK')}`,
+                marginRight: 4
+              }}>
+                PK
+              </span>
+            )}
+            {column.is_foreign_key && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: getBadgeColor('FK') + '20',
+                color: getBadgeColor('FK'),
+                border: `1px solid ${getBadgeColor('FK')}`,
+                marginRight: 4
+              }}>
+                FK
+              </span>
+            )}
+            {column.is_unique && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: getBadgeColor('UQ') + '20',
+                color: getBadgeColor('UQ'),
+                border: `1px solid ${getBadgeColor('UQ')}`,
+                marginRight: 4
+              }}>
+                UQ
+              </span>
+            )}
+            {column.is_indexed && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: getBadgeColor('IDX') + '20',
+                color: getBadgeColor('IDX'),
+                border: `1px solid ${getBadgeColor('IDX')}`,
+                marginRight: 4
+              }}>
+                IDX
+              </span>
+            )}
           </ColumnInfo>
         </TreeContent>
         <ExpandableContent $isExpanded={isExpanded} $level={level}>
           {isExpanded && (
-            <ColumnDetailsRow $level={level}>
-              <div><strong>Engine:</strong> <span>{column.db_engine || 'N/A'}</span></div>
-              <div><strong>Position:</strong> <span>{column.ordinal_position || 'N/A'}</span></div>
-              <div><strong>Nullable:</strong> <span>{column.is_nullable ? 'Yes' : 'No'}</span></div>
+            <div style={{
+              padding: '8px 12px',
+              margin: '4px 0 8px 0',
+              fontSize: 12,
+              fontFamily: 'Consolas',
+              color: asciiColors.foreground,
+              background: asciiColors.backgroundSoft,
+              borderLeft: `3px solid ${asciiColors.accent}`,
+              borderRadius: 2,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 12
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Engine:</strong>
+                <span>{column.db_engine || 'N/A'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Position:</strong>
+                <span>{column.ordinal_position || 'N/A'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Nullable:</strong>
+                <span>{column.is_nullable ? 'Yes' : 'No'}</span>
+              </div>
               {column.character_maximum_length && (
-                <div><strong>Max Length:</strong> <span>{column.character_maximum_length}</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Max Length:</strong>
+                  <span>{column.character_maximum_length}</span>
+                </div>
               )}
               {column.numeric_precision && (
-                <div><strong>Precision:</strong> <span>{column.numeric_precision}</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Precision:</strong>
+                  <span>{column.numeric_precision}</span>
+                </div>
               )}
               {column.column_default && (
-                <div><strong>Default:</strong> <span>{column.column_default}</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Default:</strong>
+                  <span>{column.column_default}</span>
+                </div>
               )}
-            </ColumnDetailsRow>
+            </div>
           )}
         </ExpandableContent>
       </TreeNode>
@@ -574,18 +582,11 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
         >
           {renderTreeLine(level, isLastTable)}
           <ExpandIconContainer $isExpanded={isExpanded}>
-            {isExpanded ? (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="18 15 12 9 6 15"/>
-              </svg>
-            ) : (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            )}
+            {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <IconTable />
-          <span style={{ marginRight: '8px' }}></span>
+          <span style={{ marginRight: '8px', color: asciiColors.foreground, fontFamily: 'Consolas' }}>
+            {ascii.blockFull}
+          </span>
           <NodeLabel $isTable>{table.name}</NodeLabel>
           <ColumnInfo>
             <CountBadge>{table.columns.length} {table.columns.length === 1 ? 'column' : 'columns'}</CountBadge>
@@ -615,18 +616,11 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
         >
           {renderTreeLine(level, isLastSchema)}
           <ExpandIconContainer $isExpanded={isExpanded}>
-            {isExpanded ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="18 15 12 9 6 15"/>
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            )}
+            {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <IconSchema />
-          <span style={{ marginRight: '8px' }}></span>
+          <span style={{ marginRight: '8px', color: asciiColors.accent, fontFamily: 'Consolas' }}>
+            {ascii.blockFull}
+          </span>
           <NodeLabel $isSchema>{schema.name}</NodeLabel>
           <ColumnInfo>
             <CountBadge>{schema.tables.size} {schema.tables.size === 1 ? 'table' : 'tables'}</CountBadge>
@@ -645,7 +639,15 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
     return (
       <TreeContainer>
         <EmptyState>
-          No column data available. Columns will appear here once cataloged.
+          <div style={{ fontSize: 48, marginBottom: 16, fontFamily: 'Consolas', opacity: 0.5 }}>
+            {ascii.blockFull}
+          </div>
+          <div style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+            No column data available
+          </div>
+          <div style={{ fontSize: 12, fontFamily: 'Consolas', opacity: 0.7, color: asciiColors.muted }}>
+            Columns will appear here once cataloged.
+          </div>
         </EmptyState>
       </TreeContainer>
     );

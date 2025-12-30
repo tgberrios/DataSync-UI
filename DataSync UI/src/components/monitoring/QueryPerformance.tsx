@@ -5,6 +5,8 @@ import { Container, Header, Select, FiltersContainer, Input, Pagination, PageBut
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { extractApiError } from '../../utils/errorHandler';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
 const MetricsGrid = styled.div`
   display: grid;
@@ -97,7 +99,7 @@ const QueryTextCell = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: monospace;
+  font-family: "Consolas";
   color: #555;
 `;
 
@@ -411,76 +413,6 @@ const QueryPerformance = () => {
               <TableCell>{query.cache_hit_ratio ? `${Number(query.cache_hit_ratio).toFixed(1)}%` : 'N/A'}</TableCell>
               <TableCell>{formatNumber(query.rows_returned)}</TableCell>
             </TableRow>
-            <QueryDetails $isOpen={openQueryId === query.id}>
-              <DetailGrid>
-                <DetailLabel>Query ID:</DetailLabel>
-                <DetailValue>{query.queryid || 'N/A'}</DetailValue>
-                
-                <DetailLabel>Database:</DetailLabel>
-                <DetailValue>{query.dbname || 'N/A'}</DetailValue>
-                
-                <DetailLabel>Username:</DetailLabel>
-                <DetailValue>{query.username || 'N/A'}</DetailValue>
-                
-                <DetailLabel>Application:</DetailLabel>
-                <DetailValue>{query.application_name || 'N/A'}</DetailValue>
-                
-                <DetailLabel>State:</DetailLabel>
-                <DetailValue>{query.state || 'N/A'}</DetailValue>
-                
-                <DetailLabel>Wait Event:</DetailLabel>
-                <DetailValue>{query.wait_event_type || 'N/A'}</DetailValue>
-                
-                <DetailLabel>Calls:</DetailLabel>
-                <DetailValue>{formatNumber(query.calls)}</DetailValue>
-                
-                <DetailLabel>Total Time:</DetailLabel>
-                <DetailValue>{formatTime(query.total_time_ms)}</DetailValue>
-                
-                <DetailLabel>Mean Time:</DetailLabel>
-                <DetailValue>{formatTime(query.mean_time_ms)}</DetailValue>
-                
-                <DetailLabel>Min Time:</DetailLabel>
-                <DetailValue>{formatTime(query.min_time_ms)}</DetailValue>
-                
-                <DetailLabel>Max Time:</DetailLabel>
-                <DetailValue>{formatTime(query.max_time_ms)}</DetailValue>
-                
-                <DetailLabel>Query Duration:</DetailLabel>
-                <DetailValue>{formatTime(query.query_duration_ms)}</DetailValue>
-                
-                <DetailLabel>Cache Hit Ratio:</DetailLabel>
-                <DetailValue>{query.cache_hit_ratio ? `${Number(query.cache_hit_ratio).toFixed(2)}%` : 'N/A'}</DetailValue>
-                
-                <DetailLabel>IO Efficiency:</DetailLabel>
-                <DetailValue>{query.io_efficiency ? Number(query.io_efficiency).toFixed(2) : 'N/A'}</DetailValue>
-                
-                <DetailLabel>Query Efficiency Score:</DetailLabel>
-                <DetailValue>{query.query_efficiency_score ? `${Number(query.query_efficiency_score).toFixed(2)}%` : 'N/A'}</DetailValue>
-                
-                <DetailLabel>Long Running:</DetailLabel>
-                <DetailValue>{query.is_long_running ? 'Yes' : 'No'}</DetailValue>
-                
-                <DetailLabel>Blocking:</DetailLabel>
-                <DetailValue>{query.is_blocking ? 'Yes' : 'No'}</DetailValue>
-                
-                <DetailLabel>Has Joins:</DetailLabel>
-                <DetailValue>{query.has_joins ? 'Yes' : 'No'}</DetailValue>
-                
-                <DetailLabel>Has Subqueries:</DetailLabel>
-                <DetailValue>{query.has_subqueries ? 'Yes' : 'No'}</DetailValue>
-                
-                <DetailLabel>Has CTE:</DetailLabel>
-                <DetailValue>{query.has_cte ? 'Yes' : 'No'}</DetailValue>
-                
-                <DetailLabel>Has Window Functions:</DetailLabel>
-                <DetailValue>{query.has_window_functions ? 'Yes' : 'No'}</DetailValue>
-                
-                <DetailLabel>Captured At:</DetailLabel>
-                <DetailValue>{query.captured_at ? new Date(query.captured_at).toLocaleString() : 'N/A'}</DetailValue>
-              </DetailGrid>
-              <QueryText>{query.query_text || 'N/A'}</QueryText>
-            </QueryDetails>
           </div>
           ))
         )}
@@ -509,6 +441,249 @@ const QueryPerformance = () => {
           </PageButton>
         </Pagination>
       )}
+
+      {openQueryId && queries.find(q => q.id === openQueryId) && (() => {
+        const selectedQuery = queries.find(q => q.id === openQueryId);
+        return (
+          <>
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                backdropFilter: "blur(2px)",
+                zIndex: 999,
+                animation: "fadeInUp 0.2s ease-out"
+              }}
+              onClick={() => setOpenQueryId(null)}
+            />
+            <div
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "85%",
+                height: "85%",
+                backgroundColor: asciiColors.background,
+                border: `2px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                zIndex: 1000,
+                display: "flex",
+                flexDirection: "column",
+                fontFamily: "Consolas",
+                fontSize: 12,
+                color: asciiColors.foreground,
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+                animation: "fadeInUp 0.3s ease-out"
+              }}
+            >
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "16px 20px",
+                borderBottom: `2px solid ${asciiColors.border}`,
+                backgroundColor: asciiColors.backgroundSoft
+              }}>
+                <h2 style={{
+                  fontSize: 14,
+                  fontFamily: "Consolas",
+                  fontWeight: 600,
+                  color: asciiColors.accent,
+                  margin: 0
+                }}>
+                  {ascii.blockFull} QUERY DETAILS
+                </h2>
+                <button
+                  onClick={() => setOpenQueryId(null)}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${asciiColors.border}`,
+                    color: asciiColors.foreground,
+                    padding: "4px 12px",
+                    borderRadius: 2,
+                    cursor: "pointer",
+                    fontFamily: "Consolas",
+                    fontSize: 11,
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = asciiColors.danger;
+                    e.currentTarget.style.color = asciiColors.background;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = asciiColors.foreground;
+                  }}
+                >
+                  {ascii.blockFull} CLOSE
+                </button>
+              </div>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "4fr 1fr",
+                gap: 20,
+                flex: 1,
+                padding: 20,
+                overflow: "hidden"
+              }}>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                  overflow: "hidden"
+                }}>
+                  <h3 style={{
+                    fontSize: 13,
+                    fontFamily: "Consolas",
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    margin: 0,
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockFull} QUERY TEXT
+                  </h3>
+                  <pre style={{
+                    margin: 0,
+                    padding: 16,
+                    backgroundColor: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    overflowX: "auto",
+                    overflowY: "auto",
+                    fontSize: 11,
+                    border: `1px solid ${asciiColors.border}`,
+                    fontFamily: "Consolas",
+                    whiteSpace: "pre-wrap",
+                    wordWrap: "break-word",
+                    color: asciiColors.foreground,
+                    flex: 1
+                  }}>
+                    {selectedQuery?.query_text || 'N/A'}
+                  </pre>
+                </div>
+
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                  overflow: "hidden"
+                }}>
+                  <h3 style={{
+                    fontSize: 13,
+                    fontFamily: "Consolas",
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    margin: 0,
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockFull} DETAILS
+                  </h3>
+                  <div style={{
+                    overflowY: "auto",
+                    flex: 1,
+                    fontFamily: "Consolas",
+                    fontSize: 11,
+                    animation: "fadeInUp 0.4s ease-out"
+                  }}>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "150px 1fr",
+                      gap: 12,
+                      padding: 8
+                    }}>
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Query ID:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.queryid || 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Database:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.dbname || 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Username:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.username || 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Application:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.application_name || 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>State:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.state || 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Wait Event:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.wait_event_type || 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Calls:</div>
+                      <div style={{ color: asciiColors.foreground }}>{formatNumber(selectedQuery?.calls)}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Total Time:</div>
+                      <div style={{ color: asciiColors.foreground }}>{formatTime(selectedQuery?.total_time_ms)}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Mean Time:</div>
+                      <div style={{ color: asciiColors.foreground }}>{formatTime(selectedQuery?.mean_time_ms)}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Min Time:</div>
+                      <div style={{ color: asciiColors.foreground }}>{formatTime(selectedQuery?.min_time_ms)}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Max Time:</div>
+                      <div style={{ color: asciiColors.foreground }}>{formatTime(selectedQuery?.max_time_ms)}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Query Duration:</div>
+                      <div style={{ color: asciiColors.foreground }}>{formatTime(selectedQuery?.query_duration_ms)}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Cache Hit Ratio:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.cache_hit_ratio ? `${Number(selectedQuery.cache_hit_ratio).toFixed(2)}%` : 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>IO Efficiency:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.io_efficiency ? Number(selectedQuery.io_efficiency).toFixed(2) : 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Query Efficiency Score:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.query_efficiency_score ? `${Number(selectedQuery.query_efficiency_score).toFixed(2)}%` : 'N/A'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Long Running:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.is_long_running ? 'Yes' : 'No'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Blocking:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.is_blocking ? 'Yes' : 'No'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Has Joins:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.has_joins ? 'Yes' : 'No'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Has Subqueries:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.has_subqueries ? 'Yes' : 'No'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Has CTE:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.has_cte ? 'Yes' : 'No'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Has Window Functions:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.has_window_functions ? 'Yes' : 'No'}</div>
+                      
+                      <div style={{ color: asciiColors.muted, fontWeight: 500 }}>Captured At:</div>
+                      <div style={{ color: asciiColors.foreground }}>{selectedQuery?.captured_at ? new Date(selectedQuery.captured_at).toLocaleString() : 'N/A'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </Container>
   );
 };

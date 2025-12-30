@@ -22,7 +22,7 @@ const EditorContainer = styled.div`
   }
   
   .cm-scroller {
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-family: "Consolas, 'Source Code Pro', monospace";
   }
 `;
 

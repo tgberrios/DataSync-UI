@@ -49,7 +49,7 @@ const LoginTitle = styled.h1`
   margin-bottom: ${theme.spacing.xl};
   color: ${theme.colors.text.primary};
   font-size: 2em;
-  font-family: monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   letter-spacing: 2px;
   position: relative;
   

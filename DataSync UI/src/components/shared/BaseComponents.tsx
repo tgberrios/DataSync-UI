@@ -10,12 +10,14 @@ export const Container = styled.div`
   box-sizing: border-box;
 `;
 
-export const Header = styled.div`
+export const Header = styled.h1`
   border: 2px solid ${theme.colors.border.dark};
   padding: ${theme.spacing.md};
   text-align: center;
+  margin: 0;
   margin-bottom: ${theme.spacing.xxl};
-  font-size: 1.5em;
+  font-size: 18px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-weight: bold;
   background: ${theme.colors.gradient.primary};
   border-radius: ${theme.borderRadius.md};

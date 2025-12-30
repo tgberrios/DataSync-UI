@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
 const fadeIn = keyframes`
   from {
@@ -40,16 +41,15 @@ const slideUp = keyframes`
 `;
 
 const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 0.95em;
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
+  font-family: Consolas;
+  font-size: 12px;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  padding: 16px;
   max-height: 800px;
   overflow-y: auto;
   overflow-x: hidden;
-  box-shadow: ${theme.shadows.md};
   position: relative;
   animation: ${fadeIn} 0.3s ease-out;
   
@@ -58,17 +58,17 @@ const TreeContainer = styled.div`
   }
   
   &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
+    background: ${asciiColors.backgroundSoft};
+    border-radius: 2px;
   }
   
   &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    transition: background ${theme.transitions.normal};
+    background: ${asciiColors.border};
+    border-radius: 2px;
+    transition: background 0.2s ease;
     
     &:hover {
-      background: ${theme.colors.primary.main};
+      background: ${asciiColors.accent};
     }
   }
 `;
@@ -89,42 +89,43 @@ const TreeNode = styled.div`
 const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeType?: 'database' | 'schema' | 'item' }>`
   display: flex;
   align-items: center;
-  padding: ${props => props.$level === 0 ? '12px 8px' : '10px 8px'};
+  padding: ${props => props.$level === 0 ? '8px' : '6px 8px'};
   padding-left: ${props => props.$level * 24 + 8}px;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
+  border-radius: 2px;
+  transition: all 0.2s ease;
   cursor: pointer;
   position: relative;
   margin: 2px 0;
+  font-family: Consolas;
+  font-size: 12px;
   
   ${props => {
     if (props.$nodeType === 'database') {
       return `
-        background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
-        border-left: 3px solid ${theme.colors.primary.main};
+        background: ${asciiColors.accentLight};
+        border-left: 3px solid ${asciiColors.accent};
         font-weight: 600;
       `;
     }
     if (props.$nodeType === 'schema') {
       return `
-        background: ${theme.colors.background.secondary};
-        border-left: 2px solid ${theme.colors.border.medium};
+        background: ${asciiColors.backgroundSoft};
+        border-left: 2px solid ${asciiColors.border};
       `;
     }
     return `
-      border-left: 1px solid ${theme.colors.border.light};
+      border-left: 1px solid ${asciiColors.border};
     `;
   }}
   
   &:hover {
     background: ${props => {
       if (props.$nodeType === 'database') {
-        return `linear-gradient(135deg, ${theme.colors.primary.light}15 0%, ${theme.colors.primary.main}10 100%)`;
+        return asciiColors.accentLight;
       }
-      return theme.colors.background.secondary;
+      return asciiColors.backgroundSoft;
     }};
     transform: translateX(2px);
-    box-shadow: ${theme.shadows.sm};
   }
 `;
 
@@ -132,41 +133,34 @@ const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   margin-right: 8px;
-  border-radius: ${theme.borderRadius.sm};
-  background: ${props => props.$isExpanded 
-    ? `linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%)`
-    : theme.colors.background.secondary
-  };
-  color: ${props => props.$isExpanded ? theme.colors.text.white : theme.colors.primary.main};
-  font-size: 0.7em;
+  border-radius: 2px;
+  background: ${props => props.$isExpanded ? asciiColors.accent : asciiColors.backgroundSoft};
+  color: ${props => props.$isExpanded ? '#ffffff' : asciiColors.accent};
+  font-size: 10px;
   font-weight: bold;
-  transition: all ${theme.transitions.normal};
+  font-family: Consolas;
+  transition: all 0.2s ease;
   flex-shrink: 0;
   
   &:hover {
     transform: scale(1.1);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  svg {
-    transition: transform ${theme.transitions.normal};
-    transform: ${props => props.$isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'};
   }
 `;
 
 const NodeLabel = styled.span<{ $isDatabase?: boolean; $isSchema?: boolean }>`
   font-weight: ${props => props.$isDatabase ? '700' : props.$isSchema ? '600' : '500'};
-  font-size: ${props => props.$isDatabase ? '1.05em' : props.$isSchema ? '0.98em' : '0.92em'};
+  font-size: ${props => props.$isDatabase ? '13px' : props.$isSchema ? '12px' : '12px'};
+  font-family: Consolas;
   color: ${props => {
-    if (props.$isDatabase) return theme.colors.primary.main;
-    if (props.$isSchema) return theme.colors.text.primary;
-    return theme.colors.text.secondary;
+    if (props.$isDatabase) return asciiColors.accent;
+    if (props.$isSchema) return asciiColors.foreground;
+    return asciiColors.foreground;
   }};
   margin-right: 12px;
-  transition: color ${theme.transitions.normal};
+  transition: color 0.2s ease;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,20 +168,21 @@ const NodeLabel = styled.span<{ $isDatabase?: boolean; $isSchema?: boolean }>`
 `;
 
 const CountBadge = styled.span`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 11px;
   font-weight: 500;
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  color: ${theme.colors.text.secondary};
-  border: 1px solid ${theme.colors.border.light};
+  font-family: Consolas;
+  background: ${asciiColors.backgroundSoft};
+  color: ${asciiColors.foreground};
+  border: 1px solid ${asciiColors.border};
   margin-left: auto;
-  transition: all ${theme.transitions.normal};
+  transition: all 0.2s ease;
   
   &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    color: ${theme.colors.primary.main};
+    background: ${asciiColors.accentLight};
+    border-color: ${asciiColors.accent};
+    color: ${asciiColors.accent};
     transform: translateY(-1px);
   }
 `;
@@ -199,133 +194,73 @@ const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
 `;
 
 const TreeLine = styled.span`
-  color: ${theme.colors.text.secondary};
-  font-family: 'Courier New', monospace;
+  color: ${asciiColors.muted};
+  font-family: Consolas;
   margin-right: 4px;
-  font-size: 0.9em;
+  font-size: 12px;
 `;
 
 const ObjectDetailsRow = styled.div<{ $level: number }>`
-  padding: 12px 8px;
+  padding: 8px;
   padding-left: ${props => props.$level * 24 + 36}px;
   margin: 2px 0;
-  border-radius: ${theme.borderRadius.md};
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
+  border-radius: 2px;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  transition: all 0.2s ease;
   cursor: pointer;
   animation: ${fadeIn} 0.3s ease-out;
+  font-family: Consolas;
+  font-size: 12px;
   
   &:hover {
-    background: ${theme.colors.background.secondary};
-    border-color: ${theme.colors.primary.main};
+    background: ${asciiColors.backgroundSoft};
+    border-color: ${asciiColors.accent};
     transform: translateX(4px);
-    box-shadow: ${theme.shadows.sm};
   }
 `;
 
-const Badge = styled.span<{ $status?: string; $type?: string }>`
-  padding: 6px 12px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all ${theme.transitions.normal};
-  border: 2px solid transparent;
-  box-shadow: ${theme.shadows.sm};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  position: relative;
-  overflow: hidden;
-  
-  ${props => {
-    if (props.$status) {
-      switch (props.$status) {
-        case 'PENDING':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.status.warning.bg} 0%, ${theme.colors.status.warning.text}15 100%);
-            color: ${theme.colors.status.warning.text};
-            border-color: ${theme.colors.status.warning.text}40;
-          `;
-        case 'RUNNING':
-          return `
-            background: linear-gradient(135deg, #e3f2fd 0%, #1565c015 100%);
-            color: #1565c0;
-            border-color: #1565c040;
-          `;
-        case 'COMPLETED':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-            color: ${theme.colors.status.success.text};
-            border-color: ${theme.colors.status.success.text}40;
-          `;
-        case 'FAILED':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.status.error.bg} 0%, ${theme.colors.status.error.text}15 100%);
-            color: ${theme.colors.status.error.text};
-            border-color: ${theme.colors.status.error.text}40;
-          `;
-        case 'SKIPPED':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-            color: ${theme.colors.text.secondary};
-            border-color: ${theme.colors.border.medium};
-          `;
-        default:
-          return `
-            background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-            color: ${theme.colors.text.primary};
-            border-color: ${theme.colors.border.medium};
-          `;
-      }
-    }
-    if (props.$type) {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-        color: ${theme.colors.text.primary};
-        border-color: ${theme.colors.border.medium};
-      `;
-    }
-    return `
-      background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-      color: ${theme.colors.text.primary};
-      border-color: ${theme.colors.border.medium};
-    `;
-  }}
-  
-  &:hover {
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: ${theme.shadows.lg};
-    border-width: 2px;
+const getStatusColor = (status?: string) => {
+  if (!status) return asciiColors.muted;
+  switch (status) {
+    case 'PENDING': return asciiColors.warning;
+    case 'RUNNING': return asciiColors.accent;
+    case 'COMPLETED': return asciiColors.success;
+    case 'FAILED': return asciiColors.danger;
+    case 'SKIPPED': return asciiColors.muted;
+    default: return asciiColors.muted;
   }
-`;
+};
 
 const EmptyState = styled.div`
   padding: 60px 40px;
   text-align: center;
-  color: ${theme.colors.text.secondary};
+  color: ${asciiColors.muted};
   animation: ${fadeIn} 0.5s ease-out;
+  font-family: Consolas;
 `;
 
 const EmptyStateIcon = styled.div`
-  font-size: 3em;
-  margin-bottom: ${theme.spacing.md};
+  font-size: 48px;
+  margin-bottom: 16px;
   animation: ${fadeIn} 0.5s ease-out;
-  font-family: 'Courier New', monospace;
+  font-family: Consolas;
   opacity: 0.5;
 `;
 
 const EmptyStateTitle = styled.div`
-  font-size: 1.1em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-weight: 500;
-  margin-bottom: ${theme.spacing.sm};
+  font-size: 13px;
+  font-family: Consolas;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: ${asciiColors.foreground};
 `;
 
 const EmptyStateText = styled.div`
-  font-size: 0.9em;
+  font-size: 12px;
+  font-family: Consolas;
   opacity: 0.7;
+  color: ${asciiColors.muted};
 `;
 
 interface MaintenanceItem {
@@ -474,14 +409,11 @@ const MaintenanceTreeView: React.FC<MaintenanceTreeViewProps> = ({ items, onItem
         >
           {renderTreeLine(level, false)}
           <ExpandIconContainer $isExpanded={isExpanded}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.colors.primary.main} strokeWidth="2" style={{ marginRight: '8px' }}>
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <path d="M3 9h18M9 3v18"/>
-          </svg>
+          <span style={{ marginRight: '8px', color: asciiColors.accent, fontFamily: 'Consolas' }}>
+            {ascii.blockFull}
+          </span>
           <NodeLabel $isDatabase>
             {database.name}
           </NodeLabel>
@@ -512,15 +444,11 @@ const MaintenanceTreeView: React.FC<MaintenanceTreeViewProps> = ({ items, onItem
         >
           {renderTreeLine(level, isLast)}
           <ExpandIconContainer $isExpanded={isExpanded}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.colors.primary.main} strokeWidth="2" style={{ marginRight: '8px' }}>
-            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-          </svg>
+          <span style={{ marginRight: '8px', color: asciiColors.foreground, fontFamily: 'Consolas' }}>
+            {ascii.blockFull}
+          </span>
           <NodeLabel $isSchema>
             {schema.name}
           </NodeLabel>
@@ -543,48 +471,70 @@ const MaintenanceTreeView: React.FC<MaintenanceTreeViewProps> = ({ items, onItem
         onClick={() => onItemClick?.(item)}
       >
         {renderTreeLine(level, isLast)}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.colors.text.secondary} strokeWidth="2" style={{ marginRight: '8px' }}>
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-        <span style={{ marginRight: '8px', fontWeight: 500, color: theme.colors.text.primary }}>
+        <span style={{ marginRight: '8px', color: asciiColors.muted, fontFamily: 'Consolas' }}>
+          {ascii.blockFull}
+        </span>
+        <span style={{ marginRight: '8px', fontWeight: 500, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
           {item.object_name || 'N/A'}
         </span>
         {item.maintenance_type && (
-          <Badge $type={item.maintenance_type}>{item.maintenance_type}</Badge>
+          <span style={{
+            padding: '2px 8px',
+            borderRadius: 2,
+            fontSize: 11,
+            fontFamily: 'Consolas',
+            backgroundColor: asciiColors.backgroundSoft,
+            color: asciiColors.foreground,
+            border: `1px solid ${asciiColors.border}`,
+            marginRight: 4
+          }}>
+            {item.maintenance_type}
+          </span>
         )}
         {item.status && (
-          <Badge $status={item.status}>{item.status}</Badge>
+          <span style={{
+            padding: '2px 8px',
+            borderRadius: 2,
+            fontSize: 11,
+            fontFamily: 'Consolas',
+            backgroundColor: getStatusColor(item.status) + '20',
+            color: getStatusColor(item.status),
+            border: `1px solid ${getStatusColor(item.status)}`,
+            marginRight: 4
+          }}>
+            {item.status}
+          </span>
         )}
         {item.error_details && (
           <span 
             title={item.error_details}
             style={{ 
               marginLeft: '8px', 
-              color: theme.colors.status.error.text, 
-              fontSize: '0.75em',
+              color: asciiColors.danger, 
+              fontSize: 11,
+              fontFamily: 'Consolas',
               padding: '2px 6px',
-              background: theme.colors.status.error.bg,
-              borderRadius: theme.borderRadius.sm,
-              border: `1px solid ${theme.colors.status.error.text}40`,
+              background: asciiColors.backgroundSoft,
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.danger}`,
               maxWidth: '200px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
             }}
           >
-            ⚠ {item.error_details}
+            {ascii.blockFull} {item.error_details}
           </span>
         )}
-        <span style={{ marginLeft: 'auto', color: theme.colors.text.secondary, fontSize: '0.85em', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <span style={{ marginLeft: 'auto', color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas', display: 'flex', gap: '8px', alignItems: 'center' }}>
           {item.impact_score && (
             <span>Impact: {Number(item.impact_score).toFixed(1)}</span>
           )}
           {item.space_reclaimed_mb && (
-            <span>• {formatBytes(item.space_reclaimed_mb)}</span>
+            <span>{ascii.bullet} {formatBytes(item.space_reclaimed_mb)}</span>
           )}
           {item.maintenance_duration_seconds && (
-            <span>• {formatDuration(item.maintenance_duration_seconds)}</span>
+            <span>{ascii.bullet} {formatDuration(item.maintenance_duration_seconds)}</span>
           )}
         </span>
       </ObjectDetailsRow>
@@ -595,7 +545,7 @@ const MaintenanceTreeView: React.FC<MaintenanceTreeViewProps> = ({ items, onItem
     return (
       <TreeContainer>
         <EmptyState>
-          <EmptyStateIcon>🔧</EmptyStateIcon>
+          <EmptyStateIcon>{ascii.blockFull}</EmptyStateIcon>
           <EmptyStateTitle>No maintenance data available</EmptyStateTitle>
           <EmptyStateText>Maintenance operations will appear here once detected.</EmptyStateText>
         </EmptyState>

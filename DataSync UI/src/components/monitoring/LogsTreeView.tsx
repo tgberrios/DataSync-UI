@@ -41,7 +41,7 @@ const slideUp = keyframes`
 `;
 
 const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family: "Consolas";
   font-size: 0.95em;
   background: ${theme.colors.background.main};
   border: 1px solid ${theme.colors.border.light};
@@ -201,7 +201,7 @@ const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
 
 const TreeLine = styled.span`
   color: ${theme.colors.text.secondary};
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas";
   margin-right: 4px;
   font-size: 0.9em;
 `;
@@ -328,7 +328,7 @@ const Badge = styled.span<{ $level?: string; $category?: string }>`
   transition: all ${theme.transitions.normal};
   border: 2px solid transparent;
   box-shadow: ${theme.shadows.sm};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family: "Consolas";
   
   ${props => {
     if (props.$level) {
@@ -398,13 +398,13 @@ const EmptyStateIcon = styled.div`
   font-size: 3em;
   margin-bottom: ${theme.spacing.md};
   animation: ${fadeIn} 0.5s ease-out;
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas";
   opacity: 0.5;
 `;
 
 const EmptyStateTitle = styled.div`
   font-size: 1.1em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family: "Consolas";
   font-weight: 500;
   margin-bottom: ${theme.spacing.sm};
 `;

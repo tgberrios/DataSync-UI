@@ -2,15 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 import {
   Container,
-  Header,
-  ErrorMessage,
   LoadingOverlay,
-  Grid,
-  Value,
-  FiltersContainer,
-  Select,
-  Input,
-  Button,
 } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
@@ -18,6 +10,9 @@ import { governanceCatalogMongoDBApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceCatalogMongoDBTreeView from './GovernanceCatalogMongoDBTreeView';
 
 const fadeIn = keyframes`
@@ -42,271 +37,16 @@ const slideUp = keyframes`
   }
 `;
 
-const MetricsGrid = styled(Grid)`
-  margin-bottom: ${theme.spacing.xxl};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: 0.1s;
-  animation-fill-mode: both;
-`;
-
-const MetricCard = styled(Value)<{ $index?: number }>`
-  padding: ${theme.spacing.lg};
-  min-height: 100px;
-  background: linear-gradient(135deg, ${theme.colors.background.main} 0%, ${theme.colors.background.secondary} 100%);
-  border: 2px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  border-radius: ${theme.borderRadius.lg};
-  box-shadow: ${theme.shadows.md};
-  transition: all ${theme.transitions.normal};
-  animation: ${fadeIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: ${props => (props.$index || 0) * 0.1}s;
-  animation-fill-mode: both;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
+const getStatusColor = (status?: string) => {
+  if (!status) return asciiColors.muted;
+  switch (status) {
+    case 'HEALTHY':
+    case 'EXCELLENT': return asciiColors.success;
+    case 'WARNING': return asciiColors.warning;
+    case 'CRITICAL': return asciiColors.danger;
+    default: return asciiColors.muted;
   }
-  
-  &:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: ${theme.shadows.xl};
-    border-color: ${theme.colors.primary.main};
-    border-left-color: ${theme.colors.primary.dark};
-    
-    &::before {
-      left: 100%;
-    }
-  }
-`;
-
-const MetricLabel = styled.div`
-  font-size: 0.9em;
-  color: ${theme.colors.text.secondary};
-  margin-bottom: ${theme.spacing.sm};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
-const MetricValue = styled.div`
-  font-size: 2.2em;
-  font-weight: 700;
-  color: ${theme.colors.primary.main};
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  background: linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-`;
-
-const TableActions = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${theme.spacing.md};
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.md};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  box-shadow: ${theme.shadows.sm};
-  animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    box-shadow: ${theme.shadows.md};
-    transform: translateY(-1px);
-  }
-`;
-
-const ExportButton = styled(Button)`
-  padding: 8px 16px;
-  font-size: 0.9em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
-
-const PaginationInfo = styled.div`
-  text-align: center;
-  margin-bottom: ${theme.spacing.sm};
-  color: ${theme.colors.text.secondary};
-  font-size: 0.9em;
-  animation: ${fadeIn} 0.25s ease-in;
-`;
-
-const DetailLabel = styled.div`
-  color: ${theme.colors.text.secondary};
-  font-weight: 500;
-  font-size: 0.85em;
-  margin-bottom: 5px;
-`;
-
-const DetailValue = styled.div`
-  color: ${theme.colors.text.primary};
-  font-size: 1.1em;
-  font-weight: 500;
-`;
-
-const MainLayout = styled.div<{ $hasDetails?: boolean }>`
-  display: grid;
-  grid-template-columns: ${props => props.$hasDetails ? '1fr 500px' : '1fr'};
-  gap: ${theme.spacing.lg};
-  margin-top: ${theme.spacing.lg};
-`;
-
-const DetailsPanel = styled.div`
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
-  overflow-y: auto;
-  box-shadow: ${theme.shadows.md};
-  position: sticky;
-  top: ${theme.spacing.md};
-  max-height: calc(100vh - 200px);
-  
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
-`;
-
-const TabContainer = styled.div`
-  display: flex;
-  gap: ${theme.spacing.xs};
-  margin-bottom: ${theme.spacing.md};
-  border-bottom: 2px solid ${theme.colors.border.light};
-  padding-bottom: ${theme.spacing.sm};
-  flex-wrap: wrap;
-`;
-
-const Tab = styled.button<{ $active: boolean }>`
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  border: none;
-  background: ${props => props.$active ? theme.colors.primary.main : 'transparent'};
-  color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.secondary};
-  border-radius: ${theme.borderRadius.md} ${theme.borderRadius.md} 0 0;
-  cursor: pointer;
-  font-weight: ${props => props.$active ? '600' : '500'};
-  font-size: 0.85em;
-  transition: all ${theme.transitions.normal};
-  white-space: nowrap;
-  
-  &:hover {
-    background: ${props => props.$active ? theme.colors.primary.dark : theme.colors.background.secondary};
-    color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.primary};
-  }
-`;
-
-const TabContent = styled.div`
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const DetailsSection = styled.div`
-  margin-bottom: ${theme.spacing.lg};
-  padding-bottom: ${theme.spacing.lg};
-  border-bottom: 1px solid ${theme.colors.border.light};
-  
-  &:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-`;
-
-const SectionTitle = styled.h3`
-  font-size: 1em;
-  font-weight: 600;
-  color: ${theme.colors.text.primary};
-  margin: 0 0 ${theme.spacing.md} 0;
-  padding-bottom: ${theme.spacing.xs};
-  border-bottom: 2px solid ${theme.colors.primary.main};
-`;
-
-const DetailsGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: ${theme.spacing.md};
-`;
-
-const Badge = styled.span<{ $status?: string }>`
-  padding: 6px 12px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all ${theme.transitions.normal};
-  border: 2px solid transparent;
-  box-shadow: ${theme.shadows.sm};
-  
-  ${props => {
-    if (props.$status === 'HEALTHY' || props.$status === 'EXCELLENT') {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-        color: ${theme.colors.status.success.text};
-        border-color: ${theme.colors.status.success.text}40;
-      `;
-    }
-    if (props.$status === 'WARNING') {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.status.warning.bg} 0%, ${theme.colors.status.warning.text}15 100%);
-        color: ${theme.colors.status.warning.text};
-        border-color: ${theme.colors.status.warning.text}40;
-      `;
-    }
-    if (props.$status === 'CRITICAL') {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.status.error.bg} 0%, ${theme.colors.status.error.text}15 100%);
-        color: ${theme.colors.status.error.text};
-        border-color: ${theme.colors.status.error.text}40;
-      `;
-    }
-    return `
-      background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-      color: ${theme.colors.text.primary};
-      border-color: ${theme.colors.border.medium};
-    `;
-  }}
-`;
+};
 
 /**
  * Governance Catalog component for MongoDB
@@ -467,201 +207,297 @@ const GovernanceCatalogMongoDB = () => {
 
   const renderOverviewTab = useCallback((item: any) => {
     return (
-      <TabContent>
-        <DetailsSection>
-          <SectionTitle>Basic Information</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Server:</DetailLabel>
-            <DetailValue>{item.server_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Database:</DetailLabel>
-            <DetailValue>{item.database_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Collection:</DetailLabel>
-            <DetailValue>{item.collection_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Health Status:</DetailLabel>
-            <DetailValue>
-              {item.health_status ? (
-                <Badge $status={item.health_status}>{item.health_status}</Badge>
-              ) : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Access Frequency:</DetailLabel>
-            <DetailValue>{item.access_frequency || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Health Score:</DetailLabel>
-            <DetailValue>
-              {item.health_score !== null && item.health_score !== undefined
-                ? `${Number(item.health_score).toFixed(2)}`
-                : 'N/A'}
-            </DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
+      <div>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Basic Information
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Server:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.server_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Database:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.database_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Collection:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.collection_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Health Status:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                {item.health_status ? (
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 2,
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    backgroundColor: getStatusColor(item.health_status) + '20',
+                    color: getStatusColor(item.health_status),
+                    border: `1px solid ${getStatusColor(item.health_status)}`
+                  }}>
+                    {item.health_status}
+                  </span>
+                ) : 'N/A'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Access Frequency:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.access_frequency || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Health Score:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                {item.health_score !== null && item.health_score !== undefined
+                  ? `${Number(item.health_score).toFixed(2)}`
+                  : 'N/A'}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsSection>
-          <SectionTitle>Storage</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Document Count:</DetailLabel>
-            <DetailValue>{formatNumber(item.document_count)}</DetailValue>
-            
-            <DetailLabel>Collection Size:</DetailLabel>
-            <DetailValue>{formatBytes(item.collection_size_mb)}</DetailValue>
-            
-            <DetailLabel>Index Size:</DetailLabel>
-            <DetailValue>{formatBytes(item.index_size_mb)}</DetailValue>
-            
-            <DetailLabel>Total Size:</DetailLabel>
-            <DetailValue>{formatBytes(item.total_size_mb)}</DetailValue>
-            
-            <DetailLabel>Storage Size:</DetailLabel>
-            <DetailValue>{formatBytes(item.storage_size_mb)}</DetailValue>
-            
-            <DetailLabel>Avg Object Size:</DetailLabel>
-            <DetailValue>
-              {item.avg_object_size_bytes
-                ? `${(Number(item.avg_object_size_bytes) / 1024).toFixed(2)} KB`
-                : 'N/A'}
-            </DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Storage
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Document Count:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatNumber(item.document_count)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Collection Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.collection_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.index_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Total Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.total_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Storage Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.storage_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Avg Object Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                {item.avg_object_size_bytes
+                  ? `${(Number(item.avg_object_size_bytes) / 1024).toFixed(2)} KB`
+                  : 'N/A'}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsSection>
-          <SectionTitle>MongoDB Configuration</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>MongoDB Version:</DetailLabel>
-            <DetailValue>{item.mongodb_version || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Storage Engine:</DetailLabel>
-            <DetailValue>{item.storage_engine || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Replica Set:</DetailLabel>
-            <DetailValue>{item.replica_set_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Is Sharded:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.is_sharded ? 'WARNING' : 'HEALTHY'}>
-                {formatBoolean(item.is_sharded)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Shard Key:</DetailLabel>
-            <DetailValue>{item.shard_key || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Index Count:</DetailLabel>
-            <DetailValue>{formatNumber(item.index_count)}</DetailValue>
-            
-            <DetailLabel>Snapshot Date:</DetailLabel>
-            <DetailValue>{formatDate(item.snapshot_date)}</DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
-      </TabContent>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            MongoDB Configuration
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>MongoDB Version:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.mongodb_version || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Storage Engine:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.storage_engine || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Replica Set:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.replica_set_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Is Sharded:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.is_sharded ? 'WARNING' : 'HEALTHY') + '20',
+                  color: getStatusColor(item.is_sharded ? 'WARNING' : 'HEALTHY'),
+                  border: `1px solid ${getStatusColor(item.is_sharded ? 'WARNING' : 'HEALTHY')}`
+                }}>
+                  {formatBoolean(item.is_sharded)}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Shard Key:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.shard_key || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Count:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatNumber(item.index_count)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Snapshot Date:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatDate(item.snapshot_date)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }, [formatBytes, formatNumber, formatBoolean, formatDate]);
 
   const renderIndexesTab = useCallback((item: any) => {
     return (
-      <TabContent>
-        <DetailsSection>
-          <SectionTitle>Index Information</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Index Name:</DetailLabel>
-            <DetailValue>{item.index_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Index Keys:</DetailLabel>
-            <DetailValue style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
-              {item.index_keys || 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Index Type:</DetailLabel>
-            <DetailValue>{item.index_type || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Unique Index:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.index_unique ? 'HEALTHY' : 'WARNING'}>
-                {formatBoolean(item.index_unique)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Sparse Index:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.index_sparse ? 'WARNING' : 'HEALTHY'}>
-                {formatBoolean(item.index_sparse)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Index Size:</DetailLabel>
-            <DetailValue>{formatBytes(item.index_size_mb)}</DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
-      </TabContent>
+      <div>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Index Information
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Name:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.index_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Keys:</div>
+              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                {item.index_keys || 'N/A'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Type:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.index_type || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Unique Index:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.index_unique ? 'HEALTHY' : 'WARNING') + '20',
+                  color: getStatusColor(item.index_unique ? 'HEALTHY' : 'WARNING'),
+                  border: `1px solid ${getStatusColor(item.index_unique ? 'HEALTHY' : 'WARNING')}`
+                }}>
+                  {formatBoolean(item.index_unique)}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Sparse Index:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.index_sparse ? 'WARNING' : 'HEALTHY') + '20',
+                  color: getStatusColor(item.index_sparse ? 'WARNING' : 'HEALTHY'),
+                  border: `1px solid ${getStatusColor(item.index_sparse ? 'WARNING' : 'HEALTHY')}`
+                }}>
+                  {formatBoolean(item.index_sparse)}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.index_size_mb)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }, [formatBoolean, formatBytes]);
 
   const renderPerformanceTab = useCallback((item: any) => {
     return (
-      <TabContent>
-        <DetailsSection>
-          <SectionTitle>Performance Metrics</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Health Score:</DetailLabel>
-            <DetailValue>
-              {item.health_score !== null && item.health_score !== undefined
-                ? `${Number(item.health_score).toFixed(2)}`
-                : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Document Count:</DetailLabel>
-            <DetailValue>{formatNumber(item.document_count)}</DetailValue>
-            
-            <DetailLabel>Total Size:</DetailLabel>
-            <DetailValue>{formatBytes(item.total_size_mb)}</DetailValue>
-            
-            <DetailLabel>Index Count:</DetailLabel>
-            <DetailValue>{formatNumber(item.index_count)}</DetailValue>
-            
-            <DetailLabel>Avg Object Size:</DetailLabel>
-            <DetailValue>
-              {item.avg_object_size_bytes
-                ? `${(Number(item.avg_object_size_bytes) / 1024).toFixed(2)} KB`
-                : 'N/A'}
-            </DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
+      <div>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Performance Metrics
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Health Score:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                {item.health_score !== null && item.health_score !== undefined
+                  ? `${Number(item.health_score).toFixed(2)}`
+                  : 'N/A'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Document Count:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatNumber(item.document_count)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Total Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.total_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Count:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatNumber(item.index_count)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Avg Object Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                {item.avg_object_size_bytes
+                  ? `${(Number(item.avg_object_size_bytes) / 1024).toFixed(2)} KB`
+                  : 'N/A'}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsSection>
-          <SectionTitle>Sharding</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Is Sharded:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.is_sharded ? 'WARNING' : 'HEALTHY'}>
-                {formatBoolean(item.is_sharded)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Shard Key:</DetailLabel>
-            <DetailValue style={{ fontFamily: 'monospace' }}>
-              {item.shard_key || 'N/A'}
-            </DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
-      </TabContent>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Sharding
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Is Sharded:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.is_sharded ? 'WARNING' : 'HEALTHY') + '20',
+                  color: getStatusColor(item.is_sharded ? 'WARNING' : 'HEALTHY'),
+                  border: `1px solid ${getStatusColor(item.is_sharded ? 'WARNING' : 'HEALTHY')}`
+                }}>
+                  {formatBoolean(item.is_sharded)}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Shard Key:</div>
+              <div style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                {item.shard_key || 'N/A'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }, [formatBytes, formatNumber, formatBoolean]);
 
   const renderRecommendationsTab = useCallback((item: any) => {
     return (
-      <TabContent>
-        <DetailsSection>
-          <SectionTitle>Recommendations</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Recommendation Summary:</DetailLabel>
-            <DetailValue style={{ whiteSpace: 'pre-wrap' }}>
-              {item.recommendation_summary || 'No recommendations available'}
-            </DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
-      </TabContent>
+      <div>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Recommendations
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Recommendation Summary:</div>
+              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                {item.recommendation_summary || 'No recommendations available'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }, []);
 
@@ -697,7 +533,7 @@ const GovernanceCatalogMongoDB = () => {
   if (loadingTree && allItems.length === 0) {
     return (
       <Container>
-        <Header>Governance Catalog - MongoDB</Header>
+        <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Governance Catalog - MongoDB</h1>
         <LoadingOverlay>Loading governance catalog...</LoadingOverlay>
       </Container>
     );
@@ -705,169 +541,249 @@ const GovernanceCatalogMongoDB = () => {
 
   return (
     <Container>
-      <Header>Governance Catalog - MongoDB</Header>
+      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Governance Catalog - MongoDB</h1>
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
       
-      <MetricsGrid $columns="repeat(auto-fit, minmax(180px, 1fr))">
-        <MetricCard $index={0}>
-          <MetricLabel>
-            <span>■</span>
-            Total Collections
-          </MetricLabel>
-          <MetricValue>{metrics.total_collections || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={1}>
-          <MetricLabel>
-            <span>■</span>
-            Total Size
-          </MetricLabel>
-          <MetricValue>{formatBytes(metrics.total_size_mb)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={2}>
-          <MetricLabel>
-            <span>■</span>
-            Total Documents
-          </MetricLabel>
-          <MetricValue>{formatNumber(metrics.total_documents)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={3}>
-          <MetricLabel>
-            <span>✓</span>
-            Healthy
-          </MetricLabel>
-          <MetricValue>{metrics.healthy_count || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={4}>
-          <MetricLabel>
-            <span>!</span>
-            Warning
-          </MetricLabel>
-          <MetricValue>{metrics.warning_count || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={5}>
-          <MetricLabel>
-            <span>×</span>
-            Critical
-          </MetricLabel>
-          <MetricValue>{metrics.critical_count || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={6}>
-          <MetricLabel>
-            <span>■</span>
-            Unique Servers
-          </MetricLabel>
-          <MetricValue>{metrics.unique_servers || 0}</MetricValue>
-        </MetricCard>
-      </MetricsGrid>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+        gap: 12, 
+        marginBottom: 24 
+      }}>
+        <AsciiPanel title="Total Collections">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.total_collections || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Total Size">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatBytes(metrics.total_size_mb)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Total Documents">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatNumber(metrics.total_documents)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Healthy">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.healthy_count || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Warning">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.warning_count || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Critical">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.critical_count || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Unique Servers">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.unique_servers || 0}
+          </div>
+        </AsciiPanel>
+      </div>
 
-      <FiltersContainer>
-        <Select
-          value={filters.server_name as string}
-          onChange={(e) => handleFilterChange('server_name', e.target.value)}
-        >
-          <option value="">All Servers</option>
-          {servers.map(server => (
-            <option key={server} value={server}>{server}</option>
-          ))}
-        </Select>
-        
-        <Select
-          value={filters.database_name as string}
-          onChange={(e) => handleFilterChange('database_name', e.target.value)}
-          disabled={!filters.server_name}
-        >
-          <option value="">All Databases</option>
-          {databases.map(db => (
-            <option key={db} value={db}>{db}</option>
-          ))}
-        </Select>
-        
-        <Select
-          value={filters.health_status as string}
-          onChange={(e) => handleFilterChange('health_status', e.target.value)}
-        >
-          <option value="">All Health Status</option>
-          <option value="EXCELLENT">Excellent</option>
-          <option value="HEALTHY">Healthy</option>
-          <option value="WARNING">Warning</option>
-          <option value="CRITICAL">Critical</option>
-        </Select>
-        
-        <Select
-          value={filters.access_frequency as string}
-          onChange={(e) => handleFilterChange('access_frequency', e.target.value)}
-        >
-          <option value="">All Access Frequency</option>
-          <option value="REAL_TIME">Real Time</option>
-          <option value="HIGH">High</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="LOW">Low</option>
-          <option value="RARE">Rare</option>
-        </Select>
-        
-        <Input
-          type="text"
-          placeholder="Search collection name..."
-          value={filters.search as string}
-          onChange={(e) => handleFilterChange('search', e.target.value)}
-          style={{ flex: 1, minWidth: "200px" }}
-        />
-        
-        <Button
-          $variant="secondary"
-          onClick={() => {
-            clearFilters();
-            setPage(1);
-          }}
-          style={{ padding: "8px 16px", fontSize: "0.9em" }}
-        >
-          Reset All
-        </Button>
-      </FiltersContainer>
+      <AsciiPanel title="FILTERS">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
+            value={filters.server_name as string}
+            onChange={(e) => handleFilterChange('server_name', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          >
+            <option value="">All Servers</option>
+            {servers.map(server => (
+              <option key={server} value={server}>{server}</option>
+            ))}
+          </select>
+          
+          <select
+            value={filters.database_name as string}
+            onChange={(e) => handleFilterChange('database_name', e.target.value)}
+            disabled={!filters.server_name}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              opacity: !filters.server_name ? 0.5 : 1
+            }}
+          >
+            <option value="">All Databases</option>
+            {databases.map(db => (
+              <option key={db} value={db}>{db}</option>
+            ))}
+          </select>
+          
+          <select
+            value={filters.health_status as string}
+            onChange={(e) => handleFilterChange('health_status', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          >
+            <option value="">All Health Status</option>
+            <option value="EXCELLENT">Excellent</option>
+            <option value="HEALTHY">Healthy</option>
+            <option value="WARNING">Warning</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+          
+          <select
+            value={filters.access_frequency as string}
+            onChange={(e) => handleFilterChange('access_frequency', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          >
+            <option value="">All Access Frequency</option>
+            <option value="REAL_TIME">Real Time</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+            <option value="RARE">Rare</option>
+          </select>
+          
+          <input
+            type="text"
+            placeholder="Search collection name..."
+            value={filters.search as string}
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          />
+          
+          <AsciiButton
+            label="Reset All"
+            onClick={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            variant="ghost"
+          />
+        </div>
+      </AsciiPanel>
 
-      <TableActions>
-        <PaginationInfo>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: 16,
+        fontFamily: 'Consolas',
+        fontSize: 12
+      }}>
+        <div style={{ color: asciiColors.muted }}>
           Total: {allItems.length} entries
-        </PaginationInfo>
-        <ExportButton $variant="secondary" onClick={handleExportCSV}>
-          Export CSV
-        </ExportButton>
-      </TableActions>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <AsciiButton
+            label="Export CSV"
+            onClick={handleExportCSV}
+            variant="ghost"
+          />
+        </div>
+      </div>
 
       {loadingTree ? (
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
       ) : (
-        <MainLayout $hasDetails={!!selectedItem}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
+          gap: 16, 
+          marginTop: 16 
+        }}>
           <GovernanceCatalogMongoDBTreeView 
             items={allItems} 
             onItemClick={handleItemClick} 
           />
           
           {selectedItem && (
-            <DetailsPanel>
-              <TabContainer>
-                <Tab $active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>
-                  Overview
-                </Tab>
-                <Tab $active={activeTab === 'indexes'} onClick={() => setActiveTab('indexes')}>
-                  Indexes
-                </Tab>
-                <Tab $active={activeTab === 'performance'} onClick={() => setActiveTab('performance')}>
-                  Performance
-                </Tab>
-                <Tab $active={activeTab === 'recommendations'} onClick={() => setActiveTab('recommendations')}>
-                  Recommendations
-                </Tab>
-              </TabContainer>
+            <AsciiPanel title="DETAILS" style={{ 
+              position: 'sticky', 
+              top: 16, 
+              maxHeight: 'calc(100vh - 200px)',
+              overflowY: 'auto'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                gap: 4, 
+                marginBottom: 16, 
+                borderBottom: `1px solid ${asciiColors.border}`, 
+                paddingBottom: 8,
+                flexWrap: 'wrap'
+              }}>
+                <AsciiButton
+                  label="Overview"
+                  onClick={() => setActiveTab('overview')}
+                  variant={activeTab === 'overview' ? 'primary' : 'ghost'}
+                />
+                <AsciiButton
+                  label="Indexes"
+                  onClick={() => setActiveTab('indexes')}
+                  variant={activeTab === 'indexes' ? 'primary' : 'ghost'}
+                />
+                <AsciiButton
+                  label="Performance"
+                  onClick={() => setActiveTab('performance')}
+                  variant={activeTab === 'performance' ? 'primary' : 'ghost'}
+                />
+                <AsciiButton
+                  label="Recommendations"
+                  onClick={() => setActiveTab('recommendations')}
+                  variant={activeTab === 'recommendations' ? 'primary' : 'ghost'}
+                />
+              </div>
               
               {activeTab === 'overview' && renderOverviewTab(selectedItem)}
               {activeTab === 'indexes' && renderIndexesTab(selectedItem)}
               {activeTab === 'performance' && renderPerformanceTab(selectedItem)}
               {activeTab === 'recommendations' && renderRecommendationsTab(selectedItem)}
-            </DetailsPanel>
+            </AsciiPanel>
           )}
-        </MainLayout>
+        </div>
       )}
     </Container>
   );

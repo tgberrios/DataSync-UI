@@ -82,7 +82,7 @@ export const theme = {
     slow: "0.3s ease",
   },
   fonts: {
-    primary: "monospace",
+    primary: "Consolas",
   },
   breakpoints: {
     sm: "640px",

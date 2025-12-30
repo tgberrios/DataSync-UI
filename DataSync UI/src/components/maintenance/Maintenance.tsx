@@ -2,147 +2,18 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import {
   Container,
-  Header,
   ErrorMessage,
   LoadingOverlay,
-  Grid,
-  Value,
-  Select,
-  FiltersContainer,
 } from '../shared/BaseComponents';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { maintenanceApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import MaintenanceTreeView from './MaintenanceTreeView';
 
-const MetricsGrid = styled(Grid)`
-  margin-bottom: ${theme.spacing.xxl};
-  animation: slideUp 0.25s ease-out;
-  animation-delay: 0.1s;
-  animation-fill-mode: both;
-`;
-
-const MetricCard = styled(Value)`
-  padding: ${theme.spacing.md};
-  min-height: 80px;
-`;
-
-const MetricLabel = styled.div`
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  margin-bottom: ${theme.spacing.xs};
-  font-weight: 500;
-`;
-
-const MetricValue = styled.div`
-  font-size: 1.5em;
-  font-weight: bold;
-  color: ${theme.colors.text.primary};
-`;
-
-const TabsContainer = styled.div`
-  display: flex;
-  gap: ${theme.spacing.sm};
-  margin-bottom: ${theme.spacing.lg};
-  border-bottom: 2px solid ${theme.colors.border.medium};
-  animation: slideUp 0.25s ease-out;
-  animation-delay: 0.15s;
-  animation-fill-mode: both;
-`;
-
-const Tab = styled.button<{ $active: boolean }>`
-  padding: 12px 24px;
-  border: none;
-  background: ${props => props.$active ? theme.colors.primary.main : 'transparent'};
-  color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.secondary};
-  cursor: pointer;
-  font-family: ${theme.fonts.primary};
-  font-size: 0.95em;
-  font-weight: ${props => props.$active ? 'bold' : 'normal'};
-  border-bottom: ${props => props.$active ? `3px solid ${theme.colors.primary.dark}` : '3px solid transparent'};
-  transition: all ${theme.transitions.normal};
-  margin-bottom: -2px;
-  
-  &:hover {
-    background: ${props => props.$active ? theme.colors.primary.light : theme.colors.background.secondary};
-    color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.primary};
-  }
-`;
-
-const Badge = styled.span<{ $status?: string; $type?: string }>`
-  padding: 6px 12px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all ${theme.transitions.normal};
-  border: 2px solid transparent;
-  box-shadow: ${theme.shadows.sm};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  
-  ${props => {
-    if (props.$status) {
-      switch (props.$status) {
-        case 'PENDING':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.status.warning.bg} 0%, ${theme.colors.status.warning.text}15 100%);
-            color: ${theme.colors.status.warning.text};
-            border-color: ${theme.colors.status.warning.text}40;
-          `;
-        case 'RUNNING':
-          return `
-            background: linear-gradient(135deg, #e3f2fd 0%, #1565c015 100%);
-            color: #1565c0;
-            border-color: #1565c040;
-          `;
-        case 'COMPLETED':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-            color: ${theme.colors.status.success.text};
-            border-color: ${theme.colors.status.success.text}40;
-          `;
-        case 'FAILED':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.status.error.bg} 0%, ${theme.colors.status.error.text}15 100%);
-            color: ${theme.colors.status.error.text};
-            border-color: ${theme.colors.status.error.text}40;
-          `;
-        case 'SKIPPED':
-          return `
-            background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-            color: ${theme.colors.text.secondary};
-            border-color: ${theme.colors.border.medium};
-          `;
-        default:
-          return `
-            background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-            color: ${theme.colors.text.secondary};
-            border-color: ${theme.colors.border.medium};
-          `;
-      }
-    }
-    if (props.$type) {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-        color: ${theme.colors.text.primary};
-        border-color: ${theme.colors.border.medium};
-      `;
-    }
-    return `
-      background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-      color: ${theme.colors.text.primary};
-      border-color: ${theme.colors.border.medium};
-    `;
-  }}
-  
-  &:hover {
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: ${theme.shadows.lg};
-  }
-`;
 
 /**
  * Maintenance component
@@ -243,10 +114,21 @@ const Maintenance = () => {
     setFilter(key as any, value);
   }, [setFilter]);
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PENDING': return asciiColors.warning;
+      case 'RUNNING': return asciiColors.accent;
+      case 'COMPLETED': return asciiColors.success;
+      case 'FAILED': return asciiColors.danger;
+      case 'SKIPPED': return asciiColors.muted;
+      default: return asciiColors.muted;
+    }
+  };
+
   if (loading && maintenanceItems.length === 0) {
     return (
       <Container>
-        <Header>Maintenance</Header>
+        <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Maintenance</h1>
         <LoadingOverlay>Loading maintenance data...</LoadingOverlay>
       </Container>
     );
@@ -254,196 +136,271 @@ const Maintenance = () => {
 
   return (
     <Container>
-      <Header>Maintenance</Header>
+      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Maintenance</h1>
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
       
-      <MetricsGrid $columns="repeat(auto-fit, minmax(180px, 1fr))">
-        <MetricCard>
-          <MetricLabel>Total Pending</MetricLabel>
-          <MetricValue>{metrics.total_pending || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Total Completed</MetricLabel>
-          <MetricValue>{metrics.total_completed || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Total Failed</MetricLabel>
-          <MetricValue>{metrics.total_failed || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Space Reclaimed</MetricLabel>
-          <MetricValue>{formatBytes(metrics.total_space_reclaimed_mb)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Avg Impact Score</MetricLabel>
-          <MetricValue>{metrics.avg_impact_score ? `${Number(metrics.avg_impact_score).toFixed(1)}` : 'N/A'}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Objects Improved</MetricLabel>
-          <MetricValue>{metrics.objects_improved || 0}</MetricValue>
-        </MetricCard>
-      </MetricsGrid>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+        gap: 12, 
+        marginBottom: 24 
+      }}>
+        <AsciiPanel title="Total Pending">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.total_pending || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Total Completed">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.total_completed || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Total Failed">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.total_failed || 0}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Space Reclaimed">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatBytes(metrics.total_space_reclaimed_mb)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Avg Impact Score">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.avg_impact_score ? `${Number(metrics.avg_impact_score).toFixed(1)}` : 'N/A'}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Objects Improved">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {metrics.objects_improved || 0}
+          </div>
+        </AsciiPanel>
+      </div>
 
-      <TabsContainer>
-        <Tab $active={activeTab === 'pending'} onClick={() => setActiveTab('pending')}>
-          Pending ({metrics.total_pending || 0})
-        </Tab>
-        <Tab $active={activeTab === 'completed'} onClick={() => setActiveTab('completed')}>
-          Completed ({metrics.total_completed || 0})
-        </Tab>
-        <Tab $active={activeTab === 'all'} onClick={() => setActiveTab('all')}>
-          All
-        </Tab>
-      </TabsContainer>
+      <div style={{ 
+        display: 'flex', 
+        gap: 8, 
+        marginBottom: 16, 
+        borderBottom: `1px solid ${asciiColors.border}`, 
+        paddingBottom: 8 
+      }}>
+        <AsciiButton 
+          label={`Pending (${metrics.total_pending || 0})`}
+          onClick={() => setActiveTab('pending')}
+          variant={activeTab === 'pending' ? 'primary' : 'ghost'}
+        />
+        <AsciiButton 
+          label={`Completed (${metrics.total_completed || 0})`}
+          onClick={() => setActiveTab('completed')}
+          variant={activeTab === 'completed' ? 'primary' : 'ghost'}
+        />
+        <AsciiButton 
+          label="All"
+          onClick={() => setActiveTab('all')}
+          variant={activeTab === 'all' ? 'primary' : 'ghost'}
+        />
+      </div>
 
-      <FiltersContainer>
-        <Select
-          value={filters.maintenance_type as string}
-          onChange={(e) => handleFilterChange('maintenance_type', e.target.value)}
-        >
-          <option value="">All Types</option>
-          <option value="VACUUM">VACUUM</option>
-          <option value="ANALYZE">ANALYZE</option>
-          <option value="REINDEX">REINDEX</option>
-          <option value="CLUSTER">CLUSTER</option>
-        </Select>
-        
-        <Select
-          value={filters.db_engine as string}
-          onChange={(e) => handleFilterChange('db_engine', e.target.value)}
-        >
-          <option value="">All Engines</option>
-          <option value="PostgreSQL">PostgreSQL</option>
-          <option value="MariaDB">MariaDB</option>
-          <option value="MSSQL">MSSQL</option>
-        </Select>
-        
-        <Select
-          value={filters.status as string}
-          onChange={(e) => handleFilterChange('status', e.target.value)}
-        >
-          <option value="">All Status</option>
-          <option value="PENDING">PENDING</option>
-          <option value="RUNNING">RUNNING</option>
-          <option value="COMPLETED">COMPLETED</option>
-          <option value="FAILED">FAILED</option>
-          <option value="SKIPPED">SKIPPED</option>
-        </Select>
-      </FiltersContainer>
+      <AsciiPanel title="FILTERS">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <select
+            value={filters.maintenance_type as string}
+            onChange={(e) => handleFilterChange('maintenance_type', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          >
+            <option value="">All Types</option>
+            <option value="VACUUM">VACUUM</option>
+            <option value="ANALYZE">ANALYZE</option>
+            <option value="REINDEX">REINDEX</option>
+            <option value="CLUSTER">CLUSTER</option>
+          </select>
+          
+          <select
+            value={filters.db_engine as string}
+            onChange={(e) => handleFilterChange('db_engine', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          >
+            <option value="">All Engines</option>
+            <option value="PostgreSQL">PostgreSQL</option>
+            <option value="MariaDB">MariaDB</option>
+            <option value="MSSQL">MSSQL</option>
+          </select>
+          
+          <select
+            value={filters.status as string}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
+          >
+            <option value="">All Status</option>
+            <option value="PENDING">PENDING</option>
+            <option value="RUNNING">RUNNING</option>
+            <option value="COMPLETED">COMPLETED</option>
+            <option value="FAILED">FAILED</option>
+            <option value="SKIPPED">SKIPPED</option>
+          </select>
+        </div>
+      </AsciiPanel>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selectedItem ? '1fr 400px' : '1fr', gap: theme.spacing.lg }}>
+      <div style={{ display: 'grid', gridTemplateColumns: selectedItem ? '1fr 400px' : '1fr', gap: 16 }}>
         <MaintenanceTreeView 
           items={maintenanceItems} 
           onItemClick={handleItemClick}
         />
         
         {selectedItem && (
-          <div style={{
-            background: theme.colors.background.secondary,
-            border: `1px solid ${theme.colors.border.light}`,
-            borderRadius: theme.borderRadius.md,
-            padding: theme.spacing.lg,
-            position: 'sticky',
-            top: theme.spacing.md,
-            maxHeight: 'calc(100vh - 200px)',
-            overflowY: 'auto'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: theme.spacing.md, color: theme.colors.text.primary }}>
-              Maintenance Details
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing.md }}>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Type:</strong>
+          <AsciiPanel title="MAINTENANCE DETAILS">
+            <div style={{ 
+              position: 'sticky', 
+              top: 8, 
+              maxHeight: 'calc(100vh - 200px)', 
+              overflowY: 'auto',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
                 <div>
-                  <Badge $type={selectedItem.maintenance_type}>{selectedItem.maintenance_type}</Badge>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Type:</div>
+                  <div>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: 2,
+                      fontSize: 11,
+                      fontFamily: 'Consolas',
+                      backgroundColor: asciiColors.backgroundSoft,
+                      color: asciiColors.foreground,
+                      border: `1px solid ${asciiColors.border}`
+                    }}>
+                      {selectedItem.maintenance_type || 'N/A'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Engine:</strong>
-                <div style={{ color: theme.colors.text.primary }}>{selectedItem.db_engine || 'N/A'}</div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Schema:</strong>
-                <div style={{ color: theme.colors.text.primary }}>{selectedItem.schema_name || 'N/A'}</div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Object:</strong>
-                <div style={{ color: theme.colors.text.primary }}>{selectedItem.object_name || 'N/A'}</div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Status:</strong>
                 <div>
-                  <Badge $status={selectedItem.status}>{selectedItem.status}</Badge>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Engine:</div>
+                  <div style={{ color: asciiColors.foreground }}>{selectedItem.db_engine || 'N/A'}</div>
                 </div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Priority:</strong>
-                <div style={{ color: theme.colors.text.primary }}>{selectedItem.priority || 'N/A'}</div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Impact Score:</strong>
-                <div style={{ color: theme.colors.text.primary }}>
-                  {selectedItem.impact_score ? Number(selectedItem.impact_score).toFixed(1) : 'N/A'}
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Schema:</div>
+                  <div style={{ color: asciiColors.foreground }}>{selectedItem.schema_name || 'N/A'}</div>
                 </div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Space Reclaimed:</strong>
-                <div style={{ color: theme.colors.text.primary }}>{formatBytes(selectedItem.space_reclaimed_mb)}</div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Duration:</strong>
-                <div style={{ color: theme.colors.text.primary }}>{formatDuration(selectedItem.maintenance_duration_seconds)}</div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Last Run:</strong>
-                <div style={{ color: theme.colors.text.primary, fontSize: '0.9em' }}>
-                  {formatDate(selectedItem.last_maintenance_date)}
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Object:</div>
+                  <div style={{ color: asciiColors.foreground }}>{selectedItem.object_name || 'N/A'}</div>
                 </div>
-              </div>
-              <div>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Next Run:</strong>
-                <div style={{ color: theme.colors.text.primary, fontSize: '0.9em' }}>
-                  {formatDate(selectedItem.next_maintenance_date)}
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Status:</div>
+                  <div>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: 2,
+                      fontSize: 11,
+                      fontFamily: 'Consolas',
+                      backgroundColor: selectedItem.status ? getStatusColor(selectedItem.status) + '20' : asciiColors.backgroundSoft,
+                      color: selectedItem.status ? getStatusColor(selectedItem.status) : asciiColors.foreground,
+                      border: `1px solid ${selectedItem.status ? getStatusColor(selectedItem.status) : asciiColors.border}`
+                    }}>
+                      {selectedItem.status || 'N/A'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div style={{ borderTop: `1px solid ${theme.colors.border.light}`, paddingTop: theme.spacing.md, marginTop: theme.spacing.sm }}>
-                <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Additional Info:</strong>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing.sm, marginTop: theme.spacing.sm }}>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: theme.colors.text.secondary }}>Object Type</div>
-                    <div style={{ fontWeight: 600 }}>{selectedItem.object_type || 'N/A'}</div>
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Priority:</div>
+                  <div style={{ color: asciiColors.foreground }}>{selectedItem.priority || 'N/A'}</div>
+                </div>
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Impact Score:</div>
+                  <div style={{ color: asciiColors.foreground }}>
+                    {selectedItem.impact_score ? Number(selectedItem.impact_score).toFixed(1) : 'N/A'}
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: theme.colors.text.secondary }}>Auto Execute</div>
-                    <div style={{ fontWeight: 600 }}>{selectedItem.auto_execute ? 'Yes' : 'No'}</div>
+                </div>
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Space Reclaimed:</div>
+                  <div style={{ color: asciiColors.foreground }}>{formatBytes(selectedItem.space_reclaimed_mb)}</div>
+                </div>
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Duration:</div>
+                  <div style={{ color: asciiColors.foreground }}>{formatDuration(selectedItem.maintenance_duration_seconds)}</div>
+                </div>
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Last Run:</div>
+                  <div style={{ color: asciiColors.foreground, fontSize: 11 }}>
+                    {formatDate(selectedItem.last_maintenance_date)}
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: theme.colors.text.secondary }}>Enabled</div>
-                    <div style={{ fontWeight: 600 }}>{selectedItem.enabled ? 'Yes' : 'No'}</div>
+                </div>
+                <div>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Next Run:</div>
+                  <div style={{ color: asciiColors.foreground, fontSize: 11 }}>
+                    {formatDate(selectedItem.next_maintenance_date)}
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: theme.colors.text.secondary }}>Maintenance Count</div>
-                    <div style={{ fontWeight: 600 }}>{selectedItem.maintenance_count || 0}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.85em', color: theme.colors.text.secondary }}>Performance Improvement</div>
-                    <div style={{ fontWeight: 600 }}>
-                      {selectedItem.performance_improvement_pct ? `${Number(selectedItem.performance_improvement_pct).toFixed(2)}%` : 'N/A'}
-                    </div>
-                  </div>
-                  {selectedItem.error_details && (
+                </div>
+                <div style={{ borderTop: `1px solid ${asciiColors.border}`, paddingTop: 12, marginTop: 8 }}>
+                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 8, fontWeight: 600 }}>Additional Info:</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
                     <div>
-                      <div style={{ fontSize: '0.85em', color: theme.colors.status.error.text }}>Error Details</div>
-                      <div style={{ fontWeight: 600, color: theme.colors.status.error.text, fontSize: '0.85em' }}>
-                        {selectedItem.error_details}
+                      <div style={{ fontSize: 11, color: asciiColors.muted }}>Object Type</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{selectedItem.object_type || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: asciiColors.muted }}>Auto Execute</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{selectedItem.auto_execute ? 'Yes' : 'No'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: asciiColors.muted }}>Enabled</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{selectedItem.enabled ? 'Yes' : 'No'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: asciiColors.muted }}>Maintenance Count</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{selectedItem.maintenance_count || 0}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: asciiColors.muted }}>Performance Improvement</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.foreground }}>
+                        {selectedItem.performance_improvement_pct ? `${Number(selectedItem.performance_improvement_pct).toFixed(2)}%` : 'N/A'}
                       </div>
                     </div>
-                  )}
+                    {selectedItem.error_details && (
+                      <div>
+                        <div style={{ fontSize: 11, color: asciiColors.danger }}>Error Details</div>
+                        <div style={{ fontWeight: 600, color: asciiColors.danger, fontSize: 11 }}>
+                          {ascii.blockFull} {selectedItem.error_details}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </AsciiPanel>
         )}
       </div>
     </Container>

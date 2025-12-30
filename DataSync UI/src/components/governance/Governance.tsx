@@ -2,20 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 import {
   Container,
-  Header,
-  ErrorMessage,
   LoadingOverlay,
-  Select,
-  FiltersContainer,
-  Button,
-  Grid,
-  Value,
 } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { governanceApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceTreeView from './GovernanceTreeView';
 
 const fadeIn = keyframes`
@@ -40,367 +36,24 @@ const slideUp = keyframes`
   }
 `;
 
-const MetricsGrid = styled(Grid)`
-  margin-bottom: ${theme.spacing.xxl};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: 0.1s;
-  animation-fill-mode: both;
-`;
-
-const MetricCard = styled(Value)<{ $index?: number }>`
-  padding: ${theme.spacing.lg};
-  min-height: 100px;
-  background: linear-gradient(135deg, ${theme.colors.background.main} 0%, ${theme.colors.background.secondary} 100%);
-  border: 2px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  border-radius: ${theme.borderRadius.lg};
-  box-shadow: ${theme.shadows.md};
-  transition: all ${theme.transitions.normal};
-  animation: ${fadeIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: ${props => (props.$index || 0) * 0.1}s;
-  animation-fill-mode: both;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
+const getStatusColor = (status?: string) => {
+  if (!status) return asciiColors.muted;
+  switch (status) {
+    case 'HEALTHY':
+    case 'EXCELLENT': return asciiColors.success;
+    case 'WARNING': return asciiColors.warning;
+    case 'CRITICAL':
+    case 'EMERGENCY': return asciiColors.danger;
+    default: return asciiColors.muted;
   }
-  
-  &:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: ${theme.shadows.xl};
-    border-color: ${theme.colors.primary.main};
-    border-left-color: ${theme.colors.primary.dark};
-    
-    &::before {
-      left: 100%;
-    }
-  }
-`;
+};
 
-const MetricLabel = styled.div`
-  font-size: 0.9em;
-  color: ${theme.colors.text.secondary};
-  margin-bottom: ${theme.spacing.sm};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
-const MetricValue = styled.div`
-  font-size: 2.2em;
-  font-weight: 700;
-  color: ${theme.colors.primary.main};
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  background: linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-`;
-
-const TableActions = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${theme.spacing.md};
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.md};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  box-shadow: ${theme.shadows.sm};
-  animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    box-shadow: ${theme.shadows.md};
-    transform: translateY(-1px);
-  }
-`;
-
-const ExportButton = styled(Button)`
-  padding: 8px 16px;
-  font-size: 0.9em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
-
-const PaginationInfo = styled.div`
-  text-align: center;
-  margin-bottom: ${theme.spacing.sm};
-  color: ${theme.colors.text.secondary};
-  font-size: 0.9em;
-  animation: ${fadeIn} 0.25s ease-in;
-`;
-
-const DetailLabel = styled.div`
-  color: ${theme.colors.text.secondary};
-  font-size: 0.85em;
-  margin-bottom: 5px;
-  font-weight: 500;
-`;
-
-const DetailValue = styled.div`
-  font-size: 1.1em;
-  font-weight: 500;
-  color: ${theme.colors.text.primary};
-`;
-
-const Badge = styled.span<{ $status?: string; $type?: string; $level?: number; type?: string }>`
-  padding: 6px 12px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all ${theme.transitions.normal};
-  border: 2px solid transparent;
-  box-shadow: ${theme.shadows.sm};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  position: relative;
-  overflow: hidden;
-  
-  ${props => {
-    const badgeType = props.$status || props.$type || props.type || '';
-    if (badgeType === 'EXCELLENT' || badgeType === 'HEALTHY') {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-        color: ${theme.colors.status.success.text};
-        border-color: ${theme.colors.status.success.text}40;
-      `;
-    }
-    if (badgeType === 'WARNING') {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.status.warning.bg} 0%, ${theme.colors.status.warning.text}15 100%);
-        color: ${theme.colors.status.warning.text};
-        border-color: ${theme.colors.status.warning.text}40;
-      `;
-    }
-    if (badgeType === 'CRITICAL' || badgeType === 'EMERGENCY') {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.status.error.bg} 0%, ${theme.colors.status.error.text}15 100%);
-        color: ${theme.colors.status.error.text};
-        border-color: ${theme.colors.status.error.text}40;
-      `;
-    }
-    if (props.$level !== undefined) {
-      if (props.$level === 0) return `
-        background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-        color: ${theme.colors.status.success.text};
-        border-color: ${theme.colors.status.success.text}40;
-      `;
-      if (props.$level === 1) return `
-        background: linear-gradient(135deg, ${theme.colors.status.warning.bg} 0%, ${theme.colors.status.warning.text}15 100%);
-        color: ${theme.colors.status.warning.text};
-        border-color: ${theme.colors.status.warning.text}40;
-      `;
-      if (props.$level === 2) return `
-        background: linear-gradient(135deg, ${theme.colors.status.error.bg} 0%, ${theme.colors.status.error.text}15 100%);
-        color: ${theme.colors.status.error.text};
-        border-color: ${theme.colors.status.error.text}40;
-      `;
-    }
-    return `
-      background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-      color: ${theme.colors.text.primary};
-      border-color: ${theme.colors.border.medium};
-    `;
-  }}
-  
-  &:hover {
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: ${theme.shadows.lg};
-    border-width: 2px;
-  }
-`;
-
-const QualityScore = styled.span<{ $score: number }>`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.9em;
-  font-weight: 500;
-  display: inline-block;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: ${theme.shadows.sm};
-  }
-  background-color: ${props => {
-    if (props.$score >= 90) return theme.colors.status.success.bg;
-    if (props.$score >= 70) return '#f1f8e9';
-    if (props.$score >= 50) return theme.colors.status.warning.bg;
-    return theme.colors.status.error.bg;
-  }};
-  color: ${props => {
-    if (props.$score >= 90) return theme.colors.status.success.text;
-    if (props.$score >= 70) return '#558b2f';
-    if (props.$score >= 50) return theme.colors.status.warning.text;
-    return theme.colors.status.error.text;
-  }};
-`;
-
-const Tooltip = styled.div`
-  position: relative;
-  display: inline-block;
-  
-  &:hover .tooltip-content {
-    visibility: visible;
-    opacity: 1;
-  }
-`;
-
-const TooltipContent = styled.div`
-  visibility: hidden;
-  opacity: 0;
-  position: absolute;
-  z-index: 1000;
-  bottom: 125%;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: ${theme.colors.text.primary};
-  color: ${theme.colors.text.white};
-  text-align: center;
-  border-radius: ${theme.borderRadius.sm};
-  padding: 8px 12px;
-  font-size: 0.85em;
-  white-space: nowrap;
-  min-width: 200px;
-  max-width: 300px;
-  white-space: normal;
-  box-shadow: ${theme.shadows.lg};
-  transition: opacity ${theme.transitions.normal};
-  
-  &:after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
-    border-style: solid;
-    border-color: ${theme.colors.text.primary} transparent transparent transparent;
-  }
-`;
-
-const MainLayout = styled.div<{ $hasDetails?: boolean }>`
-  display: grid;
-  grid-template-columns: ${props => props.$hasDetails ? '1fr 500px' : '1fr'};
-  gap: ${theme.spacing.lg};
-  margin-top: ${theme.spacing.lg};
-`;
-
-const DetailsPanel = styled.div`
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
-  overflow-y: auto;
-  box-shadow: ${theme.shadows.md};
-  position: sticky;
-  top: ${theme.spacing.md};
-  max-height: calc(100vh - 200px);
-  
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
-`;
-
-const TabContainer = styled.div`
-  display: flex;
-  gap: ${theme.spacing.xs};
-  margin-bottom: ${theme.spacing.md};
-  border-bottom: 2px solid ${theme.colors.border.light};
-  padding-bottom: ${theme.spacing.sm};
-  flex-wrap: wrap;
-`;
-
-const Tab = styled.button<{ $active: boolean }>`
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  border: none;
-  background: ${props => props.$active ? theme.colors.primary.main : 'transparent'};
-  color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.secondary};
-  border-radius: ${theme.borderRadius.md} ${theme.borderRadius.md} 0 0;
-  cursor: pointer;
-  font-weight: ${props => props.$active ? '600' : '500'};
-  font-size: 0.85em;
-  transition: all ${theme.transitions.normal};
-  white-space: nowrap;
-  
-  &:hover {
-    background: ${props => props.$active ? theme.colors.primary.dark : theme.colors.background.secondary};
-    color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.primary};
-  }
-`;
-
-const TabContent = styled.div`
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const DetailsSection = styled.div`
-  margin-bottom: ${theme.spacing.lg};
-  padding-bottom: ${theme.spacing.lg};
-  border-bottom: 1px solid ${theme.colors.border.light};
-  
-  &:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-`;
-
-const SectionTitle = styled.h3`
-  font-size: 1em;
-  font-weight: 600;
-  color: ${theme.colors.text.primary};
-  margin: 0 0 ${theme.spacing.md} 0;
-  padding-bottom: ${theme.spacing.xs};
-  border-bottom: 2px solid ${theme.colors.primary.main};
-`;
-
-const DetailsGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: ${theme.spacing.md};
-`;
+const getScoreColor = (score: number) => {
+  if (score >= 90) return asciiColors.success;
+  if (score >= 70) return asciiColors.accent;
+  if (score >= 50) return asciiColors.warning;
+  return asciiColors.danger;
+};
 
 /**
  * Governance component
@@ -615,224 +268,343 @@ const Governance = () => {
 
   const renderOverviewTab = useCallback((item: any) => {
     return (
-      <TabContent>
-        <DetailsSection>
-          <SectionTitle>Basic Information</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Schema:</DetailLabel>
-            <DetailValue>{item.schema_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Table:</DetailLabel>
-            <DetailValue>{item.table_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Source Engine:</DetailLabel>
-            <DetailValue>{item.inferred_source_engine || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Data Category:</DetailLabel>
-            <DetailValue>
+      <div>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Basic Information
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Schema:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.schema_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Table:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.table_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Source Engine:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.inferred_source_engine || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Data Category:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.data_category ? (
-                <Tooltip>
-                  <Badge $type={item.data_category}>{item.data_category}</Badge>
-                  <TooltipContent className="tooltip-content">
-                    {getCategoryDescription(item.data_category)}
-                  </TooltipContent>
-                </Tooltip>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 2,
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    backgroundColor: asciiColors.backgroundSoft,
+                    color: asciiColors.foreground,
+                    border: `1px solid ${asciiColors.border}`
+                  }}>
+                    {item.data_category}
+                  </span>
               ) : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Business Domain:</DetailLabel>
-            <DetailValue>{item.business_domain || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Sensitivity Level:</DetailLabel>
-            <DetailValue>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Business Domain:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.business_domain || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Sensitivity Level:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.sensitivity_level ? (
-                <Tooltip>
-                  <Badge $status={item.sensitivity_level}>{item.sensitivity_level}</Badge>
-                  <TooltipContent className="tooltip-content">
-                    {getSensitivityDescription(item.sensitivity_level)}
-                  </TooltipContent>
-                </Tooltip>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 2,
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    backgroundColor: getStatusColor(item.sensitivity_level) + '20',
+                    color: getStatusColor(item.sensitivity_level),
+                    border: `1px solid ${getStatusColor(item.sensitivity_level)}`
+                  }}>
+                    {item.sensitivity_level}
+                  </span>
               ) : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Health Status:</DetailLabel>
-            <DetailValue>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Health Status:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.health_status ? (
-                <Tooltip>
-                  <Badge $status={item.health_status}>{item.health_status}</Badge>
-                  <TooltipContent className="tooltip-content">
-                    {getHealthDescription(item.health_status)}
-                  </TooltipContent>
-                </Tooltip>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 2,
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    backgroundColor: getStatusColor(item.health_status) + '20',
+                    color: getStatusColor(item.health_status),
+                    border: `1px solid ${getStatusColor(item.health_status)}`
+                  }}>
+                    {item.health_status}
+                  </span>
               ) : 'N/A'}
-            </DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsSection>
-          <SectionTitle>Metrics</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Total Columns:</DetailLabel>
-            <DetailValue>{item.total_columns?.toLocaleString() || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Total Rows:</DetailLabel>
-            <DetailValue>{item.total_rows?.toLocaleString() || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Table Size:</DetailLabel>
-            <DetailValue>{formatBytes(item.table_size_mb)}</DetailValue>
-            
-            <DetailLabel>Primary Key Columns:</DetailLabel>
-            <DetailValue>{item.primary_key_columns || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Index Count:</DetailLabel>
-            <DetailValue>{item.index_count?.toLocaleString() || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Constraint Count:</DetailLabel>
-            <DetailValue>{item.constraint_count?.toLocaleString() || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Data Quality Score:</DetailLabel>
-            <DetailValue>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Metrics
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Total Columns:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.total_columns?.toLocaleString() || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Total Rows:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.total_rows?.toLocaleString() || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Table Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.table_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Primary Key Columns:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.primary_key_columns || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Count:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.index_count?.toLocaleString() || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Constraint Count:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.constraint_count?.toLocaleString() || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Data Quality Score:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.data_quality_score !== null && item.data_quality_score !== undefined ? (
-                <QualityScore $score={Number(item.data_quality_score)}>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 2,
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    backgroundColor: getScoreColor(Number(item.data_quality_score)) + '20',
+                    color: getScoreColor(Number(item.data_quality_score)),
+                    border: `1px solid ${getScoreColor(Number(item.data_quality_score))}`
+                  }}>
                   {Number(item.data_quality_score).toFixed(2)}%
-                </QualityScore>
+                  </span>
               ) : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Null Percentage:</DetailLabel>
-            <DetailValue>{formatPercentage(item.null_percentage)}</DetailValue>
-            
-            <DetailLabel>Duplicate Percentage:</DetailLabel>
-            <DetailValue>{formatPercentage(item.duplicate_percentage)}</DetailValue>
-            
-            <DetailLabel>Fragmentation:</DetailLabel>
-            <DetailValue>{formatPercentage(item.fragmentation_percentage)}</DetailValue>
-            
-            <DetailLabel>Access Frequency:</DetailLabel>
-            <DetailValue>{item.access_frequency || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Query Count (Daily):</DetailLabel>
-            <DetailValue>{item.query_count_daily?.toLocaleString() || 'N/A'}</DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Null Percentage:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatPercentage(item.null_percentage)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Duplicate Percentage:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatPercentage(item.duplicate_percentage)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Fragmentation:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatPercentage(item.fragmentation_percentage)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Access Frequency:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.access_frequency || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Query Count (Daily):</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.query_count_daily?.toLocaleString() || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsSection>
-          <SectionTitle>Timestamps</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>First Discovered:</DetailLabel>
-            <DetailValue>{formatDate(item.first_discovered)}</DetailValue>
-            
-            <DetailLabel>Last Analyzed:</DetailLabel>
-            <DetailValue>{formatDate(item.last_analyzed)}</DetailValue>
-            
-            <DetailLabel>Last Accessed:</DetailLabel>
-            <DetailValue>{formatDate(item.last_accessed)}</DetailValue>
-            
-            <DetailLabel>Last Vacuum:</DetailLabel>
-            <DetailValue>{formatDate(item.last_vacuum)}</DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
-      </TabContent>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Timestamps
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>First Discovered:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatDate(item.first_discovered)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Last Analyzed:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatDate(item.last_analyzed)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Last Accessed:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatDate(item.last_accessed)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Last Vacuum:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatDate(item.last_vacuum)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
-  }, [formatDate, formatBytes, formatPercentage, getCategoryDescription, getSensitivityDescription, getHealthDescription]);
+  }, [formatDate, formatBytes, formatPercentage]);
 
   const renderOwnershipTab = useCallback((item: any) => {
     return (
-      <TabContent>
-        <DetailsSection>
-          <SectionTitle>Ownership</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Data Owner:</DetailLabel>
-            <DetailValue>{item.data_owner || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Owner Email:</DetailLabel>
-            <DetailValue>
+      <div>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Ownership
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Data Owner:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.data_owner || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Owner Email:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.owner_email ? (
-                <a href={`mailto:${item.owner_email}`} style={{ color: theme.colors.primary.main }}>
+                  <a href={`mailto:${item.owner_email}`} style={{ color: asciiColors.accent, fontFamily: 'Consolas' }}>
                   {item.owner_email}
                 </a>
               ) : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Data Steward:</DetailLabel>
-            <DetailValue>{item.data_steward || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Steward Email:</DetailLabel>
-            <DetailValue>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Data Steward:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.data_steward || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Steward Email:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.steward_email ? (
-                <a href={`mailto:${item.steward_email}`} style={{ color: theme.colors.primary.main }}>
+                  <a href={`mailto:${item.steward_email}`} style={{ color: asciiColors.accent, fontFamily: 'Consolas' }}>
                   {item.steward_email}
                 </a>
               ) : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Data Custodian:</DetailLabel>
-            <DetailValue>{item.data_custodian || 'N/A'}</DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
-      </TabContent>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Data Custodian:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.data_custodian || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }, []);
 
   const renderSecurityTab = useCallback((item: any) => {
     return (
-      <TabContent>
-        <DetailsSection>
-          <SectionTitle>Encryption</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Encryption at Rest:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.encryption_at_rest ? 'HEALTHY' : 'WARNING'}>
+      <div>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Encryption
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Encryption at Rest:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.encryption_at_rest ? 'HEALTHY' : 'WARNING') + '20',
+                  color: getStatusColor(item.encryption_at_rest ? 'HEALTHY' : 'WARNING'),
+                  border: `1px solid ${getStatusColor(item.encryption_at_rest ? 'HEALTHY' : 'WARNING')}`
+                }}>
                 {formatBoolean(item.encryption_at_rest)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Encryption in Transit:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.encryption_in_transit ? 'HEALTHY' : 'WARNING'}>
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Encryption in Transit:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.encryption_in_transit ? 'HEALTHY' : 'WARNING') + '20',
+                  color: getStatusColor(item.encryption_in_transit ? 'HEALTHY' : 'WARNING'),
+                  border: `1px solid ${getStatusColor(item.encryption_in_transit ? 'HEALTHY' : 'WARNING')}`
+                }}>
                 {formatBoolean(item.encryption_in_transit)}
-              </Badge>
-            </DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsSection>
-          <SectionTitle>Data Masking</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Masking Policy Applied:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.masking_policy_applied ? 'HEALTHY' : 'WARNING'}>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Data Masking
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Masking Policy Applied:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.masking_policy_applied ? 'HEALTHY' : 'WARNING') + '20',
+                  color: getStatusColor(item.masking_policy_applied ? 'HEALTHY' : 'WARNING'),
+                  border: `1px solid ${getStatusColor(item.masking_policy_applied ? 'HEALTHY' : 'WARNING')}`
+                }}>
                 {formatBoolean(item.masking_policy_applied)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Masking Policy Name:</DetailLabel>
-            <DetailValue>{item.masking_policy_name || 'N/A'}</DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Masking Policy Name:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.masking_policy_name || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsSection>
-          <SectionTitle>Access Control</SectionTitle>
-          <DetailsGrid>
-            <DetailLabel>Row Level Security:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.row_level_security_enabled ? 'HEALTHY' : 'WARNING'}>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Access Control
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Row Level Security:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.row_level_security_enabled ? 'HEALTHY' : 'WARNING') + '20',
+                  color: getStatusColor(item.row_level_security_enabled ? 'HEALTHY' : 'WARNING'),
+                  border: `1px solid ${getStatusColor(item.row_level_security_enabled ? 'HEALTHY' : 'WARNING')}`
+                }}>
                 {formatBoolean(item.row_level_security_enabled)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Column Level Security:</DetailLabel>
-            <DetailValue>
-              <Badge $status={item.column_level_security_enabled ? 'HEALTHY' : 'WARNING'}>
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Column Level Security:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: 'Consolas',
+                  backgroundColor: getStatusColor(item.column_level_security_enabled ? 'HEALTHY' : 'WARNING') + '20',
+                  color: getStatusColor(item.column_level_security_enabled ? 'HEALTHY' : 'WARNING'),
+                  border: `1px solid ${getStatusColor(item.column_level_security_enabled ? 'HEALTHY' : 'WARNING')}`
+                }}>
                 {formatBoolean(item.column_level_security_enabled)}
-              </Badge>
-            </DetailValue>
-            
-            <DetailLabel>Access Control Policy:</DetailLabel>
-            <DetailValue>{item.access_control_policy || 'N/A'}</DetailValue>
-          </DetailsGrid>
-        </DetailsSection>
-      </TabContent>
+                </span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Access Control Policy:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.access_control_policy || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }, [formatBoolean]);
 
@@ -1163,7 +935,7 @@ const Governance = () => {
   if (loadingTree && allItems.length === 0) {
     return (
       <Container>
-        <Header>Data Governance Catalog</Header>
+        <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Data Governance Catalog</h1>
         <LoadingOverlay>Loading governance data...</LoadingOverlay>
       </Container>
     );
@@ -1171,77 +943,93 @@ const Governance = () => {
 
   return (
     <Container>
-      <Header>Data Governance Catalog</Header>
+      <h1 style={{ fontSize: 18, fontFamily: 'Consolas', marginBottom: 16, fontWeight: 600 }}>Data Governance Catalog</h1>
 
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ color: asciiColors.danger, fontFamily: 'Consolas', fontSize: 12 }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
 
-      <MetricsGrid $columns="repeat(auto-fit, minmax(180px, 1fr))">
-        <MetricCard $index={0}>
-          <MetricLabel>
-            <span>■</span>
-            Total Tables
-          </MetricLabel>
-          <MetricValue>{formatNumber(metrics.total_tables)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={1}>
-          <MetricLabel>
-            <span>■</span>
-            Total Size
-          </MetricLabel>
-          <MetricValue>{formatBytes(metrics.total_size_mb)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={2}>
-          <MetricLabel>
-            <span>■</span>
-            Total Rows
-          </MetricLabel>
-          <MetricValue>{formatNumber(metrics.total_rows)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={3}>
-          <MetricLabel>
-            <span>✓</span>
-            Healthy
-          </MetricLabel>
-          <MetricValue>{formatNumber(metrics.healthy_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={4}>
-          <MetricLabel>
-            <span>!</span>
-            Warning
-          </MetricLabel>
-          <MetricValue>{formatNumber(metrics.warning_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={5}>
-          <MetricLabel>
-            <span>×</span>
-            Critical
-          </MetricLabel>
-          <MetricValue>{formatNumber(metrics.critical_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={6}>
-          <MetricLabel>
-            <span>■</span>
-            Unique Engines
-          </MetricLabel>
-          <MetricValue>{formatNumber(metrics.unique_engines)}</MetricValue>
-        </MetricCard>
-      </MetricsGrid>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+        gap: 12, 
+        marginBottom: 24 
+      }}>
+        <AsciiPanel title="Total Tables">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatNumber(metrics.total_tables)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Total Size">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatBytes(metrics.total_size_mb)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Total Rows">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatNumber(metrics.total_rows)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Healthy">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatNumber(metrics.healthy_count)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Warning">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatNumber(metrics.warning_count)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Critical">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatNumber(metrics.critical_count)}
+          </div>
+        </AsciiPanel>
+        <AsciiPanel title="Unique Engines">
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
+            {formatNumber(metrics.unique_engines)}
+          </div>
+        </AsciiPanel>
+      </div>
 
-      <FiltersContainer>
-        <Select 
+      <AsciiPanel title="FILTERS">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select 
           value={filters.engine as string}
           onChange={(e) => handleFilterChange('engine', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
         >
           <option value="">All Engines</option>
           <option value="PostgreSQL">PostgreSQL</option>
           <option value="MongoDB">MongoDB</option>
           <option value="MSSQL">MSSQL</option>
           <option value="MariaDB">MariaDB</option>
-        </Select>
+          </select>
 
-        <Select
+          <select
           value={filters.category as string}
           onChange={(e) => handleFilterChange('category', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
         >
           <option value="">All Categories</option>
           <option value="TRANSACTIONAL">Transactional</option>
@@ -1255,11 +1043,20 @@ const Governance = () => {
           <option value="COMPLIANCE">Compliance</option>
           <option value="TECHNICAL">Technical</option>
           <option value="SPORTS">Sports</option>
-        </Select>
+          </select>
 
-        <Select
+          <select
           value={filters.health as string}
           onChange={(e) => handleFilterChange('health', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
         >
           <option value="">All Health Status</option>
           <option value="EXCELLENT">Excellent</option>
@@ -1267,11 +1064,20 @@ const Governance = () => {
           <option value="WARNING">Warning</option>
           <option value="CRITICAL">Critical</option>
           <option value="EMERGENCY">Emergency</option>
-        </Select>
+          </select>
 
-        <Select
+          <select
           value={filters.sensitivity as string}
           onChange={(e) => handleFilterChange('sensitivity', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
         >
           <option value="">All Sensitivity</option>
           <option value="PUBLIC">Public</option>
@@ -1279,11 +1085,20 @@ const Governance = () => {
           <option value="MEDIUM">Medium</option>
           <option value="HIGH">High</option>
           <option value="CRITICAL">Critical</option>
-        </Select>
+          </select>
 
-        <Select
+          <select
           value={filters.domain as string}
           onChange={(e) => handleFilterChange('domain', e.target.value)}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground
+            }}
         >
           <option value="">All Domains</option>
           <option value="CUSTOMER">Customer</option>
@@ -1307,70 +1122,116 @@ const Governance = () => {
           <option value="INSURANCE">Insurance</option>
           <option value="SPORTS">Sports</option>
           <option value="GENERAL">General</option>
-        </Select>
+          </select>
 
-        <Button
-          $variant="secondary"
+          <AsciiButton
+            label="Reset All"
           onClick={() => {
             clearFilters();
             setPage(1);
           }}
-        >
-          Reset All
-        </Button>
-      </FiltersContainer>
+            variant="ghost"
+          />
+        </div>
+      </AsciiPanel>
 
       {!loadingTree && !error && (
         <>
-          <TableActions>
-            <PaginationInfo>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginBottom: 16,
+            fontFamily: 'Consolas',
+            fontSize: 12
+          }}>
+            <div style={{ color: asciiColors.muted }}>
               Total: {allItems.length} entries
-            </PaginationInfo>
-            <ExportButton $variant="secondary" onClick={handleExportCSV}>
-              Export CSV
-            </ExportButton>
-          </TableActions>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <AsciiButton
+                label="Export CSV"
+                onClick={handleExportCSV}
+                variant="ghost"
+              />
+            </div>
+          </div>
 
           {loadingTree ? (
             <LoadingOverlay>Loading tree view...</LoadingOverlay>
           ) : (
-            <MainLayout $hasDetails={!!selectedItem}>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
+              gap: 16, 
+              marginTop: 16 
+            }}>
               <GovernanceTreeView 
                 items={allItems} 
                 onItemClick={handleItemClick} 
               />
               
               {selectedItem && (
-                <DetailsPanel>
-                  <TabContainer>
-                    <Tab $active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>
-                      Overview
-                    </Tab>
-                    <Tab $active={activeTab === 'ownership'} onClick={() => setActiveTab('ownership')}>
-                      Ownership
-                    </Tab>
-                    <Tab $active={activeTab === 'security'} onClick={() => setActiveTab('security')}>
-                      Security
-                    </Tab>
-                    <Tab $active={activeTab === 'privacy'} onClick={() => setActiveTab('privacy')}>
-                      Privacy/GDPR
-                    </Tab>
-                    <Tab $active={activeTab === 'retention'} onClick={() => setActiveTab('retention')}>
-                      Retention
-                    </Tab>
-                    <Tab $active={activeTab === 'legal'} onClick={() => setActiveTab('legal')}>
-                      Legal Hold
-                    </Tab>
-                    <Tab $active={activeTab === 'quality'} onClick={() => setActiveTab('quality')}>
-                      Data Quality
-                    </Tab>
-                    <Tab $active={activeTab === 'integration'} onClick={() => setActiveTab('integration')}>
-                      Integration
-                    </Tab>
-                    <Tab $active={activeTab === 'documentation'} onClick={() => setActiveTab('documentation')}>
-                      Documentation
-                    </Tab>
-                  </TabContainer>
+                <AsciiPanel title="DETAILS" style={{ 
+                  position: 'sticky', 
+                  top: 16, 
+                  maxHeight: 'calc(100vh - 200px)',
+                  overflowY: 'auto'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: 4, 
+                    marginBottom: 16, 
+                    borderBottom: `1px solid ${asciiColors.border}`, 
+                    paddingBottom: 8,
+                    flexWrap: 'wrap'
+                  }}>
+                    <AsciiButton
+                      label="Overview"
+                      onClick={() => setActiveTab('overview')}
+                      variant={activeTab === 'overview' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Ownership"
+                      onClick={() => setActiveTab('ownership')}
+                      variant={activeTab === 'ownership' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Security"
+                      onClick={() => setActiveTab('security')}
+                      variant={activeTab === 'security' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Privacy/GDPR"
+                      onClick={() => setActiveTab('privacy')}
+                      variant={activeTab === 'privacy' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Retention"
+                      onClick={() => setActiveTab('retention')}
+                      variant={activeTab === 'retention' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Legal Hold"
+                      onClick={() => setActiveTab('legal')}
+                      variant={activeTab === 'legal' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Data Quality"
+                      onClick={() => setActiveTab('quality')}
+                      variant={activeTab === 'quality' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Integration"
+                      onClick={() => setActiveTab('integration')}
+                      variant={activeTab === 'integration' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Documentation"
+                      onClick={() => setActiveTab('documentation')}
+                      variant={activeTab === 'documentation' ? 'primary' : 'ghost'}
+                    />
+                  </div>
                   
                   {activeTab === 'overview' && renderOverviewTab(selectedItem)}
                   {activeTab === 'ownership' && renderOwnershipTab(selectedItem)}
@@ -1381,9 +1242,9 @@ const Governance = () => {
                   {activeTab === 'quality' && renderQualityTab(selectedItem)}
                   {activeTab === 'integration' && renderIntegrationTab(selectedItem)}
                   {activeTab === 'documentation' && renderDocumentationTab(selectedItem)}
-                </DetailsPanel>
+                </AsciiPanel>
               )}
-            </MainLayout>
+            </div>
           )}
         </>
       )}

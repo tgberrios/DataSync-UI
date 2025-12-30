@@ -2,235 +2,15 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import EditModal from "./EditModal";
 import AddTableModal from "./AddTableModal";
 import CatalogTreeView from "./CatalogTreeView";
-import {
-  Container,
-  Header,
-  FiltersContainer,
-  Select,
-  StatusBadge,
-  ErrorMessage,
-  LoadingOverlay,
-  SearchContainer,
-  Input,
-  Button,
-} from "../shared/BaseComponents";
+import { AsciiPanel } from "../../ui/layout/AsciiPanel";
+import { AsciiButton } from "../../ui/controls/AsciiButton";
+import { asciiColors, ascii } from "../../ui/theme/asciiTheme";
 import { useTableFilters } from "../../hooks/useTableFilters";
 import { catalogApi } from "../../services/api";
 import type { CatalogEntry } from "../../services/api";
 import { extractApiError } from "../../utils/errorHandler";
 import { sanitizeSearch } from "../../utils/validation";
-import styled, { keyframes } from "styled-components";
-import { theme } from "../../theme/theme";
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const PaginationInfo = styled.div`
-  text-align: center;
-  margin-bottom: ${theme.spacing.sm};
-  color: ${theme.colors.text.secondary};
-  font-size: 0.9em;
-  animation: ${fadeIn} 0.3s ease-out;
-  font-weight: 500;
-`;
-
-const TableActions = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${theme.spacing.md};
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.md};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-  animation: ${fadeIn} 0.3s ease-out;
-  box-shadow: ${theme.shadows.sm};
-`;
-
-const ExportButton = styled(Button)`
-  padding: 8px 16px;
-  font-size: 0.9em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
-
-const SearchInput = styled(Input)`
-  flex: 1;
-  font-size: 14px;
-  transition: all ${theme.transitions.normal};
-  border: 2px solid ${theme.colors.border.light};
-  
-  &:focus {
-    border-color: ${theme.colors.primary.main};
-    box-shadow: 0 0 0 3px ${theme.colors.primary.main}15;
-    outline: none;
-  }
-`;
-
-const SearchButton = styled(Button)`
-  padding: 10px 20px;
-  font-weight: 600;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
-
-const ClearSearchButton = styled(Button)`
-  padding: 10px 15px;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
-
-const FilterSelect = styled(Select)`
-  padding: 10px 16px;
-  font-size: 0.95em;
-  font-weight: 500;
-  border: 2px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.md};
-  background: linear-gradient(135deg, ${theme.colors.background.main} 0%, ${theme.colors.background.secondary} 100%);
-  color: ${theme.colors.text.primary};
-  transition: all ${theme.transitions.normal};
-  cursor: pointer;
-  box-shadow: ${theme.shadows.sm};
-  
-  &:hover {
-    border-color: ${theme.colors.primary.main};
-    box-shadow: ${theme.shadows.md};
-    transform: translateY(-2px);
-  }
-  
-  &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary.main};
-    box-shadow: 0 0 0 3px ${theme.colors.primary.main}15;
-  }
-  
-  option {
-    background: ${theme.colors.background.main};
-    color: ${theme.colors.text.primary};
-    padding: 8px;
-  }
-
-  option[value=""] {
-    color: ${theme.colors.text.secondary};
-    font-style: italic;
-    font-weight: 600;
-  }
-`;
-
-const ResetButton = styled(Button)`
-  padding: 10px 20px;
-  font-weight: 600;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border: 2px solid ${theme.colors.border.medium};
-  box-shadow: ${theme.shadows.sm};
-  
-  &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
-
-const Tooltip = styled.div`
-  position: relative;
-  display: inline-block;
-  overflow: visible;
-  
-  &:hover .tooltip-content {
-    visibility: visible;
-    opacity: 1;
-  }
-`;
-
-const TooltipContent = styled.div`
-  visibility: hidden;
-  opacity: 0;
-  position: absolute;
-  z-index: 10000;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: ${theme.colors.text.primary};
-  color: ${theme.colors.text.white};
-  text-align: left;
-  border-radius: ${theme.borderRadius.sm};
-  padding: 10px 14px;
-  font-size: 0.85em;
-  white-space: normal;
-  min-width: 200px;
-  max-width: 350px;
-  box-shadow: ${theme.shadows.lg};
-  transition: opacity ${theme.transitions.normal};
-  line-height: 1.4;
-  pointer-events: none;
-  
-  &:after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
-    border-style: solid;
-    border-color: ${theme.colors.text.primary} transparent transparent transparent;
-  }
-`;
-
-const FilterWithTooltip = styled.div`
-  position: relative;
-  display: inline-block;
-`;
-
-const StyledFiltersContainer = styled(FiltersContainer)`
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border: 1px solid ${theme.colors.border.light};
-  box-shadow: ${theme.shadows.md};
-  padding: ${theme.spacing.lg};
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const SchemaActionSelect = styled(FilterSelect)`
-  background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
-  border-color: ${theme.colors.primary.main}40;
-  color: ${theme.colors.primary.main};
-  font-weight: 600;
-  
-  &:hover {
-    border-color: ${theme.colors.primary.main};
-    background: linear-gradient(135deg, ${theme.colors.primary.main}15 0%, ${theme.colors.primary.light}10 100%);
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-  }
-`;
 
 /**
  * Componente principal del Catálogo que permite gestionar y visualizar
@@ -507,183 +287,310 @@ const Catalog = () => {
 
 
   return (
-    <Container>
-      <Header>DataLake Catalog Manager</Header>
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Consolas",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <h1 style={{
+        fontSize: 18,
+        fontWeight: 600,
+        margin: 0,
+        marginBottom: 16,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`,
+        fontFamily: "Consolas"
+      }}>
+        DATALAKE CATALOG MANAGER
+      </h1>
 
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ 
+            color: asciiColors.danger, 
+            fontSize: 12,
+            fontFamily: "Consolas",
+            padding: "8px 0"
+          }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
 
-      <SearchContainer>
-        <SearchInput
-          type="text"
-          placeholder="Search by schema name, table name, or cluster name..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === "Enter") {
-              setSearch(searchInput);
-            }
-          }}
-        />
-        <SearchButton
-          $variant="primary"
-          onClick={() => {
-            setSearch(searchInput);
-          }}
-        >
-          Search
-        </SearchButton>
-        {(search || searchInput) && (
-          <ClearSearchButton
-            $variant="secondary"
+      <AsciiPanel title="SEARCH">
+        <div style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0"
+        }}>
+          <input
+            type="text"
+            placeholder="Search by schema name, table name, or cluster name..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === "Enter") {
+                setSearch(searchInput);
+              }
+            }}
+            style={{
+              flex: 1,
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          />
+          <AsciiButton
+            label="Search"
             onClick={() => {
-              setSearch("");
-              setSearchInput("");
+              setSearch(searchInput);
+            }}
+            variant="primary"
+          />
+          {(search || searchInput) && (
+            <AsciiButton
+              label="Clear"
+              onClick={() => {
+                setSearch("");
+                setSearchInput("");
+              }}
+              variant="ghost"
+            />
+          )}
+        </div>
+      </AsciiPanel>
+
+      <AsciiPanel title="FILTERS">
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          padding: "8px 0"
+        }}>
+          <select
+            value={filters.engine as string}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              setFilter("engine", e.target.value);
+            }}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
             }}
           >
-            Clear
-          </ClearSearchButton>
-        )}
-      </SearchContainer>
+            <option value="">All Engines ({availableEngines.length})</option>
+            {availableEngines.map((engine) => (
+              <option key={engine} value={engine}>
+                {engine}
+              </option>
+            ))}
+          </select>
 
-      <StyledFiltersContainer>
-        <FilterWithTooltip>
-          <Tooltip>
-            <FilterSelect
-              value={filters.engine as string}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                setFilter("engine", e.target.value);
-              }}
-            >
-              <option value="">All Engines ({availableEngines.length})</option>
-              {availableEngines.map((engine) => (
-                <option key={engine} value={engine}>
-                  {engine}
-                </option>
-              ))}
-            </FilterSelect>
-            <TooltipContent className="tooltip-content">
-              Filter tables by database engine type. Shows only engines that exist in the catalog.
-            </TooltipContent>
-          </Tooltip>
-        </FilterWithTooltip>
+          <select
+            value={filters.status as string}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              setFilter("status", e.target.value);
+            }}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All Status ({availableStatuses.length})</option>
+            {availableStatuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
 
-        <FilterWithTooltip>
-          <Tooltip>
-            <FilterSelect
-              value={filters.status as string}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                setFilter("status", e.target.value);
-              }}
-            >
-              <option value="">All Status ({availableStatuses.length})</option>
-              {availableStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </FilterSelect>
-            <TooltipContent className="tooltip-content">
-              Filter tables by synchronization status. Shows only statuses that exist in the catalog.
-            </TooltipContent>
-          </Tooltip>
-        </FilterWithTooltip>
+          <select
+            value={filters.active as string}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              setFilter("active", e.target.value);
+            }}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All States</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
 
-        <FilterWithTooltip>
-          <Tooltip>
-            <FilterSelect
-              value={filters.active as string}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                setFilter("active", e.target.value);
-              }}
-            >
-              <option value="">All States</option>
-              <option value="true">Active</option>
-              <option value="false">Inactive</option>
-            </FilterSelect>
-            <TooltipContent className="tooltip-content">
-              Filter tables by active state. Active tables are processed during synchronization.
-            </TooltipContent>
-          </Tooltip>
-        </FilterWithTooltip>
+          <select
+            value={filters.strategy as string}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              setFilter("strategy", e.target.value);
+            }}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All Strategies ({availableStrategies.length})</option>
+            {availableStrategies.map((strategy) => (
+              <option key={strategy} value={strategy}>
+                {strategy === "PK" ? "Primary Key" : strategy === "OFFSET" ? "Offset" : strategy === "CDC" ? "CDC" : strategy}
+              </option>
+            ))}
+          </select>
 
-        <FilterWithTooltip>
-          <Tooltip>
-            <FilterSelect
-              value={filters.strategy as string}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                setFilter("strategy", e.target.value);
-              }}
-            >
-              <option value="">All Strategies ({availableStrategies.length})</option>
-              {availableStrategies.map((strategy) => (
-                <option key={strategy} value={strategy}>
-                  {strategy === "PK" ? "Primary Key" : strategy === "OFFSET" ? "Offset" : strategy === "CDC" ? "CDC" : strategy}
-                </option>
-              ))}
-            </FilterSelect>
-            <TooltipContent className="tooltip-content">
-              Filter tables by primary key strategy. Shows only strategies that exist in the catalog.
-            </TooltipContent>
-          </Tooltip>
-        </FilterWithTooltip>
-
-        <Tooltip>
-          <ResetButton
-            $variant="secondary"
+          <AsciiButton
+            label="Reset All"
             onClick={() => {
               clearFilters();
               setSearch("");
               setSearchInput("");
             }}
-          >
-            Reset All
-          </ResetButton>
-          <TooltipContent className="tooltip-content">
-            Clear all filters and search terms to show all catalog entries.
-          </TooltipContent>
-        </Tooltip>
+            variant="ghost"
+          />
 
-        <FilterWithTooltip>
-          <Tooltip>
-            <SchemaActionSelect
-              defaultValue=""
-              data-schema-action
-              onChange={(e) => handleSchemaAction(e.target.value)}
-            >
-              <option value="">Deactivate Schema</option>
-              {availableSchemas.map((schema) => (
-                <option key={schema} value={schema}>
-                  Deactivate {schema}
-                </option>
-              ))}
-            </SchemaActionSelect>
-            <TooltipContent className="tooltip-content">
-              Deactivate all tables in a schema. This will set status to SKIP and reset offsets. This action cannot be undone.
-            </TooltipContent>
-          </Tooltip>
-        </FilterWithTooltip>
-      </StyledFiltersContainer>
-
-      <TableActions>
-        <PaginationInfo>
-          Total: {allEntries.length} entries
-        </PaginationInfo>
-        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-          <Button
-            $variant="primary"
-            onClick={() => setShowAddModal(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          <select
+            defaultValue=""
+            data-schema-action
+            onChange={(e) => handleSchemaAction(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.accent}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.accentLight,
+              color: asciiColors.accent,
+              cursor: "pointer",
+              outline: "none",
+              fontWeight: 600
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
           >
-            Add Table
-          </Button>
-          <ExportButton $variant="secondary" onClick={handleExportCSV}>
-            Export CSV
-          </ExportButton>
+            <option value="">Deactivate Schema</option>
+            {availableSchemas.map((schema) => (
+              <option key={schema} value={schema}>
+                Deactivate {schema}
+              </option>
+            ))}
+          </select>
         </div>
-      </TableActions>
+      </AsciiPanel>
+
+      <AsciiPanel title="ACTIONS">
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "8px 0"
+        }}>
+          <div style={{
+            fontSize: 12,
+            fontFamily: "Consolas",
+            color: asciiColors.muted
+          }}>
+            {ascii.v} Total: {allEntries.length} entries
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <AsciiButton
+              label="Add Table"
+              onClick={() => setShowAddModal(true)}
+              variant="primary"
+            />
+            <AsciiButton
+              label="Export CSV"
+              onClick={handleExportCSV}
+              variant="ghost"
+            />
+          </div>
+        </div>
+      </AsciiPanel>
 
       {loadingTree ? (
-        <LoadingOverlay>Loading tree view...</LoadingOverlay>
+        <AsciiPanel title="LOADING">
+          <div style={{
+            padding: "40px",
+            textAlign: "center",
+            fontSize: 12,
+            fontFamily: "Consolas",
+            color: asciiColors.muted
+          }}>
+            {ascii.blockFull} Loading tree view...
+          </div>
+        </AsciiPanel>
       ) : (
         <CatalogTreeView 
           entries={allEntries}
@@ -705,7 +612,7 @@ const Catalog = () => {
           onSave={handleAdd}
         />
       )}
-    </Container>
+    </div>
   );
 };
 

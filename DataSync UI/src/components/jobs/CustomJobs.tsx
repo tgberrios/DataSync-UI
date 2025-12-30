@@ -1,50 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Container,
-  Header,
-  FiltersContainer,
-  Select,
-  ErrorMessage,
-  LoadingOverlay,
-  SearchContainer,
-  Input,
-  Button,
-  FormGroup,
-  Label,
-  SearchInput,
-  SearchButton,
-  ClearSearchButton,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalTitle,
-  TextArea,
-} from '../shared/BaseComponents';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { customJobsApi } from '../../services/api';
 import type { CustomJobEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
-import styled from 'styled-components';
-import { theme } from '../../theme/theme';
 import CustomJobsTreeView from './CustomJobsTreeView';
 import { ExecutionTimeline } from '../shared/ExecutionTimeline';
 import { MappingGraph } from '../shared/MappingGraph';
 import { SQLEditor } from './SQLEditor';
-
-const ConnectionStringExample = styled.div`
-  margin-top: ${theme.spacing.xs};
-  padding: ${theme.spacing.sm};
-  background: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.sm};
-  border-left: 3px solid ${theme.colors.primary.main};
-  font-family: monospace;
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  white-space: pre-wrap;
-  word-break: break-all;
-`;
 
 const connectionStringExamples: Record<string, string> = {
   MariaDB: 'host=localhost;user=myuser;password=mypassword;db=mydatabase;port=3306',
@@ -53,101 +20,6 @@ const connectionStringExamples: Record<string, string> = {
   PostgreSQL: 'postgresql://myuser:mypassword@localhost:5432/mydatabase',
   MongoDB: 'mongodb://myuser:mypassword@localhost:27017/mydatabase',
 };
-
-const HeaderContent = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-`;
-
-const CloseButton = styled.button`
-  background: none;
-  border: none;
-  font-size: 1.5em;
-  cursor: pointer;
-  color: ${theme.colors.text.secondary};
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  &:hover {
-    color: ${theme.colors.text.primary};
-  }
-`;
-
-const ScriptSelector = styled(Select)`
-  margin-bottom: ${theme.spacing.md};
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: ${theme.spacing.md};
-  justify-content: flex-end;
-  margin-top: ${theme.spacing.lg};
-  padding-top: ${theme.spacing.md};
-  border-top: 1px solid ${theme.colors.border.light};
-`;
-
-
-const CollapsibleSection = styled.div`
-  margin-top: ${theme.spacing.lg};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.md};
-  overflow: hidden;
-`;
-
-const CollapsibleHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: ${theme.spacing.md};
-  background: ${theme.colors.background.secondary};
-  cursor: pointer;
-  user-select: none;
-  
-  &:hover {
-    background: ${theme.colors.background.tertiary};
-  }
-`;
-
-const CollapsibleContent = styled.div<{ $isOpen: boolean }>`
-  max-height: ${props => props.$isOpen ? '2000px' : '0'};
-  overflow: hidden;
-  transition: max-height 0.3s ease-in-out;
-  padding: ${props => props.$isOpen ? theme.spacing.md : '0'};
-  background: ${theme.colors.background.main};
-`;
-
-const SectionTitle = styled.h4`
-  margin: 0;
-  font-size: 1em;
-  color: ${theme.colors.text.primary};
-`;
-
-const SubSection = styled.div`
-  margin-top: ${theme.spacing.md};
-  padding: ${theme.spacing.md};
-  background: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.sm};
-`;
-
-const ConnectionTestResult = styled.div<{ $success: boolean }>`
-  margin-top: 8px;
-  padding: 8px 12px;
-  border-radius: ${theme.borderRadius.sm};
-  font-size: 0.9em;
-  background-color: ${props => props.$success 
-    ? theme.colors.status.success.bg 
-    : theme.colors.status.error.bg};
-  color: ${props => props.$success 
-    ? theme.colors.status.success.text 
-    : theme.colors.status.error.text};
-  animation: fadeIn 0.3s ease-out;
-`;
 
 const CustomJobs = () => {
   const { setPage } = usePagination(1, 20);
@@ -659,468 +531,1292 @@ const CustomJobs = () => {
 
   if (loadingTree && allJobs.length === 0) {
     return (
-      <Container>
-        <Header>Pipeline Orchestration</Header>
-        <LoadingOverlay>Loading Pipeline Orchestration...</LoadingOverlay>
-      </Container>
+      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: "0 0 20px 0",
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          PIPELINE ORCHESTRATION
+        </h1>
+        <AsciiPanel title="LOADING">
+          <div style={{
+            padding: "40px",
+            textAlign: "center",
+            fontSize: 12,
+            fontFamily: "Consolas",
+            color: asciiColors.muted
+          }}>
+            {ascii.blockFull} Loading Pipeline Orchestration...
+          </div>
+        </AsciiPanel>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <Header>
-        <HeaderContent>
-          <span>■ Pipeline Orchestration</span>
-          <Button onClick={() => handleOpenModal()}>
-            + Add Pipeline
-          </Button>
-        </HeaderContent>
-      </Header>
+    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 20
+      }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          PIPELINE ORCHESTRATION
+        </h1>
+        <AsciiButton
+          label="+ Add Pipeline"
+          onClick={() => handleOpenModal()}
+          variant="primary"
+        />
+      </div>
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
-
-      <SearchContainer>
-        <SearchInput
-          type="text"
-          placeholder="Search by pipeline name, description, target schema/table..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-        />
-        <SearchButton onClick={handleSearch}>Search</SearchButton>
-        {search && (
-          <ClearSearchButton onClick={handleClearSearch}>Clear</ClearSearchButton>
-        )}
-      </SearchContainer>
-
-      <FiltersContainer>
-        <Select
-          value={filters.source_db_engine as string}
-          onChange={(e) => handleFilterChange('source_db_engine', e.target.value)}
-        >
-          <option value="">All Source Engines</option>
-          <option value="PostgreSQL">PostgreSQL</option>
-          <option value="MariaDB">MariaDB</option>
-          <option value="MSSQL">MSSQL</option>
-          <option value="MongoDB">MongoDB</option>
-          <option value="Oracle">Oracle</option>
-          <option value="Python">Python</option>
-        </Select>
-
-        <Select
-          value={filters.target_db_engine as string}
-          onChange={(e) => handleFilterChange('target_db_engine', e.target.value)}
-        >
-          <option value="">All Target Engines</option>
-          <option value="PostgreSQL">PostgreSQL</option>
-          <option value="MariaDB">MariaDB</option>
-          <option value="MSSQL">MSSQL</option>
-          <option value="MongoDB">MongoDB</option>
-          <option value="Oracle">Oracle</option>
-        </Select>
-
-        <Select
-          value={filters.active as string}
-          onChange={(e) => handleFilterChange('active', e.target.value)}
-        >
-          <option value="">All Active States</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </Select>
-
-        <Select
-          value={filters.enabled as string}
-          onChange={(e) => handleFilterChange('enabled', e.target.value)}
-        >
-          <option value="">All Enabled States</option>
-          <option value="true">Enabled</option>
-          <option value="false">Disabled</option>
-        </Select>
-      </FiltersContainer>
-
-      {loadingTree ? (
-        <LoadingOverlay>Loading tree view...</LoadingOverlay>
-      ) : (
-        <CustomJobsTreeView 
-          jobs={allJobs}
-          onJobClick={handleJobClick}
-          onJobEdit={(job) => handleOpenModal(job)}
-          onJobExecute={handleExecute}
-          onJobToggleActive={handleToggleActive}
-          onJobDelete={handleDelete}
-          onJobDuplicate={handleDuplicate}
-        />
+      {error && (
+        <div style={{ marginBottom: 20 }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: "12px",
+              color: asciiColors.danger,
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
       )}
 
-      <ModalOverlay $isOpen={isModalOpen} onClick={handleCloseModal}>
-        <ModalContent onClick={(e) => e.stopPropagation()} style={{ position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
-          <ModalHeader>
-            <ModalTitle>{editingJob ? 'Edit Pipeline' : duplicateData ? 'Duplicate Pipeline' : 'Create New Pipeline'}</ModalTitle>
-            <CloseButton onClick={handleCloseModal}>×</CloseButton>
-          </ModalHeader>
-
-          <FormGroup>
-            <Label>Pipeline Name *</Label>
-            <Input
-              value={jobForm.job_name}
-              onChange={(e) => setJobForm(prev => ({ ...prev, job_name: e.target.value }))}
-              placeholder="Enter unique pipeline name"
-              disabled={!!editingJob}
+      <AsciiPanel title="SEARCH">
+        <div style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0"
+        }}>
+          <input
+            type="text"
+            placeholder="Search by pipeline name, description, target schema/table..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            style={{
+              flex: 1,
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          />
+          <AsciiButton
+            label="Search"
+            onClick={handleSearch}
+            variant="primary"
+          />
+          {search && (
+            <AsciiButton
+              label="Clear"
+              onClick={handleClearSearch}
+              variant="ghost"
             />
-          </FormGroup>
+          )}
+        </div>
+      </AsciiPanel>
 
-          <FormGroup>
-            <Label>Description</Label>
-            <Input
-              value={jobForm.description}
-              onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Pipeline description"
-            />
-          </FormGroup>
-
-          <FormGroup>
-            <Label>Source DB Engine *</Label>
-            <Select
-              value={isDataLake ? 'DataLake' : jobForm.source_db_engine}
-              onChange={async (e) => {
-                const selectedEngine = e.target.value;
-                if (selectedEngine === 'DataLake') {
-                  // Si datalakeConnection no está cargado, cargarlo primero
-                  let connectionToUse = datalakeConnection;
-                  if (!connectionToUse) {
-                    try {
-                      const token = localStorage.getItem('authToken');
-                      const response = await fetch('/api/datalake-connection', {
-                        headers: {
-                          ...(token && { 'Authorization': `Bearer ${token}` }),
-                        },
-                      });
-                      if (response.ok) {
-                        const data = await response.json();
-                        if (data.success && data.connection_string) {
-                          setDatalakeConnection(data.connection_string);
-                          connectionToUse = data.connection_string;
-                        }
-                      }
-                    } catch (err) {
-                      console.error('Error loading DataLake connection:', err);
-                    }
-                  }
-                  
-                  setIsDataLake(true);
-                  setJobForm(prev => ({
-                    ...prev,
-                    source_db_engine: 'PostgreSQL', // Internamente es PostgreSQL
-                    source_connection_string: connectionToUse || prev.source_connection_string,
-                    query_sql: prev.query_sql
-                  }));
-                  setConnectionTestResult(null);
-                  setConnectionTested(false);
-                } else {
-                  setIsDataLake(false);
-                  setJobForm(prev => ({
-                    ...prev,
-                    source_db_engine: selectedEngine,
-                    source_connection_string: selectedEngine === 'Python' ? prev.source_connection_string : '',
-                    query_sql: selectedEngine === 'Python' ? prev.query_sql : ''
-                  }));
-                  setSelectedScript('');
-                  setConnectionTestResult(null);
-                  setConnectionTested(false);
-                }
+      <div style={{ marginTop: 20 }}>
+        <AsciiPanel title="FILTERS">
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            padding: "8px 0"
+          }}>
+            <select
+              value={filters.source_db_engine as string}
+              onChange={(e) => handleFilterChange('source_db_engine', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
               }}
             >
-              <option value="DataLake">DataLake (Default)</option>
-              <option value="PostgreSQL">PostgreSQL (External)</option>
-              <option value="MariaDB">MariaDB</option>
-              <option value="MSSQL">MSSQL</option>
-              <option value="MongoDB">MongoDB</option>
-              <option value="Oracle">Oracle</option>
-              <option value="Python">Python</option>
-            </Select>
-          </FormGroup>
-
-          {jobForm.source_db_engine !== 'Python' && (
-            <FormGroup>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <Label style={{ marginBottom: 0 }}>
-                  Source Connection String
-                  {isDataLake && (
-                    <span style={{ marginLeft: '8px', fontSize: '0.85em', color: theme.colors.text.secondary }}>
-                      (DataLake - Auto-filled)
-                    </span>
-                  )}
-                </Label>
-                <Button
-                  type="button"
-                  $variant="secondary"
-                  onClick={handleTestConnection}
-                  disabled={
-                    isTestingConnection || 
-                    !jobForm.source_db_engine || 
-                    (!isDataLake && !jobForm.source_connection_string.trim()) ||
-                    (isDataLake && !datalakeConnection)
-                  }
-                  style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
-                >
-                  {isTestingConnection ? 'Testing...' : 'Test Connection'}
-                </Button>
-              </div>
-              <div style={{ position: 'relative' }}>
-                <Input
-                  value={jobForm.source_connection_string}
-                  onChange={(e) => {
-                    setJobForm(prev => ({ ...prev, source_connection_string: e.target.value }));
-                    setConnectionTestResult(null);
-                    setConnectionTested(false);
-                    if (isDataLake && e.target.value !== datalakeConnection) {
-                      setIsDataLake(false);
-                    }
-                  }}
-                  placeholder={isDataLake ? "DataLake connection (auto-filled)" : "host=localhost port=5432 dbname=..."}
-                  readOnly={isDataLake}
-                  style={isDataLake ? { background: theme.colors.background.secondary, cursor: 'not-allowed', paddingRight: '80px' } : {}}
-                />
-                {isDataLake && (
-                  <Button
-                    type="button"
-                    $variant="secondary"
-                    onClick={() => {
-                      setIsDataLake(false);
-                      setJobForm(prev => ({ ...prev, source_connection_string: '' }));
-                    }}
-                    style={{
-                      position: 'absolute',
-                      right: '4px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      padding: '4px 8px',
-                      fontSize: '0.75em',
-                      minWidth: 'auto',
-                      height: 'auto'
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </div>
-              {connectionTestResult && (
-                <ConnectionTestResult $success={connectionTestResult.success}>
-                  {connectionTestResult.success ? '✓ ' : '✗ '}
-                  {connectionTestResult.message}
-                </ConnectionTestResult>
-              )}
-              {connectionTested && (
-                <div style={{ marginTop: '8px', padding: '8px 12px', background: theme.colors.status.info.bg, color: theme.colors.status.info.text, borderRadius: theme.borderRadius.sm, fontSize: '0.9em' }}>
-                  Connection successful! You can now write your SQL query and preview the results.
-                </div>
-              )}
-            </FormGroup>
-          )}
-
-          {jobForm.source_db_engine === 'Python' && (
-            <FormGroup>
-              <Label>Select Python Script</Label>
-              <ScriptSelector
-                value={selectedScript}
-                onChange={(e) => handleScriptSelect(e.target.value)}
-              >
-                <option value="">-- Select a script or write custom --</option>
-                {availableScripts.map(script => (
-                  <option key={script.name} value={script.name}>
-                    {script.name}
-                  </option>
-                ))}
-              </ScriptSelector>
-            </FormGroup>
-          )}
-
-          {jobForm.source_db_engine !== 'Python' && (
-            <FormGroup>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <Label>SQL Query *</Label>
-                <Button
-                  type="button"
-                  $variant="secondary"
-                  onClick={handlePreviewQuery}
-                  disabled={isPreviewing || !jobForm.source_db_engine || !jobForm.source_connection_string.trim() || !jobForm.query_sql.trim()}
-                  style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
-                >
-                  {isPreviewing ? 'Previewing...' : 'Preview Query'}
-                </Button>
-              </div>
-              <SQLEditor
-                value={jobForm.query_sql}
-                onChange={(newValue) => {
-                  setJobForm(prev => ({ ...prev, query_sql: newValue }));
-                  setPreviewData(null);
-                  setPreviewError(null);
-                }}
-                placeholder="SELECT * FROM table_name WHERE condition..."
-                schemas={sourceSchemas}
-                tables={sourceTables}
-                columns={sourceColumns}
-              />
-              {previewError && (
-                <ErrorMessage style={{ marginTop: '8px' }}>{previewError}</ErrorMessage>
-              )}
-              {previewData && (
-                <div style={{ marginTop: '16px', border: `1px solid ${theme.colors.border.light}`, borderRadius: theme.borderRadius.md, overflow: 'auto', maxHeight: '400px' }}>
-                  <div style={{ padding: '8px 12px', background: theme.colors.background.secondary, borderBottom: `1px solid ${theme.colors.border.light}`, fontSize: '0.85em', fontWeight: 'bold' }}>
-                    Preview Results ({previewData.rowCount} rows)
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
-                    <thead>
-                      <tr style={{ background: theme.colors.background.secondary }}>
-                        {previewData.columns.map((col, idx) => (
-                          <th key={idx} style={{ padding: '8px', textAlign: 'left', borderBottom: `1px solid ${theme.colors.border.light}`, fontWeight: 'bold' }}>
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewData.rows.map((row, rowIdx) => (
-                        <tr key={rowIdx} style={{ borderBottom: `1px solid ${theme.colors.border.light}` }}>
-                          {previewData.columns.map((col, colIdx) => (
-                            <td key={colIdx} style={{ padding: '8px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {row[col] !== null && row[col] !== undefined ? String(row[col]) : 'NULL'}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </FormGroup>
-          )}
-
-          {jobForm.source_db_engine === 'Python' && (
-            <FormGroup>
-              <Label>Python Script *</Label>
-              <TextArea
-                value={jobForm.query_sql}
-                onChange={(e) => setJobForm(prev => ({ ...prev, query_sql: e.target.value }))}
-                placeholder="import json\n\ndata = [...]\nprint(json.dumps(data))"
-                style={{ minHeight: '150px', fontFamily: 'monospace', fontSize: '0.9em' }}
-              />
-            </FormGroup>
-          )}
-
-          <FormGroup>
-            <Label>Target DB Engine *</Label>
-            <Select
-              value={jobForm.target_db_engine}
-              onChange={(e) => setJobForm(prev => ({ ...prev, target_db_engine: e.target.value }))}
-            >
+              <option value="">All Source Engines</option>
               <option value="PostgreSQL">PostgreSQL</option>
               <option value="MariaDB">MariaDB</option>
               <option value="MSSQL">MSSQL</option>
               <option value="MongoDB">MongoDB</option>
               <option value="Oracle">Oracle</option>
-            </Select>
-          </FormGroup>
+              <option value="Python">Python</option>
+            </select>
 
-          <FormGroup>
-            <Label>Target Connection String *</Label>
-            <TextArea
-              value={jobForm.target_connection_string}
-              onChange={(e) => setJobForm(prev => ({ ...prev, target_connection_string: e.target.value }))}
-              placeholder={connectionStringExamples[jobForm.target_db_engine] || "host=localhost port=5432 dbname=..."}
-              rows={3}
-              style={{ fontFamily: 'monospace', fontSize: '0.9em' }}
-            />
-            {jobForm.target_db_engine && connectionStringExamples[jobForm.target_db_engine] && (
-              <ConnectionStringExample>
-                Example: {connectionStringExamples[jobForm.target_db_engine]}
-              </ConnectionStringExample>
-            )}
-          </FormGroup>
+            <select
+              value={filters.target_db_engine as string}
+              onChange={(e) => handleFilterChange('target_db_engine', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Target Engines</option>
+              <option value="PostgreSQL">PostgreSQL</option>
+              <option value="MariaDB">MariaDB</option>
+              <option value="MSSQL">MSSQL</option>
+              <option value="MongoDB">MongoDB</option>
+              <option value="Oracle">Oracle</option>
+            </select>
 
-          <FormGroup>
-            <Label>Target Schema *</Label>
-            <Input
-              value={jobForm.target_schema}
-              onChange={(e) => setJobForm(prev => ({ ...prev, target_schema: e.target.value }))}
-              placeholder="public"
-            />
-          </FormGroup>
+            <select
+              value={filters.active as string}
+              onChange={(e) => handleFilterChange('active', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Active States</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
 
-          <FormGroup>
-            <Label>Target Table *</Label>
-            <Input
-              value={jobForm.target_table}
-              onChange={(e) => setJobForm(prev => ({ ...prev, target_table: e.target.value }))}
-              placeholder="table_name"
-            />
-          </FormGroup>
+            <select
+              value={filters.enabled as string}
+              onChange={(e) => handleFilterChange('enabled', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: "pointer",
+                outline: "none"
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.accent;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = asciiColors.border;
+              }}
+            >
+              <option value="">All Enabled States</option>
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </div>
+        </AsciiPanel>
+      </div>
 
-          <FormGroup>
-            <Label>Schedule Cron (optional)</Label>
-            <Input
-              value={jobForm.schedule_cron}
-              onChange={(e) => setJobForm(prev => ({ ...prev, schedule_cron: e.target.value }))}
-              placeholder="* * * * * (minute hour day month day-of-week)"
-            />
-          </FormGroup>
+      {loadingTree ? (
+        <div style={{ marginTop: 20 }}>
+          <AsciiPanel title="LOADING">
+            <div style={{
+              padding: "40px",
+              textAlign: "center",
+              fontSize: 12,
+              fontFamily: "Consolas",
+              color: asciiColors.muted
+            }}>
+              {ascii.blockFull} Loading tree view...
+            </div>
+          </AsciiPanel>
+        </div>
+      ) : (
+        <div style={{ marginTop: 20 }}>
+          <CustomJobsTreeView 
+            jobs={allJobs}
+            onJobClick={handleJobClick}
+            onJobEdit={(job) => handleOpenModal(job)}
+            onJobExecute={handleExecute}
+            onJobToggleActive={handleToggleActive}
+            onJobDelete={handleDelete}
+            onJobDuplicate={handleDuplicate}
+          />
+        </div>
+      )}
 
-          <FormGroup>
-            <Label>
-              <input
-                type="checkbox"
-                checked={jobForm.active}
-                onChange={(e) => setJobForm(prev => ({ ...prev, active: e.target.checked }))}
-              />
-              {' '}Active
-            </Label>
-          </FormGroup>
-
-          <FormGroup>
-            <Label>
-              <input
-                type="checkbox"
-                checked={jobForm.enabled}
-                onChange={(e) => setJobForm(prev => ({ ...prev, enabled: e.target.checked }))}
-              />
-              {' '}Enabled
-            </Label>
-          </FormGroup>
-
-          <CollapsibleSection>
-            <CollapsibleHeader onClick={() => setShowLoadStrategySection(!showLoadStrategySection)}>
-              <SectionTitle>📊 Load Strategy (Data Warehouse)</SectionTitle>
-              <span>{showLoadStrategySection ? '▼' : '▶'}</span>
-            </CollapsibleHeader>
-            <CollapsibleContent $isOpen={showLoadStrategySection}>
-              <SubSection>
-                <Label>Load Strategy</Label>
-                <Select
-                  value={jobForm.metadata.load_strategy}
-                  onChange={(e) => {
-                    setJobForm(prev => ({
-                      ...prev,
-                      metadata: { ...prev.metadata, load_strategy: e.target.value as any }
-                    }));
+      {isModalOpen && (
+        <>
+          <div 
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backdropFilter: "blur(5px)",
+              background: "rgba(0, 0, 0, 0.3)",
+              zIndex: 999,
+              animation: "fadeIn 0.15s ease-in"
+            }}
+            onClick={handleCloseModal}
+          />
+          <div 
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+              animation: "fadeIn 0.15s ease-in"
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCloseModal();
+              }
+            }}
+          >
+            <div 
+              style={{
+                background: asciiColors.background,
+                padding: "24px",
+                borderRadius: 2,
+                minWidth: 700,
+                maxWidth: 900,
+                maxHeight: "90vh",
+                overflowY: "auto",
+                fontFamily: "Consolas",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+                animation: "slideUp 0.2s ease-out",
+                border: `2px solid ${asciiColors.border}`
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{
+                borderBottom: `2px solid ${asciiColors.border}`,
+                paddingBottom: "8px",
+                marginBottom: "20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}>
+                <h2 style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  margin: 0,
+                  fontFamily: "Consolas",
+                  color: asciiColors.foreground,
+                  textTransform: "uppercase"
+                }}>
+                  <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+                  {editingJob ? 'EDIT PIPELINE' : duplicateData ? 'DUPLICATE PIPELINE' : 'CREATE NEW PIPELINE'}
+                </h2>
+                <button
+                  onClick={handleCloseModal}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: 20,
+                    cursor: "pointer",
+                    color: asciiColors.muted,
+                    padding: 0,
+                    width: 30,
+                    height: 30,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "Consolas"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = asciiColors.foreground;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = asciiColors.muted;
                   }}
                 >
-                  <option value="TRUNCATE">TRUNCATE (Full Load - Data Lake)</option>
-                </Select>
-              </SubSection>
+                  ×
+                </button>
+              </div>
 
-            </CollapsibleContent>
-          </CollapsibleSection>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} PIPELINE NAME *
+                </label>
+                <input
+                  value={jobForm.job_name}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, job_name: e.target.value }))}
+                  placeholder="Enter unique pipeline name"
+                  disabled={!!editingJob}
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: editingJob ? asciiColors.backgroundSoft : asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: "none",
+                    cursor: editingJob ? "not-allowed" : "text"
+                  }}
+                  onFocus={(e) => {
+                    if (!editingJob) {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                />
+              </div>
 
-          <ButtonGroup>
-            <Button onClick={handleCloseModal} $variant="secondary">
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit}>
-              {editingJob ? 'Update' : 'Create'}
-            </Button>
-          </ButtonGroup>
-        </ModalContent>
-      </ModalOverlay>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} DESCRIPTION
+                </label>
+                <input
+                  value={jobForm.description}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Pipeline description"
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: "none"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} SOURCE DB ENGINE *
+                </label>
+                <select
+                  value={isDataLake ? 'DataLake' : jobForm.source_db_engine}
+                  onChange={async (e) => {
+                    const selectedEngine = e.target.value;
+                    if (selectedEngine === 'DataLake') {
+                      let connectionToUse = datalakeConnection;
+                      if (!connectionToUse) {
+                        try {
+                          const token = localStorage.getItem('authToken');
+                          const response = await fetch('/api/datalake-connection', {
+                            headers: {
+                              ...(token && { 'Authorization': `Bearer ${token}` }),
+                            },
+                          });
+                          if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.connection_string) {
+                              setDatalakeConnection(data.connection_string);
+                              connectionToUse = data.connection_string;
+                            }
+                          }
+                        } catch (err) {
+                          console.error('Error loading DataLake connection:', err);
+                        }
+                      }
+                      
+                      setIsDataLake(true);
+                      setJobForm(prev => ({
+                        ...prev,
+                        source_db_engine: 'PostgreSQL',
+                        source_connection_string: connectionToUse || prev.source_connection_string,
+                        query_sql: prev.query_sql
+                      }));
+                      setConnectionTestResult(null);
+                      setConnectionTested(false);
+                    } else {
+                      setIsDataLake(false);
+                      setJobForm(prev => ({
+                        ...prev,
+                        source_db_engine: selectedEngine,
+                        source_connection_string: selectedEngine === 'Python' ? prev.source_connection_string : '',
+                        query_sql: selectedEngine === 'Python' ? prev.query_sql : ''
+                      }));
+                      setSelectedScript('');
+                      setConnectionTestResult(null);
+                      setConnectionTested(false);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    cursor: "pointer",
+                    outline: "none"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                >
+                  <option value="DataLake">DataLake (Default)</option>
+                  <option value="PostgreSQL">PostgreSQL (External)</option>
+                  <option value="MariaDB">MariaDB</option>
+                  <option value="MSSQL">MSSQL</option>
+                  <option value="MongoDB">MongoDB</option>
+                  <option value="Oracle">Oracle</option>
+                  <option value="Python">Python</option>
+                </select>
+              </div>
+
+              {jobForm.source_db_engine !== 'Python' && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: asciiColors.foreground,
+                      fontFamily: "Consolas",
+                      textTransform: "uppercase"
+                    }}>
+                      {ascii.v} SOURCE CONNECTION STRING
+                      {isDataLake && (
+                        <span style={{ marginLeft: 8, fontSize: 11, color: asciiColors.muted, fontFamily: "Consolas" }}>
+                          (DataLake - Auto-filled)
+                        </span>
+                      )}
+                    </label>
+                    <AsciiButton
+                      label={isTestingConnection ? 'Testing...' : 'Test Connection'}
+                      onClick={handleTestConnection}
+                      variant="ghost"
+                      disabled={
+                        isTestingConnection || 
+                        !jobForm.source_db_engine || 
+                        (!isDataLake && !jobForm.source_connection_string.trim()) ||
+                        (isDataLake && !datalakeConnection)
+                      }
+                    />
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={jobForm.source_connection_string}
+                      onChange={(e) => {
+                        setJobForm(prev => ({ ...prev, source_connection_string: e.target.value }));
+                        setConnectionTestResult(null);
+                        setConnectionTested(false);
+                        if (isDataLake && e.target.value !== datalakeConnection) {
+                          setIsDataLake(false);
+                        }
+                      }}
+                      placeholder={isDataLake ? "DataLake connection (auto-filled)" : "host=localhost port=5432 dbname=..."}
+                      readOnly={isDataLake}
+                      style={{
+                        width: "100%",
+                        padding: "6px 10px",
+                        paddingRight: isDataLake ? '80px' : '10px',
+                        border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
+                        fontSize: 12,
+                        fontFamily: "Consolas",
+                        backgroundColor: isDataLake ? asciiColors.backgroundSoft : asciiColors.background,
+                        color: asciiColors.foreground,
+                        outline: "none",
+                        cursor: isDataLake ? "not-allowed" : "text"
+                      }}
+                      onFocus={(e) => {
+                        if (!isDataLake) {
+                          e.currentTarget.style.borderColor = asciiColors.accent;
+                        }
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = asciiColors.border;
+                      }}
+                    />
+                    {isDataLake && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDataLake(false);
+                          setJobForm(prev => ({ ...prev, source_connection_string: '' }));
+                        }}
+                        style={{
+                          position: 'absolute',
+                          right: '4px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          padding: '4px 8px',
+                          fontSize: 11,
+                          border: `1px solid ${asciiColors.border}`,
+                          borderRadius: 2,
+                          fontFamily: "Consolas",
+                          backgroundColor: asciiColors.background,
+                          color: asciiColors.foreground,
+                          cursor: "pointer",
+                          outline: "none"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = asciiColors.background;
+                        }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  {connectionTestResult && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: connectionTestResult.success ? asciiColors.success : asciiColors.danger,
+                      color: asciiColors.background
+                    }}>
+                      {connectionTestResult.success ? '✓ ' : '✗ '}
+                      {connectionTestResult.message}
+                    </div>
+                  )}
+                  {connectionTested && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      background: asciiColors.accentSoft + "20",
+                      color: asciiColors.accent,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      border: `1px solid ${asciiColors.accent}`
+                    }}>
+                      Connection successful! You can now write your SQL query and preview the results.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {jobForm.source_db_engine === 'Python' && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    {ascii.v} SELECT PYTHON SCRIPT
+                  </label>
+                  <select
+                    value={selectedScript}
+                    onChange={(e) => handleScriptSelect(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      cursor: "pointer",
+                      outline: "none",
+                      marginBottom: 12
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
+                  >
+                    <option value="">-- Select a script or write custom --</option>
+                    {availableScripts.map(script => (
+                      <option key={script.name} value={script.name}>
+                        {script.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {jobForm.source_db_engine !== 'Python' && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: asciiColors.foreground,
+                      fontFamily: "Consolas",
+                      textTransform: "uppercase"
+                    }}>
+                      {ascii.v} SQL QUERY *
+                    </label>
+                    <AsciiButton
+                      label={isPreviewing ? 'Previewing...' : 'Preview Query'}
+                      onClick={handlePreviewQuery}
+                      variant="ghost"
+                      disabled={isPreviewing || !jobForm.source_db_engine || !jobForm.source_connection_string.trim() || !jobForm.query_sql.trim()}
+                    />
+                  </div>
+                  <SQLEditor
+                    value={jobForm.query_sql}
+                    onChange={(newValue) => {
+                      setJobForm(prev => ({ ...prev, query_sql: newValue }));
+                      setPreviewData(null);
+                      setPreviewError(null);
+                    }}
+                    placeholder="SELECT * FROM table_name WHERE condition..."
+                    schemas={sourceSchemas}
+                    tables={sourceTables}
+                    columns={sourceColumns}
+                  />
+                  {previewError && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: 12,
+                      color: asciiColors.danger,
+                      background: asciiColors.danger + "20",
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      border: `1px solid ${asciiColors.danger}`
+                    }}>
+                      {previewError}
+                    </div>
+                  )}
+                  {previewData && (
+                    <div style={{
+                      marginTop: 16,
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      overflow: 'auto',
+                      maxHeight: '400px',
+                      fontFamily: "Consolas"
+                    }}>
+                      <div style={{
+                        padding: '8px 12px',
+                        background: asciiColors.backgroundSoft,
+                        borderBottom: `1px solid ${asciiColors.border}`,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        fontFamily: "Consolas",
+                        color: asciiColors.foreground
+                      }}>
+                        Preview Results ({previewData.rowCount} rows)
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: "Consolas" }}>
+                        <thead>
+                          <tr style={{ background: asciiColors.backgroundSoft }}>
+                            {previewData.columns.map((col, idx) => (
+                              <th key={idx} style={{
+                                padding: '8px',
+                                textAlign: 'left',
+                                borderBottom: `1px solid ${asciiColors.border}`,
+                                fontWeight: 600,
+                                fontFamily: "Consolas",
+                                color: asciiColors.foreground
+                              }}>
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewData.rows.map((row, rowIdx) => (
+                            <tr key={rowIdx} style={{ borderBottom: `1px solid ${asciiColors.border}` }}>
+                              {previewData.columns.map((col, colIdx) => (
+                                <td key={colIdx} style={{
+                                  padding: '8px',
+                                  maxWidth: '200px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  fontFamily: "Consolas",
+                                  fontSize: 11,
+                                  color: asciiColors.foreground
+                                }}>
+                                  {row[col] !== null && row[col] !== undefined ? String(row[col]) : 'NULL'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {jobForm.source_db_engine === 'Python' && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    {ascii.v} PYTHON SCRIPT *
+                  </label>
+                  <textarea
+                    value={jobForm.query_sql}
+                    onChange={(e) => setJobForm(prev => ({ ...prev, query_sql: e.target.value }))}
+                    placeholder="import json\n\ndata = [...]\nprint(json.dumps(data))"
+                    style={{
+                      width: "100%",
+                      minHeight: 150,
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none",
+                      resize: "vertical"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} TARGET DB ENGINE *
+                </label>
+                <select
+                  value={jobForm.target_db_engine}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, target_db_engine: e.target.value }))}
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    cursor: "pointer",
+                    outline: "none"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                >
+                  <option value="PostgreSQL">PostgreSQL</option>
+                  <option value="MariaDB">MariaDB</option>
+                  <option value="MSSQL">MSSQL</option>
+                  <option value="MongoDB">MongoDB</option>
+                  <option value="Oracle">Oracle</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} TARGET CONNECTION STRING *
+                </label>
+                <textarea
+                  value={jobForm.target_connection_string}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, target_connection_string: e.target.value }))}
+                  placeholder={connectionStringExamples[jobForm.target_db_engine] || "host=localhost port=5432 dbname=..."}
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: "none",
+                    resize: "vertical"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                />
+                {jobForm.target_db_engine && connectionStringExamples[jobForm.target_db_engine] && (
+                  <div style={{
+                    marginTop: 8,
+                    padding: 8,
+                    background: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    borderLeft: `3px solid ${asciiColors.accent}`,
+                    fontFamily: "Consolas",
+                    fontSize: 11,
+                    color: asciiColors.muted,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-all"
+                  }}>
+                    Example: {connectionStringExamples[jobForm.target_db_engine]}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} TARGET SCHEMA *
+                </label>
+                <input
+                  value={jobForm.target_schema}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, target_schema: e.target.value }))}
+                  placeholder="public"
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: "none"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} TARGET TABLE *
+                </label>
+                <input
+                  value={jobForm.target_table}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, target_table: e.target.value }))}
+                  placeholder="table_name"
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: "none"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: 6,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} EXECUTION MODE
+                </label>
+                <input
+                  value={jobForm.schedule_cron}
+                  onChange={(e) => setJobForm(prev => ({ ...prev, schedule_cron: e.target.value }))}
+                  placeholder="Leave empty for Manual execution, or enter Cron: * * * * *"
+                  style={{
+                    width: "100%",
+                    padding: "6px 10px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: "none"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                  }}
+                />
+                <div style={{
+                  marginTop: 8,
+                  padding: "8px 12px",
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: "Consolas",
+                  backgroundColor: jobForm.schedule_cron ? asciiColors.accentSoft + "20" : asciiColors.backgroundSoft,
+                  border: `1px solid ${jobForm.schedule_cron ? asciiColors.accent : asciiColors.border}`,
+                  color: jobForm.schedule_cron ? asciiColors.accent : asciiColors.muted
+                }}>
+                  {jobForm.schedule_cron ? (
+                    <>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>✓ AUTOMATIC:</span> This job will run automatically on schedule ({jobForm.schedule_cron})
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ color: asciiColors.muted, fontWeight: 600 }}>ℹ MANUAL:</span> This job will only run when manually triggered via the Execute button
+                    </>
+                  )}
+                </div>
+                {jobForm.schedule_cron && (
+                  <div style={{
+                    marginTop: 6,
+                    padding: "6px 10px",
+                    borderRadius: 2,
+                    fontSize: 10,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.backgroundSoft,
+                    color: asciiColors.muted,
+                    borderLeft: `3px solid ${asciiColors.accent}`
+                  }}>
+                    Cron format: minute hour day month day-of-week (e.g., "0 2 * * *" = daily at 2 AM)
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={jobForm.active}
+                    onChange={(e) => setJobForm(prev => ({ ...prev, active: e.target.checked }))}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      cursor: "pointer"
+                    }}
+                  />
+                  <label style={{
+                    margin: 0,
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    color: asciiColors.foreground
+                  }}>
+                    Active
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={jobForm.enabled}
+                    onChange={(e) => setJobForm(prev => ({ ...prev, enabled: e.target.checked }))}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      cursor: "pointer"
+                    }}
+                  />
+                  <label style={{
+                    margin: 0,
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    color: asciiColors.foreground
+                  }}>
+                    Enabled
+                  </label>
+                </div>
+              </div>
+
+              <div style={{
+                marginTop: 20,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                overflow: 'hidden',
+                fontFamily: "Consolas"
+              }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: 12,
+                    background: asciiColors.backgroundSoft,
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}
+                  onClick={() => setShowLoadStrategySection(!showLoadStrategySection)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = asciiColors.background;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = asciiColors.backgroundSoft;
+                  }}
+                >
+                  <h4 style={{
+                    margin: 0,
+                    fontSize: 12,
+                    color: asciiColors.foreground,
+                    fontFamily: "Consolas",
+                    fontWeight: 600
+                  }}>
+                    {ascii.blockFull} LOAD STRATEGY (DATA WAREHOUSE)
+                  </h4>
+                  <span style={{ color: asciiColors.muted, fontFamily: "Consolas" }}>
+                    {showLoadStrategySection ? '▼' : '▶'}
+                  </span>
+                </div>
+                {showLoadStrategySection && (
+                  <div style={{
+                    padding: 12,
+                    background: asciiColors.background
+                  }}>
+                    <div style={{
+                      marginTop: 12,
+                      padding: 12,
+                      background: asciiColors.backgroundSoft,
+                      borderRadius: 2
+                    }}>
+                      <label style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: asciiColors.foreground,
+                        marginBottom: 6,
+                        fontFamily: "Consolas",
+                        textTransform: "uppercase"
+                      }}>
+                        {ascii.v} LOAD STRATEGY
+                      </label>
+                      <select
+                        value={jobForm.metadata.load_strategy}
+                        onChange={(e) => {
+                          setJobForm(prev => ({
+                            ...prev,
+                            metadata: { ...prev.metadata, load_strategy: e.target.value as any }
+                          }));
+                        }}
+                        style={{
+                          width: "100%",
+                          padding: "6px 10px",
+                          border: `1px solid ${asciiColors.border}`,
+                          borderRadius: 2,
+                          fontSize: 12,
+                          fontFamily: "Consolas",
+                          backgroundColor: asciiColors.background,
+                          color: asciiColors.foreground,
+                          cursor: "pointer",
+                          outline: "none"
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.border;
+                        }}
+                      >
+                        <option value="TRUNCATE">TRUNCATE (Full Load - Data Lake)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 8,
+                marginTop: 20,
+                paddingTop: 16,
+                borderTop: `1px solid ${asciiColors.border}`
+              }}>
+                <AsciiButton
+                  label="Cancel"
+                  onClick={handleCloseModal}
+                  variant="ghost"
+                />
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  style={{
+                    padding: "6px 16px",
+                    border: `1px solid ${asciiColors.accent}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.accent,
+                    color: asciiColors.background,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    outline: "none"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = asciiColors.accentSoft;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = asciiColors.accent;
+                  }}
+                >
+                  {editingJob ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes slideUp {
+              from {
+                opacity: 0;
+                transform: translateY(20px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}</style>
+        </>
+      )}
 
       {selectedJob && (
         <ExecutionTimeline
@@ -1145,7 +1841,7 @@ const CustomJobs = () => {
           )}
         />
       )}
-    </Container>
+    </div>
   );
 };
 

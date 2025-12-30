@@ -1,27 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
-import styled, { keyframes } from 'styled-components';
 import AddAPIModal from './AddAPIModal';
 import APICatalogTreeView from './APICatalogTreeView';
-import {
-  Container,
-  Header,
-  FiltersContainer,
-  Select,
-  ErrorMessage,
-  LoadingOverlay,
-  SearchContainer,
-  Button,
-  SearchInput,
-  SearchButton,
-  ClearSearchButton,
-} from '../shared/BaseComponents';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { apiCatalogApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
-import { theme } from '../../theme/theme';
 
 interface APICatalogEntry {
   id: number;
@@ -185,86 +173,265 @@ const APICatalog = () => {
 
   if (loadingTree && allEntries.length === 0) {
     return (
-      <Container>
-        <Header>API Catalog</Header>
-        <LoadingOverlay>Loading API Catalog...</LoadingOverlay>
-      </Container>
+      <div style={{
+        width: "100%",
+        minHeight: "100vh",
+        padding: "24px 32px",
+        fontFamily: "Consolas",
+        fontSize: 12,
+        color: asciiColors.foreground,
+        backgroundColor: asciiColors.background,
+        display: "flex",
+        flexDirection: "column",
+        gap: 20
+      }}>
+        <h1 style={{
+          fontSize: 18,
+          fontWeight: 600,
+          margin: 0,
+          marginBottom: 16,
+          padding: "12px 8px",
+          borderBottom: `2px solid ${asciiColors.border}`,
+          fontFamily: "Consolas"
+        }}>
+          API CATALOG
+        </h1>
+        <AsciiPanel title="LOADING">
+          <div style={{
+            padding: "40px",
+            textAlign: "center",
+            fontSize: 12,
+            fontFamily: "Consolas",
+            color: asciiColors.muted
+          }}>
+            {ascii.blockFull} Loading API Catalog...
+          </div>
+        </AsciiPanel>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <Header>API Catalog</Header>
-      
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Consolas",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <h1 style={{
+        fontSize: 18,
+        fontWeight: 600,
+        margin: 0,
+        marginBottom: 16,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`,
+        fontFamily: "Consolas"
+      }}>
+        API CATALOG
+      </h1>
 
-      <SearchContainer>
-        <SearchInput
-          type="text"
-          placeholder="Search by API name, endpoint, or target..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-        />
-        <SearchButton onClick={handleSearch}>Search</SearchButton>
-        {search && (
-          <ClearSearchButton onClick={handleClearSearch}>Clear</ClearSearchButton>
-        )}
-      </SearchContainer>
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ 
+            color: asciiColors.danger, 
+            fontSize: 12,
+            fontFamily: "Consolas",
+            padding: "8px 0"
+          }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
 
-      <FiltersContainer>
-        <Button
-          $variant="primary"
-          onClick={() => setShowAddModal(true)}
-        >
-          Add API
-        </Button>
-        
-        <Select
-          value={filters.api_type as string}
-          onChange={(e) => handleFilterChange('api_type', e.target.value)}
-        >
-          <option value="">All API Types</option>
-          <option value="REST">REST</option>
-          <option value="GraphQL">GraphQL</option>
-          <option value="SOAP">SOAP</option>
-        </Select>
+      <AsciiPanel title="SEARCH">
+        <div style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0"
+        }}>
+          <input
+            type="text"
+            placeholder="Search by API name, endpoint, or target..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            style={{
+              flex: 1,
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          />
+          <AsciiButton
+            label="Search"
+            onClick={handleSearch}
+            variant="primary"
+          />
+          {search && (
+            <AsciiButton
+              label="Clear"
+              onClick={handleClearSearch}
+              variant="ghost"
+            />
+          )}
+        </div>
+      </AsciiPanel>
 
-        <Select
-          value={filters.target_db_engine as string}
-          onChange={(e) => handleFilterChange('target_db_engine', e.target.value)}
-        >
-          <option value="">All Target Engines</option>
-          <option value="PostgreSQL">PostgreSQL</option>
-          <option value="MariaDB">MariaDB</option>
-          <option value="MSSQL">MSSQL</option>
-          <option value="MongoDB">MongoDB</option>
-          <option value="Oracle">Oracle</option>
-        </Select>
+      <AsciiPanel title="FILTERS">
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          padding: "8px 0"
+        }}>
+          <AsciiButton
+            label="Add API"
+            onClick={() => setShowAddModal(true)}
+            variant="primary"
+          />
+          
+          <select
+            value={filters.api_type as string}
+            onChange={(e) => handleFilterChange('api_type', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All API Types</option>
+            <option value="REST">REST</option>
+            <option value="GraphQL">GraphQL</option>
+            <option value="SOAP">SOAP</option>
+          </select>
 
-        <Select
-          value={filters.status as string}
-          onChange={(e) => handleFilterChange('status', e.target.value)}
-        >
-          <option value="">All Statuses</option>
-          <option value="SUCCESS">SUCCESS</option>
-          <option value="ERROR">ERROR</option>
-          <option value="IN_PROGRESS">IN_PROGRESS</option>
-          <option value="PENDING">PENDING</option>
-        </Select>
+          <select
+            value={filters.target_db_engine as string}
+            onChange={(e) => handleFilterChange('target_db_engine', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All Target Engines</option>
+            <option value="PostgreSQL">PostgreSQL</option>
+            <option value="MariaDB">MariaDB</option>
+            <option value="MSSQL">MSSQL</option>
+            <option value="MongoDB">MongoDB</option>
+            <option value="Oracle">Oracle</option>
+          </select>
 
-        <Select
-          value={filters.active as string}
-          onChange={(e) => handleFilterChange('active', e.target.value)}
-        >
-          <option value="">All</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </Select>
-      </FiltersContainer>
+          <select
+            value={filters.status as string}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All Statuses</option>
+            <option value="SUCCESS">SUCCESS</option>
+            <option value="ERROR">ERROR</option>
+            <option value="IN_PROGRESS">IN_PROGRESS</option>
+            <option value="PENDING">PENDING</option>
+          </select>
+
+          <select
+            value={filters.active as string}
+            onChange={(e) => handleFilterChange('active', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: "pointer",
+              outline: "none"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+            }}
+          >
+            <option value="">All</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+      </AsciiPanel>
 
       {loadingTree ? (
-        <LoadingOverlay>Loading tree view...</LoadingOverlay>
+        <AsciiPanel title="LOADING">
+          <div style={{
+            padding: "40px",
+            textAlign: "center",
+            fontSize: 12,
+            fontFamily: "Consolas",
+            color: asciiColors.muted
+          }}>
+            {ascii.blockFull} Loading tree view...
+          </div>
+        </AsciiPanel>
       ) : (
         <APICatalogTreeView 
           entries={allEntries}
@@ -294,385 +461,10 @@ const APICatalog = () => {
           initialData={duplicateData}
         />
       )}
-    </Container>
+    </div>
   );
 };
 
-const slideIn = keyframes`
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-`;
-
-const TimelineOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: ${theme.zIndex.overlay};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.2s ease-in;
-`;
-
-const TimelineContainer = styled.div`
-  background: ${theme.colors.background.main};
-  border-radius: ${theme.borderRadius.lg};
-  box-shadow: ${theme.shadows.xl};
-  width: 90%;
-  max-width: 1200px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: ${slideIn} 0.3s ease-out;
-`;
-
-const TimelineHeader = styled.div`
-  padding: ${theme.spacing.lg};
-  border-bottom: 2px solid ${theme.colors.border.light};
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: ${theme.colors.gradient.primary};
-`;
-
-const TimelineTitle = styled.h2`
-  margin: 0;
-  font-size: 1.5em;
-  color: ${theme.colors.text.primary};
-`;
-
-const CloseButton = styled.button`
-  background: ${theme.colors.primary.main};
-  color: ${theme.colors.text.white};
-  border: none;
-  border-radius: ${theme.borderRadius.md};
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: ${theme.colors.primary.dark};
-    transform: translateY(-1px);
-    box-shadow: ${theme.shadows.sm};
-  }
-`;
-
-const TimelineContent = styled.div`
-  padding: ${theme.spacing.lg};
-  overflow-y: auto;
-  flex: 1;
-`;
-
-const ChartContainer = styled.div`
-  margin-bottom: ${theme.spacing.xl};
-  padding: ${theme.spacing.lg};
-  background: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-`;
-
-const ChartTitle = styled.h3`
-  margin: 0 0 ${theme.spacing.md} 0;
-  font-size: 1.2em;
-  color: ${theme.colors.text.primary};
-`;
-
-const ChartBars = styled.div`
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  height: 200px;
-  padding: ${theme.spacing.md} 0;
-  position: relative;
-`;
-
-const Tooltip = styled.div<{ $visible: boolean }>`
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-8px);
-  background: ${theme.colors.background.dark};
-  color: ${theme.colors.text.white};
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.85em;
-  white-space: pre-line;
-  z-index: 1000;
-  pointer-events: none;
-  opacity: ${props => props.$visible ? 1 : 0};
-  transition: opacity ${theme.transitions.normal};
-  box-shadow: ${theme.shadows.lg};
-  min-width: 200px;
-  text-align: left;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: ${theme.colors.background.dark};
-  }
-`;
-
-const ChartBar = styled.div<{ $height: number; $status: string }>`
-  flex: 1;
-  min-width: 20px;
-  height: ${props => props.$height}%;
-  background: ${props => {
-    if (props.$status === 'SUCCESS') return theme.colors.status.success.bg;
-    if (props.$status === 'ERROR') return theme.colors.status.error.bg;
-    if (props.$status === 'IN_PROGRESS') return theme.colors.status.info.bg;
-    return theme.colors.status.skip.bg;
-  }};
-  border: 2px solid ${props => {
-    if (props.$status === 'SUCCESS') return theme.colors.status.success.text;
-    if (props.$status === 'ERROR') return theme.colors.status.error.text;
-    if (props.$status === 'IN_PROGRESS') return theme.colors.status.info.text;
-    return theme.colors.status.skip.text;
-  }};
-  border-radius: ${theme.borderRadius.sm} ${theme.borderRadius.sm} 0 0;
-  position: relative;
-  cursor: pointer;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: scaleY(1.05);
-    box-shadow: ${theme.shadows.md};
-    z-index: 10;
-  }
-  
-  &::after {
-    content: '▶';
-    position: absolute;
-    bottom: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.7em;
-    color: ${theme.colors.text.secondary};
-  }
-`;
-
-const ChartYAxis = styled.div`
-  position: absolute;
-  left: -40px;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  padding: ${theme.spacing.md} 0;
-`;
-
-const MappingGraphContainer = styled.div`
-  margin-top: ${theme.spacing.xl};
-  padding: ${theme.spacing.lg};
-  background: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-`;
-
-const GraphContent = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: ${theme.spacing.xl};
-  justify-content: center;
-  min-height: 400px;
-`;
-
-const SourcePanel = styled.div`
-  flex: 0 0 300px;
-  background: ${theme.colors.background.main};
-  border: 2px solid ${theme.colors.primary.main};
-  border-radius: ${theme.borderRadius.md};
-  padding: ${theme.spacing.md};
-  box-shadow: ${theme.shadows.md};
-`;
-
-const SourceHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: ${theme.spacing.sm};
-  border-bottom: 2px solid ${theme.colors.border.medium};
-  margin-bottom: ${theme.spacing.md};
-`;
-
-const SourceTitle = styled.div`
-  font-weight: 600;
-  color: ${theme.colors.primary.main};
-  font-size: 1.1em;
-`;
-
-const SourceType = styled.div`
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-`;
-
-const SourceInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${theme.spacing.xs};
-  font-size: 0.9em;
-`;
-
-const SourceInfoRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  padding: ${theme.spacing.xs} 0;
-  border-bottom: 1px solid ${theme.colors.border.light};
-  
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const SourceInfoLabel = styled.span`
-  color: ${theme.colors.text.secondary};
-  font-weight: 500;
-`;
-
-const SourceInfoValue = styled.span`
-  color: ${theme.colors.text.primary};
-  word-break: break-all;
-  text-align: right;
-  max-width: 180px;
-`;
-
-const ArrowContainer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 80px;
-  padding-top: 40px;
-`;
-
-const Arrow = styled.div`
-  width: 60px;
-  height: 4px;
-  background: ${theme.colors.primary.main};
-  position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    right: -8px;
-    top: -6px;
-    width: 0;
-    height: 0;
-    border-left: 12px solid ${theme.colors.primary.main};
-    border-top: 8px solid transparent;
-    border-bottom: 8px solid transparent;
-  }
-`;
-
-const TargetPanel = styled.div`
-  flex: 0 0 350px;
-  background: ${theme.colors.background.main};
-  border: 2px solid ${theme.colors.status.success.text};
-  border-radius: ${theme.borderRadius.md};
-  padding: ${theme.spacing.md};
-  box-shadow: ${theme.shadows.md};
-  max-height: 600px;
-  overflow-y: auto;
-`;
-
-const TargetHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: ${theme.spacing.sm};
-  border-bottom: 2px solid ${theme.colors.border.medium};
-  margin-bottom: ${theme.spacing.md};
-`;
-
-const TargetTitle = styled.div`
-  font-weight: 600;
-  color: ${theme.colors.status.success.text};
-  font-size: 1.1em;
-`;
-
-const TargetInfo = styled.div`
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  margin-bottom: ${theme.spacing.sm};
-`;
-
-const ColumnsTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85em;
-`;
-
-const ColumnHeader = styled.thead`
-  background: ${theme.colors.background.secondary};
-  position: sticky;
-  top: 0;
-  z-index: 10;
-`;
-
-const ColumnHeaderRow = styled.tr`
-  border-bottom: 2px solid ${theme.colors.border.medium};
-`;
-
-const ColumnHeaderCell = styled.th`
-  padding: ${theme.spacing.sm};
-  text-align: left;
-  font-weight: 600;
-  color: ${theme.colors.text.primary};
-  font-size: 0.9em;
-  
-  &:first-child {
-    width: 20px;
-  }
-  
-  &:nth-child(2) {
-    width: 40%;
-  }
-`;
-
-const ColumnRow = styled.tr`
-  border-bottom: 1px solid ${theme.colors.border.light};
-  
-  &:hover {
-    background: ${theme.colors.background.secondary};
-  }
-`;
-
-const ColumnCell = styled.td`
-  padding: ${theme.spacing.xs} ${theme.spacing.sm};
-  color: ${theme.colors.text.primary};
-  
-  &:first-child {
-    color: ${theme.colors.text.secondary};
-    font-size: 0.8em;
-  }
-  
-  &:nth-child(2) {
-    font-weight: 500;
-    color: ${theme.colors.primary.main};
-  }
-  
-  &:nth-child(3) {
-    color: ${theme.colors.text.secondary};
-    font-family: monospace;
-    font-size: 0.85em;
-  }
-`;
 
 interface ExecutionTimelineProps {
   api: APICatalogEntry;
@@ -767,73 +559,308 @@ const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({ api, history, loa
     return format(new Date(dateStr), 'PPpp');
   };
 
+  const getStatusColor = (status: string) => {
+    if (status === 'SUCCESS') return asciiColors.accent;
+    if (status === 'ERROR') return asciiColors.accent;
+    if (status === 'IN_PROGRESS') return asciiColors.accentSoft;
+    return asciiColors.muted;
+  };
+
   const BarWithTooltip: React.FC<{ height: number; status: string; tooltipText: string }> = ({ height, status, tooltipText }) => {
     const [showTooltip, setShowTooltip] = useState(false);
+    const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+    const [arrowPosition, setArrowPosition] = useState<'top' | 'bottom'>('top');
+    const barRef = useRef<HTMLDivElement>(null);
+    const tooltipRef = useRef<HTMLDivElement>(null);
+    const statusColor = getStatusColor(status);
+    
+    const handleMouseEnter = () => {
+      setShowTooltip(true);
+      setTimeout(() => {
+        if (barRef.current && tooltipRef.current) {
+          const barRect = barRef.current.getBoundingClientRect();
+          const tooltipRect = tooltipRef.current.getBoundingClientRect();
+          const viewportHeight = window.innerHeight;
+          const viewportWidth = window.innerWidth;
+          const spaceAbove = barRect.top;
+          const spaceBelow = viewportHeight - barRect.bottom;
+          const tooltipHeight = tooltipRect.height || 120;
+          const tooltipWidth = tooltipRect.width || 220;
+          
+          let top = barRect.top - tooltipHeight - 12;
+          let left = barRect.left + barRect.width / 2;
+          let arrowPos: 'top' | 'bottom' = 'top';
+          
+          if (spaceAbove < tooltipHeight + 20 && spaceBelow > spaceAbove) {
+            top = barRect.bottom + 12;
+            arrowPos = 'bottom';
+          }
+          
+          if (left + tooltipWidth / 2 > viewportWidth - 10) {
+            left = viewportWidth - tooltipWidth / 2 - 10;
+          } else if (left - tooltipWidth / 2 < 10) {
+            left = tooltipWidth / 2 + 10;
+          }
+          
+          setTooltipStyle({
+            position: 'fixed',
+            top: `${top}px`,
+            left: `${left}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 10000
+          });
+          setArrowPosition(arrowPos);
+        }
+      }, 0);
+    };
+    
     return (
-      <ChartBar
-        $height={height}
-        $status={status}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
+      <div
+        ref={barRef}
+        style={{
+          flex: 1,
+          minWidth: 20,
+          height: `${height}%`,
+          backgroundColor: statusColor,
+          border: `2px solid ${statusColor}`,
+          borderRadius: '2px 2px 0 0',
+          position: 'relative',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          fontFamily: "Consolas",
+          fontSize: 11
+        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => {
+          setShowTooltip(false);
+          setTooltipStyle({});
+          setArrowPosition('top');
+        }}
       >
-        <Tooltip $visible={showTooltip}>
-          {tooltipText}
-        </Tooltip>
-      </ChartBar>
+        {showTooltip && (
+          <div 
+            ref={tooltipRef}
+            style={{
+              ...tooltipStyle,
+              backgroundColor: asciiColors.foreground,
+              color: asciiColors.background,
+              padding: '8px 12px',
+              borderRadius: 2,
+              fontSize: 11,
+              fontFamily: "Consolas",
+              whiteSpace: 'pre-line',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              minWidth: 220,
+              maxWidth: 300,
+              textAlign: 'left'
+            }}
+          >
+            {tooltipText}
+            <div style={{
+              position: 'absolute',
+              [arrowPosition === 'top' ? 'top' : 'bottom']: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              border: '6px solid transparent',
+              [arrowPosition === 'top' ? 'borderTopColor' : 'borderBottomColor']: asciiColors.foreground
+            }} />
+          </div>
+        )}
+      </div>
     );
   };
 
   return (
-    <TimelineOverlay onClick={onClose}>
-      <TimelineContainer onClick={(e) => e.stopPropagation()}>
-        <TimelineHeader>
-          <TimelineTitle>Execution Timeline: {api.api_name}</TimelineTitle>
-          <CloseButton onClick={onClose}>Close</CloseButton>
-        </TimelineHeader>
-        <TimelineContent>
-          {loading ? (
-            <LoadingOverlay>Loading execution history...</LoadingOverlay>
-          ) : groupedExecutions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: theme.spacing.xxl, color: theme.colors.text.secondary }}>
-              No execution history available for this API.
-            </div>
-          ) : (
-            <>
-              <ChartContainer>
-                <ChartTitle>Execution Duration Timeline</ChartTitle>
-                <div style={{ position: 'relative', paddingLeft: '40px' }}>
-                  <ChartYAxis>
-                    <span>{formatDuration(maxDuration)}</span>
-                    <span>{formatDuration(Math.floor(maxDuration / 2))}</span>
-                    <span>0s</span>
-                  </ChartYAxis>
-                  <ChartBars>
-                    {groupedExecutions.slice(0, 20).reverse().map((exec) => {
-                      const height = maxDuration > 0 ? (exec.duration_seconds || 0) / maxDuration * 100 : 0;
-                      const tooltipText = `${exec.status}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}`;
-                      return (
-                        <BarWithTooltip
-                          key={exec.id}
-                          height={height}
-                          status={exec.status}
-                          tooltipText={tooltipText}
-                        />
-                      );
-                    })}
-                  </ChartBars>
+    <>
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: "blur(5px)",
+          background: "rgba(0, 0, 0, 0.3)",
+          zIndex: 999,
+          animation: "fadeIn 0.2s ease-in"
+        }}
+        onClick={onClose}
+      />
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          animation: "fadeIn 0.2s ease-in"
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
+        <div 
+          style={{
+            background: asciiColors.background,
+            borderRadius: 2,
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            width: "90%",
+            maxWidth: 1200,
+            maxHeight: "90vh",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            animation: "slideIn 0.3s ease-out",
+            border: `2px solid ${asciiColors.border}`
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{
+            padding: "16px 20px",
+            borderBottom: `2px solid ${asciiColors.border}`,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              margin: 0,
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.foreground,
+              textTransform: "uppercase"
+            }}>
+              <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+              EXECUTION TIMELINE: {api.api_name}
+            </h2>
+            <AsciiButton
+              label="Close"
+              onClick={onClose}
+              variant="ghost"
+            />
+          </div>
+          
+          <div style={{
+            padding: "20px",
+            overflowY: "auto",
+            flex: 1,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {loading ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px', 
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
+                {ascii.blockFull} Loading execution history...
+              </div>
+            ) : groupedExecutions.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px', 
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
+                <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
+                  {ascii.blockFull}
                 </div>
-              </ChartContainer>
-              
-              <MappingGraph
-                api={api}
-                tableStructure={tableStructure}
-                loading={loadingStructure}
-              />
-            </>
-          )}
-        </TimelineContent>
-      </TimelineContainer>
-    </TimelineOverlay>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+                  No execution history available
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  No execution history available for this API.
+                </div>
+              </div>
+            ) : (
+              <>
+                <AsciiPanel title="EXECUTION DURATION TIMELINE">
+                  <div style={{ 
+                    position: 'relative', 
+                    paddingLeft: '40px',
+                    padding: "8px 0"
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      fontSize: 11,
+                      color: asciiColors.muted,
+                      fontFamily: "Consolas",
+                      padding: '8px 0',
+                      paddingBottom: '28px'
+                    }}>
+                      <span>{formatDuration(maxDuration)}</span>
+                      <span>{formatDuration(Math.floor(maxDuration / 2))}</span>
+                      <span style={{ paddingBottom: '8px' }}>0s</span>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      gap: 8,
+                      height: 200,
+                      padding: '8px 0'
+                    }}>
+                      {groupedExecutions.slice(0, 20).reverse().map((exec) => {
+                        const height = maxDuration > 0 ? (exec.duration_seconds || 0) / maxDuration * 100 : 0;
+                        const tooltipText = `${exec.status}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}`;
+                        return (
+                          <BarWithTooltip
+                            key={exec.id}
+                            height={height}
+                            status={exec.status}
+                            tooltipText={tooltipText}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </AsciiPanel>
+                
+                <div style={{ marginTop: 20 }}>
+                  <MappingGraph
+                    api={api}
+                    tableStructure={tableStructure}
+                    loading={loadingStructure}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </>
   );
 };
 
@@ -845,84 +872,334 @@ interface MappingGraphProps {
 
 const MappingGraph: React.FC<MappingGraphProps> = ({ api, tableStructure, loading }) => {
   return (
-    <MappingGraphContainer>
-      <ChartTitle>Data Flow: Source → Target</ChartTitle>
+    <div style={{ marginTop: 20 }}>
+      <AsciiPanel title="DATA FLOW: SOURCE → TARGET">
       {loading ? (
-        <div style={{ textAlign: 'center', padding: theme.spacing.xxl }}>
-          <LoadingOverlay>Loading table structure...</LoadingOverlay>
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px',
+          color: asciiColors.muted,
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}>
+          {ascii.blockFull} Loading table structure...
         </div>
       ) : !tableStructure ? (
-        <div style={{ textAlign: 'center', padding: theme.spacing.xxl, color: theme.colors.text.secondary }}>
-          Table structure not available. The table may not exist yet or there was an error loading it.
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px', 
+          color: asciiColors.muted,
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
+            {ascii.blockFull}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+            Table structure not available
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>
+            The table may not exist yet or there was an error loading it.
+          </div>
         </div>
       ) : (
-        <GraphContent>
-          <SourcePanel>
-            <SourceHeader>
+        <div style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 24,
+          justifyContent: "center",
+          minHeight: 400,
+          padding: "8px 0"
+        }}>
+          <div style={{
+            flex: "0 0 300px",
+            background: asciiColors.background,
+            border: `2px solid ${asciiColors.accent}`,
+            borderRadius: 2,
+            padding: "16px",
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingBottom: "8px",
+              borderBottom: `2px solid ${asciiColors.border}`,
+              marginBottom: "12px"
+            }}>
               <div>
-                <SourceTitle>Source: API</SourceTitle>
-                <SourceType>{api.api_type}</SourceType>
+                <h3 style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  margin: 0,
+                  color: asciiColors.accent,
+                  fontFamily: "Consolas"
+                }}>
+                  Source: API
+                </h3>
+                <div style={{
+                  fontSize: 11,
+                  color: asciiColors.muted,
+                  fontFamily: "Consolas"
+                }}>
+                  {api.api_type}
+                </div>
               </div>
-            </SourceHeader>
-            <SourceInfo>
-              <SourceInfoRow>
-                <SourceInfoLabel>API Name:</SourceInfoLabel>
-                <SourceInfoValue>{api.api_name}</SourceInfoValue>
-              </SourceInfoRow>
-              <SourceInfoRow>
-                <SourceInfoLabel>Base URL:</SourceInfoLabel>
-                <SourceInfoValue>{api.base_url}</SourceInfoValue>
-              </SourceInfoRow>
-              <SourceInfoRow>
-                <SourceInfoLabel>Endpoint:</SourceInfoLabel>
-                <SourceInfoValue>{api.endpoint}</SourceInfoValue>
-              </SourceInfoRow>
-              <SourceInfoRow>
-                <SourceInfoLabel>Method:</SourceInfoLabel>
-                <SourceInfoValue>{api.http_method}</SourceInfoValue>
-              </SourceInfoRow>
-              <SourceInfoRow>
-                <SourceInfoLabel>Auth Type:</SourceInfoLabel>
-                <SourceInfoValue>{api.auth_type}</SourceInfoValue>
-              </SourceInfoRow>
-            </SourceInfo>
-          </SourcePanel>
+            </div>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              fontSize: 12
+            }}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "6px 0",
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                <span style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: "Consolas" }}>
+                  API Name:
+                </span>
+                <span style={{ 
+                  color: asciiColors.foreground, 
+                  wordBreak: "break-all",
+                  textAlign: "right",
+                  maxWidth: 180,
+                  fontFamily: "Consolas"
+                }}>
+                  {api.api_name}
+                </span>
+              </div>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "6px 0",
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                <span style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: "Consolas" }}>
+                  Base URL:
+                </span>
+                <span style={{ 
+                  color: asciiColors.foreground, 
+                  wordBreak: "break-all",
+                  textAlign: "right",
+                  maxWidth: 180,
+                  fontFamily: "Consolas"
+                }}>
+                  {api.base_url}
+                </span>
+              </div>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "6px 0",
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                <span style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: "Consolas" }}>
+                  Endpoint:
+                </span>
+                <span style={{ 
+                  color: asciiColors.foreground, 
+                  wordBreak: "break-all",
+                  textAlign: "right",
+                  maxWidth: 180,
+                  fontFamily: "Consolas"
+                }}>
+                  {api.endpoint}
+                </span>
+              </div>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "6px 0",
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                <span style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: "Consolas" }}>
+                  Method:
+                </span>
+                <span style={{ 
+                  color: asciiColors.foreground, 
+                  wordBreak: "break-all",
+                  textAlign: "right",
+                  maxWidth: 180,
+                  fontFamily: "Consolas"
+                }}>
+                  {api.http_method}
+                </span>
+              </div>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "6px 0"
+              }}>
+                <span style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: "Consolas" }}>
+                  Auth Type:
+                </span>
+                <span style={{ 
+                  color: asciiColors.foreground, 
+                  wordBreak: "break-all",
+                  textAlign: "right",
+                  maxWidth: 180,
+                  fontFamily: "Consolas"
+                }}>
+                  {api.auth_type}
+                </span>
+              </div>
+            </div>
+          </div>
           
-          <ArrowContainer>
-            <Arrow />
-          </ArrowContainer>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "0 0 80px",
+            paddingTop: 40
+          }}>
+            <div style={{
+              width: 60,
+              height: 4,
+              background: asciiColors.accent,
+              position: "relative"
+            }}>
+              <div style={{
+                position: "absolute",
+                right: -8,
+                top: -6,
+                width: 0,
+                height: 0,
+                borderLeft: `12px solid ${asciiColors.accent}`,
+                borderTop: "8px solid transparent",
+                borderBottom: "8px solid transparent"
+              }} />
+            </div>
+          </div>
           
-          <TargetPanel>
-            <TargetHeader>
+          <div style={{
+            flex: "0 0 350px",
+            background: asciiColors.background,
+            border: `2px solid ${asciiColors.accent}`,
+            borderRadius: 2,
+            padding: "16px",
+            fontFamily: "Consolas",
+            fontSize: 12,
+            maxHeight: 600,
+            overflowY: "auto"
+          }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingBottom: "8px",
+              borderBottom: `2px solid ${asciiColors.border}`,
+              marginBottom: "12px"
+            }}>
               <div>
-                <TargetTitle>Target: {tableStructure.table}</TargetTitle>
-                <TargetInfo>
+                <h3 style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  margin: 0,
+                  color: asciiColors.accent,
+                  fontFamily: "Consolas"
+                }}>
+                  Target: {tableStructure.table}
+                </h3>
+                <div style={{
+                  fontSize: 11,
+                  color: asciiColors.muted,
+                  fontFamily: "Consolas",
+                  marginBottom: "8px"
+                }}>
                   {tableStructure.schema}.{tableStructure.table} ({tableStructure.db_engine})
-                </TargetInfo>
+                </div>
               </div>
-            </TargetHeader>
-            <ColumnsTable>
-              <ColumnHeader>
-                <ColumnHeaderRow>
-                  <ColumnHeaderCell></ColumnHeaderCell>
-                  <ColumnHeaderCell>Name</ColumnHeaderCell>
-                  <ColumnHeaderCell>Data Type</ColumnHeaderCell>
-                </ColumnHeaderRow>
-              </ColumnHeader>
+            </div>
+            <table style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: 12,
+              fontFamily: "Consolas"
+            }}>
+              <thead style={{
+                background: asciiColors.backgroundSoft,
+                position: "sticky",
+                top: 0,
+                zIndex: 10
+              }}>
+                <tr style={{
+                  borderBottom: `2px solid ${asciiColors.border}`
+                }}>
+                  <th style={{
+                    padding: "8px",
+                    textAlign: "left",
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    width: 20
+                  }}></th>
+                  <th style={{
+                    padding: "8px",
+                    textAlign: "left",
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    width: "40%"
+                  }}>Name</th>
+                  <th style={{
+                    padding: "8px",
+                    textAlign: "left",
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    fontSize: 12,
+                    fontFamily: "Consolas"
+                  }}>Data Type</th>
+                </tr>
+              </thead>
               <tbody>
                 {tableStructure.columns.map((col: any, index: number) => (
-                  <ColumnRow key={col.name}>
-                    <ColumnCell>{index + 1}</ColumnCell>
-                    <ColumnCell>{col.name}</ColumnCell>
-                    <ColumnCell>{col.type}</ColumnCell>
-                  </ColumnRow>
+                  <tr 
+                    key={col.name}
+                    style={{
+                      borderBottom: `1px solid ${asciiColors.border}`,
+                      transition: "background-color 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = asciiColors.background;
+                    }}
+                  >
+                    <td style={{
+                      padding: "4px 8px",
+                      color: asciiColors.muted,
+                      fontSize: 11,
+                      fontFamily: "Consolas"
+                    }}>{index + 1}</td>
+                    <td style={{
+                      padding: "4px 8px",
+                      fontWeight: 500,
+                      color: asciiColors.accent,
+                      fontFamily: "Consolas"
+                    }}>{col.name}</td>
+                    <td style={{
+                      padding: "4px 8px",
+                      color: asciiColors.muted,
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>{col.type}</td>
+                  </tr>
                 ))}
               </tbody>
-            </ColumnsTable>
-          </TargetPanel>
-        </GraphContent>
+            </table>
+          </div>
+        </div>
       )}
-    </MappingGraphContainer>
+      </AsciiPanel>
+    </div>
   );
 };
 

@@ -1,0 +1,46 @@
+Prompt para estandarizar fuentes y tamaños
+Objetivo: Estandarizar la tipografía usando "Consolas" y aplicar una jerarquía de tamaños de fuente consistente.
+Cambios a realizar:
+Fuente única:
+Reemplazar todas las instancias de fontFamily por fontFamily: "Consolas"
+Eliminar fallbacks (Fira Code, JetBrains Mono, Menlo, Monaco, etc.)
+Aplicar en todos los componentes y elementos de texto
+Jerarquía de tamaños de fuente:
+h1 (18px): Títulos principales de página/sección
+h2 (14px): Títulos de paneles/secciones (usar <h2> en lugar de <div>)
+h3 (13px): Subtítulos o nombres importantes (tablas, elementos destacados)
+Body (12px): Texto normal en todo el componente
+Small (11px): Información secundaria, detalles, metadata
+Elementos específicos a actualizar:
+Títulos principales: cambiar a <h1> con fontSize: 18 y fontFamily: "Consolas"
+Títulos de paneles: cambiar a <h2> con fontSize: 14 y fontFamily: "Consolas"
+Nombres de tablas/elementos importantes: usar <h3> con fontSize: 13 y fontFamily: "Consolas"
+Texto normal: mantener fontSize: 12 y agregar fontFamily: "Consolas"
+Texto secundario: usar fontSize: 11 y fontFamily: "Consolas"
+
+
+Los cambios incluyen:
+Reemplazar todas las fuentes por "Consolas"
+Aplicar jerarquía de tamaños (h1: 18px, h2: 14px, h3: 13px, body: 12px, small: 11px)
+Convertir títulos a elementos semánticos (<h1>, <h2>, <h3>)
+Aplicar estilo TUI/ASCII (bordes ASCII, colores del tema, etc.)
+
+Elementos que faltan para el estilo TUI completo:
+1. Botones
+Reemplazar Button por AsciiButton en todos los componentes
+Los botones actuales no usan caracteres ASCII ni el estilo TUI
+2. Tablas
+Convertir tablas a estilo TUI con bordes ASCII
+Aplicar AsciiPanel alrededor de las tablas
+Usar caracteres ASCII para separadores y bordes
+3. Formularios y controles
+FiltersContainer, SearchContainer, Select, Input necesitan estilo TUI
+Aplicar bordes ASCII y colores del tema
+4. Modales
+Los modales en UserManagement y Config necesitan estilo TUI
+Bordes ASCII, colores del tema, y estructura visual TUI
+5. Componentes TreeView
+CatalogLocksTreeView, ConfigTreeView, UserManagementTreeView necesitan estilo TUI
+Aplicar caracteres ASCII para la estructura de árbol
+6. Mensajes y estados
+ErrorMessage, SuccessMessage necesitan más estilo TUI con caracteres ASCII

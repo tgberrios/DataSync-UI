@@ -1,194 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import styled, { keyframes } from 'styled-components';
-import { theme } from '../../theme/theme';
-import {
-  LoadingOverlay,
-} from './BaseComponents';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
-const slideIn = keyframes`
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-`;
-
-const TimelineOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: ${theme.zIndex.overlay};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.2s ease-in;
-`;
-
-const TimelineContainer = styled.div`
-  background: ${theme.colors.background.main};
-  border-radius: ${theme.borderRadius.lg};
-  box-shadow: ${theme.shadows.xl};
-  width: 90%;
-  max-width: 1200px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: ${slideIn} 0.3s ease-out;
-`;
-
-const TimelineHeader = styled.div`
-  padding: ${theme.spacing.lg};
-  border-bottom: 2px solid ${theme.colors.border.light};
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: ${theme.colors.gradient.primary};
-`;
-
-const TimelineTitle = styled.h2`
-  margin: 0;
-  font-size: 1.5em;
-  color: ${theme.colors.text.primary};
-`;
-
-const CloseButton = styled.button`
-  background: ${theme.colors.primary.main};
-  color: ${theme.colors.text.white};
-  border: none;
-  border-radius: ${theme.borderRadius.md};
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: ${theme.colors.primary.dark};
-    transform: translateY(-1px);
-    box-shadow: ${theme.shadows.sm};
-  }
-`;
-
-const TimelineContent = styled.div`
-  padding: ${theme.spacing.lg};
-  overflow-y: auto;
-  flex: 1;
-`;
-
-const ChartContainer = styled.div`
-  margin-bottom: ${theme.spacing.xl};
-  padding: ${theme.spacing.lg};
-  background: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-`;
-
-const ChartTitle = styled.h3`
-  margin: 0 0 ${theme.spacing.md} 0;
-  font-size: 1.2em;
-  color: ${theme.colors.text.primary};
-`;
-
-const ChartBars = styled.div`
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  height: 200px;
-  padding: ${theme.spacing.md} 0;
-  position: relative;
-`;
-
-const Tooltip = styled.div<{ $visible: boolean }>`
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-8px);
-  background: ${theme.colors.background.dark};
-  color: ${theme.colors.text.white};
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.85em;
-  white-space: pre-line;
-  z-index: 1000;
-  pointer-events: none;
-  opacity: ${props => props.$visible ? 1 : 0};
-  transition: opacity ${theme.transitions.normal};
-  box-shadow: ${theme.shadows.lg};
-  min-width: 200px;
-  text-align: left;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: ${theme.colors.background.dark};
-  }
-`;
-
-const ChartBar = styled.div<{ $height: number; $status: string }>`
-  flex: 1;
-  min-width: 20px;
-  height: ${props => props.$height}%;
-  background: ${props => {
-    if (props.$status === 'SUCCESS') return theme.colors.status.success.bg;
-    if (props.$status === 'ERROR') return theme.colors.status.error.bg;
-    if (props.$status === 'IN_PROGRESS') return theme.colors.status.info.bg;
-    return theme.colors.status.skip.bg;
-  }};
-  border: 2px solid ${props => {
-    if (props.$status === 'SUCCESS') return theme.colors.status.success.text;
-    if (props.$status === 'ERROR') return theme.colors.status.error.text;
-    if (props.$status === 'IN_PROGRESS') return theme.colors.status.info.text;
-    return theme.colors.status.skip.text;
-  }};
-  border-radius: ${theme.borderRadius.sm} ${theme.borderRadius.sm} 0 0;
-  position: relative;
-  cursor: pointer;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    transform: scaleY(1.05);
-    box-shadow: ${theme.shadows.md};
-    z-index: 10;
-    
-    ${Tooltip} {
-      opacity: 1;
-    }
-  }
-  
-  &::after {
-    content: '▶';
-    position: absolute;
-    bottom: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.7em;
-    color: ${theme.colors.text.secondary};
-  }
-`;
-
-const ChartYAxis = styled.div`
-  position: absolute;
-  left: -40px;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  padding: ${theme.spacing.md} 0;
-`;
 
 interface ExecutionTimelineProps {
   title: string;
@@ -292,69 +107,304 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
     return format(new Date(dateStr), 'PPpp');
   };
 
+  const getStatusColor = (status: string) => {
+    if (status === 'SUCCESS') return asciiColors.accent;
+    if (status === 'ERROR') return asciiColors.accent;
+    if (status === 'IN_PROGRESS') return asciiColors.accentSoft;
+    return asciiColors.muted;
+  };
+
   const BarWithTooltip: React.FC<{ height: number; status: string; tooltipText: string }> = ({ height, status, tooltipText }) => {
     const [showTooltip, setShowTooltip] = useState(false);
+    const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+    const [arrowPosition, setArrowPosition] = useState<'top' | 'bottom'>('top');
+    const barRef = useRef<HTMLDivElement>(null);
+    const tooltipRef = useRef<HTMLDivElement>(null);
+    const statusColor = getStatusColor(status);
+    
+    const handleMouseEnter = () => {
+      setShowTooltip(true);
+      setTimeout(() => {
+        if (barRef.current && tooltipRef.current) {
+          const barRect = barRef.current.getBoundingClientRect();
+          const tooltipRect = tooltipRef.current.getBoundingClientRect();
+          const viewportHeight = window.innerHeight;
+          const viewportWidth = window.innerWidth;
+          const spaceAbove = barRect.top;
+          const spaceBelow = viewportHeight - barRect.bottom;
+          const tooltipHeight = tooltipRect.height || 120;
+          const tooltipWidth = tooltipRect.width || 220;
+          
+          let top = barRect.top - tooltipHeight - 12;
+          let left = barRect.left + barRect.width / 2;
+          let arrowPos: 'top' | 'bottom' = 'top';
+          
+          if (spaceAbove < tooltipHeight + 20 && spaceBelow > spaceAbove) {
+            top = barRect.bottom + 12;
+            arrowPos = 'bottom';
+          }
+          
+          if (left + tooltipWidth / 2 > viewportWidth - 10) {
+            left = viewportWidth - tooltipWidth / 2 - 10;
+          } else if (left - tooltipWidth / 2 < 10) {
+            left = tooltipWidth / 2 + 10;
+          }
+          
+          setTooltipStyle({
+            position: 'fixed',
+            top: `${top}px`,
+            left: `${left}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 10000
+          });
+          setArrowPosition(arrowPos);
+        }
+      }, 0);
+    };
+    
     return (
-      <ChartBar
-        $height={height}
-        $status={status}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
+      <div
+        ref={barRef}
+        style={{
+          flex: 1,
+          minWidth: 20,
+          height: `${height}%`,
+          backgroundColor: statusColor,
+          border: `2px solid ${statusColor}`,
+          borderRadius: '2px 2px 0 0',
+          position: 'relative',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          fontFamily: "Consolas",
+          fontSize: 11
+        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => {
+          setShowTooltip(false);
+          setTooltipStyle({});
+          setArrowPosition('top');
+        }}
       >
-        <Tooltip $visible={showTooltip}>
-          {tooltipText}
-        </Tooltip>
-      </ChartBar>
+        {showTooltip && (
+          <div 
+            ref={tooltipRef}
+            style={{
+              ...tooltipStyle,
+              backgroundColor: asciiColors.foreground,
+              color: asciiColors.background,
+              padding: '8px 12px',
+              borderRadius: 2,
+              fontSize: 11,
+              fontFamily: "Consolas",
+              whiteSpace: 'pre-line',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              minWidth: 220,
+              maxWidth: 300,
+              textAlign: 'left'
+            }}
+          >
+            {tooltipText}
+            <div style={{
+              position: 'absolute',
+              [arrowPosition === 'top' ? 'top' : 'bottom']: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              border: '6px solid transparent',
+              [arrowPosition === 'top' ? 'borderTopColor' : 'borderBottomColor']: asciiColors.foreground
+            }} />
+          </div>
+        )}
+      </div>
     );
   };
 
   return (
-    <TimelineOverlay onClick={onClose}>
-      <TimelineContainer onClick={(e) => e.stopPropagation()}>
-        <TimelineHeader>
-          <TimelineTitle>{title}</TimelineTitle>
-          <CloseButton onClick={onClose}>Close</CloseButton>
-        </TimelineHeader>
-        <TimelineContent>
-          {loading ? (
-            <LoadingOverlay>Loading execution history...</LoadingOverlay>
-          ) : groupedExecutions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: theme.spacing.xxl, color: theme.colors.text.secondary }}>
-              No execution history available.
-            </div>
-          ) : (
-            <>
-              <ChartContainer>
-                <ChartTitle>Execution Duration Timeline</ChartTitle>
-                <div style={{ position: 'relative', paddingLeft: '40px' }}>
-                  <ChartYAxis>
-                    <span>{formatDuration(maxDuration)}</span>
-                    <span>{formatDuration(Math.floor(maxDuration / 2))}</span>
-                    <span>0s</span>
-                  </ChartYAxis>
-                  <ChartBars>
-                    {groupedExecutions.slice(0, 20).reverse().map((exec) => {
-                      const height = maxDuration > 0 ? (exec.duration_seconds || 0) / maxDuration * 100 : 0;
-                      const tooltipText = `${exec.status}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}`;
-                      return (
-                        <BarWithTooltip
-                          key={exec.id}
-                          height={height}
-                          status={exec.status}
-                          tooltipText={tooltipText}
-                        />
-                      );
-                    })}
-                  </ChartBars>
+    <>
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: "blur(5px)",
+          background: "rgba(0, 0, 0, 0.3)",
+          zIndex: 999,
+          animation: "fadeIn 0.2s ease-in"
+        }}
+        onClick={onClose}
+      />
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          animation: "fadeIn 0.2s ease-in"
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
+        <div 
+          style={{
+            background: asciiColors.background,
+            borderRadius: 2,
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            width: "90%",
+            maxWidth: 1200,
+            maxHeight: "90vh",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            animation: "slideIn 0.3s ease-out",
+            border: `2px solid ${asciiColors.border}`
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{
+            padding: "16px 20px",
+            borderBottom: `2px solid ${asciiColors.border}`,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              margin: 0,
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.foreground,
+              textTransform: "uppercase"
+            }}>
+              <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+              {title}
+            </h2>
+            <AsciiButton
+              label="Close"
+              onClick={onClose}
+              variant="ghost"
+            />
+          </div>
+          
+          <div style={{
+            padding: "20px",
+            overflowY: "auto",
+            flex: 1,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {loading ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px', 
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
+                {ascii.blockFull} Loading execution history...
+              </div>
+            ) : groupedExecutions.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px', 
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
+                <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
+                  {ascii.blockFull}
                 </div>
-              </ChartContainer>
-              
-              {renderMappingGraph(tableStructure, loadingStructure)}
-            </>
-          )}
-        </TimelineContent>
-      </TimelineContainer>
-    </TimelineOverlay>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+                  No execution history available
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  No execution history available.
+                </div>
+              </div>
+            ) : (
+              <>
+                <AsciiPanel title="EXECUTION DURATION TIMELINE">
+                  <div style={{ 
+                    position: 'relative', 
+                    paddingLeft: '40px',
+                    padding: "8px 0"
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      fontSize: 11,
+                      color: asciiColors.muted,
+                      fontFamily: "Consolas",
+                      padding: '8px 0',
+                      paddingBottom: '28px'
+                    }}>
+                      <span>{formatDuration(maxDuration)}</span>
+                      <span>{formatDuration(Math.floor(maxDuration / 2))}</span>
+                      <span style={{ paddingBottom: '8px' }}>0s</span>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      gap: 8,
+                      height: 200,
+                      padding: '8px 0'
+                    }}>
+                      {groupedExecutions.slice(0, 20).reverse().map((exec) => {
+                        const height = maxDuration > 0 ? (exec.duration_seconds || 0) / maxDuration * 100 : 0;
+                        const tooltipText = `${exec.status}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}`;
+                        return (
+                          <BarWithTooltip
+                            key={exec.id}
+                            height={height}
+                            status={exec.status}
+                            tooltipText={tooltipText}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </AsciiPanel>
+                
+                <div style={{ marginTop: 20 }}>
+                  {renderMappingGraph(tableStructure, loadingStructure)}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </>
   );
 };
 

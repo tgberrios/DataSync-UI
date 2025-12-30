@@ -1,241 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { theme } from '../../theme/theme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import type { CatalogEntry } from '../../services/api';
-import { StatusBadge } from '../shared/BaseComponents';
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideDown = keyframes`
-  from {
-    max-height: 0;
-    opacity: 0;
-  }
-  to {
-    max-height: 1000px;
-    opacity: 1;
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    max-height: 1000px;
-    opacity: 1;
-  }
-  to {
-    max-height: 0;
-    opacity: 0;
-  }
-`;
-
-const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 0.95em;
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
-  max-height: 800px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-shadow: ${theme.shadows.md};
-  position: relative;
-  
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    transition: background ${theme.transitions.normal};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
-`;
-
-const TreeNode = styled.div`
-  user-select: none;
-  animation: ${fadeIn} 0.3s ease-out;
-  margin-bottom: 2px;
-`;
-
-const TreeLine = styled.span<{ $isLast?: boolean }>`
-  color: ${theme.colors.border.medium};
-  margin-right: 6px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.9em;
-  transition: color ${theme.transitions.normal};
-`;
-
-const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeType?: 'schema' | 'table' }>`
-  display: flex;
-  align-items: center;
-  padding: ${props => props.$level === 0 ? '12px 8px' : '10px 8px'};
-  padding-left: ${props => props.$level * 24 + 8}px;
-  cursor: pointer;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
-  position: relative;
-  margin: 2px 0;
-  
-  ${props => {
-    if (props.$nodeType === 'schema') {
-      return `
-        background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
-        border-left: 3px solid ${theme.colors.primary.main};
-        font-weight: 600;
-      `;
-    }
-    if (props.$nodeType === 'table') {
-      return `
-        background: ${theme.colors.background.secondary};
-        border-left: 2px solid ${theme.colors.border.medium};
-      `;
-    }
-    return `
-      border-left: 1px solid ${theme.colors.border.light};
-    `;
-  }}
-  
-  &:hover {
-    background: ${props => {
-      if (props.$nodeType === 'schema') {
-        return `linear-gradient(135deg, ${theme.colors.primary.light}15 0%, ${theme.colors.primary.main}10 100%)`;
-      }
-      return theme.colors.background.secondary;
-    }};
-    transform: translateX(2px);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  &:active {
-    transform: translateX(1px) scale(0.99);
-  }
-`;
-
-const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-right: 8px;
-  border-radius: ${theme.borderRadius.sm};
-  background: ${props => props.$isExpanded 
-    ? `linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%)`
-    : theme.colors.background.secondary
-  };
-  color: ${props => props.$isExpanded ? theme.colors.text.white : theme.colors.primary.main};
-  font-size: 0.7em;
-  font-weight: bold;
-  transition: all ${theme.transitions.normal};
-  flex-shrink: 0;
-  
-  &:hover {
-    transform: scale(1.1);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  svg {
-    transition: transform ${theme.transitions.normal};
-    transform: ${props => props.$isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'};
-  }
-`;
-
-const NodeLabel = styled.span<{ $isSchema?: boolean; $isTable?: boolean }>`
-  font-weight: ${props => props.$isSchema ? '700' : '600'};
-  font-size: ${props => props.$isSchema ? '1.05em' : '0.98em'};
-  color: ${props => {
-    if (props.$isSchema) return theme.colors.primary.main;
-    return theme.colors.text.primary;
-  }};
-  margin-right: 12px;
-  transition: color ${theme.transitions.normal};
-  letter-spacing: ${props => props.$isSchema ? '0.3px' : '0'};
-  
-  ${props => props.$isSchema && `
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  `}
-`;
-
-const TableInfo = styled.div`
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  margin-left: auto;
-  flex-wrap: wrap;
-  font-size: 0.85em;
-`;
-
-const CountBadge = styled.span`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
-  font-weight: 500;
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  color: ${theme.colors.text.secondary};
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    color: ${theme.colors.primary.main};
-    transform: translateY(-1px);
-  }
-`;
-
-const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
-  overflow: hidden;
-  animation: ${props => props.$isExpanded ? slideDown : slideUp} 0.3s ease-out;
-  padding-left: ${props => props.$level * 24 + 36}px;
-`;
-
-const EmptyState = styled.div`
-  padding: 60px 40px;
-  text-align: center;
-  color: ${theme.colors.text.secondary};
-  animation: ${fadeIn} 0.5s ease-out;
-  
-  &::before {
-    content: '📊';
-    font-size: 3em;
-    display: block;
-    margin-bottom: ${theme.spacing.md};
-    opacity: 0.5;
-  }
-`;
-
-const IconSchema = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-    <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
-    <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-  </svg>
-);
-
-const IconTable = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/>
-  </svg>
-);
 
 interface SchemaNode {
   name: string;
@@ -293,48 +60,111 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick }) => 
     
     const lines: string[] = [];
     for (let i = 0; i < level - 1; i++) {
-      lines.push('│  ');
+      lines.push(`${ascii.v}  `);
     }
     
     if (isLast) {
-      lines.push('└── ');
+      lines.push(`${ascii.bl}${ascii.h}${ascii.h} `);
     } else {
-      lines.push('├── ');
+      lines.push(`${ascii.tRight}${ascii.h}${ascii.h} `);
     }
     
-    return <TreeLine $isLast={isLast}>{lines.join('')}</TreeLine>;
+    return <span style={{ 
+      color: asciiColors.border, 
+      marginRight: 6, 
+      fontFamily: "Consolas", 
+      fontSize: 11 
+    }}>{lines.join('')}</span>;
   };
 
   const renderTable = (tableName: string, tableEntries: CatalogEntry[], schemaName: string, level: number) => {
     const entry = tableEntries[0];
     const isLast = Array.from(treeData.find(s => s.name === schemaName)?.tables.keys() || []).pop() === tableName;
 
+    const getStatusColor = (status: string) => {
+      if (status === 'LISTENING_CHANGES') return asciiColors.success;
+      if (status === 'IN_PROGRESS') return asciiColors.warning;
+      if (status === 'ERROR') return asciiColors.danger;
+      return asciiColors.muted;
+    };
+
     return (
-      <TreeNode key={`${schemaName}.${tableName}`}>
-        <TreeContent 
-          $level={level} 
-          $nodeType="table"
-          onClick={() => onEntryClick?.(entry)}
-        >
+      <div 
+        key={`${schemaName}.${tableName}`}
+        style={{
+          padding: "8px 0",
+          paddingLeft: `${level * 24 + 8}px`,
+          cursor: "pointer",
+          borderLeft: `2px solid ${asciiColors.border}`,
+          backgroundColor: asciiColors.background,
+          margin: "2px 0",
+          transition: "all 0.2s ease",
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}
+        onClick={() => onEntryClick?.(entry)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+          e.currentTarget.style.transform = "translateX(2px)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = asciiColors.background;
+          e.currentTarget.style.transform = "translateX(0)";
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {renderTreeLine(level, isLast)}
-          <IconTable />
-          <span style={{ marginRight: '8px' }}></span>
-          <NodeLabel $isTable>{tableName}</NodeLabel>
-          <TableInfo>
-            <StatusBadge $status={entry.status}>{entry.status}</StatusBadge>
-            {entry.active ? (
-              <CountBadge style={{ background: theme.colors.status.success.bg, color: theme.colors.status.success.text }}>
-                Active
-              </CountBadge>
-            ) : (
-              <CountBadge style={{ background: theme.colors.status.error.bg, color: theme.colors.status.error.text }}>
-                Inactive
-              </CountBadge>
-            )}
-            <CountBadge>{entry.db_engine}</CountBadge>
-          </TableInfo>
-        </TreeContent>
-      </TreeNode>
+          <span style={{ color: asciiColors.accent }}>{ascii.blockSemi}</span>
+          <h3 style={{ 
+            fontSize: 13, 
+            fontWeight: 600, 
+            margin: 0, 
+            color: asciiColors.foreground,
+            fontFamily: "Consolas"
+          }}>
+            {tableName}
+          </h3>
+          <div style={{ 
+            display: "flex", 
+            gap: 6, 
+            alignItems: "center", 
+            marginLeft: "auto",
+            flexWrap: "wrap",
+            fontSize: 11
+          }}>
+            <span style={{
+              padding: "2px 8px",
+              border: `1px solid ${getStatusColor(entry.status)}`,
+              borderRadius: 2,
+              color: getStatusColor(entry.status),
+              fontFamily: "Consolas",
+              fontSize: 11
+            }}>
+              {entry.status}
+            </span>
+            <span style={{
+              padding: "2px 8px",
+              border: `1px solid ${entry.active ? asciiColors.success : asciiColors.danger}`,
+              borderRadius: 2,
+              color: entry.active ? asciiColors.success : asciiColors.danger,
+              fontFamily: "Consolas",
+              fontSize: 11
+            }}>
+              {entry.active ? "Active" : "Inactive"}
+            </span>
+            <span style={{
+              padding: "2px 8px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              color: asciiColors.muted,
+              fontFamily: "Consolas",
+              fontSize: 11
+            }}>
+              {entry.db_engine}
+            </span>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -344,59 +174,131 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick }) => 
     const isLastSchema = schemaIndex === treeData.length - 1;
 
     return (
-      <TreeNode key={schema.name}>
-        <TreeContent 
-          $level={level} 
-          $isExpanded={isExpanded}
-          $nodeType="schema"
+      <div key={schema.name} style={{ marginBottom: 2 }}>
+        <div
+          style={{
+            padding: "12px 8px",
+            paddingLeft: `${level * 24 + 8}px`,
+            cursor: "pointer",
+            borderLeft: `3px solid ${asciiColors.accent}`,
+            backgroundColor: isExpanded ? asciiColors.accentLight : asciiColors.background,
+            margin: "2px 0",
+            transition: "all 0.2s ease",
+            fontFamily: "Consolas",
+            fontSize: 13,
+            fontWeight: 600
+          }}
           onClick={() => toggleSchema(schema.name)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = asciiColors.accentLight;
+            e.currentTarget.style.transform = "translateX(2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = isExpanded ? asciiColors.accentLight : asciiColors.background;
+            e.currentTarget.style.transform = "translateX(0)";
+          }}
         >
-          {renderTreeLine(level, isLastSchema)}
-          <ExpandIconContainer $isExpanded={isExpanded}>
-            {isExpanded ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="18 15 12 9 6 15"/>
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {renderTreeLine(level, isLastSchema)}
+            <span style={{ 
+              color: asciiColors.accent,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              display: "inline-block",
+              width: 16,
+              textAlign: "center"
+            }}>
+              {isExpanded ? ascii.arrowDown : ascii.arrowRight}
+            </span>
+            <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span>
+            <h2 style={{ 
+              fontSize: 14, 
+              fontWeight: 600, 
+              margin: 0, 
+              color: asciiColors.accent,
+              fontFamily: "Consolas"
+            }}>
+              {schema.name}
+            </h2>
+            <div style={{ marginLeft: "auto" }}>
+              <span style={{
+                padding: "2px 8px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                fontSize: 11
+              }}>
+                {schema.tables.size} {schema.tables.size === 1 ? 'table' : 'tables'}
+              </span>
+            </div>
+          </div>
+        </div>
+        {isExpanded && (
+          <div style={{
+            paddingLeft: `${(level + 1) * 24 + 36}px`,
+            animation: "fadeIn 0.3s ease-out"
+          }}>
+            {Array.from(schema.tables.entries()).map(([tableName, tableEntries]) => 
+              renderTable(tableName, tableEntries, schema.name, level + 1)
             )}
-          </ExpandIconContainer>
-          <IconSchema />
-          <span style={{ marginRight: '8px' }}></span>
-          <NodeLabel $isSchema>{schema.name}</NodeLabel>
-          <TableInfo>
-            <CountBadge>{schema.tables.size} {schema.tables.size === 1 ? 'table' : 'tables'}</CountBadge>
-          </TableInfo>
-        </TreeContent>
-        <ExpandableContent $isExpanded={isExpanded} $level={level}>
-          {isExpanded && Array.from(schema.tables.entries()).map(([tableName, tableEntries]) => 
-            renderTable(tableName, tableEntries, schema.name, level + 1)
-          )}
-        </ExpandableContent>
-      </TreeNode>
+          </div>
+        )}
+      </div>
     );
   };
 
   if (treeData.length === 0) {
     return (
-      <TreeContainer>
-        <EmptyState>
-          No catalog entries available. Entries will appear here once cataloged.
-        </EmptyState>
-      </TreeContainer>
+      <AsciiPanel title="CATALOG TREE">
+        <div style={{
+          padding: "60px 40px",
+          textAlign: "center",
+          color: asciiColors.muted,
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
+            {ascii.blockFull}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+            No catalog entries available
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.7, color: asciiColors.muted }}>
+            Entries will appear here once cataloged
+          </div>
+        </div>
+      </AsciiPanel>
     );
   }
 
   return (
-    <TreeContainer>
-      {treeData.map((schema, index) => (
-        <div key={schema.name} style={{ animationDelay: `${index * 0.05}s` }}>
-          {renderSchema(schema, 0)}
-        </div>
-      ))}
-    </TreeContainer>
+    <AsciiPanel title="CATALOG TREE">
+      <div style={{
+        maxHeight: 800,
+        overflowY: "auto",
+        overflowX: "hidden",
+        padding: "8px 0"
+      }}>
+        {treeData.map((schema, index) => (
+          <div key={schema.name} style={{ animationDelay: `${index * 0.05}s` }}>
+            {renderSchema(schema, 0)}
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+    </AsciiPanel>
   );
 };
 

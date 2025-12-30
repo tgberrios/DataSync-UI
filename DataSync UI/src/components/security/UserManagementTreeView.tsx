@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
 const fadeIn = keyframes`
   from {
@@ -40,16 +41,15 @@ const slideUp = keyframes`
 `;
 
 const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 0.95em;
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
+  font-family: "Consolas";
+  font-size: 12px;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
   padding: ${theme.spacing.lg};
   max-height: 800px;
   overflow-y: auto;
   overflow-x: hidden;
-  box-shadow: ${theme.shadows.md};
   position: relative;
   animation: ${fadeIn} 0.3s ease-out;
   
@@ -58,17 +58,17 @@ const TreeContainer = styled.div`
   }
   
   &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
+    background: ${asciiColors.backgroundSoft};
+    border-radius: 2px;
   }
   
   &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
+    background: ${asciiColors.border};
+    border-radius: 2px;
     transition: background ${theme.transitions.normal};
     
     &:hover {
-      background: ${theme.colors.primary.main};
+      background: ${asciiColors.accent};
     }
   }
 `;
@@ -91,34 +91,35 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   align-items: center;
   padding: ${props => props.$level === 0 ? '12px 8px' : '10px 8px'};
   padding-left: ${props => props.$level * 24 + 8}px;
-  border-radius: ${theme.borderRadius.md};
+  border-radius: 2px;
   transition: all ${theme.transitions.normal};
   cursor: pointer;
   position: relative;
   margin: 2px 0;
+  font-family: "Consolas";
+  font-size: 12px;
   
   ${props => {
     if (props.$nodeType === 'role') {
       return `
-        background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
-        border-left: 3px solid ${theme.colors.primary.main};
+        background: ${asciiColors.backgroundSoft};
+        border-left: 2px solid ${asciiColors.accent};
         font-weight: 600;
       `;
     }
     return `
-      border-left: 1px solid ${theme.colors.border.light};
+      border-left: 1px solid ${asciiColors.border};
     `;
   }}
   
   &:hover {
     background: ${props => {
       if (props.$nodeType === 'role') {
-        return `linear-gradient(135deg, ${theme.colors.primary.light}15 0%, ${theme.colors.primary.main}10 100%)`;
+        return asciiColors.accentLight;
       }
-      return theme.colors.background.secondary;
+      return asciiColors.backgroundSoft;
     }};
     transform: translateX(2px);
-    box-shadow: ${theme.shadows.sm};
   }
 `;
 
@@ -129,32 +130,28 @@ const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
   width: 20px;
   height: 20px;
   margin-right: 8px;
-  border-radius: ${theme.borderRadius.sm};
+  border-radius: 2px;
   background: ${props => props.$isExpanded 
-    ? `linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%)`
-    : theme.colors.background.secondary
+    ? asciiColors.accent
+    : asciiColors.backgroundSoft
   };
-  color: ${props => props.$isExpanded ? theme.colors.text.white : theme.colors.primary.main};
-  font-size: 0.7em;
+  color: ${props => props.$isExpanded ? "#ffffff" : asciiColors.accent};
+  font-size: 12px;
   font-weight: bold;
+  font-family: "Consolas";
   transition: all ${theme.transitions.normal};
   flex-shrink: 0;
   
   &:hover {
     transform: scale(1.1);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  svg {
-    transition: transform ${theme.transitions.normal};
-    transform: ${props => props.$isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'};
   }
 `;
 
 const NodeLabel = styled.span<{ $isRole?: boolean }>`
   font-weight: ${props => props.$isRole ? '700' : '500'};
-  font-size: ${props => props.$isRole ? '1.05em' : '0.92em'};
-  color: ${props => props.$isRole ? theme.colors.primary.main : theme.colors.text.primary};
+  font-size: ${props => props.$isRole ? '13px' : '12px'};
+  font-family: "Consolas";
+  color: ${props => props.$isRole ? asciiColors.accent : asciiColors.foreground};
   margin-right: 12px;
   transition: color ${theme.transitions.normal};
   flex: 1;
@@ -165,19 +162,20 @@ const NodeLabel = styled.span<{ $isRole?: boolean }>`
 
 const CountBadge = styled.span`
   padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
+  border-radius: 2px;
+  font-size: 11px;
   font-weight: 500;
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  color: ${theme.colors.text.secondary};
-  border: 1px solid ${theme.colors.border.light};
+  font-family: "Consolas";
+  background: ${asciiColors.backgroundSoft};
+  color: ${asciiColors.muted};
+  border: 1px solid ${asciiColors.border};
   margin-left: auto;
   transition: all ${theme.transitions.normal};
   
   &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    color: ${theme.colors.primary.main};
+    background: ${asciiColors.accentLight};
+    border-color: ${asciiColors.accent};
+    color: ${asciiColors.accent};
     transform: translateY(-1px);
   }
 `;
@@ -189,124 +187,128 @@ const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
 `;
 
 const TreeLine = styled.span`
-  color: ${theme.colors.text.secondary};
-  font-family: 'Courier New', monospace;
+  color: ${asciiColors.muted};
+  font-family: "Consolas";
   margin-right: 4px;
-  font-size: 0.9em;
+  font-size: 12px;
 `;
 
 const UserItemRow = styled.div<{ $level: number; $isSelected?: boolean; $isActive?: boolean }>`
   padding: 12px 8px;
   padding-left: ${props => props.$level * 24 + 36}px;
   margin: 2px 0;
-  border-radius: ${theme.borderRadius.md};
-  background: ${props => props.$isSelected ? theme.colors.primary.light + '15' : theme.colors.background.main};
-  border-left: 2px solid ${props => props.$isActive ? theme.colors.status.success.text : theme.colors.border.light};
+  border-radius: 2px;
+  background: ${props => props.$isSelected ? asciiColors.accentLight : asciiColors.background};
+  border-left: 2px solid ${props => props.$isActive ? asciiColors.success : asciiColors.border};
   transition: all ${theme.transitions.normal};
   cursor: pointer;
   animation: ${fadeIn} 0.3s ease-out;
+  font-family: "Consolas";
+  font-size: 12px;
   
   &:hover {
-    background: ${theme.colors.background.secondary};
+    background: ${asciiColors.backgroundSoft};
     border-left-width: 3px;
     transform: translateX(4px);
-    box-shadow: ${theme.shadows.sm};
   }
 `;
 
 const Badge = styled.span<{ $role?: string; $active?: boolean }>`
-  padding: 6px 12px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
+  padding: 4px 12px;
+  border-radius: 2px;
+  font-size: 11px;
   font-weight: 600;
+  font-family: "Consolas";
   display: inline-flex;
   align-items: center;
   gap: 4px;
   transition: all ${theme.transitions.normal};
-  border: 2px solid transparent;
-  box-shadow: ${theme.shadows.sm};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  border: 1px solid;
   
   ${props => {
     if (props.$role) {
       switch (props.$role) {
         case 'admin':
           return `
-            background: linear-gradient(135deg, #ffebee 0%, #c6282815 100%);
-            color: #c62828;
-            border-color: #c6282840;
+            background: ${asciiColors.danger}20;
+            color: ${asciiColors.danger};
+            border-color: ${asciiColors.danger};
           `;
         case 'user':
           return `
-            background: linear-gradient(135deg, #e3f2fd 0%, #1565c015 100%);
-            color: #1565c0;
-            border-color: #1565c040;
+            background: ${asciiColors.accent}20;
+            color: ${asciiColors.accent};
+            border-color: ${asciiColors.accent};
           `;
         case 'viewer':
           return `
-            background: linear-gradient(135deg, #f3e5f5 0%, #6a1b9a15 100%);
-            color: #6a1b9a;
-            border-color: #6a1b9a40;
+            background: ${asciiColors.muted}20;
+            color: ${asciiColors.muted};
+            border-color: ${asciiColors.muted};
           `;
         default:
           return `
-            background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-            color: ${theme.colors.text.primary};
-            border-color: ${theme.colors.border.medium};
+            background: ${asciiColors.backgroundSoft};
+            color: ${asciiColors.foreground};
+            border-color: ${asciiColors.border};
           `;
       }
     }
     if (props.$active !== undefined) {
       return props.$active
         ? `
-            background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-            color: ${theme.colors.status.success.text};
-            border-color: ${theme.colors.status.success.text}40;
+            background: ${asciiColors.success}20;
+            color: ${asciiColors.success};
+            border-color: ${asciiColors.success};
           `
         : `
-            background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-            color: ${theme.colors.text.secondary};
-            border-color: ${theme.colors.border.medium};
+            background: ${asciiColors.backgroundSoft};
+            color: ${asciiColors.muted};
+            border-color: ${asciiColors.border};
           `;
     }
     return `
-      background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-      color: ${theme.colors.text.primary};
-      border-color: ${theme.colors.border.medium};
+      background: ${asciiColors.backgroundSoft};
+      color: ${asciiColors.foreground};
+      border-color: ${asciiColors.border};
     `;
   }}
   
   &:hover {
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: ${theme.shadows.lg};
+    transform: translateY(-1px);
   }
 `;
 
 const EmptyState = styled.div`
   padding: 60px 40px;
   text-align: center;
-  color: ${theme.colors.text.secondary};
+  color: ${asciiColors.muted};
   animation: ${fadeIn} 0.5s ease-out;
+  font-family: "Consolas";
+  font-size: 12px;
 `;
 
 const EmptyStateIcon = styled.div`
-  font-size: 3em;
+  font-size: 24px;
   margin-bottom: ${theme.spacing.md};
   animation: ${fadeIn} 0.5s ease-out;
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas";
   opacity: 0.5;
 `;
 
 const EmptyStateTitle = styled.div`
-  font-size: 1.1em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-weight: 500;
+  font-size: 14px;
+  font-family: "Consolas";
+  font-weight: 600;
   margin-bottom: ${theme.spacing.sm};
+  color: ${asciiColors.foreground};
 `;
 
 const EmptyStateText = styled.div`
-  font-size: 0.9em;
+  font-size: 11px;
+  font-family: "Consolas";
   opacity: 0.7;
+  color: ${asciiColors.muted};
 `;
 
 interface User {
@@ -400,9 +402,7 @@ const UserManagementTreeView: React.FC<UserManagementTreeViewProps> = ({ users, 
         >
           {renderTreeLine(level, isLast)}
           <ExpandIconContainer $isExpanded={isExpanded}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
           <Badge $role={role.name}>{role.name.toUpperCase()}</Badge>
           <NodeLabel $isRole>
@@ -430,20 +430,43 @@ const UserManagementTreeView: React.FC<UserManagementTreeViewProps> = ({ users, 
         onClick={() => onUserClick?.(user)}
       >
         {renderTreeLine(level, isLast)}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.colors.text.secondary} strokeWidth="2" style={{ marginRight: '8px', flexShrink: 0 }}>
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-        <span style={{ marginRight: '8px', fontWeight: 600, color: theme.colors.text.primary }}>
+        <span style={{ 
+          marginRight: '8px', 
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.accent 
+        }}>
+          {ascii.blockFull}
+        </span>
+        <span style={{ 
+          marginRight: '8px', 
+          fontWeight: 600, 
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground 
+        }}>
           {user.username}
         </span>
-        <span style={{ marginRight: '8px', color: theme.colors.text.secondary, fontSize: '0.85em' }}>
+        <span style={{ 
+          marginRight: '8px', 
+          fontFamily: "Consolas",
+          fontSize: 11,
+          color: asciiColors.muted 
+        }}>
           {user.email}
         </span>
         <Badge $active={user.active}>
           {user.active ? 'Active' : 'Inactive'}
         </Badge>
-        <span style={{ marginLeft: 'auto', color: theme.colors.text.secondary, fontSize: '0.75em', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <span style={{ 
+          marginLeft: 'auto', 
+          fontFamily: "Consolas",
+          fontSize: 11,
+          color: asciiColors.muted, 
+          display: 'flex', 
+          gap: '8px', 
+          alignItems: 'center' 
+        }}>
           <span>Last login: {formatDate(user.last_login)}</span>
         </span>
       </UserItemRow>
@@ -454,7 +477,7 @@ const UserManagementTreeView: React.FC<UserManagementTreeViewProps> = ({ users, 
     return (
       <TreeContainer>
         <EmptyState>
-          <EmptyStateIcon>👥</EmptyStateIcon>
+          <EmptyStateIcon>{ascii.blockFull}</EmptyStateIcon>
           <EmptyStateTitle>No users available</EmptyStateTitle>
           <EmptyStateText>Users will appear here once added.</EmptyStateText>
         </EmptyState>

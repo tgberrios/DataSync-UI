@@ -7788,6 +7788,128 @@ app.post(
   }
 );
 
+app.put(
+  "/api/custom-jobs/:jobName",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const jobName = validateIdentifier(req.params.jobName);
+      if (!jobName) {
+        return res.status(400).json({ error: "Invalid jobName" });
+      }
+
+      const jobCheck = await pool.query(
+        "SELECT job_name FROM metadata.custom_jobs WHERE job_name = $1",
+        [jobName]
+      );
+
+      if (jobCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: "Job not found",
+          job_name: jobName,
+        });
+      }
+
+      const description = sanitizeSearch(req.body.description, 500);
+      const source_db_engine = validateEnum(
+        req.body.source_db_engine,
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", "Python"],
+        null
+      );
+      const source_connection_string = sanitizeSearch(
+        req.body.source_connection_string,
+        500
+      );
+      const query_sql = sanitizeSearch(req.body.query_sql, 10000);
+      const target_db_engine = validateEnum(
+        req.body.target_db_engine,
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        null
+      );
+      const target_connection_string = sanitizeSearch(
+        req.body.target_connection_string,
+        500
+      );
+      const target_schema = validateIdentifier(req.body.target_schema);
+      const target_table = validateIdentifier(req.body.target_table);
+      const schedule_cron = sanitizeSearch(req.body.schedule_cron, 100);
+      const active = validateBoolean(req.body.active, true);
+      const enabled = validateBoolean(req.body.enabled, true);
+      const transform_config = req.body.transform_config || {};
+      const metadata = req.body.metadata || {};
+
+      if (!source_db_engine) {
+        return res.status(400).json({ error: "Invalid source_db_engine" });
+      }
+      if (!target_db_engine) {
+        return res.status(400).json({ error: "Invalid target_db_engine" });
+      }
+      if (!target_schema || !target_table) {
+        return res
+          .status(400)
+          .json({ error: "target_schema and target_table are required" });
+      }
+
+      const result = await pool.query(
+        `UPDATE metadata.custom_jobs 
+       SET 
+         description = $1,
+         source_db_engine = $2,
+         source_connection_string = $3,
+         query_sql = $4,
+         target_db_engine = $5,
+         target_connection_string = $6,
+         target_schema = $7,
+         target_table = $8,
+         schedule_cron = $9,
+         active = $10,
+         enabled = $11,
+         transform_config = $12::jsonb,
+         metadata = $13::jsonb,
+         updated_at = NOW()
+       WHERE job_name = $14
+       RETURNING *`,
+        [
+          description || null,
+          source_db_engine,
+          source_connection_string,
+          query_sql,
+          target_db_engine,
+          target_connection_string,
+          target_schema,
+          target_table,
+          schedule_cron || null,
+          active !== undefined ? active : true,
+          enabled !== undefined ? enabled : true,
+          JSON.stringify(transform_config || {}),
+          JSON.stringify(metadata || {}),
+          jobName,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          error: "Job not found",
+          job_name: jobName,
+        });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating custom job:", err);
+      res.status(500).json({
+        error: "Error al actualizar job personalizado",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
 app.get("/api/custom-jobs", async (req, res) => {
   try {
     const page = validatePage(req.query.page, 1);
@@ -8427,6 +8549,543 @@ app.delete(
     }
   }
 );
+
+app.get("/api/data-warehouse", async (req, res) => {
+  try {
+    const page = validatePage(req.query.page, 1);
+    const limit = validateLimit(req.query.limit, 1, 100);
+    const offset = (page - 1) * limit;
+    const schema_type = validateEnum(
+      req.query.schema_type,
+      ["STAR_SCHEMA", "SNOWFLAKE_SCHEMA", ""],
+      ""
+    );
+    const source_db_engine = validateEnum(
+      req.query.source_db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+    const target_db_engine = validateEnum(
+      req.query.target_db_engine,
+      ["PostgreSQL", "Snowflake", "BigQuery", "Redshift", ""],
+      ""
+    );
+    const active =
+      req.query.active !== undefined ? validateBoolean(req.query.active) : "";
+    const enabled =
+      req.query.enabled !== undefined ? validateBoolean(req.query.enabled) : "";
+    const search = sanitizeSearch(req.query.search, 100);
+
+    let whereConditions = [];
+    let queryParams = [];
+    let paramCount = 1;
+
+    if (schema_type) {
+      whereConditions.push(`schema_type = $${paramCount}`);
+      queryParams.push(schema_type);
+      paramCount++;
+    }
+    if (source_db_engine) {
+      whereConditions.push(`source_db_engine = $${paramCount}`);
+      queryParams.push(source_db_engine);
+      paramCount++;
+    }
+    if (target_db_engine) {
+      whereConditions.push(`target_db_engine = $${paramCount}`);
+      queryParams.push(target_db_engine);
+      paramCount++;
+    }
+    if (active !== "") {
+      whereConditions.push(`active = $${paramCount}`);
+      queryParams.push(active === "true");
+      paramCount++;
+    }
+    if (enabled !== "") {
+      whereConditions.push(`enabled = $${paramCount}`);
+      queryParams.push(enabled === "true");
+      paramCount++;
+    }
+    if (search) {
+      whereConditions.push(
+        `(warehouse_name ILIKE $${paramCount} OR description ILIKE $${paramCount} OR target_schema ILIKE $${paramCount})`
+      );
+      queryParams.push(`%${search}%`);
+      paramCount++;
+    }
+
+    const whereClause =
+      whereConditions.length > 0
+        ? `WHERE ${whereConditions.join(" AND ")}`
+        : "";
+
+    const countQuery = `SELECT COUNT(*) FROM metadata.data_warehouse_catalog ${whereClause}`;
+    const countResult = await pool.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    const dataQuery = `
+      SELECT *
+      FROM metadata.data_warehouse_catalog
+      ${whereClause}
+      ORDER BY warehouse_name
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}
+    `;
+    queryParams.push(limit, offset);
+
+    const result = await pool.query(dataQuery, queryParams);
+
+    const warehouses = result.rows.map((row) => ({
+      ...row,
+      dimensions: row.dimensions || [],
+      facts: row.facts || [],
+    }));
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      warehouses,
+      pagination: {
+        total,
+        totalPages,
+        currentPage: parseInt(page),
+        limit: parseInt(limit),
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching data warehouses:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error fetching data warehouses",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.get("/api/data-warehouse/:warehouseName", async (req, res) => {
+  try {
+    const warehouseName = validateIdentifier(req.params.warehouseName);
+    if (!warehouseName) {
+      return res.status(400).json({ error: "Invalid warehouse name" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM metadata.data_warehouse_catalog WHERE warehouse_name = $1",
+      [warehouseName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Warehouse not found" });
+    }
+
+    const warehouse = result.rows[0];
+    warehouse.dimensions = warehouse.dimensions || [];
+    warehouse.facts = warehouse.facts || [];
+
+    res.json(warehouse);
+  } catch (err) {
+    console.error("Error fetching data warehouse:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error fetching data warehouse",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.post(
+  "/api/data-warehouse",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const warehouse_name = validateIdentifier(req.body.warehouse_name);
+      const description = sanitizeSearch(req.body.description, 500);
+      const schema_type = validateEnum(
+        req.body.schema_type,
+        ["STAR_SCHEMA", "SNOWFLAKE_SCHEMA"],
+        null
+      );
+      const source_db_engine = validateEnum(
+        req.body.source_db_engine,
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        null
+      );
+      const source_connection_string = sanitizeSearch(
+        req.body.source_connection_string,
+        500
+      );
+      const target_db_engine = validateEnum(
+        req.body.target_db_engine,
+        ["PostgreSQL", "Snowflake", "BigQuery", "Redshift"],
+        null
+      );
+      const target_connection_string = sanitizeSearch(
+        req.body.target_connection_string,
+        500
+      );
+      const target_schema = validateIdentifier(req.body.target_schema);
+      const schedule_cron = sanitizeSearch(req.body.schedule_cron, 100);
+      const active = validateBoolean(req.body.active, true);
+      const enabled = validateBoolean(req.body.enabled, true);
+      const dimensions = req.body.dimensions || [];
+      const facts = req.body.facts || [];
+      const metadata = req.body.metadata || {};
+
+      if (!warehouse_name) {
+        return res.status(400).json({ error: "warehouse_name is required" });
+      }
+      if (!schema_type) {
+        return res.status(400).json({ error: "Invalid schema_type" });
+      }
+      if (!source_db_engine) {
+        return res.status(400).json({ error: "Invalid source_db_engine" });
+      }
+      if (!target_db_engine) {
+        return res.status(400).json({ error: "Invalid target_db_engine" });
+      }
+      if (!target_schema) {
+        return res.status(400).json({ error: "target_schema is required" });
+      }
+
+      const checkResult = await pool.query(
+        `SELECT warehouse_name FROM metadata.data_warehouse_catalog WHERE warehouse_name = $1`,
+        [warehouse_name]
+      );
+
+      if (checkResult.rows.length > 0) {
+        return res.status(409).json({
+          error: "Warehouse with this name already exists",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.data_warehouse_catalog 
+       (warehouse_name, description, schema_type, source_db_engine, source_connection_string,
+        target_db_engine, target_connection_string, target_schema, dimensions, facts,
+        schedule_cron, active, enabled, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14::jsonb)
+       RETURNING *`,
+        [
+          warehouse_name,
+          description || null,
+          schema_type,
+          source_db_engine,
+          source_connection_string,
+          target_db_engine,
+          target_connection_string,
+          target_schema.toLowerCase(),
+          JSON.stringify(dimensions),
+          JSON.stringify(facts),
+          schedule_cron || null,
+          active,
+          enabled,
+          JSON.stringify(metadata),
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating data warehouse:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error creating data warehouse",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/data-warehouse/:warehouseName",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const warehouseName = validateIdentifier(req.params.warehouseName);
+      if (!warehouseName) {
+        return res.status(400).json({ error: "Invalid warehouse name" });
+      }
+
+      const description = sanitizeSearch(req.body.description, 500);
+      const schema_type = validateEnum(
+        req.body.schema_type,
+        ["STAR_SCHEMA", "SNOWFLAKE_SCHEMA"],
+        null
+      );
+      const source_db_engine = validateEnum(
+        req.body.source_db_engine,
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        null
+      );
+      const source_connection_string = sanitizeSearch(
+        req.body.source_connection_string,
+        500
+      );
+      const target_db_engine = validateEnum(
+        req.body.target_db_engine,
+        ["PostgreSQL", "Snowflake", "BigQuery", "Redshift"],
+        null
+      );
+      const target_connection_string = sanitizeSearch(
+        req.body.target_connection_string,
+        500
+      );
+      const target_schema = validateIdentifier(req.body.target_schema);
+      const schedule_cron = sanitizeSearch(req.body.schedule_cron, 100);
+      const active = validateBoolean(req.body.active, true);
+      const enabled = validateBoolean(req.body.enabled, true);
+      const dimensions = req.body.dimensions || [];
+      const facts = req.body.facts || [];
+      const metadata = req.body.metadata || {};
+
+      if (!schema_type) {
+        return res.status(400).json({ error: "Invalid schema_type" });
+      }
+      if (!source_db_engine) {
+        return res.status(400).json({ error: "Invalid source_db_engine" });
+      }
+      if (!target_db_engine) {
+        return res.status(400).json({ error: "Invalid target_db_engine" });
+      }
+      if (!target_schema) {
+        return res.status(400).json({ error: "target_schema is required" });
+      }
+
+      const result = await pool.query(
+        `UPDATE metadata.data_warehouse_catalog 
+       SET description = $1, schema_type = $2, source_db_engine = $3, source_connection_string = $4,
+           target_db_engine = $5, target_connection_string = $6, target_schema = $7,
+           dimensions = $8::jsonb, facts = $9::jsonb, schedule_cron = $10, active = $11,
+           enabled = $12, metadata = $13::jsonb, updated_at = NOW()
+       WHERE warehouse_name = $14
+       RETURNING *`,
+        [
+          description || null,
+          schema_type,
+          source_db_engine,
+          source_connection_string,
+          target_db_engine,
+          target_connection_string,
+          target_schema.toLowerCase(),
+          JSON.stringify(dimensions),
+          JSON.stringify(facts),
+          schedule_cron || null,
+          active,
+          enabled,
+          JSON.stringify(metadata),
+          warehouseName,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Warehouse not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating data warehouse:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error updating data warehouse",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.delete(
+  "/api/data-warehouse/:warehouseName",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const warehouseName = validateIdentifier(req.params.warehouseName);
+      if (!warehouseName) {
+        return res.status(400).json({ error: "Invalid warehouse name" });
+      }
+
+      const result = await pool.query(
+        `DELETE FROM metadata.data_warehouse_catalog 
+       WHERE warehouse_name = $1
+       RETURNING *`,
+        [warehouseName]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Warehouse not found" });
+      }
+
+      res.json({
+        message: "Warehouse deleted successfully",
+        warehouse: result.rows[0],
+      });
+    } catch (err) {
+      console.error("Error deleting data warehouse:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error deleting data warehouse",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.patch(
+  "/api/data-warehouse/:warehouseName/active",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const warehouseName = validateIdentifier(req.params.warehouseName);
+      if (!warehouseName) {
+        return res.status(400).json({ error: "Invalid warehouse name" });
+      }
+
+      const active = validateBoolean(req.body.active, true);
+
+      const result = await pool.query(
+        `UPDATE metadata.data_warehouse_catalog 
+       SET active = $1, updated_at = NOW()
+       WHERE warehouse_name = $2
+       RETURNING *`,
+        [active, warehouseName]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Warehouse not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating warehouse active status:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error updating warehouse active status",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/data-warehouse/:warehouseName/build",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const warehouseName = validateIdentifier(req.params.warehouseName);
+      if (!warehouseName) {
+        return res.status(400).json({ error: "Invalid warehouse name" });
+      }
+
+      const warehouseCheck = await pool.query(
+        "SELECT warehouse_name, active, enabled FROM metadata.data_warehouse_catalog WHERE warehouse_name = $1",
+        [warehouseName]
+      );
+
+      if (warehouseCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: "Warehouse not found",
+          warehouse_name: warehouseName,
+        });
+      }
+
+      const warehouse = warehouseCheck.rows[0];
+      if (!warehouse.active || !warehouse.enabled) {
+        return res.status(400).json({
+          error: "Warehouse is not active or enabled",
+          warehouse_name: warehouseName,
+          active: warehouse.active,
+          enabled: warehouse.enabled,
+        });
+      }
+
+      const buildMetadata = {
+        build_now: true,
+        build_timestamp: new Date().toISOString(),
+      };
+
+      await pool.query(
+        `UPDATE metadata.data_warehouse_catalog 
+       SET metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
+       WHERE warehouse_name = $2`,
+        [JSON.stringify(buildMetadata), warehouseName]
+      );
+
+      const processLogId = await pool.query(
+        `INSERT INTO metadata.process_log 
+       (process_type, process_name, status, start_time, end_time, total_rows_processed, error_message, metadata)
+       VALUES ($1, $2, $3, NOW(), NOW(), 0, '', $4::jsonb)
+       RETURNING id`,
+        [
+          "DATA_WAREHOUSE",
+          warehouseName,
+          "PENDING",
+          JSON.stringify({
+            triggered_by: "api",
+            warehouse_name: warehouseName,
+          }),
+        ]
+      );
+
+      res.json({
+        message: "Warehouse build triggered",
+        warehouse_name: warehouseName,
+        log_id: processLogId.rows[0].id,
+      });
+    } catch (err) {
+      console.error("Error triggering warehouse build:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error triggering warehouse build",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get("/api/data-warehouse/:warehouseName/history", async (req, res) => {
+  try {
+    const warehouseName = validateIdentifier(req.params.warehouseName);
+    if (!warehouseName) {
+      return res.status(400).json({ error: "Invalid warehouse name" });
+    }
+
+    const limit = validateLimit(req.query.limit, 1, 100, 50);
+
+    const result = await pool.query(
+      `SELECT * FROM metadata.process_log
+       WHERE process_type = 'DATA_WAREHOUSE' AND process_name = $1
+       ORDER BY start_time DESC
+       LIMIT $2`,
+      [warehouseName, limit]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching warehouse build history:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error fetching warehouse build history",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
 
 app.get("/api/csv-catalog", async (req, res) => {
   try {

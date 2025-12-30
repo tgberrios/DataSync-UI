@@ -32,11 +32,13 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
         }}
       >
         {title ? (
-          <div
+          <h2
             style={{
-              fontSize: 11,
+              fontSize: 14,
+              fontFamily: "Consolas",
               color: asciiColors.foreground,
               paddingLeft: 2,
+              margin: 0,
               marginBottom: 2,
               fontWeight: 600,
               textTransform: "uppercase",
@@ -52,7 +54,7 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
             </span>
             {ascii.h.repeat(2)}
             {title}
-          </div>
+          </h2>
         ) : null}
         <div
           style={{
@@ -60,6 +62,7 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
             padding: 4,
             overflow: "hidden",
             fontSize: 12,
+            fontFamily: "Consolas",
             backgroundColor: asciiColors.background,
             borderRadius: 2,
             transition: "border-color 0.3s ease, background-color 0.3s ease"

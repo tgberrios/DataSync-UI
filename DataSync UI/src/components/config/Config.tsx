@@ -5,13 +5,15 @@ import {
   Header,
   ErrorMessage,
   LoadingOverlay,
-  Button,
   Input,
 } from '../shared/BaseComponents';
 import { configApi } from '../../services/api';
 import type { ConfigEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import ConfigTreeView from './ConfigTreeView';
 
 const ConfigTable = styled.table`
@@ -30,9 +32,12 @@ const ConfigTable = styled.table`
 const Th = styled.th`
   padding: ${theme.spacing.sm};
   text-align: left;
-  border-bottom: 2px solid ${theme.colors.border.dark};
-  background: ${theme.colors.gradient.primary};
+  border-bottom: 2px solid ${asciiColors.border};
+  background: ${asciiColors.backgroundSoft};
   font-weight: bold;
+  font-family: "Consolas";
+  font-size: 13px;
+  color: ${asciiColors.accent};
   position: sticky;
   top: 0;
   z-index: 10;
@@ -40,8 +45,9 @@ const Th = styled.th`
 
 const Td = styled.td`
   padding: ${theme.spacing.sm};
-  border-bottom: 1px solid ${theme.colors.border.light};
-  font-family: ${theme.fonts.primary};
+  border-bottom: 1px solid ${asciiColors.border};
+  font-family: "Consolas";
+  font-size: 12px;
   transition: all ${theme.transitions.normal};
 `;
 
@@ -62,53 +68,38 @@ const TableRow = styled.tr`
 const TextArea = styled.textarea`
   width: 100%;
   padding: 10px;
-  border: 1px solid ${theme.colors.border.medium};
-  border-radius: ${theme.borderRadius.md};
-  font-family: ${theme.fonts.primary};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  font-family: "Consolas";
+  font-size: 12px;
   resize: vertical;
   min-height: 60px;
-  background: ${theme.colors.background.main};
+  background: ${asciiColors.background};
+  color: ${asciiColors.foreground};
   transition: all ${theme.transitions.normal};
 
   &:hover:not(:disabled) {
-    border-color: rgba(10, 25, 41, 0.3);
+    border-color: ${asciiColors.accent};
   }
 
   &:focus {
     outline: none;
-    border-color: ${theme.colors.primary.main};
-    box-shadow: 0 0 0 3px rgba(10, 25, 41, 0.1);
-    transform: translateY(-1px);
+    border-color: ${asciiColors.accent};
+    box-shadow: 0 0 0 2px ${asciiColors.accent}30;
   }
 
   &:disabled {
-    background: ${theme.colors.background.secondary};
+    background: ${asciiColors.backgroundSoft};
     cursor: not-allowed;
-  }
-`;
-
-const DangerButton = styled(Button)`
-  background-color: ${theme.colors.status.error.bg};
-  color: ${theme.colors.status.error.text};
-  border-color: ${theme.colors.status.error.text};
-  
-  &:hover:not(:disabled) {
-    background-color: #ffcdd2;
-    border-color: ${theme.colors.status.error.text};
   }
 `;
 
 const ActionCell = styled.td`
   padding: ${theme.spacing.sm};
-  border-bottom: 1px solid ${theme.colors.border.light};
+  border-bottom: 1px solid ${asciiColors.border};
   text-align: right;
-`;
-
-const AddButton = styled(Button)`
-  margin: ${theme.spacing.lg} 0;
-  animation: slideUp 0.25s ease-out;
-  animation-delay: 0.2s;
-  animation-fill-mode: both;
+  font-family: "Consolas";
+  font-size: 12px;
 `;
 
 const ExpandableValue = styled.div`
@@ -116,9 +107,9 @@ const ExpandableValue = styled.div`
 `;
 
 const ValuePreview = styled.div`
-  font-family: monospace;
-  font-size: 0.9em;
-  color: ${theme.colors.text.secondary};
+  font-family: "Consolas";
+  font-size: 11px;
+  color: ${asciiColors.muted};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -130,20 +121,15 @@ const ValueExpanded = styled.pre`
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
-  font-family: monospace;
-  font-size: 0.9em;
-  background: ${theme.colors.background.secondary};
+  font-family: "Consolas";
+  font-size: 11px;
+  background: ${asciiColors.backgroundSoft};
+  color: ${asciiColors.foreground};
   padding: ${theme.spacing.sm};
-  border-radius: ${theme.borderRadius.sm};
-  border: 1px solid ${theme.colors.border.light};
+  border-radius: 2px;
+  border: 1px solid ${asciiColors.border};
   max-height: 400px;
   overflow-y: auto;
-`;
-
-const ExpandButton = styled(Button)`
-  padding: 6px 12px;
-  margin-right: 5px;
-  font-size: 0.9em;
 `;
 
 /**
@@ -317,36 +303,112 @@ const Config = () => {
 
   if (loading && configs.length === 0) {
     return (
-      <Container>
-        <Header>Configuration</Header>
-        <LoadingOverlay>Loading configurations...</LoadingOverlay>
-      </Container>
+      <div style={{
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Consolas",
+        fontSize: 12,
+        color: asciiColors.foreground,
+        backgroundColor: asciiColors.background,
+        gap: 12
+      }}>
+        <div style={{
+          fontSize: 24,
+          animation: "spin 1s linear infinite"
+        }}>
+          {ascii.blockFull}
+        </div>
+        <div style={{
+          display: "flex",
+          gap: 4,
+          alignItems: "center"
+        }}>
+          <span>Loading configurations</span>
+          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
+            {ascii.dot.repeat(3)}
+          </span>
+        </div>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          @keyframes dots {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+        `}</style>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <Header>Configuration</Header>
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Consolas",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <h1 style={{
+        fontSize: 18,
+        fontFamily: "Consolas",
+        fontWeight: 600,
+        margin: 0,
+        marginBottom: 16,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        CONFIGURATION
+      </h1>
 
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ 
+            color: asciiColors.danger, 
+            fontFamily: "Consolas", 
+            fontSize: 12,
+            padding: "8px 0"
+          }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md }}>
-        <AddButton onClick={handleAdd}>+ Add New Configuration</AddButton>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: theme.spacing.md,
+        fontFamily: "Consolas",
+        fontSize: 12
+      }}>
+        <AsciiButton 
+          label={`${ascii.blockFull} Add New Configuration`}
+          onClick={handleAdd}
+          variant="primary"
+        />
         <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-          <Button
-            $variant={viewMode === 'tree' ? 'primary' : 'secondary'}
+          <AsciiButton
+            label="Tree View"
             onClick={() => setViewMode('tree')}
-            style={{ padding: '8px 16px', fontSize: '0.9em' }}
-          >
-            Tree View
-          </Button>
-          <Button
-            $variant={viewMode === 'table' ? 'primary' : 'secondary'}
+            variant={viewMode === 'tree' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
+            label="Table View"
             onClick={() => setViewMode('table')}
-            style={{ padding: '8px 16px', fontSize: '0.9em' }}
-          >
-            Table View
-          </Button>
+            variant={viewMode === 'table' ? 'primary' : 'ghost'}
+          />
         </div>
       </div>
 
@@ -358,36 +420,39 @@ const Config = () => {
           />
           
           {selectedConfig && (
-            <div style={{
-              background: theme.colors.background.secondary,
-              border: `1px solid ${theme.colors.border.light}`,
-              borderRadius: theme.borderRadius.md,
-              padding: theme.spacing.lg,
-              position: 'sticky',
-              top: theme.spacing.md,
-              maxHeight: 'calc(100vh - 200px)',
-              overflowY: 'auto'
-            }}>
-              <h3 style={{ marginTop: 0, marginBottom: theme.spacing.md, color: theme.colors.text.primary }}>
-                Configuration Details
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing.md }}>
+            <AsciiPanel title="CONFIGURATION DETAILS">
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr', 
+                gap: theme.spacing.md,
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Key:</strong>
-                  <div style={{ color: theme.colors.text.primary, fontFamily: 'monospace', fontSize: '0.9em', marginTop: '4px' }}>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Key:</strong>
+                  <div style={{ 
+                    color: asciiColors.foreground, 
+                    fontFamily: "Consolas", 
+                    fontSize: 12, 
+                    marginTop: '4px',
+                    padding: theme.spacing.sm,
+                    background: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    border: `1px solid ${asciiColors.border}`
+                  }}>
                     {selectedConfig.key}
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Value:</strong>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Value:</strong>
                   <div style={{ 
-                    color: theme.colors.text.primary, 
-                    fontSize: '0.9em',
-                    fontFamily: 'monospace',
+                    color: asciiColors.foreground, 
+                    fontSize: 11,
+                    fontFamily: "Consolas",
                     padding: theme.spacing.sm,
-                    background: theme.colors.background.main,
-                    borderRadius: theme.borderRadius.sm,
-                    border: `1px solid ${theme.colors.border.light}`,
+                    background: asciiColors.background,
+                    borderRadius: 2,
+                    border: `1px solid ${asciiColors.border}`,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                     maxHeight: '300px',
@@ -398,35 +463,35 @@ const Config = () => {
                 </div>
                 {selectedConfig.description && (
                   <div>
-                    <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Description:</strong>
-                    <div style={{ color: theme.colors.text.primary, fontSize: '0.9em', marginTop: '4px' }}>
+                    <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Description:</strong>
+                    <div style={{ color: asciiColors.foreground, fontSize: 12, marginTop: '4px', fontFamily: "Consolas" }}>
                       {selectedConfig.description}
                     </div>
                   </div>
                 )}
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Last Updated:</strong>
-                  <div style={{ color: theme.colors.text.primary, fontSize: '0.9em', marginTop: '4px' }}>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Last Updated:</strong>
+                  <div style={{ color: asciiColors.foreground, fontSize: 12, marginTop: '4px', fontFamily: "Consolas" }}>
                     {formatDate(selectedConfig.updated_at)}
                   </div>
                 </div>
-                <div style={{ marginTop: theme.spacing.md, paddingTop: theme.spacing.md, borderTop: `1px solid ${theme.colors.border.light}` }}>
-                  <Button
+                <div style={{ marginTop: theme.spacing.md, paddingTop: theme.spacing.md, borderTop: `1px solid ${asciiColors.border}` }}>
+                  <AsciiButton
+                    label="Edit Configuration"
                     onClick={() => {
                       handleEdit(selectedConfig);
                       setSelectedConfig(null);
                     }}
-                    style={{ width: '100%', marginBottom: theme.spacing.sm }}
-                  >
-                    Edit Configuration
-                  </Button>
+                    variant="primary"
+                  />
                 </div>
               </div>
-            </div>
+            </AsciiPanel>
           )}
         </div>
       ) : (
-        <ConfigTable>
+        <AsciiPanel title="CONFIGURATION TABLE">
+          <ConfigTable>
         <thead>
           <tr>
             <Th>Key</Th>
@@ -456,8 +521,10 @@ const Config = () => {
               <Td>-</Td>
               <Td>-</Td>
               <ActionCell>
-                <Button onClick={handleCreate}>Save</Button>
-                <DangerButton onClick={handleCancel}>Cancel</DangerButton>
+                <div style={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
+                  <AsciiButton label="Save" onClick={handleCreate} variant="primary" />
+                  <AsciiButton label="Cancel" onClick={handleCancel} variant="ghost" />
+                </div>
               </ActionCell>
             </TableRow>
           )}
@@ -493,7 +560,14 @@ const Config = () => {
                     )}
                   </ExpandableValue>
                 ) : (
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                  <pre style={{ 
+                    margin: 0, 
+                    whiteSpace: 'pre-wrap', 
+                    wordBreak: 'break-all',
+                    fontFamily: "Consolas",
+                    fontSize: 11,
+                    color: asciiColors.foreground
+                  }}>
                     {config.value}
                   </pre>
                 )}
@@ -503,31 +577,33 @@ const Config = () => {
               </Td>
               <Td>{formatDate(config.updated_at)}</Td>
               <ActionCell>
-                {editingKey === config.key ? (
-                  <>
-                    <Button onClick={handleSave}>Save</Button>
-                    <DangerButton onClick={handleCancel}>Cancel</DangerButton>
-                  </>
-                ) : (
-                  <>
-                    {shouldBeExpandable(config.value) && (
-                      <ExpandButton
-                        $variant="secondary"
-                        onClick={() => toggleExpand(config.key)}
-                      >
-                        {expandedKeys.has(config.key) ? 'Collapse' : 'Expand'}
-                      </ExpandButton>
-                    )}
-                    <Button onClick={() => handleEdit(config)}>Edit</Button>
-                  </>
-                )}
+                <div style={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
+                  {editingKey === config.key ? (
+                    <>
+                      <AsciiButton label="Save" onClick={handleSave} variant="primary" />
+                      <AsciiButton label="Cancel" onClick={handleCancel} variant="ghost" />
+                    </>
+                  ) : (
+                    <>
+                      {shouldBeExpandable(config.value) && (
+                        <AsciiButton
+                          label={expandedKeys.has(config.key) ? 'Collapse' : 'Expand'}
+                          onClick={() => toggleExpand(config.key)}
+                          variant="ghost"
+                        />
+                      )}
+                      <AsciiButton label="Edit" onClick={() => handleEdit(config)} variant="ghost" />
+                    </>
+                  )}
+                </div>
               </ActionCell>
             </TableRow>
           ))}
         </tbody>
       </ConfigTable>
+        </AsciiPanel>
       )}
-    </Container>
+    </div>
   );
 };
 

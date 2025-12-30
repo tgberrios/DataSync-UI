@@ -1,289 +1,8 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import styled, { keyframes } from 'styled-components';
-import {
-  Button,
-  Input,
-  FormGroup,
-  Label,
-  Select,
-} from '../shared/BaseComponents';
-import { theme } from '../../theme/theme';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { csvCatalogApi } from '../../services/api';
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const BlurOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  backdrop-filter: blur(5px);
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 999;
-  animation: ${fadeIn} 0.15s ease-in;
-`;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: ${fadeIn} 0.15s ease-in;
-`;
-
-const ModalContent = styled.div`
-  background: ${theme.colors.background.main};
-  padding: ${theme.spacing.xxl};
-  border-radius: ${theme.borderRadius.lg};
-  min-width: 700px;
-  max-width: 900px;
-  max-height: 90vh;
-  overflow-y: auto;
-  font-family: ${theme.fonts.primary};
-  box-shadow: ${theme.shadows.lg};
-  animation: ${slideUp} 0.2s ease-out;
-  border: 1px solid ${theme.colors.border.light};
-  
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
-`;
-
-const ModalHeader = styled.div`
-  border-bottom: 2px solid ${theme.colors.border.dark};
-  padding-bottom: ${theme.spacing.sm};
-  margin-bottom: ${theme.spacing.lg};
-  font-size: 1.2em;
-  font-weight: bold;
-  position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 60px;
-    height: 2px;
-    background: linear-gradient(90deg, ${theme.colors.primary.main}, ${theme.colors.primary.dark});
-  }
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: ${theme.spacing.sm};
-  margin-top: ${theme.spacing.lg};
-`;
-
-const ErrorMessage = styled.div`
-  color: ${theme.colors.status.error.text};
-  background: ${theme.colors.status.error.bg};
-  padding: ${theme.spacing.sm};
-  border-radius: ${theme.borderRadius.sm};
-  margin-top: ${theme.spacing.sm};
-  font-size: 0.9em;
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const ConnectionTestResult = styled.div<{ $success: boolean }>`
-  margin-top: 8px;
-  padding: 8px 12px;
-  border-radius: ${theme.borderRadius.sm};
-  font-size: 0.9em;
-  background-color: ${props => props.$success 
-    ? theme.colors.status.success.bg 
-    : theme.colors.status.error.bg};
-  color: ${props => props.$success 
-    ? theme.colors.status.success.text 
-    : theme.colors.status.error.text};
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const AnalysisResult = styled.div`
-  margin-top: ${theme.spacing.sm};
-  padding: ${theme.spacing.sm};
-  background: ${theme.colors.primary.light + '20'};
-  border-radius: ${theme.borderRadius.sm};
-  border-left: 3px solid ${theme.colors.primary.main};
-  font-size: 0.85em;
-  color: ${theme.colors.text.primary};
-`;
-
-const Textarea = styled.textarea`
-  padding: 8px 12px;
-  border: 1px solid ${theme.colors.border.medium};
-  border-radius: ${theme.borderRadius.md};
-  font-family: ${theme.fonts.primary};
-  background: ${theme.colors.background.main};
-  color: ${theme.colors.text.primary};
-  font-size: 14px;
-  width: 100%;
-  min-height: 100px;
-  resize: vertical;
-  
-  &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary.main};
-    box-shadow: 0 0 0 2px ${theme.colors.primary.light}33;
-  }
-`;
-
-const ConnectionStringExample = styled.div`
-  margin-top: ${theme.spacing.xs};
-  padding: ${theme.spacing.sm};
-  background: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.sm};
-  border-left: 3px solid ${theme.colors.primary.main};
-  font-family: monospace;
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  white-space: pre-wrap;
-  word-break: break-all;
-`;
-
-const CheckboxContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing.sm};
-`;
-
-const Checkbox = styled.input`
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-`;
-
-const FileUploadArea = styled.div<{ $isDragging: boolean; $hasFile: boolean }>`
-  border: 2px dashed ${props => 
-    props.$isDragging 
-      ? theme.colors.primary.main 
-      : props.$hasFile 
-        ? theme.colors.status.success.text 
-        : theme.colors.border.medium};
-  border-radius: ${theme.borderRadius.md};
-  padding: ${theme.spacing.xl};
-  text-align: center;
-  cursor: pointer;
-  background: ${props => 
-    props.$isDragging 
-      ? theme.colors.primary.light + '20' 
-      : props.$hasFile 
-        ? theme.colors.status.success.bg 
-        : theme.colors.background.secondary};
-  transition: all 0.3s ease;
-  position: relative;
-
-  &:hover {
-    border-color: ${theme.colors.primary.main};
-    background: ${theme.colors.primary.light + '10'};
-  }
-`;
-
-const FileUploadIcon = styled.div`
-  font-size: 3em;
-  margin-bottom: ${theme.spacing.sm};
-  color: ${theme.colors.primary.main};
-`;
-
-const FileUploadText = styled.div`
-  color: ${theme.colors.text.primary};
-  font-size: 1em;
-  margin-bottom: ${theme.spacing.xs};
-`;
-
-const FileUploadHint = styled.div`
-  color: ${theme.colors.text.secondary};
-  font-size: 0.85em;
-`;
-
-const FileInfo = styled.div`
-  margin-top: ${theme.spacing.sm};
-  padding: ${theme.spacing.sm};
-  background: ${theme.colors.background.main};
-  border-radius: ${theme.borderRadius.sm};
-  border: 1px solid ${theme.colors.border.light};
-`;
-
-const FileName = styled.div`
-  font-weight: bold;
-  color: ${theme.colors.text.primary};
-  margin-bottom: ${theme.spacing.xs};
-`;
-
-const FileSize = styled.div`
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-`;
-
-const RemoveFileButton = styled.button`
-  margin-top: ${theme.spacing.xs};
-  padding: ${theme.spacing.xs} ${theme.spacing.sm};
-  background: ${theme.colors.status.error.bg};
-  color: ${theme.colors.status.error.text};
-  border: none;
-  border-radius: ${theme.borderRadius.sm};
-  cursor: pointer;
-  font-size: 0.85em;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${theme.colors.status.error.text};
-    color: white;
-  }
-`;
-
-const UploadProgress = styled.div`
-  margin-top: ${theme.spacing.sm};
-  padding: ${theme.spacing.sm};
-  background: ${theme.colors.primary.light + '20'};
-  border-radius: ${theme.borderRadius.sm};
-  color: ${theme.colors.primary.main};
-  font-size: 0.9em;
-`;
-
-const HiddenFileInput = styled.input`
-  display: none;
-`;
 
 interface AddCSVModalProps {
   onClose: () => void;
@@ -755,10 +474,19 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
 
   return (
     <>
-      <BlurOverlay 
-        style={{ animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in' }} 
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: "blur(5px)",
+          background: "rgba(0, 0, 0, 0.3)",
+          zIndex: 999,
+          animation: isClosing ? "fadeOut 0.15s ease-out" : "fadeIn 0.15s ease-in"
+        }}
         onClick={() => {
-          // No cerrar si estamos arrastrando un archivo
           if (!isDragging) {
             handleClose();
           }
@@ -767,401 +495,1012 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
         onDragLeave={handleGlobalDragLeave}
         onDrop={handleGlobalDrop}
       />
-      <ModalOverlay 
-        style={{ animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in' }}
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000,
+          animation: isClosing ? "fadeOut 0.15s ease-out" : "fadeIn 0.15s ease-in"
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isDragging) {
+            handleClose();
+          }
+        }}
         onDragOver={handleGlobalDragOver}
         onDragLeave={handleGlobalDragLeave}
         onDrop={handleGlobalDrop}
       >
-        <ModalContent 
+        <div 
           data-modal-content
+          style={{
+            minWidth: 700,
+            maxWidth: 900,
+            maxHeight: "90vh",
+            overflowY: "auto",
+            animation: isClosing ? "slideDown 0.15s ease-out" : "slideUp 0.2s ease-out"
+          }}
           onClick={(e) => e.stopPropagation()}
           onDragOver={handleGlobalDragOver}
           onDragLeave={handleGlobalDragLeave}
           onDrop={handleGlobalDrop}
         >
-          <ModalHeader>Add New CSV Source</ModalHeader>
+          <div style={{
+            border: `2px solid ${asciiColors.border}`,
+            backgroundColor: asciiColors.background,
+            fontFamily: "Consolas",
+            fontSize: 12,
+            color: asciiColors.foreground,
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)"
+          }}>
+            <div style={{
+              padding: "16px 20px",
+              borderBottom: `2px solid ${asciiColors.border}`,
+              backgroundColor: asciiColors.backgroundSoft
+            }}>
+              <h2 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                margin: 0,
+                fontFamily: "Consolas",
+                color: asciiColors.foreground,
+                textTransform: "uppercase",
+                letterSpacing: 0.5
+              }}>
+                <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+                ADD NEW CSV SOURCE
+              </h2>
+            </div>
+            
+            <div style={{ padding: "20px" }}>
           
-          <form 
-            onSubmit={handleSubmit}
-            onDragOver={handleGlobalDragOver}
-            onDragLeave={handleGlobalDragLeave}
-            onDrop={handleGlobalDrop}
-          >
-            <FormGroup>
-              <Label>CSV Name *</Label>
-              <Input 
-                type="text" 
-                value={formData.csv_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, csv_name: e.target.value }))}
-                placeholder="e.g., Sales Data, Customer List"
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <Label>Source Type *</Label>
-              <Select
-                value={formData.source_type}
-                onChange={(e) => {
-                  const newType = e.target.value;
-                  setFormData(prev => ({ ...prev, source_type: newType, source_path: newType !== 'UPLOADED_FILE' ? prev.source_path : '' }));
-                  if (newType !== 'UPLOADED_FILE') {
-                    setUploadedFile(null);
-                    setUploadProgress('');
-                  }
-                }}
+              <form 
+                onSubmit={handleSubmit}
+                onDragOver={handleGlobalDragOver}
+                onDragLeave={handleGlobalDragLeave}
+                onDrop={handleGlobalDrop}
               >
-                <option value="FILEPATH">File Path</option>
-                <option value="URL">URL</option>
-                <option value="ENDPOINT">Endpoint</option>
-                <option value="UPLOADED_FILE">Uploaded File</option>
-              </Select>
-            </FormGroup>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    CSV NAME *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.csv_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, csv_name: e.target.value }))}
+                    placeholder="e.g., Sales Data, Customer List"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
+                  />
+                </div>
 
-            {formData.source_type === 'UPLOADED_FILE' ? (
-              <FormGroup>
-                <Label>Upload CSV File *</Label>
-                <FileUploadArea
-                  $isDragging={isDragging}
-                  $hasFile={!!uploadedFile}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FileUploadIcon>📁</FileUploadIcon>
-                  <FileUploadText>
-                    {uploadedFile
-                      ? `File: ${uploadedFile.name}`
-                      : isDragging
-                      ? 'Drop your CSV file here'
-                      : 'Click to upload or drag and drop'}
-                  </FileUploadText>
-                  <FileUploadHint>
-                    {uploadedFile
-                      ? formatFileSize(uploadedFile.size)
-                      : 'CSV files only, no size limit'}
-                  </FileUploadHint>
-                  {uploadedFile && (
-                    <FileInfo>
-                      <FileName>{uploadedFile.name}</FileName>
-                      <FileSize>{formatFileSize(uploadedFile.size)}</FileSize>
-                      <RemoveFileButton
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveFile();
-                        }}
-                      >
-                        Remove File
-                      </RemoveFileButton>
-                    </FileInfo>
-                  )}
-                  {isUploading && (
-                    <UploadProgress>{uploadProgress}</UploadProgress>
-                  )}
-                </FileUploadArea>
-                <HiddenFileInput
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={handleFileInputChange}
-                />
-                {formData.source_path && (
-                  <div style={{ marginTop: theme.spacing.xs, fontSize: '0.85em', color: theme.colors.text.secondary }}>
-                    Saved path: {formData.source_path}
-                  </div>
-                )}
-              </FormGroup>
-            ) : (
-              <FormGroup>
-                <Label>Source Path/URL *</Label>
-                <Input 
-                  type="text" 
-                  value={formData.source_path}
-                  onChange={(e) => setFormData(prev => ({ ...prev, source_path: e.target.value }))}
-                  placeholder={formData.source_type === 'URL' ? 'https://example.com/data.csv' : formData.source_type === 'FILEPATH' ? '/path/to/file.csv' : 'Endpoint path'}
-                />
-                {isAnalyzing && (
-                  <div style={{ marginTop: theme.spacing.xs, fontSize: '0.85em', color: theme.colors.primary.main }}>
-                    Analyzing CSV...
-                  </div>
-                )}
-                {analysisResult && !isAnalyzing && (
-                  <AnalysisResult>
-                    <div><strong>Analysis Results:</strong></div>
-                    <div>Delimiter: <code>{analysisResult.delimiter}</code></div>
-                    <div>Has Header: {analysisResult.has_header ? 'Yes' : 'No'}</div>
-                    <div>Skip Rows: {analysisResult.skip_rows}</div>
-                    {analysisResult.sample_lines && analysisResult.sample_lines.length > 0 && (
-                      <div style={{ marginTop: theme.spacing.xs }}>
-                        <div><strong>Sample (first 3 lines):</strong></div>
-                        <pre style={{ fontSize: '0.75em', overflow: 'auto', maxHeight: '100px', background: theme.colors.background.secondary, padding: theme.spacing.xs, borderRadius: theme.borderRadius.sm }}>
-                          {analysisResult.sample_lines.slice(0, 3).join('\n')}
-                        </pre>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    SOURCE TYPE *
+                  </label>
+                  <select
+                    value={formData.source_type}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      setFormData(prev => ({ ...prev, source_type: newType, source_path: newType !== 'UPLOADED_FILE' ? prev.source_path : '' }));
+                      if (newType !== 'UPLOADED_FILE') {
+                        setUploadedFile(null);
+                        setUploadProgress('');
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      cursor: "pointer",
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
+                  >
+                    <option value="FILEPATH">File Path</option>
+                    <option value="URL">URL</option>
+                    <option value="ENDPOINT">Endpoint</option>
+                    <option value="UPLOADED_FILE">Uploaded File</option>
+                  </select>
+                </div>
+
+                {formData.source_type === 'UPLOADED_FILE' ? (
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: asciiColors.foreground,
+                      marginBottom: 6,
+                      fontFamily: "Consolas",
+                      textTransform: "uppercase"
+                    }}>
+                      UPLOAD CSV FILE *
+                    </label>
+                    <div
+                      style={{
+                        border: `2px dashed ${isDragging ? asciiColors.accent : uploadedFile ? asciiColors.success : asciiColors.border}`,
+                        borderRadius: 2,
+                        padding: 24,
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                        backgroundColor: isDragging ? `${asciiColors.accentSoft}20` : uploadedFile ? asciiColors.backgroundSoft : asciiColors.background,
+                        fontFamily: "Consolas",
+                        fontSize: 12
+                      }}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      onMouseEnter={(e) => {
+                        if (!uploadedFile && !isDragging) {
+                          e.currentTarget.style.borderColor = asciiColors.accent;
+                          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!uploadedFile && !isDragging) {
+                          e.currentTarget.style.borderColor = asciiColors.border;
+                          e.currentTarget.style.backgroundColor = asciiColors.background;
+                        }
+                      }}
+                    >
+                      <div style={{ fontSize: 48, marginBottom: 12, color: asciiColors.accent }}>
+                        {ascii.blockFull}
                       </div>
-                    )}
-                  </AnalysisResult>
-                )}
-              </FormGroup>
-            )}
-
-            <FormGroup>
-              <CheckboxContainer>
-                <Checkbox
-                  type="checkbox"
-                  checked={formData.has_header}
-                  onChange={(e) => setFormData(prev => ({ ...prev, has_header: e.target.checked }))}
-                />
-                <Label style={{ margin: 0, cursor: 'pointer' }}>Has Header Row</Label>
-              </CheckboxContainer>
-            </FormGroup>
-
-            <FormGroup>
-              <Label>Delimiter</Label>
-              <Select
-                value={formData.delimiter}
-                onChange={(e) => setFormData(prev => ({ ...prev, delimiter: e.target.value }))}
-              >
-                <option value=",">Comma (,)</option>
-                <option value=";">Semicolon (;)</option>
-                <option value="\t">Tab</option>
-                <option value="|">Pipe (|)</option>
-              </Select>
-            </FormGroup>
-
-            <FormGroup>
-              <Label>Skip Rows</Label>
-              <Input 
-                type="number" 
-                value={formData.skip_rows}
-                onChange={(e) => setFormData(prev => ({ ...prev, skip_rows: parseInt(e.target.value) || 0 }))}
-                min="0"
-                placeholder="0"
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <CheckboxContainer>
-                <Checkbox
-                  type="checkbox"
-                  checked={formData.skip_empty_rows}
-                  onChange={(e) => setFormData(prev => ({ ...prev, skip_empty_rows: e.target.checked }))}
-                />
-                <Label style={{ margin: 0, cursor: 'pointer' }}>Skip Empty Rows</Label>
-              </CheckboxContainer>
-            </FormGroup>
-
-            <FormGroup>
-              <Label>Target DB Engine *</Label>
-              <Select
-                value={formData.target_db_engine}
-                onChange={(e) => setFormData(prev => ({ ...prev, target_db_engine: e.target.value }))}
-              >
-                <option value="">Select Engine</option>
-                <option value="PostgreSQL">PostgreSQL</option>
-                <option value="MariaDB">MariaDB</option>
-                <option value="MSSQL">MSSQL</option>
-                <option value="MongoDB">MongoDB</option>
-                <option value="Oracle">Oracle</option>
-              </Select>
-            </FormGroup>
-
-            <FormGroup>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <Label style={{ marginBottom: 0 }}>Target Connection String *</Label>
-                <Button
-                  type="button"
-                  $variant="secondary"
-                  onClick={handleTestConnection}
-                  disabled={isTestingConnection || !formData.target_db_engine || !formData.target_connection_string.trim()}
-                  style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
-                >
-                  {isTestingConnection ? 'Testing...' : 'Test Connection'}
-                </Button>
-              </div>
-              <Textarea
-                value={formData.target_connection_string}
-                onChange={(e) => {
-                  setFormData(prev => ({ 
-                    ...prev, 
-                    target_connection_string: e.target.value,
-                    target_schema: '',
-                    target_table: ''
-                  }));
-                  setConnectionTestResult(null);
-                  setSchemas([]);
-                  setTables([]);
-                }}
-                placeholder={connectionExample || "Enter connection string..."}
-              />
-              {connectionExample && (
-                <ConnectionStringExample>
-                  Example: {connectionExample}
-                </ConnectionStringExample>
-              )}
-              {connectionTestResult && (
-                <ConnectionTestResult $success={connectionTestResult.success}>
-                  {connectionTestResult.success ? '✓ ' : '✗ '}
-                  {connectionTestResult.message}
-                </ConnectionTestResult>
-              )}
-            </FormGroup>
-
-            {connectionTestResult?.success ? (
-              <>
-                <FormGroup>
-                  <Label>Target Schema *</Label>
-                  <div style={{ display: 'flex', gap: theme.spacing.xs }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                      <Input
-                        type="text"
-                        list="schema-list"
-                        value={formData.target_schema}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData(prev => ({ ...prev, target_schema: value.toLowerCase() }));
-                          if (value && schemas.includes(value)) {
-                            setShowCreateSchema(false);
-                            handleSchemaChange(value);
-                          } else if (value && !schemas.includes(value)) {
-                            setShowCreateSchema(true);
-                          } else {
-                            setShowCreateSchema(false);
-                          }
-                        }}
-                        disabled={isLoadingSchemas}
-                        placeholder={isLoadingSchemas ? 'Loading schemas...' : 'Type or select schema name'}
-                      />
-                      <datalist id="schema-list">
-                        {schemas.map((schema) => (
-                          <option key={schema} value={schema} />
-                        ))}
-                      </datalist>
-                    </div>
-                    {showCreateSchema && formData.target_schema && (
-                      <Button
-                        type="button"
-                        $variant="primary"
-                        onClick={handleCreateSchema}
-                        style={{ padding: '6px 12px', fontSize: '0.85em' }}
-                      >
-                        Create Schema
-                      </Button>
-                    )}
-                  </div>
-                  {formData.target_schema && !schemas.includes(formData.target_schema) && !showCreateSchema && (
-                    <div style={{ marginTop: theme.spacing.xs, fontSize: '0.85em', color: theme.colors.primary.main }}>
-                      Schema "{formData.target_schema}" will be created if it doesn't exist
-                    </div>
-                  )}
-                </FormGroup>
-
-                {formData.target_schema && (
-                  <FormGroup>
-                    <Label>Target Table *</Label>
-                    <div style={{ display: 'flex', gap: theme.spacing.xs }}>
-                      <div style={{ flex: 1, position: 'relative' }}>
-                        <Input
-                          type="text"
-                          list="table-list"
-                          value={formData.target_table}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setFormData(prev => ({ ...prev, target_table: value.toLowerCase() }));
-                            if (value && !tables.includes(value)) {
-                              setShowCreateTable(true);
-                            } else {
-                              setShowCreateTable(false);
-                            }
-                          }}
-                          disabled={isLoadingTables}
-                          placeholder={isLoadingTables ? 'Loading tables...' : 'Type or select table name'}
-                        />
-                        <datalist id="table-list">
-                          {tables.map((table) => (
-                            <option key={table} value={table} />
-                          ))}
-                        </datalist>
+                      <div style={{
+                        color: asciiColors.foreground,
+                        fontSize: 12,
+                        marginBottom: 6,
+                        fontFamily: "Consolas"
+                      }}>
+                        {uploadedFile
+                          ? `File: ${uploadedFile.name}`
+                          : isDragging
+                          ? 'Drop your CSV file here'
+                          : 'Click to upload or drag and drop'}
                       </div>
-                      {showCreateTable && formData.target_table && (
-                        <Button
-                          type="button"
-                          $variant="primary"
-                          onClick={handleCreateTable}
-                          style={{ padding: '6px 12px', fontSize: '0.85em' }}
-                        >
-                          Create Table
-                        </Button>
+                      <div style={{
+                        color: asciiColors.muted,
+                        fontSize: 11,
+                        fontFamily: "Consolas"
+                      }}>
+                        {uploadedFile
+                          ? formatFileSize(uploadedFile.size)
+                          : 'CSV files only, no size limit'}
+                      </div>
+                      {uploadedFile && (
+                        <div style={{
+                          marginTop: 12,
+                          padding: 12,
+                          backgroundColor: asciiColors.background,
+                          borderRadius: 2,
+                          border: `1px solid ${asciiColors.border}`
+                        }}>
+                          <div style={{
+                            fontWeight: 600,
+                            color: asciiColors.foreground,
+                            marginBottom: 6,
+                            fontFamily: "Consolas",
+                            fontSize: 12
+                          }}>
+                            {uploadedFile.name}
+                          </div>
+                          <div style={{
+                            fontSize: 11,
+                            color: asciiColors.muted,
+                            fontFamily: "Consolas"
+                          }}>
+                            {formatFileSize(uploadedFile.size)}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              handleRemoveFile();
+                            }}
+                            style={{
+                              marginTop: 8,
+                              padding: "6px 12px",
+                              backgroundColor: asciiColors.danger,
+                              color: asciiColors.background,
+                              border: "none",
+                              borderRadius: 2,
+                              cursor: "pointer",
+                              fontSize: 11,
+                              fontFamily: "Consolas",
+                              transition: "all 0.2s ease"
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = asciiColors.foreground;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = asciiColors.danger;
+                            }}
+                          >
+                            Remove File
+                          </button>
+                        </div>
+                      )}
+                      {isUploading && (
+                        <div style={{
+                          marginTop: 12,
+                          padding: 12,
+                          backgroundColor: `${asciiColors.accentSoft}20`,
+                          borderRadius: 2,
+                          color: asciiColors.accent,
+                          fontSize: 12,
+                          fontFamily: "Consolas"
+                        }}>
+                          {uploadProgress}
+                        </div>
                       )}
                     </div>
-                    {formData.target_table && !tables.includes(formData.target_table) && !showCreateTable && (
-                      <div style={{ marginTop: theme.spacing.xs, fontSize: '0.85em', color: theme.colors.primary.main }}>
-                        Table "{formData.target_table}" will be created if it doesn't exist
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={handleFileInputChange}
+                      style={{ display: "none" }}
+                    />
+                    {formData.source_path && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: asciiColors.muted, fontFamily: "Consolas" }}>
+                        Saved path: {formData.source_path}
                       </div>
                     )}
-                  </FormGroup>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: asciiColors.foreground,
+                      marginBottom: 6,
+                      fontFamily: "Consolas",
+                      textTransform: "uppercase"
+                    }}>
+                      SOURCE PATH/URL *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.source_path}
+                      onChange={(e) => setFormData(prev => ({ ...prev, source_path: e.target.value }))}
+                      placeholder={formData.source_type === 'URL' ? 'https://example.com/data.csv' : formData.source_type === 'FILEPATH' ? '/path/to/file.csv' : 'Endpoint path'}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
+                        fontSize: 12,
+                        fontFamily: "Consolas",
+                        backgroundColor: asciiColors.background,
+                        color: asciiColors.foreground,
+                        outline: "none"
+                      }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = asciiColors.accent;
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = asciiColors.border;
+                      }}
+                    />
+                    {isAnalyzing && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: asciiColors.accent, fontFamily: "Consolas" }}>
+                        Analyzing CSV...
+                      </div>
+                    )}
+                    {analysisResult && !isAnalyzing && (
+                      <div style={{
+                        marginTop: 12,
+                        padding: 12,
+                        backgroundColor: `${asciiColors.accentSoft}20`,
+                        borderRadius: 2,
+                        borderLeft: `3px solid ${asciiColors.accent}`,
+                        fontSize: 11,
+                        color: asciiColors.foreground,
+                        fontFamily: "Consolas"
+                      }}>
+                        <div style={{ fontWeight: 600, marginBottom: 8 }}>Analysis Results:</div>
+                        <div>Delimiter: <code style={{ fontFamily: "Consolas", backgroundColor: asciiColors.backgroundSoft, padding: "2px 6px", borderRadius: 2 }}>{analysisResult.delimiter}</code></div>
+                        <div>Has Header: {analysisResult.has_header ? 'Yes' : 'No'}</div>
+                        <div>Skip Rows: {analysisResult.skip_rows}</div>
+                        {analysisResult.sample_lines && analysisResult.sample_lines.length > 0 && (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>Sample (first 3 lines):</div>
+                            <pre style={{
+                              fontSize: 11,
+                              overflow: "auto",
+                              maxHeight: 100,
+                              background: asciiColors.backgroundSoft,
+                              padding: 8,
+                              borderRadius: 2,
+                              fontFamily: "Consolas",
+                              border: `1px solid ${asciiColors.border}`
+                            }}>
+                              {analysisResult.sample_lines.slice(0, 3).join('\n')}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
-              </>
-            ) : (
-              <>
-                <FormGroup>
-                  <Label>Target Schema *</Label>
-                  <Input
-                    type="text"
-                    value={formData.target_schema}
-                    onChange={(e) => setFormData(prev => ({ ...prev, target_schema: e.target.value.toLowerCase() }))}
-                    placeholder="schema_name"
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.has_header}
+                      onChange={(e) => setFormData(prev => ({ ...prev, has_header: e.target.checked }))}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        cursor: "pointer"
+                      }}
+                    />
+                    <label style={{
+                      margin: 0,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      color: asciiColors.foreground,
+                      fontFamily: "Consolas"
+                    }}>
+                      Has Header Row
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    DELIMITER
+                  </label>
+                  <select
+                    value={formData.delimiter}
+                    onChange={(e) => setFormData(prev => ({ ...prev, delimiter: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      cursor: "pointer",
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
+                  >
+                    <option value=",">Comma (,)</option>
+                    <option value=";">Semicolon (;)</option>
+                    <option value="\t">Tab</option>
+                    <option value="|">Pipe (|)</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    SKIP ROWS
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.skip_rows}
+                    onChange={(e) => setFormData(prev => ({ ...prev, skip_rows: parseInt(e.target.value) || 0 }))}
+                    min="0"
+                    placeholder="0"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
                   />
-                </FormGroup>
+                </div>
 
-                <FormGroup>
-                  <Label>Target Table *</Label>
-                  <Input
-                    type="text"
-                    value={formData.target_table}
-                    onChange={(e) => setFormData(prev => ({ ...prev, target_table: e.target.value.toLowerCase() }))}
-                    placeholder="table_name"
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.skip_empty_rows}
+                      onChange={(e) => setFormData(prev => ({ ...prev, skip_empty_rows: e.target.checked }))}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        cursor: "pointer"
+                      }}
+                    />
+                    <label style={{
+                      margin: 0,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      color: asciiColors.foreground,
+                      fontFamily: "Consolas"
+                    }}>
+                      Skip Empty Rows
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    TARGET DB ENGINE *
+                  </label>
+                  <select
+                    value={formData.target_db_engine}
+                    onChange={(e) => setFormData(prev => ({ ...prev, target_db_engine: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      cursor: "pointer",
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
+                  >
+                    <option value="">Select Engine</option>
+                    <option value="PostgreSQL">PostgreSQL</option>
+                    <option value="MariaDB">MariaDB</option>
+                    <option value="MSSQL">MSSQL</option>
+                    <option value="MongoDB">MongoDB</option>
+                    <option value="Oracle">Oracle</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: asciiColors.foreground,
+                      fontFamily: "Consolas",
+                      textTransform: "uppercase"
+                    }}>
+                      TARGET CONNECTION STRING *
+                    </label>
+                    <AsciiButton
+                      label={isTestingConnection ? 'Testing...' : 'Test Connection'}
+                      onClick={handleTestConnection}
+                      variant="ghost"
+                      disabled={isTestingConnection || !formData.target_db_engine || !formData.target_connection_string.trim()}
+                    />
+                  </div>
+                  <textarea
+                    value={formData.target_connection_string}
+                    onChange={(e) => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        target_connection_string: e.target.value,
+                        target_schema: '',
+                        target_table: ''
+                      }));
+                      setConnectionTestResult(null);
+                      setSchemas([]);
+                      setTables([]);
+                    }}
+                    placeholder={connectionExample || "Enter connection string..."}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none",
+                      minHeight: 100,
+                      resize: "vertical"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
                   />
-                </FormGroup>
-              </>
-            )}
+                  {connectionExample && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: 12,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      borderRadius: 2,
+                      borderLeft: `3px solid ${asciiColors.accent}`,
+                      fontFamily: "Consolas",
+                      fontSize: 11,
+                      color: asciiColors.muted,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-all"
+                    }}>
+                      Example: {connectionExample}
+                    </div>
+                  )}
+                  {connectionTestResult && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: "8px 12px",
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: connectionTestResult.success ? asciiColors.success : asciiColors.danger,
+                      color: asciiColors.background,
+                      border: `1px solid ${connectionTestResult.success ? asciiColors.success : asciiColors.danger}`
+                    }}>
+                      {connectionTestResult.success ? '✓ ' : '✗ '}
+                      {connectionTestResult.message}
+                    </div>
+                  )}
+                </div>
 
-            <FormGroup>
-              <Label>Sync Interval (seconds)</Label>
-              <Input
-                type="number"
-                value={formData.sync_interval}
-                onChange={(e) => setFormData(prev => ({ ...prev, sync_interval: parseInt(e.target.value) || 3600 }))}
-                min="60"
-                placeholder="3600"
-              />
-            </FormGroup>
+                {connectionTestResult?.success ? (
+                  <>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: asciiColors.foreground,
+                        marginBottom: 6,
+                        fontFamily: "Consolas",
+                        textTransform: "uppercase"
+                      }}>
+                        TARGET SCHEMA *
+                      </label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ flex: 1, position: 'relative' }}>
+                          <input
+                            type="text"
+                            list="schema-list"
+                            value={formData.target_schema}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData(prev => ({ ...prev, target_schema: value.toLowerCase() }));
+                              if (value && schemas.includes(value)) {
+                                setShowCreateSchema(false);
+                                handleSchemaChange(value);
+                              } else if (value && !schemas.includes(value)) {
+                                setShowCreateSchema(true);
+                              } else {
+                                setShowCreateSchema(false);
+                              }
+                            }}
+                            disabled={isLoadingSchemas}
+                            placeholder={isLoadingSchemas ? 'Loading schemas...' : 'Type or select schema name'}
+                            style={{
+                              width: "100%",
+                              padding: "8px 12px",
+                              border: `1px solid ${asciiColors.border}`,
+                              borderRadius: 2,
+                              fontSize: 12,
+                              fontFamily: "Consolas",
+                              backgroundColor: asciiColors.background,
+                              color: asciiColors.foreground,
+                              outline: "none"
+                            }}
+                            onFocus={(e) => {
+                              e.currentTarget.style.borderColor = asciiColors.accent;
+                            }}
+                            onBlur={(e) => {
+                              e.currentTarget.style.borderColor = asciiColors.border;
+                            }}
+                          />
+                          <datalist id="schema-list">
+                            {schemas.map((schema) => (
+                              <option key={schema} value={schema} />
+                            ))}
+                          </datalist>
+                        </div>
+                        {showCreateSchema && formData.target_schema && (
+                          <AsciiButton
+                            label="Create Schema"
+                            onClick={handleCreateSchema}
+                            variant="primary"
+                          />
+                        )}
+                      </div>
+                      {formData.target_schema && !schemas.includes(formData.target_schema) && !showCreateSchema && (
+                        <div style={{ marginTop: 8, fontSize: 11, color: asciiColors.accent, fontFamily: "Consolas" }}>
+                          Schema "{formData.target_schema}" will be created if it doesn't exist
+                        </div>
+                      )}
+                    </div>
 
-            <FormGroup>
-              <CheckboxContainer>
-                <Checkbox
-                  type="checkbox"
-                  checked={formData.active}
-                  onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
-                />
-                <Label style={{ margin: 0, cursor: 'pointer' }}>Active</Label>
-              </CheckboxContainer>
-            </FormGroup>
+                    {formData.target_schema && (
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{
+                          display: "block",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: asciiColors.foreground,
+                          marginBottom: 6,
+                          fontFamily: "Consolas",
+                          textTransform: "uppercase"
+                        }}>
+                          TARGET TABLE *
+                        </label>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <div style={{ flex: 1, position: 'relative' }}>
+                            <input
+                              type="text"
+                              list="table-list"
+                              value={formData.target_table}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setFormData(prev => ({ ...prev, target_table: value.toLowerCase() }));
+                                if (value && !tables.includes(value)) {
+                                  setShowCreateTable(true);
+                                } else {
+                                  setShowCreateTable(false);
+                                }
+                              }}
+                              disabled={isLoadingTables}
+                              placeholder={isLoadingTables ? 'Loading tables...' : 'Type or select table name'}
+                              style={{
+                                width: "100%",
+                                padding: "8px 12px",
+                                border: `1px solid ${asciiColors.border}`,
+                                borderRadius: 2,
+                                fontSize: 12,
+                                fontFamily: "Consolas",
+                                backgroundColor: asciiColors.background,
+                                color: asciiColors.foreground,
+                                outline: "none"
+                              }}
+                              onFocus={(e) => {
+                                e.currentTarget.style.borderColor = asciiColors.accent;
+                              }}
+                              onBlur={(e) => {
+                                e.currentTarget.style.borderColor = asciiColors.border;
+                              }}
+                            />
+                            <datalist id="table-list">
+                              {tables.map((table) => (
+                                <option key={table} value={table} />
+                              ))}
+                            </datalist>
+                          </div>
+                          {showCreateTable && formData.target_table && (
+                            <AsciiButton
+                              label="Create Table"
+                              onClick={handleCreateTable}
+                              variant="primary"
+                            />
+                          )}
+                        </div>
+                        {formData.target_table && !tables.includes(formData.target_table) && !showCreateTable && (
+                          <div style={{ marginTop: 8, fontSize: 11, color: asciiColors.accent, fontFamily: "Consolas" }}>
+                            Table "{formData.target_table}" will be created if it doesn't exist
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: asciiColors.foreground,
+                        marginBottom: 6,
+                        fontFamily: "Consolas",
+                        textTransform: "uppercase"
+                      }}>
+                        TARGET SCHEMA *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.target_schema}
+                        onChange={(e) => setFormData(prev => ({ ...prev, target_schema: e.target.value.toLowerCase() }))}
+                        placeholder="schema_name"
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          border: `1px solid ${asciiColors.border}`,
+                          borderRadius: 2,
+                          fontSize: 12,
+                          fontFamily: "Consolas",
+                          backgroundColor: asciiColors.background,
+                          color: asciiColors.foreground,
+                          outline: "none"
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.border;
+                        }}
+                      />
+                    </div>
 
-            {error && <ErrorMessage>{error}</ErrorMessage>}
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: asciiColors.foreground,
+                        marginBottom: 6,
+                        fontFamily: "Consolas",
+                        textTransform: "uppercase"
+                      }}>
+                        TARGET TABLE *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.target_table}
+                        onChange={(e) => setFormData(prev => ({ ...prev, target_table: e.target.value.toLowerCase() }))}
+                        placeholder="table_name"
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          border: `1px solid ${asciiColors.border}`,
+                          borderRadius: 2,
+                          fontSize: 12,
+                          fontFamily: "Consolas",
+                          backgroundColor: asciiColors.background,
+                          color: asciiColors.foreground,
+                          outline: "none"
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.border;
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
 
-            <ButtonGroup>
-              <Button type="button" $variant="secondary" onClick={handleClose}>
-                Cancel
-              </Button>
-              <Button type="submit" $variant="primary">
-                Save CSV Source
-              </Button>
-            </ButtonGroup>
-          </form>
-        </ModalContent>
-      </ModalOverlay>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    SYNC INTERVAL (SECONDS)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.sync_interval}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sync_interval: parseInt(e.target.value) || 3600 }))}
+                    min="60"
+                    placeholder="3600"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.active}
+                      onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        cursor: "pointer"
+                      }}
+                    />
+                    <label style={{
+                      margin: 0,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      color: asciiColors.foreground,
+                      fontFamily: "Consolas"
+                    }}>
+                      Active
+                    </label>
+                  </div>
+                </div>
+
+                {error && (
+                  <div style={{
+                    color: asciiColors.danger,
+                    backgroundColor: asciiColors.backgroundSoft,
+                    padding: "12px",
+                    borderRadius: 2,
+                    marginTop: 12,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    border: `1px solid ${asciiColors.danger}`
+                  }}>
+                    {error}
+                  </div>
+                )}
+
+                <div style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 12,
+                  marginTop: 20
+                }}>
+                  <AsciiButton
+                    label="Cancel"
+                    onClick={handleClose}
+                    variant="ghost"
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      padding: "8px 16px",
+                      border: `2px solid ${asciiColors.accent}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.accent,
+                      color: asciiColors.background,
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = asciiColors.foreground;
+                      e.currentTarget.style.borderColor = asciiColors.foreground;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = asciiColors.accent;
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                  >
+                    Save CSV Source
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        @keyframes slideUp {
+          from {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        @keyframes slideDown {
+          from {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </>
   );
 };

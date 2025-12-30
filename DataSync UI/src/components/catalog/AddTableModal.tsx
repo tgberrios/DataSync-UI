@@ -111,7 +111,7 @@ const ConnectionStringExample = styled.div`
   background: ${theme.colors.background.secondary};
   border-radius: ${theme.borderRadius.sm};
   border-left: 3px solid ${theme.colors.primary.main};
-  font-family: monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-size: 0.85em;
   color: ${theme.colors.text.secondary};
   white-space: pre-wrap;

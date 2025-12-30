@@ -18,7 +18,7 @@ const Sidebar = styled.div`
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  font-family: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace";
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-size: 12px;
 `;
 
@@ -36,6 +36,7 @@ const NavItem = styled(NavLink)`
   color: ${asciiColors.muted};
   text-decoration: none;
   font-size: 12px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   border-left: 2px solid transparent;
   transition: all 0.2s ease;
   position: relative;
@@ -62,6 +63,7 @@ const NavSubItem = styled(NavLink)`
   color: ${asciiColors.muted};
   text-decoration: none;
   font-size: 11px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   border-left: 2px solid transparent;
   transition: all 0.2s ease;
   position: relative;
@@ -85,13 +87,15 @@ const NavGroup = styled.div`
   margin-bottom: 5px;
 `;
 
-const NavGroupHeader = styled.div<{ $isOpen: boolean }>`
+const NavGroupHeader = styled.h2<{ $isOpen: boolean }>`
   display: flex;
   align-items: center;
   padding: 10px 20px;
   color: ${asciiColors.foreground};
-  font-size: 11px;
+  font-size: 14px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-weight: 600;
+  margin: 0;
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
@@ -107,7 +111,7 @@ const NavGroupHeader = styled.div<{ $isOpen: boolean }>`
   &::before {
     content: '${props => props.$isOpen ? ascii.arrowDown : ascii.arrowRight}';
     margin-right: 8px;
-    font-size: 10px;
+    font-size: 12px;
     transition: transform 0.3s ease;
     transform: ${props => props.$isOpen ? 'rotate(90deg)' : 'rotate(0deg)'};
     display: inline-block;
@@ -122,11 +126,13 @@ const NavGroupContent = styled.div<{ $isOpen: boolean }>`
   visibility: ${props => props.$isOpen ? 'visible' : 'hidden'};
 `;
 
-const Logo = styled.div`
+const Logo = styled.h1`
   padding: 16px 20px;
-  font-size: 14px;
+  font-size: 18px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   color: ${asciiColors.foreground};
   font-weight: 600;
+  margin: 0;
   border-bottom: 1px solid ${asciiColors.border};
   margin-bottom: 16px;
   transition: all 0.2s ease;
@@ -145,6 +151,7 @@ const UserInfo = styled.div`
 
 const UsernameDisplay = styled.div`
   font-size: 12px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-weight: 600;
   color: ${asciiColors.foreground};
   margin-bottom: 6px;
@@ -153,6 +160,7 @@ const UsernameDisplay = styled.div`
 
 const RoleDisplay = styled.div`
   font-size: 11px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-weight: 500;
   color: ${asciiColors.accent};
   margin-bottom: 12px;
@@ -170,6 +178,7 @@ const LogoutButton = styled.button`
   cursor: pointer;
   border-radius: 2px;
   font-size: 11px;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   transition: all 0.2s ease;
   
   &:hover {
@@ -208,7 +217,7 @@ const Layout = () => {
     <LayoutContainer>
       <Sidebar>
         <Logo>
-          {ascii.thickTl}{ascii.thickH.repeat(6)}{ascii.thickTr} DATASYNC
+          DATASYNC
         </Logo>
         
         <NavItem to="/" end>
@@ -241,6 +250,9 @@ const Layout = () => {
             </NavSubItem>
             <NavSubItem to="/custom-jobs">
               ■ Data Integration - Pipeline Orchestration
+            </NavSubItem>
+            <NavSubItem to="/data-warehouse">
+              ■ Data Integration - Data Warehouse
             </NavSubItem>
           </NavGroupContent>
         </NavGroup>

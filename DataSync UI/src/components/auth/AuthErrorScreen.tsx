@@ -71,7 +71,7 @@ const ErrorTitle = styled.h1`
   color: ${theme.colors.text.primary};
   font-size: 2em;
   margin-bottom: ${theme.spacing.md};
-  font-family: monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   letter-spacing: 1px;
 `;
 

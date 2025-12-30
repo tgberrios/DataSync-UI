@@ -1,203 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import styled, { keyframes } from 'styled-components';
-import {
-  Button,
-  Input,
-  FormGroup,
-  Label,
-  Select,
-} from '../shared/BaseComponents';
-import { theme } from '../../theme/theme';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const BlurOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  backdrop-filter: blur(5px);
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 999;
-  animation: ${fadeIn} 0.15s ease-in;
-`;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: ${fadeIn} 0.15s ease-in;
-`;
-
-const ModalContent = styled.div`
-  background: ${theme.colors.background.main};
-  padding: ${theme.spacing.xxl};
-  border-radius: ${theme.borderRadius.lg};
-  min-width: 700px;
-  max-width: 900px;
-  max-height: 90vh;
-  overflow-y: auto;
-  font-family: ${theme.fonts.primary};
-  box-shadow: ${theme.shadows.lg};
-  animation: ${slideUp} 0.2s ease-out;
-  border: 1px solid ${theme.colors.border.light};
-  
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
-`;
-
-const ModalHeader = styled.div`
-  border-bottom: 2px solid ${theme.colors.border.dark};
-  padding-bottom: ${theme.spacing.sm};
-  margin-bottom: ${theme.spacing.lg};
-  font-size: 1.2em;
-  font-weight: bold;
-  position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 60px;
-    height: 2px;
-    background: linear-gradient(90deg, ${theme.colors.primary.main}, ${theme.colors.primary.dark});
-  }
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: ${theme.spacing.sm};
-  margin-top: ${theme.spacing.lg};
-`;
-
-const ErrorMessage = styled.div`
-  color: ${theme.colors.status.error.text};
-  background: ${theme.colors.status.error.bg};
-  padding: ${theme.spacing.sm};
-  border-radius: ${theme.borderRadius.sm};
-  margin-top: ${theme.spacing.sm};
-  font-size: 0.9em;
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const ConnectionStringExample = styled.div`
-  margin-top: ${theme.spacing.xs};
-  padding: ${theme.spacing.sm};
-  background: ${theme.colors.background.secondary};
-  border-radius: ${theme.borderRadius.sm};
-  border-left: 3px solid ${theme.colors.primary.main};
-  font-family: monospace;
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  white-space: pre-wrap;
-  word-break: break-all;
-`;
-
-const CheckboxContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing.sm};
-`;
-
-const Checkbox = styled.input`
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-`;
-
-const HelpText = styled.div`
-  margin-top: ${theme.spacing.xs};
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
-  font-style: italic;
-`;
-
-const ConnectionTestResult = styled.div<{ $success: boolean }>`
-  margin-top: 8px;
-  padding: 8px 12px;
-  border-radius: ${theme.borderRadius.sm};
-  font-size: 0.9em;
-  background-color: ${props => props.$success 
-    ? theme.colors.status.success.bg 
-    : theme.colors.status.error.bg};
-  color: ${props => props.$success 
-    ? theme.colors.status.success.text 
-    : theme.colors.status.error.text};
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const AnalysisResult = styled.div`
-  margin-top: ${theme.spacing.sm};
-  padding: ${theme.spacing.sm};
-  background: ${theme.colors.primary.light + '20'};
-  border-radius: ${theme.borderRadius.sm};
-  border-left: 3px solid ${theme.colors.primary.main};
-  font-size: 0.85em;
-  color: ${theme.colors.text.primary};
-`;
-
-const Textarea = styled.textarea`
-  padding: 8px 12px;
-  border: 1px solid ${theme.colors.border.medium};
-  border-radius: ${theme.borderRadius.md};
-  font-family: ${theme.fonts.primary};
-  background: ${theme.colors.background.main};
-  color: ${theme.colors.text.primary};
-  font-size: 14px;
-  width: 100%;
-  min-height: 100px;
-  resize: vertical;
-  
-  &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary.main};
-    box-shadow: 0 0 0 2px ${theme.colors.primary.light}33;
-  }
-`;
 
 interface AddGoogleSheetsModalProps {
   onClose: () => void;
@@ -598,74 +402,288 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
 
   return (
     <>
-      <BlurOverlay style={{ animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in' }} onClick={handleClose} />
-      <ModalOverlay style={{ animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in' }}>
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalHeader>Add New Google Sheet Source</ModalHeader>
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: "blur(5px)",
+          background: "rgba(0, 0, 0, 0.3)",
+          zIndex: 999,
+          animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in'
+        }}
+        onClick={handleClose}
+      />
+      <div 
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000,
+          animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in'
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            handleClose();
+          }
+        }}
+      >
+        <div 
+          style={{
+            background: asciiColors.background,
+            padding: "24px",
+            borderRadius: 2,
+            minWidth: 700,
+            maxWidth: 900,
+            maxHeight: "90vh",
+            overflowY: "auto",
+            fontFamily: "Consolas",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            animation: "slideUp 0.2s ease-out",
+            border: `2px solid ${asciiColors.border}`
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 style={{
+            borderBottom: `2px solid ${asciiColors.border}`,
+            paddingBottom: "8px",
+            marginBottom: "20px",
+            fontSize: 14,
+            fontWeight: 600,
+            position: "relative",
+            fontFamily: "Consolas",
+            color: asciiColors.foreground,
+            textTransform: "uppercase"
+          }}>
+            <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+            ADD NEW GOOGLE SHEET SOURCE
+          </h2>
           
-          <form onSubmit={handleSubmit}>
-            <FormGroup>
-              <Label>Sheet Name *</Label>
-              <Input 
-                type="text" 
+          <form onSubmit={handleSubmit} style={{ fontFamily: "Consolas", fontSize: 12 }}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: asciiColors.foreground,
+                marginBottom: 6,
+                fontFamily: "Consolas",
+                textTransform: "uppercase"
+              }}>
+                {ascii.v} SHEET NAME *
+              </label>
+              <input
+                type="text"
                 value={formData.sheet_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, sheet_name: e.target.value }))}
                 placeholder="e.g., Sales Data, Customer List"
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: "none"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.accent;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.border;
+                }}
               />
-            </FormGroup>
+            </div>
 
-            <FormGroup>
-              <Label>Spreadsheet ID *</Label>
-              <Input 
-                type="text" 
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: asciiColors.foreground,
+                marginBottom: 6,
+                fontFamily: "Consolas",
+                textTransform: "uppercase"
+              }}>
+                {ascii.v} SPREADSHEET ID *
+              </label>
+              <input
+                type="text"
                 value={formData.spreadsheet_id}
                 onChange={(e) => setFormData(prev => ({ ...prev, spreadsheet_id: e.target.value }))}
                 placeholder="e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: "none"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.accent;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.border;
+                }}
               />
-              <HelpText>
+              <div style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: asciiColors.muted,
+                fontStyle: "italic",
+                fontFamily: "Consolas"
+              }}>
                 Found in the Google Sheets URL: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
-              </HelpText>
-            </FormGroup>
+              </div>
+            </div>
 
-            <FormGroup>
-              <Label>API Key</Label>
-              <Input 
-                type="text" 
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: asciiColors.foreground,
+                marginBottom: 6,
+                fontFamily: "Consolas",
+                textTransform: "uppercase"
+              }}>
+                {ascii.v} API KEY
+              </label>
+              <input
+                type="text"
                 value={formData.api_key}
                 onChange={(e) => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
                 placeholder="Google Sheets API Key (optional if using Access Token)"
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: "none"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.accent;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.border;
+                }}
               />
-              <HelpText>
+              <div style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: asciiColors.muted,
+                fontStyle: "italic",
+                fontFamily: "Consolas"
+              }}>
                 Get your API key from Google Cloud Console. Required if not using Access Token.
-              </HelpText>
-            </FormGroup>
+              </div>
+            </div>
 
-            <FormGroup>
-              <Label>Access Token</Label>
-              <Input 
-                type="text" 
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: asciiColors.foreground,
+                marginBottom: 6,
+                fontFamily: "Consolas",
+                textTransform: "uppercase"
+              }}>
+                {ascii.v} ACCESS TOKEN
+              </label>
+              <input
+                type="text"
                 value={formData.access_token}
                 onChange={(e) => setFormData(prev => ({ ...prev, access_token: e.target.value }))}
                 placeholder="OAuth2 Access Token (optional if using API Key)"
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: "none"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.accent;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.border;
+                }}
               />
-              <HelpText>
+              <div style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: asciiColors.muted,
+                fontStyle: "italic",
+                fontFamily: "Consolas"
+              }}>
                 OAuth2 access token for authenticated access. Required if not using API Key.
-              </HelpText>
-            </FormGroup>
+              </div>
+            </div>
 
-            <FormGroup>
-              <Label>Sheet / Range *</Label>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: asciiColors.foreground,
+                marginBottom: 6,
+                fontFamily: "Consolas",
+                textTransform: "uppercase"
+              }}>
+                {ascii.v} SHEET / RANGE *
+              </label>
               {isLoadingSheets ? (
-                <div style={{ padding: theme.spacing.sm, color: theme.colors.text.secondary, fontSize: '0.9em' }}>
-                  Loading sheets from spreadsheet...
+                <div style={{ padding: 8, color: asciiColors.muted, fontSize: 12, fontFamily: "Consolas" }}>
+                  {ascii.blockFull} Loading sheets from spreadsheet...
                 </div>
               ) : availableSheets.length > 0 ? (
                 <>
-                  <Select
+                  <select
                     value={formData.range}
                     onChange={(e) => {
                       const selectedRange = e.target.value;
                       setFormData(prev => ({ ...prev, range: selectedRange }));
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      cursor: "pointer",
+                      outline: "none",
+                      marginBottom: 8
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
                     }}
                   >
                     <option value="">Select Sheet</option>
@@ -679,64 +697,156 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                         {sheet.title} (A1:Z1000)
                       </option>
                     ))}
-                  </Select>
-                  <HelpText>
+                  </select>
+                  <div style={{
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: asciiColors.muted,
+                    fontStyle: "italic",
+                    fontFamily: "Consolas"
+                  }}>
                     Select a sheet from the dropdown or enter a custom range below
-                  </HelpText>
-                  <Input 
-                    type="text" 
+                  </div>
+                  <input
+                    type="text"
                     value={formData.range}
                     onChange={(e) => setFormData(prev => ({ ...prev, range: e.target.value }))}
                     placeholder="Or enter custom range: Sheet1!A1:C10"
-                    style={{ marginTop: theme.spacing.xs }}
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none",
+                      marginTop: 8
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
                   />
                 </>
               ) : (
                 <>
-                  <Input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.range}
                     onChange={(e) => setFormData(prev => ({ ...prev, range: e.target.value }))}
                     placeholder="e.g., Sheet1!A1:C10 or Sheet1"
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
                   />
-                  <HelpText>
+                  <div style={{
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: asciiColors.muted,
+                    fontStyle: "italic",
+                    fontFamily: "Consolas"
+                  }}>
                     {formData.spreadsheet_id && (formData.api_key || formData.access_token)
                       ? 'Enter range like "Sheet1!A1:C10" or just "Sheet1" for the entire sheet. Sheets will load automatically.'
                       : 'Enter range like "Sheet1!A1:C10" or just "Sheet1" for the entire sheet. Leave empty for default.'}
-                  </HelpText>
+                  </div>
                 </>
               )}
               {isAnalyzing && (
-                <div style={{ marginTop: theme.spacing.xs, fontSize: '0.85em', color: theme.colors.primary.main }}>
-                  Analyzing Google Sheet...
+                <div style={{ marginTop: 8, fontSize: 12, color: asciiColors.accent, fontFamily: "Consolas" }}>
+                  {ascii.blockFull} Analyzing Google Sheet...
                 </div>
               )}
               {analysisResult && !isAnalyzing && (
-                <AnalysisResult>
-                  <div><strong>Analysis Results:</strong></div>
+                <div style={{
+                  marginTop: 12,
+                  padding: 12,
+                  background: asciiColors.accentSoft + "20",
+                  borderRadius: 2,
+                  borderLeft: `3px solid ${asciiColors.accent}`,
+                  fontSize: 12,
+                  color: asciiColors.foreground,
+                  fontFamily: "Consolas"
+                }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Analysis Results:</div>
                   <div>Has Header: {analysisResult.has_header ? 'Yes' : 'No'}</div>
                   <div>Skip Rows: {analysisResult.skip_rows}</div>
                   <div>Columns: {analysisResult.column_count}</div>
                   <div>Rows (sample): {analysisResult.row_count}</div>
                   {analysisResult.sample_rows && analysisResult.sample_rows.length > 0 && (
-                    <div style={{ marginTop: theme.spacing.xs }}>
-                      <div><strong>Sample (first 3 rows):</strong></div>
-                      <pre style={{ fontSize: '0.75em', overflow: 'auto', maxHeight: '100px', background: theme.colors.background.secondary, padding: theme.spacing.xs, borderRadius: theme.borderRadius.sm }}>
-                        {analysisResult.sample_rows.slice(0, 3).map((row, idx) => 
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Sample (first 3 rows):</div>
+                      <pre style={{
+                        fontSize: 11,
+                        overflow: 'auto',
+                        maxHeight: '100px',
+                        background: asciiColors.backgroundSoft,
+                        padding: 8,
+                        borderRadius: 2,
+                        fontFamily: "Consolas",
+                        border: `1px solid ${asciiColors.border}`
+                      }}>
+                        {analysisResult.sample_rows.slice(0, 3).map((row, idx) =>
                           `${idx + 1}: ${row.map(cell => String(cell || '')).join(' | ')}`
                         ).join('\n')}
                       </pre>
                     </div>
                   )}
-                </AnalysisResult>
+                </div>
               )}
-            </FormGroup>
+            </div>
 
-            <FormGroup>
-              <Label>Target DB Engine *</Label>
-              <Select
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: asciiColors.foreground,
+                marginBottom: 6,
+                fontFamily: "Consolas",
+                textTransform: "uppercase"
+              }}>
+                {ascii.v} TARGET DB ENGINE *
+              </label>
+              <select
                 value={formData.target_db_engine}
                 onChange={(e) => setFormData(prev => ({ ...prev, target_db_engine: e.target.value }))}
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  cursor: "pointer",
+                  outline: "none"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.accent;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.border;
+                }}
               >
                 <option value="">Select Engine</option>
                 <option value="PostgreSQL">PostgreSQL</option>
@@ -744,27 +854,32 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                 <option value="MSSQL">MSSQL</option>
                 <option value="MongoDB">MongoDB</option>
                 <option value="Oracle">Oracle</option>
-              </Select>
-            </FormGroup>
+              </select>
+            </div>
 
-            <FormGroup>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <Label style={{ marginBottom: 0 }}>Target Connection String *</Label>
-                <Button
-                  type="button"
-                  $variant="secondary"
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  fontFamily: "Consolas",
+                  textTransform: "uppercase"
+                }}>
+                  {ascii.v} TARGET CONNECTION STRING *
+                </label>
+                <AsciiButton
+                  label={isTestingConnection ? 'Testing...' : 'Test Connection'}
                   onClick={handleTestConnection}
+                  variant="ghost"
                   disabled={isTestingConnection || !formData.target_db_engine || !formData.target_connection_string.trim()}
-                  style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
-                >
-                  {isTestingConnection ? 'Testing...' : 'Test Connection'}
-                </Button>
+                />
               </div>
-              <Textarea
+              <textarea
                 value={formData.target_connection_string}
                 onChange={(e) => {
-                  setFormData(prev => ({ 
-                    ...prev, 
+                  setFormData(prev => ({
+                    ...prev,
                     target_connection_string: e.target.value,
                     target_schema: '',
                     target_table: ''
@@ -774,27 +889,75 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                   setTables([]);
                 }}
                 placeholder={connectionExample || "Enter connection string..."}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  minHeight: 100,
+                  resize: "vertical",
+                  outline: "none"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.accent;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.border;
+                }}
               />
               {connectionExample && (
-                <ConnectionStringExample>
+                <div style={{
+                  marginTop: 8,
+                  padding: 8,
+                  background: asciiColors.backgroundSoft,
+                  borderRadius: 2,
+                  borderLeft: `3px solid ${asciiColors.accent}`,
+                  fontFamily: "Consolas",
+                  fontSize: 11,
+                  color: asciiColors.muted,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-all"
+                }}>
                   Example: {connectionExample}
-                </ConnectionStringExample>
+                </div>
               )}
               {connectionTestResult && (
-                <ConnectionTestResult $success={connectionTestResult.success}>
+                <div style={{
+                  marginTop: 8,
+                  padding: "8px 12px",
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: connectionTestResult.success ? asciiColors.success : asciiColors.danger,
+                  color: asciiColors.background
+                }}>
                   {connectionTestResult.success ? '✓ ' : '✗ '}
                   {connectionTestResult.message}
-                </ConnectionTestResult>
+                </div>
               )}
-            </FormGroup>
+            </div>
 
             {connectionTestResult?.success ? (
               <>
-                <FormGroup>
-                  <Label>Target Schema *</Label>
-                  <div style={{ display: 'flex', gap: theme.spacing.xs }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    {ascii.v} TARGET SCHEMA *
+                  </label>
+                  <div style={{ display: 'flex', gap: 8 }}>
                     <div style={{ flex: 1, position: 'relative' }}>
-                      <Input
+                      <input
                         type="text"
                         list="schema-list-gs"
                         value={formData.target_schema}
@@ -812,6 +975,23 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                         }}
                         disabled={isLoadingSchemas}
                         placeholder={isLoadingSchemas ? 'Loading schemas...' : 'Type or select schema name'}
+                        style={{
+                          width: "100%",
+                          padding: "6px 10px",
+                          border: `1px solid ${asciiColors.border}`,
+                          borderRadius: 2,
+                          fontSize: 12,
+                          fontFamily: "Consolas",
+                          backgroundColor: asciiColors.background,
+                          color: asciiColors.foreground,
+                          outline: "none"
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.accent;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = asciiColors.border;
+                        }}
                       />
                       <datalist id="schema-list-gs">
                         {schemas.map((schema) => (
@@ -820,29 +1000,36 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                       </datalist>
                     </div>
                     {showCreateSchema && formData.target_schema && (
-                      <Button
-                        type="button"
-                        $variant="primary"
+                      <AsciiButton
+                        label="Create Schema"
                         onClick={handleCreateSchema}
-                        style={{ padding: '6px 12px', fontSize: '0.85em' }}
-                      >
-                        Create Schema
-                      </Button>
+                        variant="primary"
+                      />
                     )}
                   </div>
                   {formData.target_schema && !schemas.includes(formData.target_schema) && !showCreateSchema && (
-                    <div style={{ marginTop: theme.spacing.xs, fontSize: '0.85em', color: theme.colors.primary.main }}>
+                    <div style={{ marginTop: 6, fontSize: 11, color: asciiColors.accent, fontFamily: "Consolas" }}>
                       Schema "{formData.target_schema}" will be created if it doesn't exist
                     </div>
                   )}
-                </FormGroup>
+                </div>
 
                 {formData.target_schema && (
-                  <FormGroup>
-                    <Label>Target Table *</Label>
-                    <div style={{ display: 'flex', gap: theme.spacing.xs }}>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{
+                      display: "block",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: asciiColors.foreground,
+                      marginBottom: 6,
+                      fontFamily: "Consolas",
+                      textTransform: "uppercase"
+                    }}>
+                      {ascii.v} TARGET TABLE *
+                    </label>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <div style={{ flex: 1, position: 'relative' }}>
-                        <Input
+                        <input
                           type="text"
                           list="table-list-gs"
                           value={formData.target_table}
@@ -857,6 +1044,23 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                           }}
                           disabled={isLoadingTables}
                           placeholder={isLoadingTables ? 'Loading tables...' : 'Type or select table name'}
+                          style={{
+                            width: "100%",
+                            padding: "6px 10px",
+                            border: `1px solid ${asciiColors.border}`,
+                            borderRadius: 2,
+                            fontSize: 12,
+                            fontFamily: "Consolas",
+                            backgroundColor: asciiColors.background,
+                            color: asciiColors.foreground,
+                            outline: "none"
+                          }}
+                          onFocus={(e) => {
+                            e.currentTarget.style.borderColor = asciiColors.accent;
+                          }}
+                          onBlur={(e) => {
+                            e.currentTarget.style.borderColor = asciiColors.border;
+                          }}
                         />
                         <datalist id="table-list-gs">
                           {tables.map((table) => (
@@ -865,83 +1069,234 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                         </datalist>
                       </div>
                       {showCreateTable && formData.target_table && (
-                        <Button
-                          type="button"
-                          $variant="primary"
+                        <AsciiButton
+                          label="Create Table"
                           onClick={handleCreateTable}
-                          style={{ padding: '6px 12px', fontSize: '0.85em' }}
-                        >
-                          Create Table
-                        </Button>
+                          variant="primary"
+                        />
                       )}
                     </div>
                     {formData.target_table && !tables.includes(formData.target_table) && !showCreateTable && (
-                      <div style={{ marginTop: theme.spacing.xs, fontSize: '0.85em', color: theme.colors.primary.main }}>
+                      <div style={{ marginTop: 6, fontSize: 11, color: asciiColors.accent, fontFamily: "Consolas" }}>
                         Table "{formData.target_table}" will be created if it doesn't exist
                       </div>
                     )}
-                  </FormGroup>
+                  </div>
                 )}
               </>
             ) : (
               <>
-                <FormGroup>
-                  <Label>Target Schema *</Label>
-                  <Input
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    {ascii.v} TARGET SCHEMA *
+                  </label>
+                  <input
                     type="text"
                     value={formData.target_schema}
                     onChange={(e) => setFormData(prev => ({ ...prev, target_schema: e.target.value.toLowerCase() }))}
                     placeholder="schema_name"
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
                   />
-                </FormGroup>
+                </div>
 
-                <FormGroup>
-                  <Label>Target Table *</Label>
-                  <Input
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: "Consolas",
+                    textTransform: "uppercase"
+                  }}>
+                    {ascii.v} TARGET TABLE *
+                  </label>
+                  <input
                     type="text"
                     value={formData.target_table}
                     onChange={(e) => setFormData(prev => ({ ...prev, target_table: e.target.value.toLowerCase() }))}
                     placeholder="table_name"
+                    style={{
+                      width: "100%",
+                      padding: "6px 10px",
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: "Consolas",
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: "none"
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                    }}
                   />
-                </FormGroup>
+                </div>
               </>
             )}
 
-            <FormGroup>
-              <Label>Sync Interval (seconds)</Label>
-              <Input
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: asciiColors.foreground,
+                marginBottom: 6,
+                fontFamily: "Consolas",
+                textTransform: "uppercase"
+              }}>
+                {ascii.v} SYNC INTERVAL (SECONDS)
+              </label>
+              <input
                 type="number"
                 value={formData.sync_interval}
                 onChange={(e) => setFormData(prev => ({ ...prev, sync_interval: parseInt(e.target.value) || 3600 }))}
                 min="60"
                 placeholder="3600"
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: "none"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.accent;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = asciiColors.border;
+                }}
               />
-            </FormGroup>
+            </div>
 
-            <FormGroup>
-              <CheckboxContainer>
-                <Checkbox
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
                   type="checkbox"
                   checked={formData.active}
                   onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    cursor: "pointer"
+                  }}
                 />
-                <Label style={{ margin: 0, cursor: 'pointer' }}>Active</Label>
-              </CheckboxContainer>
-            </FormGroup>
+                <label style={{
+                  margin: 0,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  color: asciiColors.foreground
+                }}>
+                  Active
+                </label>
+              </div>
+            </div>
 
-            {error && <ErrorMessage>{error}</ErrorMessage>}
+            {error && (
+              <div style={{
+                color: asciiColors.danger,
+                background: asciiColors.danger + "20",
+                padding: 12,
+                borderRadius: 2,
+                marginTop: 12,
+                fontSize: 12,
+                fontFamily: "Consolas",
+                border: `1px solid ${asciiColors.danger}`
+              }}>
+                {error}
+              </div>
+            )}
 
-            <ButtonGroup>
-              <Button type="button" $variant="secondary" onClick={handleClose}>
-                Cancel
-              </Button>
-              <Button type="submit" $variant="primary">
+            <div style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 8,
+              marginTop: 20
+            }}>
+              <AsciiButton
+                label="Cancel"
+                onClick={handleClose}
+                variant="ghost"
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: "6px 16px",
+                  border: `1px solid ${asciiColors.accent}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.accent,
+                  color: asciiColors.background,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  outline: "none"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = asciiColors.accentSoft;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = asciiColors.accent;
+                }}
+              >
                 Save Google Sheet Source
-              </Button>
-            </ButtonGroup>
+              </button>
+            </div>
           </form>
-        </ModalContent>
-      </ModalOverlay>
+        </div>
+      </div>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </>
   );
 };

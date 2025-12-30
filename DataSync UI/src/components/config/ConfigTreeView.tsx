@@ -191,7 +191,7 @@ const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
 
 const TreeLine = styled.span`
   color: ${theme.colors.text.secondary};
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   margin-right: 4px;
   font-size: 0.9em;
 `;
@@ -218,7 +218,7 @@ const ConfigItemRow = styled.div<{ $level: number; $isSelected?: boolean }>`
 const ConfigKey = styled.span`
   font-weight: 600;
   color: ${theme.colors.text.primary};
-  font-family: monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-size: 0.9em;
   margin-right: 12px;
 `;
@@ -226,7 +226,7 @@ const ConfigKey = styled.span`
 const ConfigValue = styled.span`
   color: ${theme.colors.text.secondary};
   font-size: 0.85em;
-  font-family: monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -260,7 +260,7 @@ const EmptyStateIcon = styled.div`
   font-size: 3em;
   margin-bottom: ${theme.spacing.md};
   animation: ${fadeIn} 0.5s ease-out;
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   opacity: 0.5;
 `;
 

@@ -19,6 +19,17 @@ const fadeIn = keyframes`
   }
 `;
 
+const fadeInUp = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
 const slideDown = keyframes`
   from {
     max-height: 0;
@@ -38,6 +49,64 @@ const slideUp = keyframes`
   to {
     max-height: 0;
     opacity: 0;
+  }
+`;
+
+const smoothUpdate = keyframes`
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+`;
+
+const pulse = keyframes`
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+`;
+
+const GlobalStyles = styled.div`
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes smoothUpdate {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes dataPulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
 `;
 
@@ -165,7 +234,7 @@ const StatLabel = styled.div`
 `;
 
 const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family: "Consolas";
   font-size: 0.95em;
 `;
 
@@ -309,7 +378,7 @@ const QueryPreview = styled.div`
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-top: 4px;
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas";
 `;
 
 const KillButton = styled.button`
@@ -416,7 +485,7 @@ const QueryText = styled.pre`
   overflow-x: auto;
   font-size: 0.85em;
   border: 1px solid ${theme.colors.border.light};
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas";
   white-space: pre-wrap;
   word-wrap: break-word;
 `;
@@ -591,7 +660,7 @@ const GridLine = styled.line`
 const AxisLabel = styled.text`
   font-size: 10px;
   fill: ${theme.colors.text.secondary};
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Consolas";
 `;
 
 const AxisLine = styled.line`
@@ -643,251 +712,118 @@ const TooltipValue = styled.div`
   font-size: 0.9em;
 `;
 
-const SystemResourcesChart: React.FC<{
-  datasets: Array<{ data: number[]; symbol: string; name: string }>;
-  labels: string[];
-}> = ({ datasets, labels }) => {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 460 });
-  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; name: string; value: number } | null>(null);
+const AsciiSparkline: React.FC<{
+  data: number[];
+  color: string;
+  height?: number;
+  width?: number;
+  labels?: string[];
+}> = ({ data, color, height = 4, width = 30, labels }) => {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (chartRef.current) {
-        const rect = chartRef.current.getBoundingClientRect();
-        setDimensions({
-          width: Math.max(rect.width, 800),
-          height: Math.max(rect.height, 460),
-        });
-      }
-    };
-
-    updateDimensions();
-    const resizeObserver = new ResizeObserver(updateDimensions);
-    if (chartRef.current) {
-      resizeObserver.observe(chartRef.current);
-    }
-    window.addEventListener("resize", updateDimensions);
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateDimensions);
-    };
-  }, []);
-
-  if (datasets.length === 0 || datasets[0].data.length === 0) {
-    return (
-      <ChartArea ref={chartRef}>
-        <div style={{ textAlign: "center", padding: "100px 0", color: theme.colors.text.secondary }}>
-          No data available
-        </div>
-      </ChartArea>
-    );
+  if (!data || data.length === 0) {
+    return <span style={{ color: asciiColors.muted }}>{ascii.dot.repeat(width)}</span>;
   }
 
-  const padding = { top: 20, right: 40, bottom: 40, left: 60 };
-  const chartWidth = dimensions.width - padding.left - padding.right;
-  const chartHeight = dimensions.height - padding.top - padding.bottom;
-
-  const allValues = datasets.flatMap((d) => d.data);
-  const min = Math.min(...allValues);
-  const max = Math.max(...allValues);
+  const sparklineData = data.slice(-width);
+  const sparklineLabels = labels ? labels.slice(-width) : [];
+  const min = Math.min(...sparklineData);
+  const max = Math.max(...sparklineData);
   const range = max - min || 1;
 
-  const colorMap: Record<string, string> = {
-    "CPU Usage (%)": "#1976d2",
-    "Memory (%)": "#0d47a1",
-    "Network (IOPS)": "#1565c0",
-    "Throughput (RPS)": "#424242",
-    "DB Connections (%)": "#2e7d32",
-    "DB Queries/sec": "#388e3c",
-    "DB Query Efficiency (%)": "#66bb6a",
-  };
-  const lineWidth = 2;
-
-  const normalizeY = (value: number) => {
-    return chartHeight - ((value - min) / range) * chartHeight;
+  const sparklineChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+  
+  const getChar = (value: number) => {
+    if (range === 0) return sparklineChars[0];
+    const normalized = (value - min) / range;
+    const index = Math.floor(normalized * (sparklineChars.length - 1));
+    return sparklineChars[Math.max(0, Math.min(sparklineChars.length - 1, index))];
   };
 
-  const getX = (index: number) => {
-    return (index / (labels.length - 1)) * chartWidth;
-  };
-
-  const createPath = (data: number[]): string => {
-    if (data.length === 0) return "";
-    if (data.length === 1) {
-      const x = getX(0);
-      const y = normalizeY(data[0]);
-      return `M ${x} ${y}`;
+  const handleMouseMove = (e: React.MouseEvent<HTMLSpanElement>, index: number) => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setTooltipPosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top - 30
+      });
+      setHoveredIndex(index);
     }
-
-    const points = data.map((value, index) => ({
-      x: getX(index),
-      y: normalizeY(value),
-    }));
-
-    let path = `M ${points[0].x} ${points[0].y}`;
-
-    for (let i = 0; i < points.length - 1; i++) {
-      const current = points[i];
-      const next = points[i + 1];
-      const afterNext = points[i + 2];
-
-      if (afterNext) {
-        const cp1x = current.x + (next.x - current.x) / 2;
-        const cp1y = current.y;
-        const cp2x = next.x - (afterNext.x - next.x) / 2;
-        const cp2y = next.y;
-        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
-      } else {
-        const cp1x = current.x + (next.x - current.x) / 2;
-        const cp1y = current.y;
-        const cp2x = next.x;
-        const cp2y = next.y;
-        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
-      }
-    }
-
-    return path;
   };
 
-  const yAxisLabels: number[] = [];
-  const yAxisCount = 8;
-  for (let i = 0; i <= yAxisCount; i++) {
-    const value = max - (range / yAxisCount) * i;
-    yAxisLabels.push(value);
-  }
-
-  const xAxisLabels: string[] = [];
-  const xAxisCount = 6;
-  for (let i = 0; i <= xAxisCount; i++) {
-    const idx = Math.floor((i / xAxisCount) * (labels.length - 1));
-    xAxisLabels.push(labels[idx] || "");
-  }
+  const handleMouseLeave = () => {
+    setHoveredIndex(null);
+    setTooltipPosition(null);
+  };
 
   return (
-    <ChartArea ref={chartRef} style={{ position: 'relative' }}>
-      {hoveredPoint && (
-        <Tooltip $x={hoveredPoint.x} $y={hoveredPoint.y} $visible={true}>
-          <TooltipLabel>{hoveredPoint.name}</TooltipLabel>
-          <TooltipValue>{hoveredPoint.value.toFixed(2)}</TooltipValue>
-        </Tooltip>
+    <div 
+      ref={containerRef}
+      style={{ 
+        position: "relative",
+        display: "inline-block"
+      }}
+      onMouseLeave={handleMouseLeave}
+    >
+      <span style={{ 
+        color, 
+        fontFamily: "Consolas",
+        fontSize: 11,
+        letterSpacing: 0,
+        lineHeight: 1,
+        display: "inline-block"
+      }}>
+        {sparklineData.map((val, idx) => (
+          <span
+            key={idx}
+            onMouseMove={(e) => handleMouseMove(e, idx)}
+            style={{
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              transform: hoveredIndex === idx ? "scale(1.2)" : "scale(1)",
+              display: "inline-block",
+              position: "relative"
+            }}
+          >
+            {getChar(val)}
+          </span>
+        ))}
+      </span>
+      {hoveredIndex !== null && tooltipPosition && (
+        <div
+          style={{
+            position: "absolute",
+            left: `${tooltipPosition.x}px`,
+            top: `${tooltipPosition.y}px`,
+            transform: "translateX(-50%)",
+            backgroundColor: asciiColors.background,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: "6px 10px",
+            fontSize: 10,
+            fontFamily: "Consolas",
+            color: asciiColors.foreground,
+            whiteSpace: "nowrap",
+            zIndex: 1000,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            pointerEvents: "none",
+            animation: "fadeInUp 0.15s ease-out",
+            transition: "opacity 0.15s ease, transform 0.15s ease"
+          }}
+        >
+          <div style={{ color: asciiColors.accent, fontWeight: 600, marginBottom: 2 }}>
+            {sparklineData[hoveredIndex].toFixed(2)}
+          </div>
+          {sparklineLabels[hoveredIndex] && (
+            <div style={{ color: asciiColors.muted, fontSize: 9 }}>
+              {new Date(sparklineLabels[hoveredIndex]).toLocaleTimeString()}
+            </div>
+          )}
+        </div>
       )}
-      <SVGChart viewBox={`0 0 ${dimensions.width} ${dimensions.height}`} preserveAspectRatio="none">
-        <defs>
-          {datasets.map((dataset, idx) => {
-            const color = colorMap[dataset.name] || theme.colors.status.info.text;
-            return (
-              <linearGradient key={idx} id={`gradient-${idx}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor={color} stopOpacity="0.15" />
-                <stop offset="100%" stopColor={color} stopOpacity="0" />
-              </linearGradient>
-            );
-          })}
-        </defs>
-        <g transform={`translate(${padding.left}, ${padding.top})`}>
-          {yAxisLabels.map((value, i) => {
-            const y = normalizeY(value);
-            return (
-              <g key={`y-axis-${i}`}>
-                <GridLine x1={0} y1={y} x2={chartWidth} y2={y} />
-                <AxisLabel x={-10} y={y + 4} textAnchor="end">
-                  {value.toFixed(1)}
-                </AxisLabel>
-              </g>
-            );
-          })}
-
-          {xAxisLabels.map((label, i) => {
-            const x = (i / xAxisCount) * chartWidth;
-            return (
-              <g key={`x-axis-${i}`}>
-                <AxisLabel x={x} y={chartHeight + 20} textAnchor="middle">
-                  {label.length > 5 ? label.substring(0, 5) : label}
-                </AxisLabel>
-              </g>
-            );
-          })}
-
-          <AxisLine x1={0} y1={0} x2={0} y2={chartHeight} />
-          <AxisLine x1={0} y1={chartHeight} x2={chartWidth} y2={chartHeight} />
-
-          {datasets.map((dataset, idx) => {
-            const path = createPath(dataset.data);
-            const areaPath = path + ` L ${getX(dataset.data.length - 1)} ${chartHeight} L ${getX(0)} ${chartHeight} Z`;
-            const color = colorMap[dataset.name] || theme.colors.status.info.text;
-            const pathKey = `${dataset.name}-${idx}`;
-
-            return (
-              <g key={pathKey}>
-                <ChartAreaPath
-                  as="path"
-                  d={areaPath}
-                  fill={`url(#gradient-${idx})`}
-                />
-                <ChartPath
-                  as="path"
-                  d={path}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={lineWidth + 1}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ cursor: 'pointer' }}
-                  onMouseEnter={() => {
-                    const rect = chartRef.current?.getBoundingClientRect();
-                    if (rect && dataset.data.length > 0) {
-                      const lastIndex = dataset.data.length - 1;
-                      const x = getX(lastIndex) + padding.left + rect.left;
-                      const y = normalizeY(dataset.data[lastIndex]) + padding.top + rect.top;
-                      setHoveredPoint({
-                        x: x - rect.left,
-                        y: y - rect.top,
-                        name: dataset.name,
-                        value: dataset.data[lastIndex]
-                      });
-                    }
-                  }}
-                  onMouseLeave={() => setHoveredPoint(null)}
-                />
-                {dataset.data.length > 0 && (() => {
-                  const lastIdx = dataset.data.length - 1;
-                  const x = getX(lastIdx);
-                  const y = normalizeY(dataset.data[lastIdx]);
-                  
-                  return (
-                    <g key={`point-${lastIdx}`}>
-                      <circle
-                        cx={x}
-                        cy={y}
-                        r={5}
-                        fill={color}
-                        stroke={theme.colors.background.main}
-                        strokeWidth={2}
-                        style={{ cursor: 'pointer' }}
-                        onMouseEnter={() => {
-                          const rect = chartRef.current?.getBoundingClientRect();
-                          if (rect) {
-                            const absX = x + padding.left + rect.left;
-                            const absY = y + padding.top + rect.top;
-                            setHoveredPoint({
-                              x: absX - rect.left,
-                              y: absY - rect.top,
-                              name: dataset.name,
-                              value: dataset.data[lastIdx]
-                            });
-                          }
-                        }}
-                        onMouseLeave={() => setHoveredPoint(null)}
-                      />
-                    </g>
-                  );
-                })()}
-              </g>
-            );
-          })}
-        </g>
-      </SVGChart>
-    </ChartArea>
+    </div>
   );
 };
 
@@ -922,7 +858,7 @@ const EventHeader = styled.div`
 const EventTime = styled.div`
   font-size: 0.75em;
   color: ${theme.colors.text.secondary};
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas";
 `;
 
 const EventInfo = styled.div`
@@ -1479,7 +1415,7 @@ const UnifiedMonitor: React.FC = () => {
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
                             marginTop: 4,
-                            fontFamily: "monospace"
+                            fontFamily: "Consolas"
                           }}>
                             {item.query?.substring(0, 60)}...
                           </div>
@@ -1494,7 +1430,7 @@ const UnifiedMonitor: React.FC = () => {
                             fontSize: 10,
                             color: asciiColors.muted,
                             marginTop: 4,
-                            fontFamily: "monospace"
+                            fontFamily: "Consolas"
                           }}>
                             {item.db_engine} {ascii.v} {formatDate(item.processed_at)}
                           </div>
@@ -1512,7 +1448,7 @@ const UnifiedMonitor: React.FC = () => {
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
                             marginTop: 4,
-                            fontFamily: "monospace"
+                            fontFamily: "Consolas"
                           }}>
                             {item.query_text?.substring(0, 60)}...
                           </div>
@@ -1527,7 +1463,7 @@ const UnifiedMonitor: React.FC = () => {
                             fontSize: 10,
                             color: asciiColors.muted,
                             marginTop: 4,
-                            fontFamily: "monospace"
+                            fontFamily: "Consolas"
                           }}>
                             {item.db_engine} {ascii.v} {formatDate(item.created_at)}
                           </div>
@@ -1643,110 +1579,146 @@ const UnifiedMonitor: React.FC = () => {
         : 0;
 
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.lg, marginBottom: theme.spacing.lg }}>
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Distribution by Tier
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-              {Object.entries(tierDistribution).map(([tier, count]) => {
-                const total = Object.values(tierDistribution).reduce((a, b) => a + b, 0);
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground,
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 16,
+          marginBottom: 16
+        }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} DISTRIBUTION BY TIER
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Object.entries(tierDistribution).map(([tier, count], idx, arr) => {
+                const total = Object.values(tierDistribution).reduce((a: number, b: number) => a + b, 0);
                 const percentage = total > 0 ? (count / total) * 100 : 0;
-                const colors: Record<string, string> = {
-                  EXCELLENT: '#4caf50',
-                  GOOD: '#8bc34a',
-                  FAIR: '#ff9800',
-                  POOR: '#f44336',
+                const isLast = idx === arr.length - 1;
+                const tierColors: Record<string, string> = {
+                  EXCELLENT: asciiColors.success,
+                  GOOD: asciiColors.accent,
+                  FAIR: asciiColors.warning,
+                  POOR: asciiColors.danger,
                 };
                 return (
-                  <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                    <div style={{ 
-                      width: '12px', 
-                      height: '12px', 
-                      borderRadius: '50%', 
-                      background: colors[tier] || theme.colors.primary.main 
-                    }} />
-                    <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary }}>
+                  <div key={tier} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '4px 0',
+                    fontFamily: "Consolas",
+                    fontSize: 11
+                  }}>
+                    <span style={{ color: asciiColors.muted, width: 20 }}>
+                      {isLast ? ascii.cornerBl : ascii.v}
+                    </span>
+                    <span style={{ color: tierColors[tier] || asciiColors.accent, width: 12 }}>
+                      {ascii.blockFull}
+                    </span>
+                    <span style={{ flex: 1, color: asciiColors.foreground }}>
                       {tier}
                     </span>
-                    <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: tierColors[tier] || asciiColors.accent, minWidth: '60px', textAlign: 'right' }}>
                       {count} ({percentage.toFixed(1)}%)
                     </span>
-                    <div style={{ 
-                      flex: 1, 
-                      height: '8px', 
-                      background: theme.colors.background.secondary, 
-                      borderRadius: theme.borderRadius.sm,
-                      overflow: 'hidden'
-                    }}>
-                      <div style={{
-                        width: `${percentage}%`,
-                        height: '100%',
-                        background: colors[tier] || theme.colors.primary.main,
-                        transition: 'width 0.3s ease'
-                      }} />
-                    </div>
                   </div>
                 );
               })}
             </div>
-          </ChartContainer>
+          </div>
           
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Blocking vs Non-Blocking
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f44336' }} />
-                <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary }}>Blocking</span>
-                <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary }}>
+                <div style={{ 
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+                }}>
+                  <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} BLOCKING VS NON-BLOCKING
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                  <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 0',
+                fontFamily: "Consolas",
+                fontSize: 11
+              }}>
+                <span style={{ color: asciiColors.muted, width: 20 }}>
+                  {ascii.v}
+                </span>
+                <span style={{ color: asciiColors.danger, width: 12 }}>
+                  {ascii.blockFull}
+                </span>
+                <span style={{ flex: 1, color: asciiColors.foreground }}>
+                  Blocking
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.danger, minWidth: '30px', textAlign: 'right' }}>
                   {blockingQueries}
                 </span>
-                <div style={{ 
-                  flex: 1, 
-                  height: '8px', 
-                  background: theme.colors.background.secondary, 
-                  borderRadius: theme.borderRadius.sm,
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    width: `${queryPerformance.length > 0 ? (blockingQueries / queryPerformance.length) * 100 : 0}%`,
-                    height: '100%',
-                    background: '#f44336',
-                    transition: 'width 0.3s ease'
-                  }} />
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4caf50' }} />
-                <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary }}>Non-Blocking</span>
-                <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 0',
+                fontFamily: "Consolas",
+                fontSize: 11
+              }}>
+                <span style={{ color: asciiColors.muted, width: 20 }}>
+                  {ascii.cornerBl}
+                </span>
+                <span style={{ color: asciiColors.success, width: 12 }}>
+                  {ascii.blockFull}
+                </span>
+                <span style={{ flex: 1, color: asciiColors.foreground }}>
+                  Non-Blocking
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.success, minWidth: '30px', textAlign: 'right' }}>
                   {nonBlockingQueries}
                 </span>
-                <div style={{ 
-                  flex: 1, 
-                  height: '8px', 
-                  background: theme.colors.background.secondary, 
-                  borderRadius: theme.borderRadius.sm,
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    width: `${queryPerformance.length > 0 ? (nonBlockingQueries / queryPerformance.length) * 100 : 0}%`,
-                    height: '100%',
-                    background: '#4caf50',
-                    transition: 'width 0.3s ease'
-                  }} />
-                </div>
               </div>
             </div>
-            <div style={{ marginTop: theme.spacing.md, paddingTop: theme.spacing.md, borderTop: `1px solid ${theme.colors.border.light}` }}>
-              <div style={{ fontSize: '0.85em', color: theme.colors.text.secondary }}>Avg Execution Time</div>
-              <div style={{ fontSize: '1.2em', fontWeight: 600, color: theme.colors.text.primary }}>
+                <div style={{ 
+              marginTop: 12,
+              paddingTop: 12,
+              borderTop: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>
+                {ascii.v} Avg Execution Time
+                </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, fontFamily: "Consolas" }}>
                 {formatTime(avgTime)}
               </div>
             </div>
-          </ChartContainer>
+          </div>
         </div>
       );
     }
@@ -1765,91 +1737,118 @@ const UnifiedMonitor: React.FC = () => {
       }, {});
 
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.lg, marginBottom: theme.spacing.lg }}>
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Queries by Database
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground,
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 16,
+          marginBottom: 16
+        }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} QUERIES BY DATABASE
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(queriesByDb)
-                .sort(([, a], [, b]) => b - a)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
                 .slice(0, 5)
-                .map(([db, count]) => {
-                  const max = Math.max(...Object.values(queriesByDb));
+                .map(([db, count], idx, arr) => {
+                  const max = Math.max(...Object.values(queriesByDb) as number[]);
+                  const isLast = idx === arr.length - 1;
                   return (
-                    <div key={db} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div key={db} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>
+                      <span style={{ color: asciiColors.muted, width: 20 }}>
+                        {isLast ? ascii.cornerBl : ascii.v}
+                      </span>
+                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {db}
                       </span>
-                      <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary, minWidth: '40px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                         {count}
                       </span>
-                      <div style={{ 
-                        flex: 1, 
-                        height: '8px', 
-                        background: theme.colors.background.secondary, 
-                        borderRadius: theme.borderRadius.sm,
-                        overflow: 'hidden',
-                        maxWidth: '150px'
-                      }}>
-                        <div style={{
-                          width: `${max > 0 ? (count / max) * 100 : 0}%`,
-                          height: '100%',
-                          background: theme.colors.primary.main,
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
                     </div>
                   );
                 })}
             </div>
-          </ChartContainer>
+          </div>
           
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Queries by State
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} QUERIES BY STATE
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(queriesByState)
-                .sort(([, a], [, b]) => b - a)
-                .map(([state, count]) => {
-                  const max = Math.max(...Object.values(queriesByState));
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .map(([state, count], idx, arr) => {
+                  const isLast = idx === arr.length - 1;
                   const stateColors: Record<string, string> = {
-                    'active': '#4caf50',
-                    'idle': '#9e9e9e',
-                    'idle in transaction': '#ff9800',
-                    'idle in transaction (aborted)': '#f44336',
-                    'fastpath function call': '#2196f3',
-                    'disabled': '#9e9e9e',
+                    'active': asciiColors.success,
+                    'idle': asciiColors.muted,
+                    'idle in transaction': asciiColors.warning,
+                    'idle in transaction (aborted)': asciiColors.danger,
+                    'fastpath function call': asciiColors.accent,
+                    'disabled': asciiColors.muted,
                   };
                   return (
-                    <div key={state} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {state}
+                    <div key={state} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>
+                      <span style={{ color: asciiColors.muted, width: 20 }}>
+                        {isLast ? ascii.cornerBl : ascii.v}
                       </span>
-                      <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary, minWidth: '40px' }}>
+                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {state.toUpperCase()}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: stateColors[state.toLowerCase()] || asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                         {count}
                       </span>
-                      <div style={{ 
-                        flex: 1, 
-                        height: '8px', 
-                        background: theme.colors.background.secondary, 
-                        borderRadius: theme.borderRadius.sm,
-                        overflow: 'hidden',
-                        maxWidth: '150px'
-                      }}>
-                        <div style={{
-                          width: `${max > 0 ? (count / max) * 100 : 0}%`,
-                          height: '100%',
-                          background: stateColors[state.toLowerCase()] || theme.colors.primary.main,
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
                     </div>
                   );
                 })}
             </div>
-          </ChartContainer>
+          </div>
         </div>
       );
     }
@@ -1868,89 +1867,116 @@ const UnifiedMonitor: React.FC = () => {
       }, {});
 
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.lg, marginBottom: theme.spacing.lg }}>
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Events by Type
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground,
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 16,
+          marginBottom: 16
+        }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} EVENTS BY TYPE
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(eventsByType)
-                .sort(([, a], [, b]) => b - a)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
                 .slice(0, 5)
-                .map(([type, count]) => {
-                  const max = Math.max(...Object.values(eventsByType));
+                .map(([type, count], idx, arr) => {
+                  const isLast = idx === arr.length - 1;
                   return (
-                    <div key={type} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {type}
+                    <div key={type} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>
+                      <span style={{ color: asciiColors.muted, width: 20 }}>
+                        {isLast ? ascii.cornerBl : ascii.v}
                       </span>
-                      <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary, minWidth: '40px' }}>
+                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {type === 'Unknown' ? 'N/A' : type}
+                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                         {count}
                       </span>
-                      <div style={{ 
-                        flex: 1, 
-                        height: '8px', 
-                        background: theme.colors.background.secondary, 
-                        borderRadius: theme.borderRadius.sm,
-                        overflow: 'hidden',
-                        maxWidth: '150px'
-                      }}>
-                        <div style={{
-                          width: `${max > 0 ? (count / max) * 100 : 0}%`,
-                          height: '100%',
-                          background: theme.colors.primary.main,
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
                     </div>
                   );
                 })}
             </div>
-          </ChartContainer>
+          </div>
           
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Events by Status
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} EVENTS BY STATUS
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(eventsByStatus)
-                .sort(([, a], [, b]) => b - a)
-                .map(([status, count]) => {
-                  const max = Math.max(...Object.values(eventsByStatus));
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .map(([status, count], idx, arr) => {
+                  const isLast = idx === arr.length - 1;
                   const statusColors: Record<string, string> = {
-                    'SUCCESS': '#4caf50',
-                    'ERROR': '#f44336',
-                    'PENDING': '#ff9800',
-                    'IN_PROGRESS': '#2196f3',
+                    'SUCCESS': asciiColors.success,
+                    'ERROR': asciiColors.danger,
+                    'PENDING': asciiColors.warning,
+                    'IN_PROGRESS': asciiColors.accent,
+                    'LISTENING_CHANGES': asciiColors.success,
                   };
                   return (
-                    <div key={status} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div key={status} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>
+                      <span style={{ color: asciiColors.muted, width: 20 }}>
+                        {isLast ? ascii.cornerBl : ascii.v}
+                      </span>
+                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {status}
                       </span>
-                      <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary, minWidth: '40px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: statusColors[status] || asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                         {count}
                       </span>
-                      <div style={{ 
-                        flex: 1, 
-                        height: '8px', 
-                        background: theme.colors.background.secondary, 
-                        borderRadius: theme.borderRadius.sm,
-                        overflow: 'hidden',
-                        maxWidth: '150px'
-                      }}>
-                        <div style={{
-                          width: `${max > 0 ? (count / max) * 100 : 0}%`,
-                          height: '100%',
-                          background: statusColors[status] || theme.colors.primary.main,
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
                     </div>
                   );
                 })}
             </div>
-          </ChartContainer>
+          </div>
         </div>
       );
     }
@@ -1984,166 +2010,207 @@ const UnifiedMonitor: React.FC = () => {
         : 0;
 
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.lg, marginBottom: theme.spacing.lg }}>
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Transfers by Status
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground,
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 16,
+          marginBottom: 16
+        }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} TRANSFERS BY STATUS
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(metricsByStatus)
-                .sort(([, a], [, b]) => b - a)
-                .map(([status, count]) => {
-                  const max = Math.max(...Object.values(metricsByStatus));
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .map(([status, count], idx, arr) => {
+                  const isLast = idx === arr.length - 1;
                   const statusColors: Record<string, string> = {
-                    'SUCCESS': '#4caf50',
-                    'FAILED': '#f44336',
-                    'PENDING': '#ff9800',
+                    'SUCCESS': asciiColors.success,
+                    'FAILED': asciiColors.danger,
+                    'PENDING': asciiColors.warning,
                   };
                   return (
-                    <div key={status} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div key={status} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>
+                      <span style={{ color: asciiColors.muted, width: 20 }}>
+                        {isLast ? ascii.cornerBl : ascii.v}
+                      </span>
+                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {status}
                       </span>
-                      <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary, minWidth: '40px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: statusColors[status] || asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                         {count}
                       </span>
-                      <div style={{ 
-                        flex: 1, 
-                        height: '8px', 
-                        background: theme.colors.background.secondary, 
-                        borderRadius: theme.borderRadius.sm,
-                        overflow: 'hidden',
-                        maxWidth: '150px'
-                      }}>
-                        <div style={{
-                          width: `${max > 0 ? (count / max) * 100 : 0}%`,
-                          height: '100%',
-                          background: statusColors[status] || theme.colors.primary.main,
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
                     </div>
                   );
                 })}
             </div>
-          </ChartContainer>
+          </div>
           
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Transfers by Type
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} TRANSFERS BY TYPE
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(metricsByType)
-                .sort(([, a], [, b]) => b - a)
-                .map(([type, count]) => {
-                  const max = Math.max(...Object.values(metricsByType));
-                  const typeColors: Record<string, string> = {
-                    'FULL_LOAD': '#1976d2',
-                    'INCREMENTAL': '#0d47a1',
-                    'SYNC': '#1565c0',
-                    'UNKNOWN': '#9e9e9e',
-                  };
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .map(([type, count], idx, arr) => {
+                  const isLast = idx === arr.length - 1;
                   return (
-                    <div key={type} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div key={type} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>
+                      <span style={{ color: asciiColors.muted, width: 20 }}>
+                        {isLast ? ascii.cornerBl : ascii.v}
+                      </span>
+                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {type}
                       </span>
-                      <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary, minWidth: '40px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                         {count}
                       </span>
-                      <div style={{ 
-                        flex: 1, 
-                        height: '8px', 
-                        background: theme.colors.background.secondary, 
-                        borderRadius: theme.borderRadius.sm,
-                        overflow: 'hidden',
-                        maxWidth: '150px'
-                      }}>
-                        <div style={{
-                          width: `${max > 0 ? (count / max) * 100 : 0}%`,
-                          height: '100%',
-                          background: typeColors[type] || theme.colors.primary.main,
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
                     </div>
                   );
                 })}
             </div>
-          </ChartContainer>
+          </div>
 
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Transfers by Engine
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} TRANSFERS BY ENGINE
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {Object.entries(metricsByEngine)
-                .sort(([, a], [, b]) => b - a)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
                 .slice(0, 5)
-                .map(([engine, count]) => {
-                  const max = Math.max(...Object.values(metricsByEngine));
+                .map(([engine, count], idx, arr) => {
+                  const isLast = idx === arr.length - 1;
                   return (
-                    <div key={engine} style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                      <span style={{ flex: 1, fontSize: '0.85em', color: theme.colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div key={engine} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '4px 0',
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}>
+                      <span style={{ color: asciiColors.muted, width: 20 }}>
+                        {isLast ? ascii.cornerBl : ascii.v}
+                      </span>
+                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {engine}
                       </span>
-                      <span style={{ fontSize: '0.85em', fontWeight: 600, color: theme.colors.text.secondary, minWidth: '40px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                         {count}
                       </span>
-                      <div style={{ 
-                        flex: 1, 
-                        height: '8px', 
-                        background: theme.colors.background.secondary, 
-                        borderRadius: theme.borderRadius.sm,
-                        overflow: 'hidden',
-                        maxWidth: '150px'
-                      }}>
-                        <div style={{
-                          width: `${max > 0 ? (count / max) * 100 : 0}%`,
-                          height: '100%',
-                          background: theme.colors.primary.main,
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
                     </div>
                   );
                 })}
             </div>
-          </ChartContainer>
+          </div>
 
-          <ChartContainer style={{ padding: theme.spacing.md }}>
-            <ChartTitle style={{ marginBottom: theme.spacing.md, fontSize: '0.9em' }}>
-              Summary Statistics
-            </ChartTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.sm }}>
-                <div>
-                  <div style={{ fontSize: '0.75em', color: theme.colors.text.secondary, marginBottom: '4px' }}>Total Records</div>
-                  <div style={{ fontSize: '1.1em', fontWeight: 600, color: theme.colors.text.primary }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} SUMMARY STATISTICS
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+                <span style={{ color: asciiColors.muted, fontSize: 11 }}>{ascii.v} Total Records</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, fontFamily: "Consolas" }}>
                     {totalRecords.toLocaleString()}
+                </span>
                   </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.75em', color: theme.colors.text.secondary, marginBottom: '4px' }}>Total Bytes</div>
-                  <div style={{ fontSize: '1.1em', fontWeight: 600, color: theme.colors.text.primary }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+                <span style={{ color: asciiColors.muted, fontSize: 11 }}>{ascii.v} Total Bytes</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, fontFamily: "Consolas" }}>
                     {(totalBytes / (1024 * 1024 * 1024)).toFixed(2)} GB
+                </span>
                   </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.75em', color: theme.colors.text.secondary, marginBottom: '4px' }}>Avg Memory</div>
-                  <div style={{ fontSize: '1.1em', fontWeight: 600, color: theme.colors.text.primary }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+                <span style={{ color: asciiColors.muted, fontSize: 11 }}>{ascii.v} Avg Memory</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, fontFamily: "Consolas" }}>
                     {avgMemory.toFixed(2)} MB
+                </span>
                   </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.75em', color: theme.colors.text.secondary, marginBottom: '4px' }}>Avg IOPS</div>
-                  <div style={{ fontSize: '1.1em', fontWeight: 600, color: theme.colors.text.primary }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+                <span style={{ color: asciiColors.muted, fontSize: 11 }}>{ascii.cornerBl} Avg IOPS</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, fontFamily: "Consolas" }}>
                     {avgIOPS.toFixed(0)}
+                </span>
                   </div>
                 </div>
               </div>
-            </div>
-          </ChartContainer>
         </div>
       );
     }
@@ -2153,6 +2220,105 @@ const UnifiedMonitor: React.FC = () => {
 
   const renderDetails = () => {
     if (activeTab === 'live') {
+      if (selectedItem) {
+        const getStatusColor = (status: string) => {
+          const upperStatus = (status || '').toUpperCase();
+          if (upperStatus === 'SUCCESS') {
+            return asciiColors.success;
+          }
+          if (upperStatus === 'ERROR' || upperStatus === 'FAILED') {
+            return asciiColors.danger;
+          }
+          if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
+            return asciiColors.warning;
+          }
+          return asciiColors.muted;
+        };
+
+        return (
+          <div style={{
+            fontFamily: "Consolas",
+            fontSize: 12,
+            color: asciiColors.foreground
+          }}>
+            <div style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 16,
+              backgroundColor: asciiColors.backgroundSoft,
+              marginBottom: 12
+            }}>
+              <div style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: asciiColors.accent,
+                marginBottom: 16,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                {ascii.blockFull} LIVE CHANGE DETAILS
+              </div>
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                fontFamily: "Consolas",
+                fontSize: 11,
+                lineHeight: 1.8
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Database:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.db_engine || 'N/A'}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Schema:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.schema_name || 'N/A'}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Table:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.table_name || 'N/A'}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Status:</span>
+                  <span style={{ 
+                    marginLeft: 20,
+                    padding: "2px 8px",
+                    borderRadius: 2,
+                    fontSize: 10,
+                    fontWeight: 500,
+                    border: `1px solid ${getStatusColor(selectedItem.status || 'PENDING')}`,
+                    color: getStatusColor(selectedItem.status || 'PENDING'),
+                    backgroundColor: getStatusColor(selectedItem.status || 'PENDING') + "20"
+                  }}>
+                    {selectedItem.status || 'PENDING'}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Strategy:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.pk_strategy || 'N/A'}</span>
+                </div>
+                {selectedItem.new_pk && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: asciiColors.muted }}>├─ Last PK:</span>
+                    <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.new_pk}</span>
+                  </div>
+                )}
+                {selectedItem.record_count !== null && selectedItem.record_count !== undefined && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: asciiColors.muted }}>├─ Records:</span>
+                    <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.record_count.toLocaleString()}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>└─ Processed At:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.processed_at)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       const recentEvents = [...processingLogs]
         .sort((a, b) => new Date(b.processed_at || 0).getTime() - new Date(a.processed_at || 0).getTime())
         .slice(0, 20);
@@ -2160,47 +2326,126 @@ const UnifiedMonitor: React.FC = () => {
       return (
         <>
           {renderCharts()}
-          <SectionTitle>Current Changes</SectionTitle>
+          <h2 style={{
+            fontSize: 14,
+            fontFamily: "Consolas",
+            fontWeight: 600,
+            color: asciiColors.accent,
+            margin: 0,
+            marginBottom: 16,
+            paddingBottom: 8,
+            borderBottom: `1px solid ${asciiColors.border}`
+          }}>
+            {ascii.blockFull} CURRENT CHANGES
+          </h2>
           {recentEvents.length === 0 ? (
-            <EmptyDetails>No recent events available</EmptyDetails>
+            <div style={{
+              padding: 60,
+              textAlign: "center",
+              color: asciiColors.muted,
+              fontFamily: "Consolas",
+              fontSize: 12
+            }}>
+              {ascii.dot} No recent events available
+            </div>
           ) : (
-            <RecentEventsList>
-              {recentEvents.map((event, idx) => (
-                <RecentEventCard key={idx}>
-                  <EventHeader>
-                    <StatusBadge $status={event.status}>{event.status}</StatusBadge>
-                    <EventTime>{formatDate(event.processed_at)}</EventTime>
-                  </EventHeader>
-                  <EventInfo>
-                    <EventLabel>Database:</EventLabel>
-                    <EventValue>{event.db_engine || 'N/A'}</EventValue>
-                    
-                    <EventLabel>Schema:</EventLabel>
-                    <EventValue>{event.schema_name || 'N/A'}</EventValue>
-                    
-                    <EventLabel>Table:</EventLabel>
-                    <EventValue>{event.table_name || 'N/A'}</EventValue>
-                    
-                    <EventLabel>Strategy:</EventLabel>
-                    <EventValue>{event.pk_strategy || 'N/A'}</EventValue>
-                    
-                    {event.new_pk && (
-                      <>
-                        <EventLabel>Last PK:</EventLabel>
-                        <EventValue>{event.new_pk}</EventValue>
-                      </>
-                    )}
-                    
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12
+            }}>
+              {recentEvents.map((event, idx) => {
+                const getStatusColor = (status: string) => {
+                  const upperStatus = (status || '').toUpperCase();
+                  if (upperStatus === 'SUCCESS') {
+                    return asciiColors.success;
+                  }
+                  if (upperStatus === 'ERROR' || upperStatus === 'FAILED') {
+                    return asciiColors.danger;
+                  }
+                  if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
+                    return asciiColors.warning;
+                  }
+                  return asciiColors.muted;
+                };
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedItem(event)}
+                    style={{
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      padding: 12,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      fontFamily: "Consolas",
+                      fontSize: 11
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.accent;
+                      e.currentTarget.style.backgroundColor = asciiColors.background;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = asciiColors.border;
+                      e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                    }}
+                  >
+                    <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8
+                    }}>
+                      <span style={{
+                        padding: "2px 8px",
+                        borderRadius: 2,
+                        fontSize: 10,
+                        fontWeight: 500,
+                        border: `1px solid ${getStatusColor(event.status)}`,
+                        color: getStatusColor(event.status),
+                        backgroundColor: getStatusColor(event.status) + "20"
+                      }}>
+                        {event.status}
+                      </span>
+                      <span style={{
+                        fontSize: 10,
+                        color: asciiColors.muted,
+                        fontFamily: "Consolas"
+                      }}>
+                        {formatDate(event.processed_at)}
+                      </span>
+                    </div>
+                    <div style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                      fontSize: 11,
+                      color: asciiColors.foreground
+                    }}>
+                      <div>
+                        <span style={{ color: asciiColors.muted }}>{ascii.v}</span>
+                        <span style={{ fontWeight: 600, marginLeft: 8 }}>
+                          {event.schema_name || 'N/A'}.{event.table_name || 'N/A'}
+                        </span>
+                        <span style={{ color: asciiColors.muted, marginLeft: 8 }}>
+                          [{event.db_engine || 'N/A'}]
+                        </span>
+                      </div>
+                      <div style={{ paddingLeft: 16, color: asciiColors.muted }}>
+                        {ascii.tRight} Strategy: {event.pk_strategy || 'N/A'}
                     {event.record_count !== null && event.record_count !== undefined && (
-                      <>
-                        <EventLabel>Records:</EventLabel>
-                        <EventValue>{event.record_count.toLocaleString()}</EventValue>
-                      </>
-                    )}
-                  </EventInfo>
-                </RecentEventCard>
-              ))}
-            </RecentEventsList>
+                          <span style={{ marginLeft: 12 }}>
+                            {ascii.v} Records: {event.record_count.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </>
       );
@@ -2210,405 +2455,749 @@ const UnifiedMonitor: React.FC = () => {
       return (
         <>
           {renderCharts()}
-          <EmptyDetails>
-            Select an item to view details
-          </EmptyDetails>
+          <div style={{
+            padding: 60,
+            textAlign: "center",
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {ascii.dot} Select an item to view details
+          </div>
         </>
       );
     }
 
     if (activeTab === 'monitor') {
+      if (!selectedItem) {
+        return (
+          <div style={{
+            fontFamily: "Consolas",
+            fontSize: 12,
+            color: asciiColors.muted,
+            textAlign: "center",
+            padding: 20
+          }}>
+            {ascii.dot} Select a query to view details
+          </div>
+        );
+      }
+
+      const getStateColor = (state: string) => {
+        const upperState = (state || '').toUpperCase();
+        if (upperState.includes('ERROR') || upperState.includes('ABORTED')) {
+          return asciiColors.danger;
+        }
+        if (upperState.includes('IDLE IN TRANSACTION')) {
+          return asciiColors.warning;
+        }
+        if (upperState === 'ACTIVE') {
+          return asciiColors.success;
+        }
+        return asciiColors.muted;
+      };
+
       return (
-        <DetailsCard>
-          <DetailsTitle>Query Details</DetailsTitle>
-          <DetailsGrid>
-            <DetailLabel>PID:</DetailLabel>
-            <DetailValue>{selectedItem.pid}</DetailValue>
-            
-            <DetailLabel>User:</DetailLabel>
-            <DetailValue>{selectedItem.usename}</DetailValue>
-            
-            <DetailLabel>Database:</DetailLabel>
-            <DetailValue>{selectedItem.datname}</DetailValue>
-            
-            <DetailLabel>State:</DetailLabel>
-            <DetailValue>
-              <StatusBadge $status={selectedItem.state}>{selectedItem.state}</StatusBadge>
-            </DetailValue>
-            
-            <DetailLabel>Duration:</DetailLabel>
-            <DetailValue>{selectedItem.duration}</DetailValue>
-            
-            <DetailLabel>Application:</DetailLabel>
-            <DetailValue>{selectedItem.application_name || '-'}</DetailValue>
-            
-            <DetailLabel>Client Address:</DetailLabel>
-            <DetailValue>{selectedItem.client_addr || '-'}</DetailValue>
-            
-            <DetailLabel>Started At:</DetailLabel>
-            <DetailValue>{formatDate(selectedItem.query_start)}</DetailValue>
-            
-            <DetailLabel>Wait Event:</DetailLabel>
-            <DetailValue>
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground
+        }}>
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            fontFamily: "Consolas",
+            fontSize: 11,
+            lineHeight: 1.8
+          }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ PID:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.pid}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ User:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.usename}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Database:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.datname}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ State:</span>
+                <span style={{ 
+                  marginLeft: 20,
+                  padding: "2px 8px",
+                  borderRadius: 2,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  border: `1px solid ${getStateColor(selectedItem.state)}`,
+                  color: getStateColor(selectedItem.state),
+                  backgroundColor: getStateColor(selectedItem.state) + "20"
+                }}>
+                  {selectedItem.state}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Duration:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.duration}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Application:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.application_name || '-'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Client Address:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.client_addr || '-'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Started At:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.query_start)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>└─ Wait Event:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>
               {selectedItem.wait_event_type ? `${selectedItem.wait_event_type} (${selectedItem.wait_event})` : 'None'}
-            </DetailValue>
-          </DetailsGrid>
-          <QueryText>{selectedItem.query || 'N/A'}</QueryText>
-        </DetailsCard>
+                </span>
+              </div>
+            </div>
+        </div>
       );
     } else if (activeTab === 'transfer') {
+      const getStatusColor = (status: string) => {
+        const upperStatus = (status || '').toUpperCase();
+        if (upperStatus === 'SUCCESS') {
+          return asciiColors.success;
+        }
+        if (upperStatus === 'FAILED' || upperStatus === 'ERROR') {
+          return asciiColors.danger;
+        }
+        if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
+          return asciiColors.warning;
+        }
+        return asciiColors.muted;
+      };
+
       return (
-        <DetailsCard>
-          <DetailsTitle>Transfer Metrics Details</DetailsTitle>
-          <DetailsGrid>
-            <DetailLabel>Schema:</DetailLabel>
-            <DetailValue>{selectedItem.schema_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Table:</DetailLabel>
-            <DetailValue>{selectedItem.table_name || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Database Engine:</DetailLabel>
-            <DetailValue>{selectedItem.db_engine || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Status:</DetailLabel>
-            <DetailValue>
-              <StatusBadge $status={selectedItem.status || 'PENDING'}>
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground
+        }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft,
+            marginBottom: 12
+          }}>
+            <div style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: asciiColors.accent,
+              marginBottom: 16,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} TRANSFER METRICS DETAILS
+            </div>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              fontFamily: "Consolas",
+              fontSize: 11,
+              lineHeight: 1.8
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Schema:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.schema_name || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Table:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.table_name || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Database Engine:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.db_engine || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Status:</span>
+                <span style={{ 
+                  marginLeft: 20,
+                  padding: "2px 8px",
+                  borderRadius: 2,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  border: `1px solid ${getStatusColor(selectedItem.status || 'PENDING')}`,
+                  color: getStatusColor(selectedItem.status || 'PENDING'),
+                  backgroundColor: getStatusColor(selectedItem.status || 'PENDING') + "20"
+                }}>
                 {selectedItem.status || 'PENDING'}
-              </StatusBadge>
-            </DetailValue>
-            
-            <DetailLabel>Transfer Type:</DetailLabel>
-            <DetailValue>
-              <StatusBadge $status={selectedItem.transfer_type || 'UNKNOWN'}>
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Transfer Type:</span>
+                <span style={{ 
+                  marginLeft: 20,
+                  padding: "2px 8px",
+                  borderRadius: 2,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  border: `1px solid ${asciiColors.accent}`,
+                  color: asciiColors.accent,
+                  backgroundColor: asciiColors.accent + "20"
+                }}>
                 {selectedItem.transfer_type || 'UNKNOWN'}
-              </StatusBadge>
-            </DetailValue>
-            
-            <DetailLabel>Records Transferred:</DetailLabel>
-            <DetailValue>{(selectedItem.records_transferred || 0).toLocaleString()}</DetailValue>
-            
-            <DetailLabel>Bytes Transferred:</DetailLabel>
-            <DetailValue>
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Records Transferred:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{(selectedItem.records_transferred || 0).toLocaleString()}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Bytes Transferred:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>
               {selectedItem.bytes_transferred 
                 ? `${(selectedItem.bytes_transferred / (1024 * 1024 * 1024)).toFixed(2)} GB`
                 : '0 GB'}
-            </DetailValue>
-            
-            <DetailLabel>Memory Used:</DetailLabel>
-            <DetailValue>
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Memory Used:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>
               {selectedItem.memory_used_mb 
                 ? `${parseFloat(selectedItem.memory_used_mb).toFixed(2)} MB`
                 : '0 MB'}
-            </DetailValue>
-            
-            <DetailLabel>IO Operations/sec:</DetailLabel>
-            <DetailValue>{selectedItem.io_operations_per_second || 0}</DetailValue>
-            
-            <DetailLabel>Started At:</DetailLabel>
-            <DetailValue>{selectedItem.started_at ? formatDate(selectedItem.started_at) : 'N/A'}</DetailValue>
-            
-            <DetailLabel>Completed At:</DetailLabel>
-            <DetailValue>{selectedItem.completed_at ? formatDate(selectedItem.completed_at) : 'N/A'}</DetailValue>
-            
-            <DetailLabel>Created At:</DetailLabel>
-            <DetailValue>{formatDate(selectedItem.created_at)}</DetailValue>
-            
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ IO Operations/sec:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.io_operations_per_second || 0}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Started At:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.started_at ? formatDate(selectedItem.started_at) : 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Completed At:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.completed_at ? formatDate(selectedItem.completed_at) : 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>{selectedItem.error_message ? '├─' : '└─'} Created At:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.created_at)}</span>
+              </div>
             {selectedItem.error_message && (
-              <>
-                <DetailLabel>Error Message:</DetailLabel>
-                <DetailValue>{selectedItem.error_message}</DetailValue>
-              </>
-            )}
-          </DetailsGrid>
-        </DetailsCard>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>└─ Error Message:</span>
+                  <span style={{ 
+                    fontWeight: 500, 
+                    marginLeft: 20,
+                    color: asciiColors.danger,
+                    maxWidth: '60%',
+                    textAlign: 'right',
+                    wordBreak: 'break-word'
+                  }}>
+                    {selectedItem.error_message}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       );
     } else {
+      const getPerformanceTierColor = (tier: string) => {
+        const upperTier = (tier || '').toUpperCase();
+        if (upperTier === 'EXCELLENT') {
+          return asciiColors.success;
+        }
+        if (upperTier === 'GOOD') {
+          return asciiColors.accent;
+        }
+        if (upperTier === 'FAIR') {
+          return asciiColors.warning;
+        }
+        if (upperTier === 'POOR') {
+          return asciiColors.danger;
+        }
+        return asciiColors.muted;
+      };
+
       return (
-        <DetailsCard>
-          <DetailsTitle>Query Performance Details</DetailsTitle>
-          <DetailsGrid>
-            <DetailLabel>Query ID:</DetailLabel>
-            <DetailValue>{selectedItem.queryid || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Database:</DetailLabel>
-            <DetailValue>{selectedItem.dbname || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Performance Tier:</DetailLabel>
-            <DetailValue>
-              <StatusBadge $status={selectedItem.performance_tier || 'N/A'}>
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground
+        }}>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft,
+            marginBottom: 12
+          }}>
+            <div style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: asciiColors.accent,
+              marginBottom: 16,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} QUERY PERFORMANCE DETAILS
+            </div>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              fontFamily: "Consolas",
+              fontSize: 11,
+              lineHeight: 1.8
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Query ID:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.queryid || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Database:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.dbname || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Performance Tier:</span>
+                <span style={{ 
+                  marginLeft: 20,
+                  padding: "2px 8px",
+                  borderRadius: 2,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  border: `1px solid ${getPerformanceTierColor(selectedItem.performance_tier || 'N/A')}`,
+                  color: getPerformanceTierColor(selectedItem.performance_tier || 'N/A'),
+                  backgroundColor: getPerformanceTierColor(selectedItem.performance_tier || 'N/A') + "20"
+                }}>
                 {selectedItem.performance_tier || 'N/A'}
-              </StatusBadge>
-            </DetailValue>
-            
-            <DetailLabel>Operation Type:</DetailLabel>
-            <DetailValue>{selectedItem.operation_type || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Mean Time:</DetailLabel>
-            <DetailValue>{formatTime(selectedItem.mean_time_ms)}</DetailValue>
-            
-            <DetailLabel>Total Time:</DetailLabel>
-            <DetailValue>{formatTime(selectedItem.total_time_ms)}</DetailValue>
-            
-            <DetailLabel>Calls:</DetailLabel>
-            <DetailValue>{selectedItem.calls?.toLocaleString() || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Efficiency Score:</DetailLabel>
-            <DetailValue>
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Operation Type:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.operation_type || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Mean Time:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatTime(selectedItem.mean_time_ms)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Total Time:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatTime(selectedItem.total_time_ms)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Calls:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.calls?.toLocaleString() || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Efficiency Score:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>
               {selectedItem.query_efficiency_score ? `${Number(selectedItem.query_efficiency_score).toFixed(2)}%` : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Cache Hit Ratio:</DetailLabel>
-            <DetailValue>
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Cache Hit Ratio:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>
               {selectedItem.cache_hit_ratio ? `${Number(selectedItem.cache_hit_ratio).toFixed(2)}%` : 'N/A'}
-            </DetailValue>
-            
-            <DetailLabel>Rows Returned:</DetailLabel>
-            <DetailValue>{selectedItem.rows_returned?.toLocaleString() || 'N/A'}</DetailValue>
-            
-            <DetailLabel>Long Running:</DetailLabel>
-            <DetailValue>{selectedItem.is_long_running ? 'Yes' : 'No'}</DetailValue>
-            
-            <DetailLabel>Blocking:</DetailLabel>
-            <DetailValue>{selectedItem.is_blocking ? 'Yes' : 'No'}</DetailValue>
-            
-            <DetailLabel>Captured At:</DetailLabel>
-            <DetailValue>{formatDate(selectedItem.captured_at)}</DetailValue>
-          </DetailsGrid>
-          <QueryText>{selectedItem.query_text || 'N/A'}</QueryText>
-        </DetailsCard>
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Rows Returned:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.rows_returned?.toLocaleString() || 'N/A'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Long Running:</span>
+                <span style={{ 
+                  fontWeight: 500, 
+                  marginLeft: 20,
+                  color: selectedItem.is_long_running ? asciiColors.warning : asciiColors.muted
+                }}>
+                  {selectedItem.is_long_running ? 'Yes' : 'No'}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Blocking:</span>
+                <span style={{ 
+                  fontWeight: 500, 
+                  marginLeft: 20,
+                  color: selectedItem.is_blocking ? asciiColors.danger : asciiColors.muted
+                }}>
+                  {selectedItem.is_blocking ? 'Yes' : 'No'}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>└─ Captured At:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.captured_at)}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: 16,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <h2 style={{
+              fontSize: 14,
+              fontFamily: "Consolas",
+              fontWeight: 600,
+              color: asciiColors.accent,
+              margin: 0,
+              marginBottom: 12,
+              paddingBottom: 8,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              {ascii.blockFull} QUERY TEXT
+            </h2>
+            <pre style={{
+              margin: 0,
+              padding: 12,
+              backgroundColor: asciiColors.background,
+              borderRadius: 2,
+              overflowX: "auto",
+              fontSize: 11,
+              border: `1px solid ${asciiColors.border}`,
+              fontFamily: "Consolas",
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
+              color: asciiColors.foreground
+            }}>
+              {selectedItem.query_text || 'N/A'}
+            </pre>
+          </div>
+        </div>
       );
     }
   };
 
   const renderSystemResources = () => {
     return (
-      <DetailsPanel>
-        <ChartContainer>
-          <ChartTitle>
-            <LegendItem
-              $lineStyle="solid"
-              $active={visibleLines.cpu}
-            >
-              <Checkbox
-                type="checkbox"
-                checked={visibleLines.cpu}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setVisibleLines((prev) => ({ ...prev, cpu: e.target.checked }));
-                }}
+      <div style={{
+        fontFamily: "Consolas",
+        fontSize: 12,
+        color: asciiColors.foreground
+      }}>
+        <div style={{
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          padding: 16,
+          backgroundColor: asciiColors.backgroundSoft,
+          marginBottom: 16
+        }}>
+          <h2 style={{
+            fontSize: 14,
+            fontFamily: "Consolas",
+            fontWeight: 600,
+            color: asciiColors.accent,
+            margin: 0,
+            marginBottom: 16,
+            paddingBottom: 8,
+            borderBottom: `1px solid ${asciiColors.border}`
+          }}>
+            {ascii.blockFull} SYSTEM RESOURCES
+          </h2>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12
+          }}>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "12px",
+              backgroundColor: asciiColors.background,
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.accent,
+                marginBottom: 4
+              }}>
+                {ascii.blockFull} CPU Usage (%)
+              </div>
+              <AsciiSparkline 
+                data={resourceHistory.cpuUsage} 
+                color={asciiColors.accent}
+                width={40}
+                labels={resourceHistory.timestamp}
               />
-              <LegendLine $color="#1976d2" $active={visibleLines.cpu} />
-              CPU Usage (%)
-            </LegendItem>
-            <LegendItem
-              $lineStyle="solid"
-              $active={visibleLines.memory}
-            >
-              <Checkbox
-                type="checkbox"
-                checked={visibleLines.memory}
-                onChange={(e) => {
-                  setVisibleLines((prev) => ({ ...prev, memory: e.target.checked }));
-                }}
+              <div style={{
+                fontSize: 10,
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                marginTop: 4
+              }}>
+                {resourceHistory.cpuUsage.length > 0 
+                  ? resourceHistory.cpuUsage[resourceHistory.cpuUsage.length - 1].toFixed(1) + '%'
+                  : 'N/A'}
+              </div>
+            </div>
+
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "12px",
+              backgroundColor: asciiColors.background,
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.accent,
+                marginBottom: 4
+              }}>
+                {ascii.blockSemi} Memory (%)
+              </div>
+              <AsciiSparkline 
+                data={resourceHistory.memoryPercentage} 
+                color={asciiColors.accent}
+                width={40}
+                labels={resourceHistory.timestamp}
               />
-              <LegendLine $color="#0d47a1" $active={visibleLines.memory} />
-              Memory (%)
-            </LegendItem>
-            <LegendItem
-              $lineStyle="solid"
-              $active={visibleLines.network}
-            >
-              <Checkbox
-                type="checkbox"
-                checked={visibleLines.network}
-                onChange={(e) => {
-                  setVisibleLines((prev) => ({ ...prev, network: e.target.checked }));
-                }}
+              <div style={{
+                fontSize: 10,
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                marginTop: 4
+              }}>
+                {resourceHistory.memoryPercentage.length > 0 
+                  ? resourceHistory.memoryPercentage[resourceHistory.memoryPercentage.length - 1].toFixed(1) + '%'
+                  : 'N/A'}
+              </div>
+            </div>
+
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "12px",
+              backgroundColor: asciiColors.background,
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.accent,
+                marginBottom: 4
+              }}>
+                {ascii.blockLight} Network (IOPS)
+              </div>
+              <AsciiSparkline 
+                data={resourceHistory.network} 
+                color={asciiColors.accent}
+                width={40}
+                labels={resourceHistory.timestamp}
               />
-              <LegendLine $color="#1565c0" $active={visibleLines.network} />
-              Network (IOPS)
-            </LegendItem>
-            <LegendItem
-              $lineStyle="solid"
-              $active={visibleLines.throughput}
-            >
-              <Checkbox
-                type="checkbox"
-                checked={visibleLines.throughput}
-                onChange={(e) => {
-                  setVisibleLines((prev) => ({ ...prev, throughput: e.target.checked }));
-                }}
-              />
-              <LegendLine $color="#424242" $active={visibleLines.throughput} />
-              Throughput (RPS)
-            </LegendItem>
-            <ShowAllButton
-              onClick={() => {
-                const allVisible = [visibleLines.cpu, visibleLines.memory, visibleLines.network, visibleLines.throughput].every((v) => v);
-                setVisibleLines((prev) => ({
-                  ...prev,
-                  cpu: !allVisible,
-                  memory: !allVisible,
-                  network: !allVisible,
-                  throughput: !allVisible,
-                }));
-              }}
-            >
-              {[visibleLines.cpu, visibleLines.memory, visibleLines.network, visibleLines.throughput].every((v) => v) ? "Clear All" : "Show All"}
-            </ShowAllButton>
-          </ChartTitle>
-          <SystemResourcesChart
-            datasets={[
-              ...(visibleLines.cpu
-                ? [
-                    {
-                      data: resourceHistory.cpuUsage,
-                      symbol: "●",
-                      name: "CPU Usage (%)",
-                    },
-                  ]
-                : []),
-              ...(visibleLines.memory
-                ? [
-                    {
-                      data: resourceHistory.memoryPercentage,
-                      symbol: "▲",
-                      name: "Memory (%)",
-                    },
-                  ]
-                : []),
-              ...(visibleLines.network
-                ? [
-                    {
-                      data: resourceHistory.network,
-                      symbol: "◆",
-                      name: "Network (IOPS)",
-                    },
-                  ]
-                : []),
-              ...(visibleLines.throughput
-                ? [
-                    {
-                      data: resourceHistory.throughput,
-                      symbol: "■",
-                      name: "Throughput (RPS)",
-                    },
-                  ]
-                : []),
-            ]}
+              <div style={{
+                fontSize: 10,
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                marginTop: 4
+              }}>
+                {resourceHistory.network.length > 0 
+                  ? resourceHistory.network[resourceHistory.network.length - 1].toFixed(0)
+                  : 'N/A'}
+              </div>
+            </div>
+
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "12px",
+              backgroundColor: asciiColors.background,
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.accent,
+                marginBottom: 4
+              }}>
+                {ascii.dot} Throughput (RPS)
+              </div>
+              <AsciiSparkline 
+                data={resourceHistory.throughput} 
+                color={asciiColors.accent}
+                width={40}
             labels={resourceHistory.timestamp}
           />
-        </ChartContainer>
+              <div style={{
+                fontSize: 10,
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                marginTop: 4
+              }}>
+                {resourceHistory.throughput.length > 0 
+                  ? resourceHistory.throughput[resourceHistory.throughput.length - 1].toFixed(0)
+                  : 'N/A'}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <ChartContainer style={{ marginTop: theme.spacing.lg }}>
-          <ChartTitle>
-            <LegendItem
-              $lineStyle="solid"
-              $active={visibleLines.dbConnections}
-            >
-              <Checkbox
-                type="checkbox"
-                checked={visibleLines.dbConnections}
-                onChange={(e) => {
-                  setVisibleLines((prev) => ({ ...prev, dbConnections: e.target.checked }));
-                }}
+        <div style={{
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          padding: 16,
+          backgroundColor: asciiColors.backgroundSoft,
+          marginBottom: 16
+        }}>
+          <h2 style={{
+            fontSize: 14,
+            fontFamily: "Consolas",
+            fontWeight: 600,
+            color: asciiColors.accent,
+            margin: 0,
+            marginBottom: 16,
+            paddingBottom: 8,
+            borderBottom: `1px solid ${asciiColors.border}`
+          }}>
+            {ascii.blockFull} DATABASE METRICS
+          </h2>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12
+          }}>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "12px",
+              backgroundColor: asciiColors.background,
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.accent,
+                marginBottom: 4
+              }}>
+                {ascii.blockFull} DB Connections (%)
+              </div>
+              <AsciiSparkline 
+                data={resourceHistory.dbConnections} 
+                color={asciiColors.accent}
+                width={40}
+                labels={resourceHistory.timestamp}
               />
-              <LegendLine $color="#2e7d32" $active={visibleLines.dbConnections} />
-              DB Connections (%)
-            </LegendItem>
-            <LegendItem
-              $lineStyle="solid"
-              $active={visibleLines.dbQueriesPerSecond}
-            >
-              <Checkbox
-                type="checkbox"
-                checked={visibleLines.dbQueriesPerSecond}
-                onChange={(e) => {
-                  setVisibleLines((prev) => ({ ...prev, dbQueriesPerSecond: e.target.checked }));
-                }}
-              />
-              <LegendLine $color="#388e3c" $active={visibleLines.dbQueriesPerSecond} />
-              DB Queries/sec
-            </LegendItem>
-            <ShowAllButton
-              onClick={() => {
-                const allVisible = [visibleLines.dbConnections, visibleLines.dbQueriesPerSecond].every((v) => v);
-                setVisibleLines((prev) => ({
-                  ...prev,
-                  dbConnections: !allVisible,
-                  dbQueriesPerSecond: !allVisible,
-                }));
-              }}
-            >
-              {[visibleLines.dbConnections, visibleLines.dbQueriesPerSecond].every((v) => v) ? "Clear All" : "Show All"}
-            </ShowAllButton>
-          </ChartTitle>
-          <SystemResourcesChart
-            datasets={[
-              ...(visibleLines.dbConnections
-                ? [
-                    {
-                      data: resourceHistory.dbConnections,
-                      symbol: "●",
-                      name: "DB Connections (%)",
-                    },
-                  ]
-                : []),
-              ...(visibleLines.dbQueriesPerSecond
-                ? [
-                    {
-                      data: resourceHistory.dbQueriesPerSecond,
-                      symbol: "▲",
-                      name: "DB Queries/sec",
-                    },
-                  ]
-                : []),
-            ]}
+              <div style={{
+                fontSize: 10,
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                marginTop: 4
+              }}>
+                {resourceHistory.dbConnections.length > 0 
+                  ? resourceHistory.dbConnections[resourceHistory.dbConnections.length - 1].toFixed(1) + '%'
+                  : 'N/A'}
+              </div>
+            </div>
+
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "12px",
+              backgroundColor: asciiColors.background,
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.accent,
+                marginBottom: 4
+              }}>
+                {ascii.blockSemi} DB Queries/sec
+              </div>
+              <AsciiSparkline 
+                data={resourceHistory.dbQueriesPerSecond} 
+                color={asciiColors.accent}
+                width={40}
             labels={resourceHistory.timestamp}
           />
-        </ChartContainer>
+              <div style={{
+                fontSize: 10,
+                color: asciiColors.muted,
+                fontFamily: "Consolas",
+                marginTop: 4
+              }}>
+                {resourceHistory.dbQueriesPerSecond.length > 0 
+                  ? resourceHistory.dbQueriesPerSecond[resourceHistory.dbQueriesPerSecond.length - 1].toFixed(1)
+                  : 'N/A'}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <DetailsCard style={{ marginTop: theme.spacing.lg }}>
-          <DetailsTitle>■ DATABASE HEALTH</DetailsTitle>
           <div style={{ 
-            fontFamily: 'Monaco, Menlo, "Courier New", monospace',
-            fontSize: '0.9em',
-            lineHeight: '1.8',
-            color: theme.colors.text.primary,
-            padding: theme.spacing.md,
-            background: theme.colors.background.main,
-            borderRadius: theme.borderRadius.md,
-            border: `1px solid ${theme.colors.border.light}`
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          padding: 16,
+          backgroundColor: asciiColors.backgroundSoft
+        }}>
+          <div style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: asciiColors.accent,
+            marginBottom: 16,
+            paddingBottom: 8,
+            borderBottom: `1px solid ${asciiColors.border}`
+          }}>
+            {ascii.blockFull} DATABASE HEALTH
+          </div>
+          <div style={{ 
+            fontFamily: "Consolas",
+            fontSize: 11,
+            lineHeight: 1.8,
+            color: asciiColors.foreground
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Active Connections:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Active Connections:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.activeConnections || '0/0'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Connection Usage:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Connection Usage:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.connectionPercentage || '0.0'}%</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Response Time:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Response Time:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.responseTime || '< 1ms'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Buffer Hit Rate:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Buffer Hit Rate:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.bufferHitRate || '0.0'}%</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Cache Hit Rate:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Cache Hit Rate:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.cacheHitRate || '0.0'}%</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Status:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Status:</span>
               <span style={{ marginLeft: '20px' }}>
-                <StatusBadge $status={dbHealth.status === 'Healthy' ? 'active' : 'idle'}>
+                <span style={{
+                  padding: "2px 8px",
+                  borderRadius: 2,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  border: `1px solid ${dbHealth.status === 'Healthy' ? asciiColors.success : asciiColors.muted}`,
+                  color: dbHealth.status === 'Healthy' ? asciiColors.success : asciiColors.muted,
+                  backgroundColor: (dbHealth.status === 'Healthy' ? asciiColors.success : asciiColors.muted) + "20"
+                }}>
                   {dbHealth.status || 'Unknown'}
-                </StatusBadge>
+                </span>
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Uptime:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Uptime:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>
                 {dbHealth.uptimeSeconds 
                   ? `${Math.floor(dbHealth.uptimeSeconds / 86400)}d ${Math.floor((dbHealth.uptimeSeconds % 86400) / 3600)}h ${Math.floor((dbHealth.uptimeSeconds % 3600) / 60)}m`
@@ -2616,15 +3205,15 @@ const UnifiedMonitor: React.FC = () => {
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Active Queries:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Active Queries:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.activeQueries || 0}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Waiting Queries:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Waiting Queries:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.waitingQueries || 0}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Avg Query Duration:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Avg Query Duration:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>
                 {dbHealth.avgQueryDuration && typeof dbHealth.avgQueryDuration === 'number' 
                   ? `${dbHealth.avgQueryDuration.toFixed(2)}s` 
@@ -2632,7 +3221,7 @@ const UnifiedMonitor: React.FC = () => {
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Query Efficiency:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Query Efficiency:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>
                 {dbHealth.queryEfficiencyScore && typeof dbHealth.queryEfficiencyScore === 'number'
                   ? `${dbHealth.queryEfficiencyScore.toFixed(1)}%`
@@ -2640,19 +3229,19 @@ const UnifiedMonitor: React.FC = () => {
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Long Running Queries:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Long Running Queries:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.longRunningQueries || 0}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Blocking Queries:</span>
+              <span style={{ color: asciiColors.muted }}>├─ Blocking Queries:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.blockingQueries || 0}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: theme.colors.text.secondary }}>├─ Total Queries (24h):</span>
+              <span style={{ color: asciiColors.muted }}>├─ Total Queries (24h):</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.totalQueries24h || 0}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: theme.colors.text.secondary }}>└─ Database Size:</span>
+              <span style={{ color: asciiColors.muted }}>└─ Database Size:</span>
               <span style={{ fontWeight: 500, marginLeft: '20px' }}>
                 {dbHealth.databaseSizeBytes 
                   ? `${(dbHealth.databaseSizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
@@ -2660,8 +3249,8 @@ const UnifiedMonitor: React.FC = () => {
               </span>
             </div>
           </div>
-        </DetailsCard>
-      </DetailsPanel>
+        </div>
+      </div>
     );
   };
 
@@ -2674,7 +3263,7 @@ const UnifiedMonitor: React.FC = () => {
           padding: "12px 16px",
           backgroundColor: asciiColors.backgroundSoft,
           transition: "all 0.2s ease",
-          fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace"
+          fontFamily: "Consolas"
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "translateY(-2px)";
@@ -2700,7 +3289,7 @@ const UnifiedMonitor: React.FC = () => {
             fontSize: "1.6em",
             fontWeight: 600,
             color: asciiColors.accent,
-            fontFamily: "inherit"
+            fontFamily: "Consolas"
           }}>
             {value}
           </div>
@@ -2726,7 +3315,8 @@ const UnifiedMonitor: React.FC = () => {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
-          marginBottom: 20
+          marginBottom: 20,
+          animation: "fadeInUp 0.3s ease-out"
         }}>
           {renderStatCard(activeQueries.length, "Active Queries")}
           {renderStatCard(processingStats.total || 0, "Total Events")}
@@ -2740,7 +3330,8 @@ const UnifiedMonitor: React.FC = () => {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
-          marginBottom: 20
+          marginBottom: 20,
+          animation: "fadeInUp 0.3s ease-out"
         }}>
           {renderStatCard(processingStats.total || 0, "Total Events")}
           {renderStatCard(processingStats.last24h || 0, "Last 24h")}
@@ -2755,7 +3346,8 @@ const UnifiedMonitor: React.FC = () => {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
-          marginBottom: 20
+          marginBottom: 20,
+          animation: "fadeInUp 0.3s ease-out"
         }}>
           {renderStatCard(transferStats.total_transfers || 0, "Total Transfers")}
           {renderStatCard(transferStats.successful || 0, "Successful")}
@@ -2781,7 +3373,8 @@ const UnifiedMonitor: React.FC = () => {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
-          marginBottom: 20
+          marginBottom: 20,
+          animation: "fadeInUp 0.3s ease-out"
         }}>
           {renderStatCard(performanceMetrics.total_queries || 0, "Total Queries")}
           {renderStatCard(performanceMetrics.excellent_count || 0, "Excellent")}
@@ -2808,7 +3401,7 @@ const UnifiedMonitor: React.FC = () => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+        fontFamily: "Consolas",
         fontSize: 12,
         color: asciiColors.foreground,
         backgroundColor: asciiColors.background,
@@ -2850,7 +3443,7 @@ const UnifiedMonitor: React.FC = () => {
       width: "100%",
       minHeight: "100vh",
       padding: "24px 32px",
-      fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+      fontFamily: "Consolas",
       fontSize: 12,
       color: asciiColors.foreground,
       backgroundColor: asciiColors.background,
@@ -2858,15 +3451,17 @@ const UnifiedMonitor: React.FC = () => {
       flexDirection: "column",
       gap: 20
     }}>
-      <div style={{
-        fontSize: 16,
+      <h1 style={{
+        fontSize: 18,
+        fontFamily: "Consolas",
         fontWeight: 600,
+        margin: 0,
         marginBottom: 8,
         padding: "12px 8px",
         borderBottom: `2px solid ${asciiColors.border}`
       }}>
-        {ascii.thickTl}{ascii.thickH.repeat(8)}{ascii.thickTr} MONITOR
-      </div>
+        MONITOR
+      </h1>
 
       {error && (
         <AsciiPanel title="ERROR">
@@ -2929,9 +3524,180 @@ const UnifiedMonitor: React.FC = () => {
       )}
       
       {activeTab === 'system' ? (
-        <div style={{ width: "100%" }}>
+        <div style={{ 
+          width: "100%"
+        }}>
           {renderSystemResources()}
         </div>
+      ) : activeTab === 'monitor' ? (
+        <>
+          <AsciiPanel title="TREE VIEW">
+            <div style={{
+              fontFamily: "Consolas",
+              fontSize: 12,
+              maxHeight: "calc(100vh - 200px)",
+              overflowY: "auto",
+              animation: "slideIn 0.3s ease-out"
+            }}>
+              {renderTree()}
+            </div>
+          </AsciiPanel>
+
+          {selectedItem && (
+            <>
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  backdropFilter: "blur(2px)",
+                  zIndex: 999,
+                  animation: "fadeInUp 0.2s ease-out"
+                }}
+                onClick={() => setSelectedItem(null)}
+              />
+              <div
+                style={{
+                  position: "fixed",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: "85%",
+                  height: "85%",
+                  backgroundColor: asciiColors.background,
+                  border: `2px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  zIndex: 1000,
+                  display: "flex",
+                  flexDirection: "column",
+                  fontFamily: "Consolas",
+                  fontSize: 12,
+                  color: asciiColors.foreground,
+                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+                  animation: "fadeInUp 0.3s ease-out"
+                }}
+              >
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "16px 20px",
+                  borderBottom: `2px solid ${asciiColors.border}`,
+                  backgroundColor: asciiColors.backgroundSoft
+                }}>
+                  <h2 style={{
+                    fontSize: 14,
+                    fontFamily: "Consolas",
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    margin: 0
+                  }}>
+                    {ascii.blockFull} QUERY DETAILS
+                  </h2>
+                  <button
+                    onClick={() => setSelectedItem(null)}
+                    style={{
+                      background: "transparent",
+                      border: `1px solid ${asciiColors.border}`,
+                      color: asciiColors.foreground,
+                      padding: "4px 12px",
+                      borderRadius: 2,
+                      cursor: "pointer",
+                      fontFamily: "Consolas",
+                      fontSize: 11,
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = asciiColors.danger;
+                      e.currentTarget.style.color = asciiColors.background;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = asciiColors.foreground;
+                    }}
+                  >
+                    {ascii.blockFull} CLOSE
+                  </button>
+                </div>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "4fr 1fr",
+                  gap: 20,
+                  flex: 1,
+                  padding: 20,
+                  overflow: "hidden"
+                }}>
+                  <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100%",
+                    overflow: "hidden"
+                  }}>
+                    <h3 style={{
+                      fontSize: 13,
+                      fontFamily: "Consolas",
+                      fontWeight: 600,
+                      color: asciiColors.accent,
+                      margin: 0,
+                      marginBottom: 12,
+                      paddingBottom: 8,
+                      borderBottom: `1px solid ${asciiColors.border}`
+                    }}>
+                      {ascii.blockFull} QUERY TEXT
+                    </h3>
+                    <pre style={{
+                      margin: 0,
+                      padding: 16,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      borderRadius: 2,
+                      overflowX: "auto",
+                      overflowY: "auto",
+                      fontSize: 11,
+                      border: `1px solid ${asciiColors.border}`,
+                      fontFamily: "Consolas",
+                      whiteSpace: "pre-wrap",
+                      wordWrap: "break-word",
+                      color: asciiColors.foreground,
+                      flex: 1
+                    }}>
+                      {selectedItem.query || 'N/A'}
+                    </pre>
+                  </div>
+
+                  <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100%",
+                    overflow: "hidden"
+                  }}>
+                    <h3 style={{
+                      fontSize: 13,
+                      fontFamily: "Consolas",
+                      fontWeight: 600,
+                      color: asciiColors.accent,
+                      margin: 0,
+                      marginBottom: 12,
+                      paddingBottom: 8,
+                      borderBottom: `1px solid ${asciiColors.border}`
+                    }}>
+                      {ascii.blockFull} DETAILS
+                    </h3>
+                    <div style={{
+                      overflowY: "auto",
+                      flex: 1,
+                      animation: "fadeInUp 0.4s ease-out"
+                    }}>
+                      {renderDetails()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </>
       ) : (
         <div style={{
           display: "grid",
@@ -2942,10 +3708,11 @@ const UnifiedMonitor: React.FC = () => {
         }}>
           <AsciiPanel title="TREE VIEW">
             <div style={{
-              fontFamily: "Fira Code, JetBrains Mono, Menlo, Monaco, Consolas, Courier New, monospace",
+              fontFamily: "Consolas",
               fontSize: 12,
               maxHeight: "calc(100vh - 400px)",
-              overflowY: "auto"
+              overflowY: "auto",
+              animation: "slideIn 0.3s ease-out"
             }}>
               {renderTree()}
             </div>
@@ -2954,7 +3721,8 @@ const UnifiedMonitor: React.FC = () => {
           <AsciiPanel title="DETAILS">
             <div style={{
               maxHeight: "calc(100vh - 400px)",
-              overflowY: "auto"
+              overflowY: "auto",
+              animation: "fadeInUp 0.4s ease-out"
             }}>
               {renderDetails()}
             </div>
@@ -2970,6 +3738,51 @@ const UnifiedMonitor: React.FC = () => {
           0%, 20% { opacity: 0; }
           50% { opacity: 1; }
           100% { opacity: 0; }
+        }
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes smoothUpdate {
+          0% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.7;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+        @keyframes dataPulse {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.05);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        * {
+          transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
       `}</style>
     </div>

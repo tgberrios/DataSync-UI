@@ -297,7 +297,7 @@ const EndpointMethod = styled.span<{ $method: string }>`
 `;
 
 const EndpointPath = styled.span`
-  font-family: monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   color: ${theme.colors.text.primary};
   font-size: 0.9em;
 `;
@@ -339,7 +339,7 @@ const ConnectionStringExample = styled.div`
   background: ${theme.colors.background.secondary};
   border-radius: ${theme.borderRadius.sm};
   border-left: 3px solid ${theme.colors.primary.main};
-  font-family: monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-size: 0.85em;
   color: ${theme.colors.text.secondary};
   white-space: pre-wrap;
@@ -1191,7 +1191,7 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
                         borderRadius: theme.borderRadius.md,
                         padding: theme.spacing.sm,
                         background: theme.colors.background.secondary,
-                        fontFamily: 'monospace',
+                        fontFamily: "Consolas, 'Source Code Pro', monospace",
                         fontSize: '0.85em'
                       }}>
                         <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>

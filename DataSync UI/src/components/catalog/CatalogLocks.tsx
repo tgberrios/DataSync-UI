@@ -8,11 +8,13 @@ import {
   LoadingOverlay,
   Grid,
   Value,
-  Button,
 } from '../shared/BaseComponents';
 import { catalogLocksApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 
 const fadeIn = keyframes`
   from {
@@ -47,7 +49,7 @@ const pulse = keyframes`
 
 const MetricsGrid = styled(Grid)`
   margin-bottom: ${theme.spacing.xxl};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family: "Consolas";
   animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   animation-delay: 0.1s;
   animation-fill-mode: both;
@@ -56,178 +58,42 @@ const MetricsGrid = styled(Grid)`
 const MetricCard = styled(Value)<{ $index?: number }>`
   padding: ${theme.spacing.lg};
   min-height: 100px;
-  background: linear-gradient(135deg, ${theme.colors.background.main} 0%, ${theme.colors.background.secondary} 100%);
-  border: 2px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  border-radius: ${theme.borderRadius.lg};
-  box-shadow: ${theme.shadows.md};
+  background: ${asciiColors.backgroundSoft};
+  border: 1px solid ${asciiColors.border};
+  border-left: 2px solid ${asciiColors.accent};
+  border-radius: 2px;
   transition: all ${theme.transitions.normal};
   animation: ${fadeIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   animation-delay: ${props => (props.$index || 0) * 0.1}s;
   animation-fill-mode: both;
   position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-  }
-  
-  &:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: ${theme.shadows.xl};
-    border-color: ${theme.colors.primary.main};
-    border-left-color: ${theme.colors.primary.dark};
-    
-    &::before {
-      left: 100%;
-    }
-  }
+  font-family: "Consolas";
+  font-size: 12px;
 `;
 
 const MetricLabel = styled.div`
-  font-size: 0.9em;
-  color: ${theme.colors.text.secondary};
+  font-size: 11px;
+  color: ${asciiColors.muted};
   margin-bottom: ${theme.spacing.sm};
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family: "Consolas";
   display: flex;
   align-items: center;
   gap: 6px;
 `;
 
 const MetricValue = styled.div`
-  font-size: 2.2em;
+  font-size: 18px;
   font-weight: 700;
-  color: ${theme.colors.primary.main};
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  background: linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-`;
-
-const ActionBar = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${theme.spacing.lg};
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.md};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-  border-left: 4px solid ${theme.colors.primary.main};
-  box-shadow: ${theme.shadows.sm};
-  animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  animation-delay: 0.15s;
-  animation-fill-mode: both;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    box-shadow: ${theme.shadows.md};
-    transform: translateY(-1px);
-  }
-`;
-
-const DangerButton = styled(Button)`
-  background: linear-gradient(135deg, ${theme.colors.status.error.bg} 0%, ${theme.colors.status.error.text}15 100%);
-  color: ${theme.colors.status.error.text};
-  border-color: ${theme.colors.status.error.text};
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
-  box-shadow: ${theme.shadows.sm};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-  }
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #ffcdd2 0%, ${theme.colors.status.error.bg} 100%);
-    border-color: ${theme.colors.status.error.text};
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: ${theme.shadows.lg};
-    
-    &::before {
-      left: 100%;
-    }
-  }
-  
-  &:active:not(:disabled) {
-    transform: translateY(0) scale(0.98);
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const TableActions = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${theme.spacing.md};
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.md};
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border-radius: ${theme.borderRadius.md};
-  border: 1px solid ${theme.colors.border.light};
-  box-shadow: ${theme.shadows.sm};
-  animation: ${fadeIn} 0.3s ease-out;
-`;
-
-const ExportButton = styled(Button)`
-  padding: 8px 16px;
-  font-size: 0.9em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  color: ${asciiColors.accent};
+  font-family: "Consolas";
 `;
 
 
-const SuccessMessage = styled.div`
-  background: linear-gradient(135deg, ${theme.colors.status.success.bg} 0%, ${theme.colors.status.success.text}15 100%);
-  color: ${theme.colors.status.success.text};
-  padding: ${theme.spacing.md};
-  border-radius: ${theme.borderRadius.md};
-  margin-bottom: ${theme.spacing.lg};
-  border: 2px solid ${theme.colors.status.success.text}30;
-  box-shadow: ${theme.shadows.md};
-  animation: ${slideUp} 0.3s ease-out;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  &::before {
-    content: '[+]';
-    font-size: 1.2em;
-    font-weight: bold;
-  }
-`;
+
+
 
 /**
  * Catalog Locks Monitor component
@@ -392,10 +258,47 @@ const CatalogLocks = () => {
 
   if (loading && locks.length === 0) {
     return (
-      <Container>
-        <Header>Catalog Locks Monitor</Header>
-        <LoadingOverlay>Loading catalog locks...</LoadingOverlay>
-      </Container>
+      <div style={{
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Consolas",
+        fontSize: 12,
+        color: asciiColors.foreground,
+        backgroundColor: asciiColors.background,
+        gap: 12
+      }}>
+        <div style={{
+          fontSize: 24,
+          animation: "spin 1s linear infinite"
+        }}>
+          {ascii.blockFull}
+        </div>
+        <div style={{
+          display: "flex",
+          gap: 4,
+          alignItems: "center"
+        }}>
+          <span>Loading catalog locks</span>
+          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
+            {ascii.dot.repeat(3)}
+          </span>
+        </div>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          @keyframes dots {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+        `}</style>
+      </div>
     );
   }
 
@@ -405,68 +308,143 @@ const CatalogLocks = () => {
   });
 
   return (
-    <Container>
-      <Header>Catalog Locks Monitor</Header>
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Consolas",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <h1 style={{
+        fontSize: 18,
+        fontFamily: "Consolas",
+        fontWeight: 600,
+        margin: 0,
+        marginBottom: 16,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        CATALOG LOCKS MONITOR
+      </h1>
       
-      {error && <ErrorMessage>{error}</ErrorMessage>}
-      {success && <SuccessMessage>{success}</SuccessMessage>}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ 
+            color: asciiColors.danger, 
+            fontFamily: "Consolas", 
+            fontSize: 12,
+            padding: "8px 0"
+          }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
+      {success && (
+        <AsciiPanel title="SUCCESS">
+          <div style={{ 
+            color: asciiColors.success, 
+            fontFamily: "Consolas", 
+            fontSize: 12,
+            padding: "8px 0"
+          }}>
+            {ascii.blockFull} {success}
+          </div>
+        </AsciiPanel>
+      )}
       
-      <MetricsGrid $columns="repeat(auto-fit, minmax(200px, 1fr))">
-        <MetricCard $index={0}>
-          <MetricLabel>
-            <span>[#]</span>
-            Total Locks
-          </MetricLabel>
-          <MetricValue>{metrics.total_locks || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={1}>
-          <MetricLabel>
-            <span>[+]</span>
-            Active Locks
-          </MetricLabel>
-          <MetricValue>{metrics.active_locks || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={2}>
-          <MetricLabel>
-            <span>[!]</span>
-            Expired Locks
-          </MetricLabel>
-          <MetricValue>{metrics.expired_locks || 0}</MetricValue>
-        </MetricCard>
-        <MetricCard $index={3}>
-          <MetricLabel>
-            <span>[H]</span>
-            Unique Hosts
-          </MetricLabel>
-          <MetricValue>{metrics.unique_hosts || 0}</MetricValue>
-        </MetricCard>
-      </MetricsGrid>
+      <AsciiPanel title="METRICS">
+        <MetricsGrid $columns="repeat(auto-fit, minmax(200px, 1fr))">
+          <MetricCard $index={0}>
+            <MetricLabel>
+              <span>{ascii.blockFull}</span>
+              Total Locks
+            </MetricLabel>
+            <MetricValue>{metrics.total_locks || 0}</MetricValue>
+          </MetricCard>
+          <MetricCard $index={1}>
+            <MetricLabel>
+              <span>{ascii.blockFull}</span>
+              Active Locks
+            </MetricLabel>
+            <MetricValue>{metrics.active_locks || 0}</MetricValue>
+          </MetricCard>
+          <MetricCard $index={2}>
+            <MetricLabel>
+              <span>{ascii.blockFull}</span>
+              Expired Locks
+            </MetricLabel>
+            <MetricValue>{metrics.expired_locks || 0}</MetricValue>
+          </MetricCard>
+          <MetricCard $index={3}>
+            <MetricLabel>
+              <span>{ascii.blockFull}</span>
+              Unique Hosts
+            </MetricLabel>
+            <MetricValue>{metrics.unique_hosts || 0}</MetricValue>
+          </MetricCard>
+        </MetricsGrid>
+      </AsciiPanel>
 
-      <ActionBar>
-        <div style={{ fontSize: '0.9em', color: theme.colors.text.secondary }}>
-          Locks are used to prevent race conditions during catalog operations. Expired locks are automatically cleaned.
+      <AsciiPanel title="ACTIONS">
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: theme.spacing.md,
+          background: asciiColors.backgroundSoft,
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}>
+          <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: "Consolas" }}>
+            {ascii.dot} Locks are used to prevent race conditions during catalog operations. Expired locks are automatically cleaned.
+          </div>
+          <AsciiButton 
+            label={`Clean Expired (${expiredLocks.length})`}
+            onClick={handleCleanExpired} 
+            disabled={expiredLocks.length === 0}
+            variant="ghost"
+          />
         </div>
-        <DangerButton onClick={handleCleanExpired} disabled={expiredLocks.length === 0}>
-          Clean Expired ({expiredLocks.length})
-        </DangerButton>
-      </ActionBar>
+      </AsciiPanel>
 
-      <TableActions>
-        <div style={{ fontSize: "0.9em", color: theme.colors.text.secondary }}>
-          Total: {locks.length} lock${locks.length !== 1 ? 's' : ''}
+      <AsciiPanel title="LOCKS">
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: theme.spacing.md,
+          background: asciiColors.backgroundSoft,
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          marginBottom: theme.spacing.md,
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}>
+          <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: "Consolas" }}>
+            Total: {locks.length} lock${locks.length !== 1 ? 's' : ''}
+          </div>
+          <div style={{ display: 'flex', gap: theme.spacing.sm }}>
+            <AsciiButton 
+              label="Export CSV"
+              onClick={handleExportCSV}
+              variant="ghost"
+            />
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-          <ExportButton $variant="secondary" onClick={handleExportCSV}>
-            Export CSV
-          </ExportButton>
-        </div>
-      </TableActions>
 
-      <CatalogLocksTreeView 
-        locks={locks}
-        onLockClick={(lock) => handleUnlock(lock.lock_name)}
-      />
-    </Container>
+        <CatalogLocksTreeView 
+          locks={locks}
+          onLockClick={(lock) => handleUnlock(lock.lock_name)}
+        />
+      </AsciiPanel>
+    </div>
   );
 };
 

@@ -77,7 +77,7 @@ const TreeNode = styled.div`
 const TreeLine = styled.span<{ $isLast?: boolean }>`
   color: ${theme.colors.border.medium};
   margin-right: 6px;
-  font-family: 'Courier New', monospace;
+  font-family: "Consolas, 'Source Code Pro', monospace";
   font-size: 0.9em;
   transition: color ${theme.transitions.normal};
 `;
@@ -213,7 +213,7 @@ const EmptyState = styled.div`
     display: block;
     margin-bottom: ${theme.spacing.md};
     opacity: 0.5;
-    font-family: 'Courier New', monospace;
+    font-family: "Consolas, 'Source Code Pro', monospace";
   }
 `;
 

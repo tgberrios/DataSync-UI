@@ -928,7 +928,7 @@ const GovernanceCatalogMSSQL = () => {
                     fontSize: '3em', 
                     marginBottom: theme.spacing.md,
                     animation: `${fadeIn} 0.5s ease-out`,
-                    fontFamily: "'Courier New', monospace",
+                    fontFamily: "Consolas, 'Source Code Pro', monospace",
                     opacity: 0.5
                   }}>
                     ■

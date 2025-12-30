@@ -37,6 +37,9 @@ import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
 import styled from 'styled-components';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import UserManagementTreeView from './UserManagementTreeView';
 
 const HeaderContent = styled.div`
@@ -49,9 +52,10 @@ const HeaderContent = styled.div`
 const CloseButton = styled.button`
   background: none;
   border: none;
-  font-size: 1.5em;
+  font-size: 18px;
+  font-family: "Consolas";
   cursor: pointer;
-  color: ${theme.colors.text.secondary};
+  color: ${asciiColors.muted};
   padding: 0;
   width: 30px;
   height: 30px;
@@ -60,7 +64,7 @@ const CloseButton = styled.button`
   justify-content: center;
   
   &:hover {
-    color: ${theme.colors.text.primary};
+    color: ${asciiColors.foreground};
   }
 `;
 
@@ -75,24 +79,33 @@ const ButtonGroup = styled.div`
 
 const RoleBadge = styled.span<{ $role: string }>`
   padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 0.9em;
+  border-radius: 2px;
+  font-size: 11px;
+  font-family: "Consolas";
   font-weight: 500;
   display: inline-block;
   background-color: ${props => {
     switch (props.$role) {
-      case 'admin': return '#ffebee';
-      case 'user': return '#e3f2fd';
-      case 'viewer': return '#f3e5f5';
-      default: return '#f5f5f5';
+      case 'admin': return asciiColors.danger + '20';
+      case 'user': return asciiColors.accent + '20';
+      case 'viewer': return asciiColors.muted + '20';
+      default: return asciiColors.backgroundSoft;
     }
   }};
   color: ${props => {
     switch (props.$role) {
-      case 'admin': return '#c62828';
-      case 'user': return '#1565c0';
-      case 'viewer': return '#6a1b9a';
-      default: return '#757575';
+      case 'admin': return asciiColors.danger;
+      case 'user': return asciiColors.accent;
+      case 'viewer': return asciiColors.muted;
+      default: return asciiColors.foreground;
+    }
+  }};
+  border: 1px solid ${props => {
+    switch (props.$role) {
+      case 'admin': return asciiColors.danger;
+      case 'user': return asciiColors.accent;
+      case 'viewer': return asciiColors.muted;
+      default: return asciiColors.border;
     }
   }};
 `;
@@ -321,70 +334,156 @@ const UserManagement = () => {
   }, [passwordUserId, newPassword, confirmPassword, handleClosePasswordModal]);
 
   return (
-    <Container>
-      <Header>
-        <HeaderContent>
-          <span>User Management</span>
-          <Button $variant="primary" onClick={() => handleOpenModal()}>
-            + Add User
-          </Button>
-        </HeaderContent>
-      </Header>
+    <div style={{
+      width: "100%",
+      minHeight: "100vh",
+      padding: "24px 32px",
+      fontFamily: "Consolas",
+      fontSize: 12,
+      color: asciiColors.foreground,
+      backgroundColor: asciiColors.background,
+      display: "flex",
+      flexDirection: "column",
+      gap: 20
+    }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        width: "100%",
+        marginBottom: 16,
+        padding: "12px 8px",
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        <h1 style={{
+          fontSize: 18,
+          fontFamily: "Consolas",
+          fontWeight: 600,
+          margin: 0
+        }}>
+          USER MANAGEMENT
+        </h1>
+        <AsciiButton 
+          label={`${ascii.blockFull} Add User`}
+          onClick={() => handleOpenModal()}
+          variant="primary"
+        />
+      </div>
 
-      {loading && <LoadingOverlay>Loading users...</LoadingOverlay>}
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {loading && (
+        <div style={{
+          padding: theme.spacing.lg,
+          textAlign: "center",
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.muted
+        }}>
+          {ascii.blockFull} Loading users...
+        </div>
+      )}
+      {error && (
+        <AsciiPanel title="ERROR">
+          <div style={{ 
+            color: asciiColors.danger, 
+            fontFamily: "Consolas", 
+            fontSize: 12,
+            padding: "8px 0"
+          }}>
+            {ascii.blockFull} {error}
+          </div>
+        </AsciiPanel>
+      )}
 
-      <FiltersContainer>
-        <SearchContainer>
-          <SearchInput
-            type="text"
-            placeholder="Search by username or email..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          />
-          <SearchButton onClick={handleSearch}>Search</SearchButton>
-          {search && (
-            <ClearSearchButton onClick={handleClearSearch}>Clear</ClearSearchButton>
-          )}
-        </SearchContainer>
+      <AsciiPanel title="FILTERS">
+        <div style={{
+          display: "flex",
+          gap: theme.spacing.md,
+          flexWrap: "wrap",
+          alignItems: "end",
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}>
+          <div style={{ display: "flex", gap: theme.spacing.sm, alignItems: "center" }}>
+            <input
+              type="text"
+              placeholder="Search by username or email..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              style={{
+                padding: "8px 12px",
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground,
+                fontFamily: "Consolas",
+                fontSize: 12,
+                minWidth: "200px"
+              }}
+            />
+            <AsciiButton label="Search" onClick={handleSearch} variant="primary" />
+            {search && (
+              <AsciiButton label="Clear" onClick={handleClearSearch} variant="ghost" />
+            )}
+          </div>
 
-        <Select
-          value={filters.role}
-          onChange={(e) => handleFilterChange('role', e.target.value)}
-        >
-          <option value="">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
-          <option value="viewer">Viewer</option>
-        </Select>
+          <select
+            value={filters.role}
+            onChange={(e) => handleFilterChange('role', e.target.value)}
+            style={{
+              padding: "8px 12px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              fontFamily: "Consolas",
+              fontSize: 12
+            }}
+          >
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+            <option value="viewer">Viewer</option>
+          </select>
 
-        <Select
-          value={filters.active}
-          onChange={(e) => handleFilterChange('active', e.target.value)}
-        >
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </Select>
-      </FiltersContainer>
+          <select
+            value={filters.active}
+            onChange={(e) => handleFilterChange('active', e.target.value)}
+            style={{
+              padding: "8px 12px",
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              fontFamily: "Consolas",
+              fontSize: 12
+            }}
+          >
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+      </AsciiPanel>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.md }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        marginBottom: theme.spacing.md,
+        fontFamily: "Consolas",
+        fontSize: 12
+      }}>
         <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-          <Button
-            $variant={viewMode === 'tree' ? 'primary' : 'secondary'}
+          <AsciiButton
+            label="Tree View"
             onClick={() => setViewMode('tree')}
-            style={{ padding: '8px 16px', fontSize: '0.9em' }}
-          >
-            Tree View
-          </Button>
-          <Button
-            $variant={viewMode === 'table' ? 'primary' : 'secondary'}
+            variant={viewMode === 'tree' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
+            label="Table View"
             onClick={() => setViewMode('table')}
-            style={{ padding: '8px 16px', fontSize: '0.9em' }}
-          >
-            Table View
-          </Button>
+            variant={viewMode === 'table' ? 'primary' : 'ghost'}
+          />
         </div>
       </div>
 
@@ -396,40 +495,52 @@ const UserManagement = () => {
           />
           
           {selectedUser && (
-            <div style={{
-              background: theme.colors.background.secondary,
-              border: `1px solid ${theme.colors.border.light}`,
-              borderRadius: theme.borderRadius.md,
-              padding: theme.spacing.lg,
-              position: 'sticky',
-              top: theme.spacing.md,
-              maxHeight: 'calc(100vh - 200px)',
-              overflowY: 'auto'
-            }}>
-              <h3 style={{ marginTop: 0, marginBottom: theme.spacing.md, color: theme.colors.text.primary }}>
-                User Details
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing.md }}>
+            <AsciiPanel title="USER DETAILS">
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr', 
+                gap: theme.spacing.md,
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Username:</strong>
-                  <div style={{ color: theme.colors.text.primary, fontSize: '0.9em', marginTop: '4px' }}>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Username:</strong>
+                  <div style={{ 
+                    color: asciiColors.foreground, 
+                    fontSize: 12, 
+                    marginTop: '4px',
+                    fontFamily: "Consolas",
+                    padding: theme.spacing.sm,
+                    background: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    border: `1px solid ${asciiColors.border}`
+                  }}>
                     {selectedUser.username}
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Email:</strong>
-                  <div style={{ color: theme.colors.text.primary, fontSize: '0.9em', marginTop: '4px' }}>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Email:</strong>
+                  <div style={{ 
+                    color: asciiColors.foreground, 
+                    fontSize: 12, 
+                    marginTop: '4px',
+                    fontFamily: "Consolas",
+                    padding: theme.spacing.sm,
+                    background: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    border: `1px solid ${asciiColors.border}`
+                  }}>
                     {selectedUser.email}
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Role:</strong>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Role:</strong>
                   <div style={{ marginTop: '4px' }}>
                     <RoleBadge $role={selectedUser.role}>{selectedUser.role}</RoleBadge>
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Status:</strong>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Status:</strong>
                   <div style={{ marginTop: '4px' }}>
                     <ActiveBadge $active={selectedUser.active}>
                       {selectedUser.active ? 'Active' : 'Inactive'}
@@ -437,63 +548,78 @@ const UserManagement = () => {
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Created:</strong>
-                  <div style={{ color: theme.colors.text.primary, fontSize: '0.9em', marginTop: '4px' }}>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Created:</strong>
+                  <div style={{ 
+                    color: asciiColors.foreground, 
+                    fontSize: 12, 
+                    marginTop: '4px',
+                    fontFamily: "Consolas"
+                  }}>
                     {format(new Date(selectedUser.created_at), 'yyyy-MM-dd HH:mm')}
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>Last Login:</strong>
-                  <div style={{ color: theme.colors.text.primary, fontSize: '0.9em', marginTop: '4px' }}>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Last Login:</strong>
+                  <div style={{ 
+                    color: asciiColors.foreground, 
+                    fontSize: 12, 
+                    marginTop: '4px',
+                    fontFamily: "Consolas"
+                  }}>
                     {selectedUser.last_login
                       ? format(new Date(selectedUser.last_login), 'yyyy-MM-dd HH:mm')
                       : 'Never'}
                   </div>
                 </div>
-                <div style={{ marginTop: theme.spacing.md, paddingTop: theme.spacing.md, borderTop: `1px solid ${theme.colors.border.light}` }}>
+                <div style={{ 
+                  marginTop: theme.spacing.md, 
+                  paddingTop: theme.spacing.md, 
+                  borderTop: `1px solid ${asciiColors.border}` 
+                }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                    <ActionButton onClick={() => {
-                      handleOpenModal(selectedUser);
-                      setSelectedUser(null);
-                    }}>
-                      Edit User
-                    </ActionButton>
-                    <ActionButton
-                      $variant="danger"
+                    <AsciiButton 
+                      label="Edit User"
+                      onClick={() => {
+                        handleOpenModal(selectedUser);
+                        setSelectedUser(null);
+                      }}
+                      variant="primary"
+                    />
+                    <AsciiButton
+                      label={selectedUser.active ? 'Deactivate' : 'Activate'}
                       onClick={() => {
                         handleToggleActive(selectedUser.id, selectedUser.active);
                         setSelectedUser(null);
                       }}
-                    >
-                      {selectedUser.active ? 'Deactivate' : 'Activate'}
-                    </ActionButton>
-                    <ActionButton
+                      variant="ghost"
+                    />
+                    <AsciiButton
+                      label="Reset Password"
                       onClick={() => {
                         handleOpenPasswordModal(selectedUser.id);
                         setSelectedUser(null);
                       }}
-                    >
-                      Reset Password
-                    </ActionButton>
-                    <ActionButton
-                      $variant="danger"
+                      variant="ghost"
+                    />
+                    <AsciiButton
+                      label="Delete User"
                       onClick={() => {
                         handleDelete(selectedUser.id, selectedUser.username);
                         setSelectedUser(null);
                       }}
-                    >
-                      Delete User
-                    </ActionButton>
+                      variant="ghost"
+                    />
                   </div>
                 </div>
               </div>
-            </div>
+            </AsciiPanel>
           )}
         </div>
       ) : (
         <>
-          <TableContainer>
-        <Table>
+          <AsciiPanel title="USERS TABLE">
+            <TableContainer>
+              <Table>
           <thead>
             <tr>
               <Th>Username</Th>
@@ -525,53 +651,60 @@ const UserManagement = () => {
                     : 'Never'}
                 </Td>
                 <Td>
-                  <ActionButton onClick={() => handleOpenModal(user)}>Edit</ActionButton>
-                  <ActionButton
-                    $variant="danger"
-                    onClick={() => handleToggleActive(user.id, user.active)}
-                  >
-                    {user.active ? 'Deactivate' : 'Activate'}
-                  </ActionButton>
-                  <ActionButton
-                    onClick={() => handleOpenPasswordModal(user.id)}
-                  >
-                    Reset Pwd
-                  </ActionButton>
-                  <ActionButton
-                    $variant="danger"
-                    onClick={() => handleDelete(user.id, user.username)}
-                  >
-                    Delete
-                  </ActionButton>
+                  <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
+                    <AsciiButton label="Edit" onClick={() => handleOpenModal(user)} variant="ghost" />
+                    <AsciiButton
+                      label={user.active ? 'Deactivate' : 'Activate'}
+                      onClick={() => handleToggleActive(user.id, user.active)}
+                      variant="ghost"
+                    />
+                    <AsciiButton
+                      label="Reset Pwd"
+                      onClick={() => handleOpenPasswordModal(user.id)}
+                      variant="ghost"
+                    />
+                    <AsciiButton
+                      label="Delete"
+                      onClick={() => handleDelete(user.id, user.username)}
+                      variant="ghost"
+                    />
+                  </div>
                 </Td>
               </TableRow>
             ))}
           </tbody>
-        </Table>
-      </TableContainer>
+              </Table>
+            </TableContainer>
 
-      <PaginationInfo>
-        Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to{' '}
-        {Math.min(page * limit, pagination.total)} of {pagination.total} users
-      </PaginationInfo>
+            <div style={{
+              padding: theme.spacing.md,
+              fontFamily: "Consolas",
+              fontSize: 11,
+              color: asciiColors.muted,
+              textAlign: "center"
+            }}>
+              Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to{' '}
+              {Math.min(page * limit, pagination.total)} of {pagination.total} users
+            </div>
+          </AsciiPanel>
 
       {pagination.totalPages > 1 && (
         <Pagination>
-          <PageButton
+          <AsciiButton
+            label="Previous"
             disabled={page === 1}
             onClick={() => setPage(page - 1)}
-          >
-            Previous
-          </PageButton>
-          <span>
+            variant="ghost"
+          />
+          <span style={{ fontFamily: "Consolas", fontSize: 12, color: asciiColors.foreground }}>
             Page {page} of {pagination.totalPages}
           </span>
-          <PageButton
+          <AsciiButton
+            label="Next"
             disabled={page === pagination.totalPages}
             onClick={() => setPage(page + 1)}
-          >
-            Next
-          </PageButton>
+            variant="ghost"
+          />
           </Pagination>
         )}
         </>
@@ -581,7 +714,7 @@ const UserManagement = () => {
         <ModalOverlay $isOpen={isModalOpen} onClick={handleCloseModal}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
-              <ModalTitle>
+              <ModalTitle style={{ fontFamily: "Consolas", fontSize: 14 }}>
                 {editingUser ? 'Edit User' : 'Create User'}
               </ModalTitle>
               <CloseButton onClick={handleCloseModal}>×</CloseButton>
@@ -655,10 +788,12 @@ const UserManagement = () => {
               </Label>
             </FormGroup>
             <ButtonGroup>
-              <Button onClick={handleCloseModal}>Cancel</Button>
-              <Button $variant="primary" onClick={handleSave}>
-                {editingUser ? 'Update' : 'Create'}
-              </Button>
+              <AsciiButton label="Cancel" onClick={handleCloseModal} variant="ghost" />
+              <AsciiButton 
+                label={editingUser ? 'Update' : 'Create'}
+                onClick={handleSave}
+                variant="primary"
+              />
             </ButtonGroup>
           </ModalContent>
         </ModalOverlay>
@@ -668,7 +803,7 @@ const UserManagement = () => {
         <ModalOverlay $isOpen={isPasswordModalOpen} onClick={handleClosePasswordModal}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
-              <ModalTitle>Reset Password</ModalTitle>
+              <ModalTitle style={{ fontFamily: "Consolas", fontSize: 14 }}>Reset Password</ModalTitle>
               <CloseButton onClick={handleClosePasswordModal}>×</CloseButton>
             </ModalHeader>
             <FormGroup>
@@ -692,15 +827,17 @@ const UserManagement = () => {
               />
             </FormGroup>
             <ButtonGroup>
-              <Button onClick={handleClosePasswordModal}>Cancel</Button>
-              <Button $variant="primary" onClick={handleResetPassword}>
-                Reset Password
-              </Button>
+              <AsciiButton label="Cancel" onClick={handleClosePasswordModal} variant="ghost" />
+              <AsciiButton 
+                label="Reset Password"
+                onClick={handleResetPassword}
+                variant="primary"
+              />
             </ButtonGroup>
           </ModalContent>
         </ModalOverlay>
       )}
-    </Container>
+    </div>
   );
 };
 

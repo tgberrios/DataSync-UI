@@ -2681,3 +2681,235 @@ export const googleSheetsCatalogApi = {
     }
   },
 };
+
+export interface DimensionTable {
+  dimension_name: string;
+  target_schema: string;
+  target_table: string;
+  scd_type: "TYPE_1" | "TYPE_2" | "TYPE_3";
+  source_query: string;
+  business_keys: string[];
+  valid_from_column: string;
+  valid_to_column: string;
+  is_current_column: string;
+  index_columns: string[];
+  partition_column: string;
+}
+
+export interface FactTable {
+  fact_name: string;
+  target_schema: string;
+  target_table: string;
+  source_query: string;
+  dimension_keys: string[];
+  measures: string[];
+  index_columns: string[];
+  partition_column: string;
+}
+
+export interface DataWarehouseEntry {
+  id: number;
+  warehouse_name: string;
+  description: string | null;
+  schema_type: "STAR_SCHEMA" | "SNOWFLAKE_SCHEMA";
+  source_db_engine: string;
+  source_connection_string: string;
+  target_db_engine: string;
+  target_connection_string: string;
+  target_schema: string;
+  dimensions: DimensionTable[];
+  facts: FactTable[];
+  schedule_cron: string | null;
+  active: boolean;
+  enabled: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  last_build_time: string | null;
+  last_build_status: string | null;
+  notes: string | null;
+}
+
+export const dataWarehouseApi = {
+  getWarehouses: async (params: {
+    page?: number;
+    limit?: number;
+    schema_type?: string;
+    source_db_engine?: string;
+    target_db_engine?: string;
+    active?: string;
+    enabled?: string;
+    search?: string;
+  }) => {
+    try {
+      const response = await api.get("/data-warehouse", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching data warehouses:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getWarehouse: async (warehouseName: string) => {
+    try {
+      const response = await api.get(
+        `/data-warehouse/${encodeURIComponent(warehouseName)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching warehouse ${warehouseName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createWarehouse: async (
+    warehouseData: Omit<
+      DataWarehouseEntry,
+      | "id"
+      | "created_at"
+      | "updated_at"
+      | "last_build_time"
+      | "last_build_status"
+    >
+  ) => {
+    try {
+      const response = await api.post("/data-warehouse", warehouseData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating warehouse:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateWarehouse: async (
+    warehouseName: string,
+    warehouseData: Partial<DataWarehouseEntry>
+  ) => {
+    try {
+      const response = await api.put(
+        `/data-warehouse/${encodeURIComponent(warehouseName)}`,
+        warehouseData
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating warehouse ${warehouseName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteWarehouse: async (warehouseName: string) => {
+    try {
+      const response = await api.delete(
+        `/data-warehouse/${encodeURIComponent(warehouseName)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting warehouse ${warehouseName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateActive: async (warehouseName: string, active: boolean) => {
+    try {
+      const response = await api.patch(
+        `/data-warehouse/${encodeURIComponent(warehouseName)}/active`,
+        {
+          active,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error updating warehouse active status for ${warehouseName}:`,
+        error
+      );
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  buildWarehouse: async (warehouseName: string) => {
+    try {
+      const response = await api.post(
+        `/data-warehouse/${encodeURIComponent(warehouseName)}/build`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error building warehouse ${warehouseName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getBuildHistory: async (warehouseName: string, limit: number = 50) => {
+    try {
+      const response = await api.get(
+        `/data-warehouse/${encodeURIComponent(warehouseName)}/history`,
+        {
+          params: { limit },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error fetching warehouse build history for ${warehouseName}:`,
+        error
+      );
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};

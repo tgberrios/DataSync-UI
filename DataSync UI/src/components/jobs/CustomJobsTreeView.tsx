@@ -1,220 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { theme } from '../../theme/theme';
-import { ActiveBadge, ActionButton, PlayButton } from '../shared/BaseComponents';
-import { format } from 'date-fns';
+import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import type { CustomJobEntry } from '../../services/api';
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideDown = keyframes`
-  from {
-    max-height: 0;
-    opacity: 0;
-  }
-  to {
-    max-height: 1000px;
-    opacity: 1;
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    max-height: 1000px;
-    opacity: 1;
-  }
-  to {
-    max-height: 0;
-    opacity: 0;
-  }
-`;
-
-const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 0.95em;
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
-  max-height: 800px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-shadow: ${theme.shadows.md};
-  position: relative;
-  
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    transition: background ${theme.transitions.normal};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
-`;
-
-const TreeNode = styled.div`
-  user-select: none;
-  margin: 4px 0;
-`;
-
-const TreeContent = styled.div<{ $level: number; $isExpanded: boolean; $nodeType: 'schema' | 'table' | 'job' }>`
-  display: flex;
-  align-items: center;
-  padding: 8px 4px;
-  padding-left: ${props => props.$level * 24 + 8}px;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
-  cursor: pointer;
-  background: ${props => props.$nodeType === 'schema' ? 'transparent' : 'transparent'};
-  
-  &:hover {
-    background: ${theme.colors.background.secondary};
-  }
-`;
-
-const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 8px;
-  transition: transform ${theme.transitions.normal};
-  transform: ${props => props.$isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'};
-  color: ${theme.colors.text.secondary};
-`;
-
-const NodeLabel = styled.span<{ $isSchema?: boolean }>`
-  font-weight: ${props => props.$isSchema ? 600 : 500};
-  color: ${props => props.$isSchema ? theme.colors.primary.main : theme.colors.text.primary};
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const CountBadge = styled.span`
-  background: ${theme.colors.background.secondary};
-  color: ${theme.colors.text.secondary};
-  padding: 2px 8px;
-  border-radius: ${theme.borderRadius.sm};
-  font-size: 0.85em;
-  font-weight: 500;
-`;
-
-const DuplicateButton = styled.button`
-  padding: 4px 8px;
-  border: none;
-  border-radius: ${theme.borderRadius.sm};
-  background: ${theme.colors.primary.main};
-  color: ${theme.colors.text.white};
-  cursor: pointer;
-  font-size: 0.75em;
-  transition: all ${theme.transitions.normal};
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  
-  &:hover {
-    background: ${theme.colors.primary.dark};
-    transform: translateY(-1px);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-  
-  svg {
-    width: 12px;
-    height: 12px;
-  }
-`;
-
-const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
-  overflow: hidden;
-  animation: ${props => props.$isExpanded ? slideDown : slideUp} 0.3s ease-out;
-  padding-left: ${props => props.$level * 24 + 36}px;
-`;
-
-const JobDetailsRow = styled.div<{ $level: number }>`
-  padding: 12px 8px;
-  padding-left: ${props => props.$level * 24 + 36}px;
-  margin: 2px 0;
-  border-radius: ${theme.borderRadius.md};
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
-  cursor: pointer;
-  animation: ${fadeIn} 0.3s ease-out;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  
-  &:hover {
-    background: ${theme.colors.background.secondary};
-    border-color: ${theme.colors.primary.main};
-    transform: translateX(4px);
-  }
-`;
-
-const EmptyState = styled.div`
-  padding: 60px 40px;
-  text-align: center;
-  color: ${theme.colors.text.secondary};
-  animation: ${fadeIn} 0.5s ease-out;
-  
-  &::before {
-    content: '■';
-    font-size: 3em;
-    display: block;
-    margin-bottom: ${theme.spacing.md};
-    opacity: 0.5;
-    font-family: 'Courier New', monospace;
-  }
-`;
-
-const IconSchema = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.colors.primary.main} strokeWidth="2" style={{ marginRight: '8px' }}>
-    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-  </svg>
-);
-
-const IconTable = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.colors.text.secondary} strokeWidth="2" style={{ marginRight: '8px' }}>
-    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-    <polyline points="9 22 9 12 15 12 15 22"/>
-  </svg>
-);
-
-const IconJob = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={theme.colors.text.secondary} strokeWidth="2" style={{ marginRight: '8px' }}>
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-    <line x1="9" y1="3" x2="9" y2="21"/>
-    <line x1="3" y1="9" x2="21" y2="9"/>
-  </svg>
-);
 
 interface SchemaNode {
   name: string;
@@ -320,8 +109,17 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
     for (let i = 0; i < level - 1; i++) {
       lines.push('│  ');
     }
-    lines.push(isLast ? '└─ ' : '├─ ');
-    return <span style={{ color: theme.colors.text.secondary, fontFamily: 'monospace' }}>{lines.join('')}</span>;
+    lines.push(isLast ? '└── ' : '├── ');
+    return (
+      <span style={{
+        color: asciiColors.muted,
+        marginRight: 6,
+        fontFamily: "Consolas",
+        fontSize: 11
+      }}>
+        {lines.join('')}
+      </span>
+    );
   };
 
   const renderSchema = (schema: SchemaNode, level: number, isLast: boolean) => {
@@ -329,31 +127,86 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
     const totalJobs = Array.from(schema.tables.values()).reduce((sum, table) => sum + table.jobs.length, 0);
 
     return (
-      <TreeNode key={schema.name}>
-        <TreeContent 
-          $level={level} 
-          $isExpanded={isExpanded}
-          $nodeType="schema"
+      <div key={schema.name} style={{ marginBottom: 2, userSelect: 'none' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px 8px',
+            paddingLeft: `${level * 24 + 8}px`,
+            cursor: 'pointer',
+            borderRadius: 2,
+            transition: 'all 0.2s ease',
+            position: 'relative',
+            margin: '2px 0',
+            background: `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`,
+            borderLeft: `3px solid ${asciiColors.accent}`,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}
           onClick={() => toggleSchema(schema.name)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}25 0%, ${asciiColors.accent}15 100%)`;
+            e.currentTarget.style.transform = 'translateX(2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`;
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
         >
           {renderTreeLine(level, isLast)}
-          <ExpandIconContainer $isExpanded={isExpanded}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </ExpandIconContainer>
-          <IconSchema />
-          <NodeLabel $isSchema>{schema.name}</NodeLabel>
-          <CountBadge>{totalJobs} {totalJobs === 1 ? 'job' : 'jobs'}</CountBadge>
-        </TreeContent>
-        <ExpandableContent $isExpanded={isExpanded} $level={level}>
-          {isExpanded && Array.from(schema.tables.values())
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map((table, index, arr) => 
-              renderTable(table, schema.name, level + 1, index === arr.length - 1)
-            )}
-        </ExpandableContent>
-      </TreeNode>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 16,
+            height: 16,
+            marginRight: 8,
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {isExpanded ? '▼' : '▶'}
+          </span>
+          <span style={{ marginRight: 8, color: asciiColors.accent, fontFamily: "Consolas" }}>
+            {ascii.blockFull}
+          </span>
+          <span style={{
+            fontWeight: 600,
+            color: asciiColors.accent,
+            marginRight: 8,
+            flex: 1,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {schema.name}
+          </span>
+          <span style={{
+            padding: '2px 8px',
+            borderRadius: 2,
+            fontSize: 11,
+            fontWeight: 500,
+            backgroundColor: asciiColors.backgroundSoft,
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            border: `1px solid ${asciiColors.border}`
+          }}>
+            {totalJobs} {totalJobs === 1 ? 'job' : 'jobs'}
+          </span>
+        </div>
+        {isExpanded && (
+          <div style={{
+            overflow: 'hidden',
+            paddingLeft: `${(level + 1) * 24 + 36}px`
+          }}>
+            {Array.from(schema.tables.values())
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((table, index, arr) => 
+                renderTable(table, schema.name, level + 1, index === arr.length - 1)
+              )}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -362,145 +215,365 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
     const isExpanded = expandedTables.has(key);
 
     return (
-      <TreeNode key={key}>
-        <TreeContent 
-          $level={level} 
-          $isExpanded={isExpanded}
-          $nodeType="table"
+      <div key={key} style={{ marginBottom: 2, userSelect: 'none' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '10px 8px',
+            paddingLeft: `${level * 24 + 8}px`,
+            cursor: 'pointer',
+            borderRadius: 2,
+            transition: 'all 0.2s ease',
+            position: 'relative',
+            margin: '2px 0',
+            background: asciiColors.backgroundSoft,
+            borderLeft: `2px solid ${asciiColors.border}`,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}
           onClick={() => toggleTable(schemaName, table.name)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = asciiColors.background;
+            e.currentTarget.style.transform = 'translateX(2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
         >
           {renderTreeLine(level, isLast)}
-          <ExpandIconContainer $isExpanded={isExpanded}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </ExpandIconContainer>
-          <IconTable />
-          <NodeLabel>{table.name}</NodeLabel>
-          <CountBadge>{table.jobs.length} {table.jobs.length === 1 ? 'job' : 'jobs'}</CountBadge>
-        </TreeContent>
-        <ExpandableContent $isExpanded={isExpanded} $level={level}>
-          {isExpanded && table.jobs.map((job, index) => 
-            renderJob(job, level + 1, index === table.jobs.length - 1)
-          )}
-        </ExpandableContent>
-      </TreeNode>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 16,
+            height: 16,
+            marginRight: 8,
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {isExpanded ? '▼' : '▶'}
+          </span>
+          <span style={{ marginRight: 8, color: asciiColors.accent, fontFamily: "Consolas" }}>
+            {ascii.blockSemi}
+          </span>
+          <span style={{
+            fontWeight: 500,
+            color: asciiColors.foreground,
+            marginRight: 8,
+            flex: 1,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {table.name}
+          </span>
+          <span style={{
+            padding: '2px 8px',
+            borderRadius: 2,
+            fontSize: 11,
+            fontWeight: 500,
+            backgroundColor: asciiColors.backgroundSoft,
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            border: `1px solid ${asciiColors.border}`
+          }}>
+            {table.jobs.length} {table.jobs.length === 1 ? 'job' : 'jobs'}
+          </span>
+        </div>
+        {isExpanded && (
+          <div style={{
+            overflow: 'hidden',
+            paddingLeft: `${(level + 1) * 24 + 36}px`
+          }}>
+            {table.jobs.map((job, index) => 
+              renderJob(job, level + 1, index === table.jobs.length - 1)
+            )}
+          </div>
+        )}
+      </div>
     );
   };
 
   const renderJob = (job: CustomJobEntry, level: number, isLast: boolean) => {
     return (
-      <JobDetailsRow
+      <div
         key={job.id}
-        $level={level}
+        style={{
+          padding: '12px 8px',
+          paddingLeft: `${level * 24 + 36}px`,
+          margin: '2px 0',
+          borderRadius: 2,
+          background: asciiColors.background,
+          border: `1px solid ${asciiColors.border}`,
+          transition: 'all 0.2s ease',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}
         onClick={() => onJobClick?.(job)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = asciiColors.backgroundSoft;
+          e.currentTarget.style.borderColor = asciiColors.accent;
+          e.currentTarget.style.transform = 'translateX(4px)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = asciiColors.background;
+          e.currentTarget.style.borderColor = asciiColors.border;
+          e.currentTarget.style.transform = 'translateX(0)';
+        }}
       >
         {renderTreeLine(level, isLast)}
-        <IconJob />
-        <span style={{ marginRight: '8px', fontWeight: 500, color: theme.colors.text.primary, flex: 1 }}>
+        <span style={{ marginRight: 8, color: asciiColors.accent, fontFamily: "Consolas" }}>
+          {ascii.dot}
+        </span>
+        <span style={{ marginRight: 8, fontWeight: 500, color: asciiColors.foreground, flex: 1, fontFamily: "Consolas", fontSize: 12 }}>
           {job.job_name}
         </span>
         {job.description && (
-          <span style={{ color: theme.colors.text.secondary, fontSize: '0.85em', flex: 1 }}>
+          <span style={{ color: asciiColors.muted, fontSize: 11, flex: 1, fontFamily: "Consolas" }}>
             {job.description.length > 50 ? job.description.substring(0, 50) + '...' : job.description}
           </span>
         )}
-        <span style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>
+        <span style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>
           {job.source_db_engine} → {job.target_db_engine}
         </span>
-        <span style={{ color: theme.colors.text.secondary, fontSize: '0.85em' }}>
-          {job.schedule_cron || 'Manual'}
-        </span>
-        <ActiveBadge $active={job.active}>
+        {job.schedule_cron ? (
+          <span style={{
+            padding: '2px 8px',
+            borderRadius: 2,
+            fontSize: 11,
+            fontWeight: 500,
+            backgroundColor: asciiColors.accent,
+            color: asciiColors.background,
+            fontFamily: "Consolas",
+            border: `1px solid ${asciiColors.accent}`
+          }}>
+            Scheduled: {job.schedule_cron}
+          </span>
+        ) : (
+          <span style={{
+            padding: '2px 8px',
+            borderRadius: 2,
+            fontSize: 11,
+            fontWeight: 500,
+            backgroundColor: asciiColors.backgroundSoft,
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            border: `1px solid ${asciiColors.border}`
+          }}>
+            Manual
+          </span>
+        )}
+        <span style={{
+          padding: '2px 8px',
+          borderRadius: 2,
+          fontSize: 11,
+          fontWeight: 500,
+          backgroundColor: job.active ? asciiColors.success : asciiColors.danger,
+          color: asciiColors.background,
+          fontFamily: "Consolas",
+          border: `1px solid ${job.active ? asciiColors.success : asciiColors.danger}`
+        }}>
           {job.active ? 'Active' : 'Inactive'}
-        </ActiveBadge>
-        <ActiveBadge $active={job.enabled}>
+        </span>
+        <span style={{
+          padding: '2px 8px',
+          borderRadius: 2,
+          fontSize: 11,
+          fontWeight: 500,
+          backgroundColor: job.enabled ? asciiColors.success : asciiColors.danger,
+          color: asciiColors.background,
+          fontFamily: "Consolas",
+          border: `1px solid ${job.enabled ? asciiColors.success : asciiColors.danger}`
+        }}>
           {job.enabled ? 'Enabled' : 'Disabled'}
-        </ActiveBadge>
-        <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
+        </span>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
           {onJobExecute && (
-            <PlayButton
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onJobExecute(job.job_name);
               }}
               title={`Execute job: ${job.job_name}`}
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.accent}`,
+                borderRadius: 2,
+                background: asciiColors.accent,
+                color: asciiColors.background,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                outline: "none"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.accentSoft;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.accent;
+              }}
             >
               ▶
-            </PlayButton>
+            </button>
           )}
           {onJobDuplicate && (
-            <DuplicateButton
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
-                onJobDuplicate(job);
-              }}
-              title="Duplicate Job"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-              </svg>
-              Duplicate
-            </DuplicateButton>
+            <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <AsciiButton
+                label="Duplicate"
+                onClick={() => onJobDuplicate(job)}
+                variant="primary"
+              />
+            </div>
           )}
           {onJobEdit && (
-            <ActionButton
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onJobEdit(job);
               }}
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                background: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                outline: "none"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.background;
+              }}
             >
               Edit
-            </ActionButton>
+            </button>
           )}
           {onJobToggleActive && (
-            <ActionButton
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onJobToggleActive(job.job_name, job.active);
               }}
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                background: asciiColors.background,
+                color: asciiColors.foreground,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                outline: "none"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.background;
+              }}
             >
               {job.active ? 'Deactivate' : 'Activate'}
-            </ActionButton>
+            </button>
           )}
           {onJobDelete && (
-            <ActionButton
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onJobDelete(job.job_name);
               }}
-              $variant="danger"
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.danger}`,
+                borderRadius: 2,
+                background: asciiColors.danger,
+                color: asciiColors.background,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                outline: "none"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.danger + "CC";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.danger;
+              }}
             >
               Delete
-            </ActionButton>
+            </button>
           )}
         </div>
-      </JobDetailsRow>
+      </div>
     );
   };
 
   if (treeData.length === 0) {
     return (
-      <TreeContainer>
-        <EmptyState>
-          <div style={{ fontSize: '1.1em', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", sans-serif', fontWeight: 500, marginBottom: '8px' }}>
+      <AsciiPanel title="CUSTOM JOBS TREE">
+        <div style={{
+          padding: '60px 40px',
+          textAlign: 'center',
+          color: asciiColors.muted,
+          fontFamily: "Consolas",
+          fontSize: 12
+        }}>
+          <div style={{
+            fontSize: 48,
+            marginBottom: 16,
+            opacity: 0.5,
+            fontFamily: "Consolas"
+          }}>
+            {ascii.blockFull}
+          </div>
+          <div style={{
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 8,
+            color: asciiColors.foreground,
+            fontFamily: "Consolas"
+          }}>
             No custom jobs available
           </div>
-          <div style={{ fontSize: '0.9em', opacity: 0.7 }}>
+          <div style={{
+            fontSize: 12,
+            opacity: 0.7,
+            fontFamily: "Consolas"
+          }}>
             Create a new job to get started.
           </div>
-        </EmptyState>
-      </TreeContainer>
+        </div>
+      </AsciiPanel>
     );
   }
 
   return (
-    <TreeContainer>
-      {treeData.map((schema, index) => 
-        renderSchema(schema, 0, index === treeData.length - 1)
-      )}
-    </TreeContainer>
+    <AsciiPanel title="CUSTOM JOBS TREE">
+      <div style={{
+        maxHeight: 800,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        fontFamily: "Consolas",
+        fontSize: 12
+      }}>
+        {treeData.map((schema, index) => 
+          renderSchema(schema, 0, index === treeData.length - 1)
+        )}
+      </div>
+    </AsciiPanel>
   );
 };
 
