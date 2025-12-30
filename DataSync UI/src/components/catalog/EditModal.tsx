@@ -280,6 +280,56 @@ const EditModal: React.FC<EditModalProps> = ({ entry, onClose, onSave }) => {
                 />
               </div>
 
+              <div>
+                <label style={{
+                  display: "block",
+                  marginBottom: 8,
+                  fontSize: 11,
+                  fontFamily: "Consolas",
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5
+                }}>
+                  {ascii.v} Cron Schedule
+                </label>
+                <input
+                  type="text"
+                  value={editedEntry.cron_schedule || ''}
+                  onChange={(e) => setEditedEntry({...editedEntry, cron_schedule: e.target.value || null})}
+                  placeholder="e.g., 0 */6 * * *"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: "Consolas",
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: "none",
+                    transition: "border-color 0.2s ease"
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                    e.currentTarget.style.boxShadow = `0 0 0 2px ${asciiColors.accentLight}`;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = asciiColors.border;
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                />
+                <div style={{ 
+                  marginTop: 4, 
+                  fontSize: 10, 
+                  color: asciiColors.muted,
+                  fontFamily: "Consolas",
+                  lineHeight: 1.4
+                }}>
+                  Format: minute hour day month day-of-week. Leave empty to disable cron scheduling.
+                </div>
+              </div>
+
               <div style={{
                 display: "flex",
                 justifyContent: "flex-end",

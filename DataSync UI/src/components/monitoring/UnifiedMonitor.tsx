@@ -2920,6 +2920,113 @@ const UnifiedMonitor: React.FC = () => {
   };
 
   const renderSystemResources = () => {
+    const renderMetricCard = (
+      label: string,
+      value: number,
+      unit: string,
+      data: number[],
+      color: string,
+      icon: string,
+      maxValue?: number
+    ) => {
+      const currentValue = data.length > 0 ? data[data.length - 1] : 0;
+      const displayValue = value || currentValue;
+      const hasData = data.length > 1;
+      const minValue = hasData ? Math.min(...data) : 0;
+      const maxValueData = hasData ? Math.max(...data) : 0;
+      const effectiveMax = maxValue || (maxValueData > 0 ? maxValueData : 100);
+      const percentage = effectiveMax > 0 ? (displayValue / effectiveMax) * 100 : 0;
+      const barWidth = Math.min(100, Math.max(0, percentage));
+
+      return (
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          padding: "12px",
+          backgroundColor: asciiColors.background,
+          borderRadius: 2,
+          border: `1px solid ${asciiColors.border}`,
+          transition: "all 0.2s ease"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = color;
+          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = asciiColors.border;
+          e.currentTarget.style.backgroundColor = asciiColors.background;
+        }}
+        >
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 4
+          }}>
+            <div style={{
+              fontSize: 11,
+              color: asciiColors.accent,
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontFamily: "Consolas"
+            }}>
+              <span>{icon}</span>
+              <span>{label}</span>
+            </div>
+            <div style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: color,
+              fontFamily: "Consolas"
+            }}>
+              {displayValue.toFixed(1)}{unit}
+            </div>
+          </div>
+          
+          <div style={{
+            width: "100%",
+            height: 6,
+            backgroundColor: asciiColors.backgroundSoft,
+            borderRadius: 1,
+            overflow: "hidden",
+            border: `1px solid ${asciiColors.border}`
+          }}>
+            <div style={{
+              width: `${barWidth}%`,
+              height: "100%",
+              backgroundColor: color,
+              transition: "width 0.3s ease",
+              borderRadius: 1
+            }} />
+          </div>
+          
+          <AsciiSparkline 
+            data={data} 
+            color={color}
+            width={40}
+            labels={resourceHistory.timestamp}
+          />
+          
+          {hasData && (
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 9,
+              color: asciiColors.muted,
+              marginTop: 2,
+              fontFamily: "Consolas"
+            }}>
+              <span>Min: {minValue.toFixed(1)}{unit}</span>
+              <span>Max: {maxValueData.toFixed(1)}{unit}</span>
+            </div>
+          )}
+        </div>
+      );
+    };
+
     return (
       <div style={{
         fontFamily: "Consolas",
@@ -2950,141 +3057,43 @@ const UnifiedMonitor: React.FC = () => {
             gridTemplateColumns: "1fr 1fr",
             gap: 12
           }}>
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: "12px",
-              backgroundColor: asciiColors.background,
-              borderRadius: 2,
-              border: `1px solid ${asciiColors.border}`
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.accent,
-                marginBottom: 4
-              }}>
-                {ascii.blockFull} CPU Usage (%)
-              </div>
-              <AsciiSparkline 
-                data={resourceHistory.cpuUsage} 
-                color={asciiColors.accent}
-                width={40}
-                labels={resourceHistory.timestamp}
-              />
-              <div style={{
-                fontSize: 10,
-                color: asciiColors.muted,
-                fontFamily: "Consolas",
-                marginTop: 4
-              }}>
-                {resourceHistory.cpuUsage.length > 0 
-                  ? resourceHistory.cpuUsage[resourceHistory.cpuUsage.length - 1].toFixed(1) + '%'
-                  : 'N/A'}
-              </div>
-            </div>
-
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: "12px",
-              backgroundColor: asciiColors.background,
-              borderRadius: 2,
-              border: `1px solid ${asciiColors.border}`
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.accent,
-                marginBottom: 4
-              }}>
-                {ascii.blockSemi} Memory (%)
-              </div>
-              <AsciiSparkline 
-                data={resourceHistory.memoryPercentage} 
-                color={asciiColors.accent}
-                width={40}
-                labels={resourceHistory.timestamp}
-              />
-              <div style={{
-                fontSize: 10,
-                color: asciiColors.muted,
-                fontFamily: "Consolas",
-                marginTop: 4
-              }}>
-                {resourceHistory.memoryPercentage.length > 0 
-                  ? resourceHistory.memoryPercentage[resourceHistory.memoryPercentage.length - 1].toFixed(1) + '%'
-                  : 'N/A'}
-              </div>
-            </div>
-
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: "12px",
-              backgroundColor: asciiColors.background,
-              borderRadius: 2,
-              border: `1px solid ${asciiColors.border}`
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.accent,
-                marginBottom: 4
-              }}>
-                {ascii.blockLight} Network (IOPS)
-              </div>
-              <AsciiSparkline 
-                data={resourceHistory.network} 
-                color={asciiColors.accent}
-                width={40}
-                labels={resourceHistory.timestamp}
-              />
-              <div style={{
-                fontSize: 10,
-                color: asciiColors.muted,
-                fontFamily: "Consolas",
-                marginTop: 4
-              }}>
-                {resourceHistory.network.length > 0 
-                  ? resourceHistory.network[resourceHistory.network.length - 1].toFixed(0)
-                  : 'N/A'}
-              </div>
-            </div>
-
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: "12px",
-              backgroundColor: asciiColors.background,
-              borderRadius: 2,
-              border: `1px solid ${asciiColors.border}`
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.accent,
-                marginBottom: 4
-              }}>
-                {ascii.dot} Throughput (RPS)
-              </div>
-              <AsciiSparkline 
-                data={resourceHistory.throughput} 
-                color={asciiColors.accent}
-                width={40}
-            labels={resourceHistory.timestamp}
-          />
-              <div style={{
-                fontSize: 10,
-                color: asciiColors.muted,
-                fontFamily: "Consolas",
-                marginTop: 4
-              }}>
-                {resourceHistory.throughput.length > 0 
-                  ? resourceHistory.throughput[resourceHistory.throughput.length - 1].toFixed(0)
-                  : 'N/A'}
-              </div>
-            </div>
+            {renderMetricCard(
+              "CPU Usage",
+              resourceHistory.cpuUsage.length > 0 ? resourceHistory.cpuUsage[resourceHistory.cpuUsage.length - 1] : 0,
+              "%",
+              resourceHistory.cpuUsage,
+              asciiColors.accent,
+              ascii.blockFull,
+              100
+            )}
+            
+            {renderMetricCard(
+              "Memory",
+              resourceHistory.memoryPercentage.length > 0 ? resourceHistory.memoryPercentage[resourceHistory.memoryPercentage.length - 1] : 0,
+              "%",
+              resourceHistory.memoryPercentage,
+              asciiColors.accent,
+              ascii.blockSemi,
+              100
+            )}
+            
+            {renderMetricCard(
+              "Network",
+              resourceHistory.network.length > 0 ? resourceHistory.network[resourceHistory.network.length - 1] : 0,
+              " IOPS",
+              resourceHistory.network,
+              asciiColors.accent,
+              ascii.blockLight
+            )}
+            
+            {renderMetricCard(
+              "Throughput",
+              resourceHistory.throughput.length > 0 ? resourceHistory.throughput[resourceHistory.throughput.length - 1] : 0,
+              " RPS",
+              resourceHistory.throughput,
+              asciiColors.accent,
+              ascii.dot
+            )}
           </div>
         </div>
 
@@ -3112,73 +3121,24 @@ const UnifiedMonitor: React.FC = () => {
             gridTemplateColumns: "1fr 1fr",
             gap: 12
           }}>
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: "12px",
-              backgroundColor: asciiColors.background,
-              borderRadius: 2,
-              border: `1px solid ${asciiColors.border}`
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.accent,
-                marginBottom: 4
-              }}>
-                {ascii.blockFull} DB Connections (%)
-              </div>
-              <AsciiSparkline 
-                data={resourceHistory.dbConnections} 
-                color={asciiColors.accent}
-                width={40}
-                labels={resourceHistory.timestamp}
-              />
-              <div style={{
-                fontSize: 10,
-                color: asciiColors.muted,
-                fontFamily: "Consolas",
-                marginTop: 4
-              }}>
-                {resourceHistory.dbConnections.length > 0 
-                  ? resourceHistory.dbConnections[resourceHistory.dbConnections.length - 1].toFixed(1) + '%'
-                  : 'N/A'}
-              </div>
-            </div>
-
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: "12px",
-              backgroundColor: asciiColors.background,
-              borderRadius: 2,
-              border: `1px solid ${asciiColors.border}`
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.accent,
-                marginBottom: 4
-              }}>
-                {ascii.blockSemi} DB Queries/sec
-              </div>
-              <AsciiSparkline 
-                data={resourceHistory.dbQueriesPerSecond} 
-                color={asciiColors.accent}
-                width={40}
-            labels={resourceHistory.timestamp}
-          />
-              <div style={{
-                fontSize: 10,
-                color: asciiColors.muted,
-                fontFamily: "Consolas",
-                marginTop: 4
-              }}>
-                {resourceHistory.dbQueriesPerSecond.length > 0 
-                  ? resourceHistory.dbQueriesPerSecond[resourceHistory.dbQueriesPerSecond.length - 1].toFixed(1)
-                  : 'N/A'}
-              </div>
-            </div>
+            {renderMetricCard(
+              "DB Connections",
+              resourceHistory.dbConnections.length > 0 ? resourceHistory.dbConnections[resourceHistory.dbConnections.length - 1] : 0,
+              "%",
+              resourceHistory.dbConnections,
+              asciiColors.accent,
+              ascii.blockFull,
+              100
+            )}
+            
+            {renderMetricCard(
+              "Queries/sec",
+              resourceHistory.dbQueriesPerSecond.length > 0 ? resourceHistory.dbQueriesPerSecond[resourceHistory.dbQueriesPerSecond.length - 1] : 0,
+              "",
+              resourceHistory.dbQueriesPerSecond,
+              asciiColors.accent,
+              ascii.blockSemi
+            )}
           </div>
         </div>
 

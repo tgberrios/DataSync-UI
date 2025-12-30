@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import EditModal from "./EditModal";
 import AddTableModal from "./AddTableModal";
 import CatalogTreeView from "./CatalogTreeView";
+import TableDetailModal from "./TableDetailModal";
 import { AsciiPanel } from "../../ui/layout/AsciiPanel";
 import { AsciiButton } from "../../ui/controls/AsciiButton";
 import { asciiColors, ascii } from "../../ui/theme/asciiTheme";
@@ -40,6 +40,10 @@ const Catalog = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [allEntries, setAllEntries] = useState<CatalogEntry[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
+  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [tableStructure, setTableStructure] = useState<any>(null);
+  const [loadingStructure, setLoadingStructure] = useState(false);
   const isMountedRef = useRef(true);
 
   /**
@@ -221,6 +225,34 @@ const Catalog = () => {
     },
     [fetchAllEntries]
   );
+
+  const handleTableClick = useCallback(async (entry: CatalogEntry) => {
+    setSelectedEntry(entry);
+    setLoadingHistory(true);
+    setLoadingStructure(true);
+    setExecutionHistory([]);
+    setTableStructure(null);
+    
+    try {
+      const [history, structure] = await Promise.all([
+        catalogApi.getExecutionHistory(entry.schema_name, entry.table_name, entry.db_engine, 50).catch(() => []),
+        catalogApi.getTableStructure(entry.schema_name, entry.table_name, entry.db_engine).catch(() => null)
+      ]);
+      if (isMountedRef.current) {
+        setExecutionHistory(history);
+        setTableStructure(structure);
+      }
+    } catch (err) {
+      if (isMountedRef.current) {
+        setError(extractApiError(err));
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingHistory(false);
+        setLoadingStructure(false);
+      }
+    }
+  }, []);
 
   const handleExportCSV = useCallback(() => {
     const headers = ["Schema", "Table", "Engine", "Status", "Active", "Strategy", "Cluster"];
@@ -588,14 +620,18 @@ const Catalog = () => {
         <div style={{ marginTop: 20 }}>
           <CatalogTreeView 
             entries={allEntries}
-            onEntryClick={(entry) => setSelectedEntry(entry)}
+            onEntryClick={handleTableClick}
           />
         </div>
       )}
 
       {selectedEntry && (
-        <EditModal
+        <TableDetailModal
           entry={selectedEntry}
+          history={executionHistory}
+          loadingHistory={loadingHistory}
+          tableStructure={tableStructure}
+          loadingStructure={loadingStructure}
           onClose={() => setSelectedEntry(null)}
           onSave={handleEdit}
         />

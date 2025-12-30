@@ -150,6 +150,9 @@ export interface CatalogEntry {
   cluster_name: string;
   updated_at: string;
   pk_strategy?: string;
+  cron_schedule?: string | null;
+  next_sync_time?: string | null;
+  last_sync_time?: string | null;
 }
 
 export interface BatchConfig {
@@ -787,6 +790,41 @@ export const catalogApi = {
       return response.data;
     } catch (error) {
       console.error("Error deactivating schema:", error);
+      throw error;
+    }
+  },
+
+  // Obtener historial de ejecuciones de una tabla
+  getExecutionHistory: async (
+    schema_name: string,
+    table_name: string,
+    db_engine: string,
+    limit: number = 50
+  ) => {
+    try {
+      const response = await api.get("/catalog/execution-history", {
+        params: { schema_name, table_name, db_engine, limit },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching execution history:", error);
+      throw error;
+    }
+  },
+
+  // Obtener estructura de tabla (source y target)
+  getTableStructure: async (
+    schema_name: string,
+    table_name: string,
+    db_engine: string
+  ) => {
+    try {
+      const response = await api.get("/catalog/table-structure", {
+        params: { schema_name, table_name, db_engine },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching table structure:", error);
       throw error;
     }
   },

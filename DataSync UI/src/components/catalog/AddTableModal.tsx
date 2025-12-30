@@ -210,6 +210,7 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
     status: 'FULL_LOAD',
     cluster_name: '',
     pk_strategy: 'CDC',
+    cron_schedule: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -293,6 +294,7 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
       status: formData.status,
       cluster_name: formData.cluster_name.trim() || '',
       pk_strategy: formData.pk_strategy,
+      cron_schedule: formData.cron_schedule.trim() || null,
     });
     handleClose();
   }, [formData, onSave, handleClose]);
@@ -614,6 +616,25 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
             </Select>
           </FormGroup>
 
+          <FormGroup>
+            <Label>Cron Schedule (Optional)</Label>
+            <Input 
+              type="text" 
+              value={formData.cron_schedule}
+              onChange={(e) => setFormData(prev => ({ ...prev, cron_schedule: e.target.value }))}
+              placeholder="e.g., 0 */6 * * * (every 6 hours)"
+            />
+            <div style={{ 
+              marginTop: 4, 
+              fontSize: 11, 
+              color: theme.colors.text.secondary,
+              fontFamily: "Consolas",
+              lineHeight: 1.4
+            }}>
+              Format: minute hour day month day-of-week<br/>
+              Examples: "0 */6 * * *" (every 6 hours), "0 0 * * *" (daily at midnight), "*/15 * * * *" (every 15 minutes)
+            </div>
+          </FormGroup>
 
           <FormGroup>
             <Label>Status</Label>
