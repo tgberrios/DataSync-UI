@@ -12,6 +12,11 @@ import CustomJobsTreeView from './CustomJobsTreeView';
 import { ExecutionTimeline } from '../shared/ExecutionTimeline';
 import { MappingGraph } from '../shared/MappingGraph';
 import { SQLEditor } from './SQLEditor';
+import { VisualPipelineEditor } from './visual-editor/VisualPipelineEditor';
+import { generateSQL } from './visual-editor/utils/sqlGenerator';
+import { generateTransformConfig } from './visual-editor/utils/configGenerator';
+import { parseSQLToGraph } from './visual-editor/utils/sqlParser';
+import type { PipelineGraph } from './visual-editor/types';
 
 const connectionStringExamples: Record<string, string> = {
   MariaDB: 'host=localhost;user=myuser;password=mypassword;db=mydatabase;port=3306',
@@ -80,6 +85,8 @@ const CustomJobs = () => {
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [datalakeConnection, setDatalakeConnection] = useState<string>('');
   const [isDataLake, setIsDataLake] = useState(false);
+  const [editorMode, setEditorMode] = useState<'sql' | 'visual'>('sql');
+  const [pipelineGraph, setPipelineGraph] = useState<PipelineGraph>({ nodes: [], edges: [] });
   const isMountedRef = useRef(true);
 
   const fetchAllJobs = useCallback(async () => {
@@ -520,21 +527,48 @@ const CustomJobs = () => {
         alert('Please fill in all required fields');
         return;
       }
-      
-      if (jobForm.source_db_engine === 'Python' && !jobForm.query_sql.trim()) {
-        alert('Please select a Python script or enter script content');
-        return;
-      }
-      
-      if (jobForm.source_db_engine !== 'Python' && !jobForm.query_sql.trim()) {
-        alert('Please enter SQL query');
-        return;
+
+      let finalQuerySql = jobForm.query_sql;
+      let finalTransformConfig = jobForm.transform_config;
+
+      if (editorMode === 'visual') {
+        if (pipelineGraph.nodes.length === 0) {
+          alert('Please add at least one component to the visual pipeline');
+          return;
+        }
+
+        try {
+          finalQuerySql = generateSQL(pipelineGraph);
+          finalTransformConfig = {
+            ...jobForm.transform_config,
+            ...generateTransformConfig(pipelineGraph)
+          };
+        } catch (err: any) {
+          alert(`Error generating SQL from pipeline: ${err.message}`);
+          return;
+        }
+      } else {
+        if (jobForm.source_db_engine === 'Python' && !jobForm.query_sql.trim()) {
+          alert('Please select a Python script or enter script content');
+          return;
+        }
+        
+        if (jobForm.source_db_engine !== 'Python' && !jobForm.query_sql.trim()) {
+          alert('Please enter SQL query');
+          return;
+        }
       }
 
+      const jobData = {
+        ...jobForm,
+        query_sql: finalQuerySql,
+        transform_config: finalTransformConfig
+      };
+
       if (editingJob) {
-        await customJobsApi.updateJob(editingJob.job_name, jobForm);
+        await customJobsApi.updateJob(editingJob.job_name, jobData);
       } else {
-        await customJobsApi.createJob(jobForm);
+        await customJobsApi.createJob(jobData);
       }
       
       await fetchAllJobs();
@@ -544,7 +578,7 @@ const CustomJobs = () => {
         setError(extractApiError(err));
       }
     }
-  }, [jobForm, editingJob, fetchAllJobs, handleCloseModal]);
+  }, [jobForm, editingJob, fetchAllJobs, handleCloseModal, editorMode, pipelineGraph]);
 
   useEffect(() => {
     if (isModalOpen && jobForm.source_db_engine === 'Python') {
@@ -859,8 +893,8 @@ const CustomJobs = () => {
                 background: asciiColors.background,
                 padding: "24px",
                 borderRadius: 2,
-                minWidth: 700,
-                maxWidth: 900,
+                width: "90vw",
+                height: "90vh",
                 maxHeight: "90vh",
                 overflowY: "auto",
                 fontFamily: "Consolas",
@@ -1081,7 +1115,7 @@ const CustomJobs = () => {
                 </select>
               </div>
 
-              {jobForm.source_db_engine !== 'Python' && (
+              {jobForm.source_db_engine !== 'Python' && editorMode === 'sql' && (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <label style={{
@@ -1265,27 +1299,141 @@ const CustomJobs = () => {
                       fontFamily: "Consolas",
                       textTransform: "uppercase"
                     }}>
-                      {ascii.v} SQL QUERY *
+                      {ascii.v} {editorMode === 'visual' ? 'VISUAL PIPELINE' : 'SQL QUERY'} *
                     </label>
-                    <AsciiButton
-                      label={isPreviewing ? 'Previewing...' : 'Preview Query'}
-                      onClick={handlePreviewQuery}
-                      variant="ghost"
-                      disabled={isPreviewing || !jobForm.source_db_engine || !jobForm.source_connection_string.trim() || !jobForm.query_sql.trim()}
-                    />
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 4, border: `1px solid ${asciiColors.border}`, borderRadius: 2, padding: 2 }}>
+                        <button
+                          onClick={() => setEditorMode('sql')}
+                          style={{
+                            padding: '4px 12px',
+                            border: 'none',
+                            borderRadius: 2,
+                            background: editorMode === 'sql' ? asciiColors.accent : 'transparent',
+                            color: editorMode === 'sql' ? asciiColors.background : asciiColors.foreground,
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontFamily: 'Consolas',
+                            fontWeight: editorMode === 'sql' ? 600 : 400
+                          }}
+                        >
+                          SQL
+                        </button>
+                        <button
+                          onClick={() => setEditorMode('visual')}
+                          style={{
+                            padding: '4px 12px',
+                            border: 'none',
+                            borderRadius: 2,
+                            background: editorMode === 'visual' ? asciiColors.accent : 'transparent',
+                            color: editorMode === 'visual' ? asciiColors.background : asciiColors.foreground,
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontFamily: 'Consolas',
+                            fontWeight: editorMode === 'visual' ? 600 : 400
+                          }}
+                        >
+                          VISUAL
+                        </button>
+                      </div>
+                      {editorMode === 'sql' && (
+                        <AsciiButton
+                          label={isPreviewing ? 'Previewing...' : 'Preview Query'}
+                          onClick={handlePreviewQuery}
+                          variant="ghost"
+                          disabled={isPreviewing || !jobForm.source_db_engine || !jobForm.source_connection_string.trim() || !jobForm.query_sql.trim()}
+                        />
+                      )}
+                    </div>
                   </div>
-                  <SQLEditor
-                    value={jobForm.query_sql}
-                    onChange={(newValue) => {
-                      setJobForm(prev => ({ ...prev, query_sql: newValue }));
-                      setPreviewData(null);
-                      setPreviewError(null);
-                    }}
-                    placeholder="SELECT * FROM table_name WHERE condition..."
-                    schemas={sourceSchemas}
-                    tables={sourceTables}
-                    columns={sourceColumns}
-                  />
+                  {editorMode === 'sql' ? (
+                    <>
+                      <SQLEditor
+                        value={jobForm.query_sql}
+                        onChange={(newValue) => {
+                          setJobForm(prev => ({ ...prev, query_sql: newValue }));
+                          setPreviewData(null);
+                          setPreviewError(null);
+                          
+                          if (newValue.trim()) {
+                            try {
+                              const graph = parseSQLToGraph(newValue);
+                              setPipelineGraph(graph);
+                            } catch (err) {
+                              console.error('Error parsing SQL to graph:', err);
+                            }
+                          }
+                        }}
+                        placeholder="SELECT * FROM table_name WHERE condition..."
+                        schemas={sourceSchemas}
+                        tables={sourceTables}
+                        columns={sourceColumns}
+                      />
+                      {jobForm.query_sql.trim() && pipelineGraph.nodes.length > 0 && (
+                        <div style={{
+                          marginTop: 16,
+                          padding: 12,
+                          background: asciiColors.backgroundSoft,
+                          border: `1px solid ${asciiColors.border}`,
+                          borderRadius: 2
+                        }}>
+                          <div style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: asciiColors.accent,
+                            marginBottom: 8,
+                            fontFamily: 'Consolas'
+                          }}>
+                            {ascii.blockSemi} VISUAL PREVIEW (Auto-generated from SQL)
+                          </div>
+                          <div style={{
+                            border: `1px solid ${asciiColors.border}`,
+                            borderRadius: 2,
+                            background: asciiColors.background,
+                            height: 300
+                          }}>
+                            <VisualPipelineEditor
+                              initialGraph={pipelineGraph}
+                              onGraphChange={setPipelineGraph}
+                              sourceConnectionString={jobForm.source_connection_string}
+                              sourceDbEngine={jobForm.source_db_engine}
+                              targetConnectionString={jobForm.target_connection_string}
+                              targetDbEngine={jobForm.target_db_engine}
+                              targetSchema={jobForm.target_schema}
+                              targetTable={jobForm.target_table}
+                            />
+                          </div>
+                          <div style={{
+                            marginTop: 8,
+                            fontSize: 10,
+                            color: asciiColors.muted,
+                            fontFamily: 'Consolas',
+                            fontStyle: 'italic'
+                          }}>
+                            Note: This is a read-only preview. Switch to VISUAL mode to edit the pipeline.
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      background: asciiColors.backgroundSoft,
+                      minHeight: 500
+                    }}>
+                      <VisualPipelineEditor
+                        initialGraph={pipelineGraph}
+                        onGraphChange={setPipelineGraph}
+                        sourceConnectionString={jobForm.source_connection_string}
+                        sourceDbEngine={jobForm.source_db_engine}
+                        targetConnectionString={jobForm.target_connection_string}
+                        targetDbEngine={jobForm.target_db_engine}
+                        targetSchema={jobForm.target_schema}
+                        targetTable={jobForm.target_table}
+                      />
+                    </div>
+                  )}
                   {previewError && (
                     <div style={{
                       marginTop: 8,
