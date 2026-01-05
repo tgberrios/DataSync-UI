@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { theme } from '../../theme/theme';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 
 const fadeIn = keyframes`
@@ -248,6 +247,32 @@ interface Column {
   is_foreign_key?: boolean;
   is_unique?: boolean;
   is_indexed?: boolean;
+  median_value?: number;
+  std_deviation?: number;
+  mode_value?: string;
+  mode_frequency?: number;
+  percentile_25?: number;
+  percentile_75?: number;
+  percentile_90?: number;
+  percentile_95?: number;
+  percentile_99?: number;
+  value_distribution?: any;
+  top_values?: any;
+  outlier_count?: number;
+  outlier_percentage?: number;
+  detected_pattern?: string;
+  pattern_confidence?: number;
+  pattern_examples?: any;
+  anomalies?: any;
+  has_anomalies?: boolean;
+  profiling_quality_score?: number;
+  null_count?: number;
+  null_percentage?: number;
+  distinct_count?: number;
+  distinct_percentage?: number;
+  min_value?: string;
+  max_value?: string;
+  avg_value?: number;
   [key: string]: any;
 }
 
@@ -511,51 +536,539 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
                 IDX
               </span>
             )}
+            {column.profiling_quality_score !== undefined && column.profiling_quality_score !== null && column.profiling_quality_score > 0 && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: column.profiling_quality_score >= 90 ? asciiColors.success + '20' : 
+                                 column.profiling_quality_score >= 70 ? asciiColors.warning + '20' : 
+                                 asciiColors.danger + '20',
+                color: column.profiling_quality_score >= 90 ? asciiColors.success : 
+                       column.profiling_quality_score >= 70 ? asciiColors.warning : 
+                       asciiColors.danger,
+                border: `1px solid ${column.profiling_quality_score >= 90 ? asciiColors.success : 
+                                 column.profiling_quality_score >= 70 ? asciiColors.warning : 
+                                 asciiColors.danger}`,
+                marginRight: 4,
+                fontWeight: 600
+              }}>
+                Q:{Number(column.profiling_quality_score).toFixed(0)}
+              </span>
+            )}
+            {column.detected_pattern && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: asciiColors.accent + '20',
+                color: asciiColors.accent,
+                border: `1px solid ${asciiColors.accent}`,
+                marginRight: 4
+              }}>
+                {column.detected_pattern}
+              </span>
+            )}
+            {column.has_anomalies && (
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: 2,
+                fontSize: 11,
+                fontFamily: 'Consolas',
+                backgroundColor: asciiColors.danger + '20',
+                color: asciiColors.danger,
+                border: `1px solid ${asciiColors.danger}`,
+                marginRight: 4
+              }}>
+                ANOMALIES
+              </span>
+            )}
           </ColumnInfo>
         </TreeContent>
         <ExpandableContent $isExpanded={isExpanded} $level={level}>
           {isExpanded && (
             <div style={{
-              padding: '8px 12px',
+              padding: '12px',
               margin: '4px 0 8px 0',
               fontSize: 12,
               fontFamily: 'Consolas',
               color: asciiColors.foreground,
               background: asciiColors.backgroundSoft,
               borderLeft: `3px solid ${asciiColors.accent}`,
-              borderRadius: 2,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: 12
+              borderRadius: 2
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Engine:</strong>
-                <span>{column.db_engine || 'N/A'}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Position:</strong>
-                <span>{column.ordinal_position || 'N/A'}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Nullable:</strong>
-                <span>{column.is_nullable ? 'Yes' : 'No'}</span>
-              </div>
-              {column.character_maximum_length && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: 12,
+                marginBottom: 16
+              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Max Length:</strong>
-                  <span>{column.character_maximum_length}</span>
+                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Engine:</strong>
+                  <span>{column.db_engine || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Position:</strong>
+                  <span>{column.ordinal_position || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Nullable:</strong>
+                  <span>{column.is_nullable ? 'Yes' : 'No'}</span>
+                </div>
+                {column.character_maximum_length && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Max Length:</strong>
+                    <span>{column.character_maximum_length}</span>
+                  </div>
+                )}
+                {column.numeric_precision && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Precision:</strong>
+                    <span>{column.numeric_precision}</span>
+                  </div>
+                )}
+                {column.column_default && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Default:</strong>
+                    <span>{column.column_default}</span>
+                  </div>
+                )}
+                {column.null_percentage !== undefined && column.null_percentage !== null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Null %:</strong>
+                    <span>{Number(column.null_percentage).toFixed(2)}%</span>
+                  </div>
+                )}
+                {column.distinct_percentage !== undefined && column.distinct_percentage !== null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Distinct %:</strong>
+                    <span>{Number(column.distinct_percentage).toFixed(2)}%</span>
+                  </div>
+                )}
+              </div>
+
+              {(column.median_value !== undefined || column.std_deviation !== undefined || 
+                column.percentile_25 !== undefined || column.mode_value) && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.background,
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockFull} STATISTICAL ANALYSIS
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: 10
+                  }}>
+                    {column.min_value && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Min</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{column.min_value}</div>
+                      </div>
+                    )}
+                    {column.max_value && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Max</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{column.max_value}</div>
+                      </div>
+                    )}
+                    {column.avg_value !== undefined && column.avg_value !== null && column.avg_value !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Average</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.avg_value).toFixed(2)}</div>
+                      </div>
+                    )}
+                    {column.median_value !== undefined && column.median_value !== null && column.median_value !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Median</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.median_value).toFixed(2)}</div>
+                      </div>
+                    )}
+                    {column.std_deviation !== undefined && column.std_deviation !== null && column.std_deviation !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Std Dev</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.std_deviation).toFixed(2)}</div>
+                      </div>
+                    )}
+                    {column.mode_value && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Mode</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{column.mode_value}</div>
+                        {column.mode_frequency !== undefined && column.mode_frequency !== null && (
+                          <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: 2 }}>
+                            ({Number(column.mode_frequency).toFixed(2)}%)
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {column.percentile_25 !== undefined && column.percentile_25 !== null && column.percentile_25 !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>P25</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.percentile_25).toFixed(2)}</div>
+                      </div>
+                    )}
+                    {column.percentile_75 !== undefined && column.percentile_75 !== null && column.percentile_75 !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>P75</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.percentile_75).toFixed(2)}</div>
+                      </div>
+                    )}
+                    {column.percentile_90 !== undefined && column.percentile_90 !== null && column.percentile_90 !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>P90</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.percentile_90).toFixed(2)}</div>
+                      </div>
+                    )}
+                    {column.percentile_95 !== undefined && column.percentile_95 !== null && column.percentile_95 !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>P95</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.percentile_95).toFixed(2)}</div>
+                      </div>
+                    )}
+                    {column.percentile_99 !== undefined && column.percentile_99 !== null && column.percentile_99 !== 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>P99</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.percentile_99).toFixed(2)}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-              {column.numeric_precision && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Precision:</strong>
-                  <span>{column.numeric_precision}</span>
+
+              {column.detected_pattern && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.background,
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockSemi} DETECTED PATTERN
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <strong>Type:</strong> {column.detected_pattern}
+                    {column.pattern_confidence !== undefined && column.pattern_confidence !== null && (
+                      <span style={{ marginLeft: 8, color: asciiColors.muted }}>
+                        ({Number(column.pattern_confidence).toFixed(1)}% confidence)
+                      </span>
+                    )}
+                  </div>
+                  {column.pattern_examples && Array.isArray(column.pattern_examples) && column.pattern_examples.length > 0 && (
+                    <div>
+                      <strong style={{ display: 'block', marginBottom: 4 }}>Examples:</strong>
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 4
+                      }}>
+                        {column.pattern_examples.slice(0, 5).map((example: string, idx: number) => (
+                          <span key={idx} style={{
+                            padding: '2px 6px',
+                            background: asciiColors.backgroundSoft,
+                            borderRadius: 2,
+                            fontSize: 11,
+                            fontFamily: 'Consolas'
+                          }}>
+                            {example}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-              {column.column_default && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 80 }}>Default:</strong>
-                  <span>{column.column_default}</span>
+
+              {column.top_values && Array.isArray(column.top_values) && column.top_values.length > 0 && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.background,
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockLight} TOP VALUES
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {column.top_values.slice(0, 10).map((item: any, idx: number) => (
+                      <div key={idx} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '4px 8px',
+                        background: idx < 3 ? asciiColors.accentLight : asciiColors.backgroundSoft,
+                        borderRadius: 2
+                      }}>
+                        <span style={{ fontFamily: 'Consolas', fontSize: 11 }}>
+                          {item.value !== undefined ? String(item.value) : 'N/A'}
+                        </span>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ fontSize: 10, color: asciiColors.muted }}>
+                            {item.count || 0} times
+                          </span>
+                          {item.percentage !== undefined && item.percentage !== null && (
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: asciiColors.accent
+                            }}>
+                              {Number(item.percentage).toFixed(2)}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {column.value_distribution && Array.isArray(column.value_distribution) && column.value_distribution.length > 0 && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.background,
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockSemi} VALUE DISTRIBUTION (HISTOGRAM)
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: 4,
+                    marginTop: 8
+                  }}>
+                    {column.value_distribution.map((bin: any, idx: number) => {
+                      const maxCount = Math.max(...column.value_distribution.map((b: any) => b.count || 0));
+                      const barWidth = maxCount > 0 ? ((bin.count || 0) / maxCount) * 100 : 0;
+                      
+                      return (
+                        <div key={idx} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '2px 0'
+                        }}>
+                          <div style={{
+                            minWidth: 80,
+                            fontSize: 10,
+                            color: asciiColors.muted,
+                            fontFamily: 'Consolas'
+                          }}>
+                            [{Number(bin.min || 0).toFixed(2)} - {Number(bin.max || 0).toFixed(2)}]
+                          </div>
+                          <div style={{
+                            flex: 1,
+                            height: 16,
+                            background: asciiColors.backgroundSoft,
+                            borderRadius: 2,
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}>
+                            <div style={{
+                              width: `${barWidth}%`,
+                              height: '100%',
+                              background: idx % 2 === 0 
+                                ? asciiColors.accent 
+                                : asciiColors.accentLight,
+                              borderRadius: 2,
+                              transition: 'width 0.3s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              paddingRight: 4
+                            }}>
+                              {barWidth > 15 && (
+                                <span style={{
+                                  fontSize: 9,
+                                  color: asciiColors.foreground,
+                                  fontWeight: 600
+                                }}>
+                                  {bin.count || 0}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{
+                            minWidth: 50,
+                            fontSize: 10,
+                            color: asciiColors.muted,
+                            textAlign: 'right',
+                            fontFamily: 'Consolas'
+                          }}>
+                            {bin.count || 0}
+                          </div>
+                          <div style={{
+                            minWidth: 50,
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: asciiColors.accent,
+                            textAlign: 'right',
+                            fontFamily: 'Consolas'
+                          }}>
+                            {bin.percentage !== undefined && bin.percentage !== null 
+                              ? Number(bin.percentage).toFixed(1) + '%'
+                              : '0%'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTop: `1px solid ${asciiColors.border}`,
+                    fontSize: 10,
+                    color: asciiColors.muted,
+                    fontFamily: 'Consolas'
+                  }}>
+                    Total bins: {column.value_distribution.length} | 
+                    Max count: {Math.max(...column.value_distribution.map((b: any) => b.count || 0))}
+                  </div>
+                </div>
+              )}
+
+              {(column.has_anomalies || (column.outlier_count !== undefined && column.outlier_count > 0)) && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.danger + '10',
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.danger}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.danger,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.danger}`
+                  }}>
+                    {ascii.blockFull} ANOMALIES & OUTLIERS
+                  </div>
+                  {column.outlier_count !== undefined && column.outlier_count !== null && column.outlier_count > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <strong>Outliers detected:</strong> {column.outlier_count}
+                      {column.outlier_percentage !== undefined && column.outlier_percentage !== null && (
+                        <span style={{ marginLeft: 8, color: asciiColors.muted }}>
+                          ({Number(column.outlier_percentage).toFixed(2)}%)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {column.anomalies && Array.isArray(column.anomalies) && column.anomalies.length > 0 && (
+                    <div>
+                      <strong style={{ display: 'block', marginBottom: 4 }}>Anomaly Examples:</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {column.anomalies.slice(0, 5).map((anomaly: any, idx: number) => (
+                          <div key={idx} style={{
+                            padding: '4px 8px',
+                            background: asciiColors.background,
+                            borderRadius: 2,
+                            fontSize: 11,
+                            fontFamily: 'Consolas'
+                          }}>
+                            <span style={{ color: asciiColors.danger, fontWeight: 600 }}>
+                              {anomaly.value !== undefined ? String(anomaly.value) : 'N/A'}
+                            </span>
+                            {anomaly.reason && (
+                              <span style={{ marginLeft: 8, color: asciiColors.muted, fontSize: 10 }}>
+                                ({anomaly.reason})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {column.profiling_quality_score !== undefined && column.profiling_quality_score !== null && column.profiling_quality_score > 0 && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: column.profiling_quality_score >= 90 ? asciiColors.success + '10' :
+                              column.profiling_quality_score >= 70 ? asciiColors.warning + '10' :
+                              asciiColors.danger + '10',
+                  borderRadius: 2,
+                  border: `1px solid ${column.profiling_quality_score >= 90 ? asciiColors.success :
+                                  column.profiling_quality_score >= 70 ? asciiColors.warning :
+                                  asciiColors.danger}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: column.profiling_quality_score >= 90 ? asciiColors.success :
+                           column.profiling_quality_score >= 70 ? asciiColors.warning :
+                           asciiColors.danger,
+                    marginBottom: 8
+                  }}>
+                    {ascii.blockFull} PROFILING QUALITY SCORE
+                  </div>
+                  <div style={{
+                    fontSize: 24,
+                    fontWeight: 700,
+                    color: column.profiling_quality_score >= 90 ? asciiColors.success :
+                           column.profiling_quality_score >= 70 ? asciiColors.warning :
+                           asciiColors.danger,
+                    fontFamily: 'Consolas'
+                  }}>
+                    {Number(column.profiling_quality_score).toFixed(1)}/100
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: 8,
+                    background: asciiColors.backgroundSoft,
+                    borderRadius: 4,
+                    marginTop: 8,
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${column.profiling_quality_score}%`,
+                      height: '100%',
+                      background: column.profiling_quality_score >= 90 ? asciiColors.success :
+                                 column.profiling_quality_score >= 70 ? asciiColors.warning :
+                                 asciiColors.danger,
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
                 </div>
               )}
             </div>

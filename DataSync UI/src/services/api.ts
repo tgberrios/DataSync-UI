@@ -2326,6 +2326,23 @@ export const customJobsApi = {
     }
   },
 
+  rebootTable: async (jobName: string) => {
+    try {
+      const response = await api.post(`/custom-jobs/${jobName}/reboot-table`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error rebooting table for job ${jobName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
   getScripts: async () => {
     try {
       const response = await api.get("/custom-jobs/scripts");
@@ -2940,6 +2957,321 @@ export const dataWarehouseApi = {
         `Error fetching warehouse build history for ${warehouseName}:`,
         error
       );
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};
+
+export interface SchemaMigrationEntry {
+  id: number;
+  migration_name: string;
+  version: string;
+  description?: string;
+  db_engine: string;
+  forward_sql: string;
+  rollback_sql?: string;
+  checksum: string;
+  status: string;
+  created_at: string;
+  last_applied_at?: string;
+  applied_by?: string;
+  connection_string?: string;
+}
+
+export const schemaMigrationsApi = {
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    environment?: string;
+    db_engine?: string;
+  }) => {
+    try {
+      const response = await api.get("/schema-migrations", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching schema migrations:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  get: async (migrationName: string) => {
+    try {
+      const response = await api.get(
+        `/schema-migrations/${encodeURIComponent(migrationName)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching migration ${migrationName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  create: async (migrationData: {
+    migration_name: string;
+    version: string;
+    description?: string;
+    db_engine: string;
+    forward_sql: string;
+    rollback_sql?: string;
+    connection_string?: string;
+  }) => {
+    try {
+      const response = await api.post("/schema-migrations", migrationData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating migration:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  apply: async (migrationName: string, environment: string) => {
+    try {
+      const response = await api.post(
+        `/schema-migrations/${encodeURIComponent(migrationName)}/apply`,
+        { environment }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error applying migration ${migrationName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  rollback: async (migrationName: string, environment: string) => {
+    try {
+      const response = await api.post(
+        `/schema-migrations/${encodeURIComponent(migrationName)}/rollback`,
+        { environment }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error rolling back migration ${migrationName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getHistory: async (migrationName: string) => {
+    try {
+      const response = await api.get(
+        `/schema-migrations/${encodeURIComponent(migrationName)}/history`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error fetching migration history for ${migrationName}:`,
+        error
+      );
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  delete: async (migrationName: string) => {
+    try {
+      const response = await api.delete(
+        `/schema-migrations/${encodeURIComponent(migrationName)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting migration ${migrationName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getChain: async (environment: string) => {
+    try {
+      const response = await api.get(`/schema-migrations/chain/${environment}`);
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error fetching migration chain for ${environment}:`,
+        error
+      );
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  validateChain: async (environment: string) => {
+    try {
+      const response = await api.post(`/schema-migrations/chain/validate`, {
+        environment,
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Error validating chain for ${environment}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  detectUnregistered: async (params: {
+    environment: string;
+    connection_string?: string;
+  }) => {
+    try {
+      const response = await api.post(
+        `/schema-migrations/detect-unregistered`,
+        params
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error detecting unregistered changes:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  generateFromDiff: async (params: {
+    environment: string;
+    connection_string?: string;
+    changes: any;
+  }) => {
+    try {
+      const response = await api.post(
+        `/schema-migrations/generate-from-diff`,
+        params
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error generating migration from diff:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  testMigration: async (
+    migrationName: string,
+    params: {
+      environment: string;
+      test_schema_prefix?: string;
+    }
+  ) => {
+    try {
+      const response = await api.post(
+        `/schema-migrations/${encodeURIComponent(migrationName)}/test`,
+        params
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error testing migration ${migrationName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  cleanupTestSchema: async (testSchema: string) => {
+    try {
+      const response = await api.delete(
+        `/schema-migrations/test/${encodeURIComponent(testSchema)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error cleaning up test schema ${testSchema}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  integrityCheck: async () => {
+    try {
+      const response = await api.get(`/schema-migrations/integrity-check`);
+      return response.data;
+    } catch (error) {
+      console.error("Error checking integrity:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||

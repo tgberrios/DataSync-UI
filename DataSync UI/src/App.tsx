@@ -44,6 +44,7 @@ const CSVCatalog = lazy(() => import("./components/csv/CSVCatalog"));
 const GoogleSheetsCatalog = lazy(() => import("./components/google-sheets/GoogleSheetsCatalog"));
 const UserManagement = lazy(() => import("./components/security/UserManagement"));
 const Webhooks = lazy(() => import("./components/governance/Webhooks"));
+const SchemaMigrations = lazy(() => import("./components/migrations/SchemaMigrations"));
 const Login = lazy(() => import("./components/auth/Login"));
 
 function App() {
@@ -332,6 +333,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <Webhooks />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="schema-migrations"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <SchemaMigrations />
                 </Suspense>
               </ProtectedRoute>
             }

@@ -215,6 +215,29 @@ const CustomJobs = () => {
     }
   }, [fetchAllJobs]);
 
+  const handleReboot = useCallback(async (jobName: string) => {
+    const job = allJobs.find(j => j.job_name === jobName);
+    if (!job) return;
+
+    const confirmMessage = `⚠️ WARNING: This will DROP the table "${job.target_schema}.${job.target_table}" and ALL its data will be PERMANENTLY DELETED!\n\n` +
+      `The table will be automatically recreated on the next job execution.\n\n` +
+      `Are you absolutely sure you want to continue?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const result = await customJobsApi.rebootTable(jobName);
+      alert(`✅ ${result.message || 'Table dropped successfully. It will be recreated on next execution.'}`);
+      fetchAllJobs();
+    } catch (err) {
+      if (isMountedRef.current) {
+        setError(extractApiError(err));
+      }
+    }
+  }, [allJobs, fetchAllJobs]);
+
   const loadScripts = useCallback(async () => {
     try {
       const scripts = await customJobsApi.getScripts();
@@ -791,6 +814,7 @@ const CustomJobs = () => {
             onJobToggleActive={handleToggleActive}
             onJobDelete={handleDelete}
             onJobDuplicate={handleDuplicate}
+            onJobReboot={handleReboot}
           />
         </div>
       )}

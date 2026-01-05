@@ -23,6 +23,7 @@ interface TreeViewProps {
   onJobToggleActive?: (jobName: string, currentActive: boolean) => void;
   onJobDelete?: (jobName: string) => void;
   onJobDuplicate?: (job: CustomJobEntry) => void;
+  onJobReboot?: (jobName: string) => void;
 }
 
 const CustomJobsTreeView: React.FC<TreeViewProps> = ({ 
@@ -32,7 +33,8 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
   onJobExecute, 
   onJobToggleActive, 
   onJobDelete,
-  onJobDuplicate
+  onJobDuplicate,
+  onJobReboot
 }) => {
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
@@ -514,6 +516,35 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
               }}
             >
               Delete
+            </button>
+          )}
+          {onJobReboot && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onJobReboot(job.job_name);
+              }}
+              title={`Reboot table: ${job.target_schema}.${job.target_table}`}
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.warning}`,
+                borderRadius: 2,
+                background: asciiColors.warning,
+                color: asciiColors.background,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                outline: "none"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.warning + "CC";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = asciiColors.warning;
+              }}
+            >
+              🔄 Reboot
             </button>
           )}
         </div>
