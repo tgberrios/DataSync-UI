@@ -3283,3 +3283,224 @@ export const schemaMigrationsApi = {
     }
   },
 };
+
+export interface BackupEntry {
+  backup_id: number;
+  backup_name: string;
+  db_engine: string;
+  connection_string?: string;
+  database_name: string;
+  backup_type: "structure" | "data" | "full" | "config";
+  file_path: string;
+  file_size?: number;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  error_message?: string;
+  created_at: string;
+  created_by?: string;
+  completed_at?: string;
+  metadata?: Record<string, any>;
+  cron_schedule?: string;
+  is_scheduled?: boolean;
+  next_run_at?: string;
+  last_run_at?: string;
+  run_count?: number;
+}
+
+export const backupsApi = {
+  getAll: async (params?: {
+    db_engine?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get("/backups", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching backups:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  get: async (id: number) => {
+    try {
+      const response = await api.get(`/backups/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching backup:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  create: async (backup: {
+    backup_name: string;
+    db_engine: string;
+    connection_string: string;
+    database_name: string;
+    backup_type: "structure" | "data" | "full" | "config";
+    cron_schedule?: string;
+  }) => {
+    try {
+      const response = await api.post("/backups/create", backup);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating backup:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  restore: async (
+    id: number,
+    target?: {
+      target_connection_string?: string;
+      target_database_name?: string;
+    }
+  ) => {
+    try {
+      const response = await api.post(`/backups/${id}/restore`, target || {});
+      return response.data;
+    } catch (error) {
+      console.error("Error restoring backup:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  delete: async (id: number) => {
+    try {
+      const response = await api.delete(`/backups/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting backup:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getMSSQLBackups: async (connectionId: string) => {
+    try {
+      const response = await api.get(`/backups/mssql/${connectionId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching MSSQL backups:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getHistory: async (id: number, limit: number = 50) => {
+    try {
+      const response = await api.get(`/backups/${id}/history`, {
+        params: { limit },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching backup history:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateSchedule: async (
+    id: number,
+    cron_schedule: string | null,
+    is_scheduled: boolean
+  ) => {
+    try {
+      const response = await api.put(`/backups/${id}/schedule`, {
+        cron_schedule,
+        is_scheduled,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating backup schedule:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  enableSchedule: async (id: number) => {
+    try {
+      const response = await api.post(`/backups/${id}/enable-schedule`);
+      return response.data;
+    } catch (error) {
+      console.error("Error enabling backup schedule:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  disableSchedule: async (id: number) => {
+    try {
+      const response = await api.post(`/backups/${id}/disable-schedule`);
+      return response.data;
+    } catch (error) {
+      console.error("Error disabling backup schedule:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};

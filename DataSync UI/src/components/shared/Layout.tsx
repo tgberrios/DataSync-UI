@@ -340,6 +340,9 @@ const Layout = () => {
             <NavSubItem to="/schema-migrations">
               ■ Schema Migrations
             </NavSubItem>
+            <NavSubItem to="/backups">
+              ■ Backup Manager
+            </NavSubItem>
             <NavSubItem to="/security">
               ■ Security
             </NavSubItem>

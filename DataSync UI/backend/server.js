@@ -12772,6 +12772,1131 @@ app.get(
   }
 );
 
+const backupsDir = path.join(process.cwd(), "backups");
+if (!fs.existsSync(backupsDir)) {
+  fs.mkdirSync(backupsDir, { recursive: true });
+}
+
+function matchesCronField(field, currentValue) {
+  if (field === "*") {
+    return true;
+  }
+
+  const dashPos = field.indexOf("-");
+  const commaPos = field.indexOf(",");
+  const slashPos = field.indexOf("/");
+
+  if (dashPos !== -1) {
+    try {
+      const start = parseInt(field.substring(0, dashPos));
+      const end = parseInt(field.substring(dashPos + 1));
+      return currentValue >= start && currentValue <= end;
+    } catch {
+      return false;
+    }
+  }
+
+  if (commaPos !== -1) {
+    const items = field.split(",");
+    for (const item of items) {
+      try {
+        if (parseInt(item.trim()) === currentValue) {
+          return true;
+        }
+      } catch {
+        continue;
+      }
+    }
+    return false;
+  }
+
+  if (slashPos !== -1) {
+    try {
+      const base = field.substring(0, slashPos);
+      const step = parseInt(field.substring(slashPos + 1));
+      if (base === "*") {
+        return currentValue % step === 0;
+      } else {
+        const start = parseInt(base);
+        return (currentValue - start) % step === 0 && currentValue >= start;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  try {
+    return parseInt(field) === currentValue;
+  } catch {
+    return false;
+  }
+}
+
+function shouldRunCron(cronSchedule) {
+  const now = new Date();
+  const parts = cronSchedule.trim().split(/\s+/);
+  if (parts.length !== 5) {
+    return false;
+  }
+
+  const [minute, hour, day, month, dow] = parts;
+  const currentMinute = now.getUTCMinutes();
+  const currentHour = now.getUTCHours();
+  const currentDay = now.getUTCDate();
+  const currentMonth = now.getUTCMonth() + 1;
+  const currentDow = now.getUTCDay();
+
+  return (
+    matchesCronField(minute, currentMinute) &&
+    matchesCronField(hour, currentHour) &&
+    matchesCronField(day, currentDay) &&
+    matchesCronField(month, currentMonth) &&
+    matchesCronField(dow, currentDow)
+  );
+}
+
+function calculateNextRunTime(cronSchedule) {
+  const now = new Date();
+  let nextRun = new Date(now);
+  nextRun.setUTCSeconds(0);
+  nextRun.setUTCMilliseconds(0);
+  nextRun.setUTCMinutes(nextRun.getUTCMinutes() + 1);
+
+  const parts = cronSchedule.trim().split(/\s+/);
+  if (parts.length !== 5) {
+    return null;
+  }
+
+  const [minute, hour, day, month, dow] = parts;
+  let maxIterations = 366 * 24 * 60;
+  let iterations = 0;
+
+  while (iterations < maxIterations) {
+    iterations++;
+    const currentMinute = nextRun.getUTCMinutes();
+    const currentHour = nextRun.getUTCHours();
+    const currentDay = nextRun.getUTCDate();
+    const currentMonth = nextRun.getUTCMonth() + 1;
+    const currentDow = nextRun.getUTCDay();
+
+    if (
+      matchesCronField(minute, currentMinute) &&
+      matchesCronField(hour, currentHour) &&
+      matchesCronField(day, currentDay) &&
+      matchesCronField(month, currentMonth) &&
+      matchesCronField(dow, currentDow)
+    ) {
+      if (nextRun > now) {
+        return nextRun;
+      }
+    }
+
+    nextRun.setUTCMinutes(nextRun.getUTCMinutes() + 1);
+  }
+
+  return null;
+}
+
+async function executeScheduledBackup(backup) {
+  try {
+    const historyRecord = await pool.query(
+      `INSERT INTO metadata.backup_history 
+       (backup_id, backup_name, status, started_at, triggered_by)
+       VALUES ($1, $2, $3, NOW(), $4)
+       RETURNING id`,
+      [backup.backup_id, backup.backup_name, "in_progress", "scheduled"]
+    );
+
+    const historyId = historyRecord.rows[0].id;
+
+    await pool.query(
+      `UPDATE metadata.backups 
+       SET last_run_at = NOW(), run_count = run_count + 1
+       WHERE backup_id = $1`,
+      [backup.backup_id]
+    );
+
+    const connInfo = parseConnectionString(
+      backup.connection_string,
+      backup.db_engine
+    );
+    if (!connInfo) {
+      throw new Error("Failed to parse connection string");
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const fileExtension =
+      backup.db_engine === "PostgreSQL"
+        ? "dump"
+        : backup.db_engine === "MariaDB"
+        ? "sql"
+        : backup.db_engine === "MongoDB"
+        ? "gz"
+        : "dmp";
+    const fileName = `${backup.backup_name}_${timestamp}.${fileExtension}`;
+    const filePath = path.join(backupsDir, fileName);
+
+    let resultPath;
+    if (backup.db_engine === "PostgreSQL") {
+      resultPath = await createPostgreSQLBackup(
+        connInfo,
+        backup.database_name,
+        backup.backup_type,
+        filePath
+      );
+    } else if (backup.db_engine === "MariaDB") {
+      resultPath = await createMariaDBBackup(
+        connInfo,
+        backup.database_name,
+        backup.backup_type,
+        filePath
+      );
+    } else if (backup.db_engine === "MongoDB") {
+      resultPath = await createMongoDBBackup(
+        connInfo,
+        backup.database_name,
+        backup.backup_type,
+        filePath
+      );
+    } else if (backup.db_engine === "Oracle") {
+      resultPath = await createOracleBackup(
+        connInfo,
+        backup.database_name,
+        backup.backup_type,
+        filePath
+      );
+    }
+
+    const stats = await fs.promises.stat(resultPath);
+    const fileSize = stats.size;
+    const completedAt = new Date();
+    const startedAt = new Date(historyRecord.rows[0].started_at);
+    const durationSeconds = Math.floor((completedAt - startedAt) / 1000);
+
+    await pool.query(
+      `UPDATE metadata.backup_history 
+       SET status = 'completed', completed_at = NOW(), 
+           duration_seconds = $1, file_path = $2, file_size = $3
+       WHERE id = $4`,
+      [durationSeconds, resultPath, fileSize, historyId]
+    );
+
+    const nextRun = calculateNextRunTime(backup.cron_schedule);
+    if (nextRun) {
+      await pool.query(
+        `UPDATE metadata.backups 
+         SET next_run_at = $1
+         WHERE backup_id = $2`,
+        [nextRun, backup.backup_id]
+      );
+    }
+
+    console.log(
+      `Scheduled backup ${backup.backup_name} completed successfully`
+    );
+  } catch (err) {
+    console.error(
+      `Error executing scheduled backup ${backup.backup_name}:`,
+      err
+    );
+    await pool.query(
+      `UPDATE metadata.backup_history 
+       SET status = 'failed', completed_at = NOW(), error_message = $1
+       WHERE backup_id = $2 AND status = 'in_progress'
+       ORDER BY started_at DESC LIMIT 1`,
+      [err.message, backup.backup_id]
+    );
+  }
+}
+
+if (process.env.NODE_ENV !== "test") {
+  setInterval(async () => {
+    try {
+      const scheduledBackups = await pool.query(
+        `SELECT * FROM metadata.backups 
+         WHERE is_scheduled = true 
+         AND cron_schedule IS NOT NULL 
+         AND cron_schedule != ''
+         AND (next_run_at IS NULL OR next_run_at <= NOW())`
+      );
+
+      for (const backup of scheduledBackups.rows) {
+        if (shouldRunCron(backup.cron_schedule)) {
+          console.log(`Executing scheduled backup: ${backup.backup_name}`);
+          executeScheduledBackup(backup).catch((err) => {
+            console.error(
+              `Error in scheduled backup execution: ${backup.backup_name}`,
+              err
+            );
+          });
+        } else {
+          const nextRun = calculateNextRunTime(backup.cron_schedule);
+          if (nextRun) {
+            await pool.query(
+              `UPDATE metadata.backups 
+               SET next_run_at = $1
+               WHERE backup_id = $2`,
+              [nextRun, backup.backup_id]
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error in backup scheduler:", err);
+    }
+  }, 60000);
+}
+
+function parseConnectionString(connectionString, dbEngine) {
+  if (dbEngine === "PostgreSQL") {
+    const url = new URL(
+      connectionString.replace(/^postgresql:\/\//, "http://")
+    );
+    return {
+      host: url.hostname,
+      port: url.port || 5432,
+      database: url.pathname.slice(1),
+      user: url.username,
+      password: url.password,
+    };
+  } else if (dbEngine === "MariaDB") {
+    const params = {};
+    connectionString.split(";").forEach((param) => {
+      const [key, value] = param.split("=");
+      if (key && value) params[key.trim().toLowerCase()] = value.trim();
+    });
+    return {
+      host: params.host || params.server || "localhost",
+      port: params.port || 3306,
+      database: params.database || params.database || "",
+      user: params.user || params.uid || "",
+      password: params.password || params.pwd || "",
+    };
+  } else if (dbEngine === "MongoDB") {
+    const url = new URL(connectionString);
+    return {
+      host: url.hostname,
+      port: url.port || 27017,
+      database: url.pathname.slice(1),
+      user: url.username,
+      password: url.password,
+    };
+  } else if (dbEngine === "Oracle") {
+    const params = {};
+    connectionString.split(";").forEach((param) => {
+      const [key, value] = param.split("=");
+      if (key && value) params[key.trim().toLowerCase()] = value.trim();
+    });
+    return {
+      host: params.host || "localhost",
+      port: params.port || 1521,
+      database: params.servicename || params.sid || "",
+      user: params.user || "",
+      password: params.password || "",
+    };
+  }
+  return null;
+}
+
+async function createPostgreSQLBackup(
+  connInfo,
+  databaseName,
+  backupType,
+  outputPath
+) {
+  return new Promise((resolve, reject) => {
+    const args = [];
+    if (backupType === "structure") {
+      args.push("--schema-only");
+    } else if (backupType === "data") {
+      args.push("--data-only");
+    }
+    args.push("-h", connInfo.host);
+    args.push("-p", connInfo.port.toString());
+    args.push("-U", connInfo.user);
+    args.push("-d", databaseName);
+    args.push("-f", outputPath);
+    args.push("-F", "c");
+
+    const env = { ...process.env, PGPASSWORD: connInfo.password };
+    const pgDump = spawn("pg_dump", args, { env });
+
+    let errorOutput = "";
+    pgDump.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    pgDump.on("close", (code) => {
+      if (code === 0) {
+        resolve(outputPath);
+      } else {
+        reject(new Error(`pg_dump failed: ${errorOutput}`));
+      }
+    });
+
+    pgDump.on("error", (err) => {
+      reject(new Error(`Failed to start pg_dump: ${err.message}`));
+    });
+  });
+}
+
+async function createMariaDBBackup(
+  connInfo,
+  databaseName,
+  backupType,
+  outputPath
+) {
+  return new Promise((resolve, reject) => {
+    const args = [];
+    if (backupType === "structure") {
+      args.push("--no-data");
+    } else if (backupType === "data") {
+      args.push("--no-create-info");
+    }
+    args.push("-h", connInfo.host);
+    args.push("-P", connInfo.port.toString());
+    args.push("-u", connInfo.user);
+    if (connInfo.password) {
+      args.push(`-p${connInfo.password}`);
+    }
+    args.push(databaseName);
+
+    const mysqldump = spawn("mysqldump", args);
+
+    const writeStream = fs.createWriteStream(outputPath);
+    mysqldump.stdout.pipe(writeStream);
+
+    let errorOutput = "";
+    mysqldump.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    mysqldump.on("close", (code) => {
+      writeStream.end();
+      if (code === 0) {
+        resolve(outputPath);
+      } else {
+        reject(new Error(`mysqldump failed: ${errorOutput}`));
+      }
+    });
+
+    mysqldump.on("error", (err) => {
+      reject(new Error(`Failed to start mysqldump: ${err.message}`));
+    });
+  });
+}
+
+async function createMongoDBBackup(
+  connInfo,
+  databaseName,
+  backupType,
+  outputPath
+) {
+  return new Promise((resolve, reject) => {
+    const args = [];
+    if (backupType === "structure") {
+      args.push("--gzip");
+    }
+    args.push("--host", `${connInfo.host}:${connInfo.port}`);
+    if (connInfo.user) {
+      args.push("--username", connInfo.user);
+    }
+    if (connInfo.password) {
+      args.push("--password", connInfo.password);
+    }
+    args.push("--db", databaseName);
+    args.push("--out", path.dirname(outputPath));
+
+    const mongodump = spawn("mongodump", args);
+
+    let errorOutput = "";
+    mongodump.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    mongodump.on("close", (code) => {
+      if (code === 0) {
+        const finalPath = path.join(path.dirname(outputPath), databaseName);
+        if (fs.existsSync(finalPath)) {
+          if (backupType === "structure") {
+            resolve(finalPath);
+          } else {
+            resolve(finalPath);
+          }
+        } else {
+          resolve(finalPath);
+        }
+      } else {
+        reject(new Error(`mongodump failed: ${errorOutput}`));
+      }
+    });
+
+    mongodump.on("error", (err) => {
+      reject(new Error(`Failed to start mongodump: ${err.message}`));
+    });
+  });
+}
+
+async function createOracleBackup(
+  connInfo,
+  databaseName,
+  backupType,
+  outputPath
+) {
+  return new Promise((resolve, reject) => {
+    const args = [];
+    if (backupType === "structure") {
+      args.push("SCHEMAS=" + connInfo.user);
+      args.push("CONTENT=METADATA_ONLY");
+    } else if (backupType === "data") {
+      args.push("SCHEMAS=" + connInfo.user);
+      args.push("CONTENT=DATA_ONLY");
+    } else {
+      args.push("SCHEMAS=" + connInfo.user);
+    }
+    args.push("DIRECTORY=DATA_PUMP_DIR");
+    args.push("DUMPFILE=" + path.basename(outputPath));
+    args.push("LOGFILE=" + path.basename(outputPath).replace(".dmp", ".log"));
+
+    const expdpCommand = `expdp ${connInfo.user}/${connInfo.password}@${
+      connInfo.host
+    }:${connInfo.port}/${databaseName} ${args.join(" ")}`;
+
+    const expdp = spawn("bash", ["-c", expdpCommand]);
+
+    let errorOutput = "";
+    expdp.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    expdp.on("close", (code) => {
+      if (code === 0) {
+        resolve(outputPath);
+      } else {
+        reject(new Error(`expdp failed: ${errorOutput}`));
+      }
+    });
+
+    expdp.on("error", (err) => {
+      reject(new Error(`Failed to start expdp: ${err.message}`));
+    });
+  });
+}
+
+app.post(
+  "/api/backups/create",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        backup_name,
+        db_engine,
+        connection_string,
+        database_name,
+        backup_type,
+      } = req.body;
+
+      if (
+        !backup_name ||
+        !db_engine ||
+        !connection_string ||
+        !database_name ||
+        !backup_type
+      ) {
+        return res.status(400).json({
+          error:
+            "Missing required fields: backup_name, db_engine, connection_string, database_name, backup_type",
+        });
+      }
+
+      if (!["PostgreSQL", "MariaDB", "MongoDB", "Oracle"].includes(db_engine)) {
+        return res.status(400).json({
+          error:
+            "Unsupported database engine. Supported: PostgreSQL, MariaDB, MongoDB, Oracle",
+        });
+      }
+
+      if (!["structure", "data", "full", "config"].includes(backup_type)) {
+        return res.status(400).json({
+          error:
+            "Invalid backup_type. Must be: structure, data, full, or config",
+        });
+      }
+
+      const currentUser = req.user?.username || "system";
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const fileExtension =
+        db_engine === "PostgreSQL"
+          ? "dump"
+          : db_engine === "MariaDB"
+          ? "sql"
+          : db_engine === "MongoDB"
+          ? "gz"
+          : "dmp";
+      const fileName = `${backup_name}_${timestamp}.${fileExtension}`;
+      const filePath = path.join(backupsDir, fileName);
+
+      const cronSchedule = req.body.cron_schedule || null;
+      const isScheduled = cronSchedule ? true : false;
+      const nextRunAt = cronSchedule
+        ? calculateNextRunTime(cronSchedule)
+        : null;
+
+      const backupRecord = await pool.query(
+        `INSERT INTO metadata.backups 
+         (backup_name, db_engine, connection_string, database_name, backup_type, file_path, status, created_by, cron_schedule, is_scheduled, next_run_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING backup_id`,
+        [
+          backup_name,
+          db_engine,
+          connection_string,
+          database_name,
+          backup_type,
+          filePath,
+          "in_progress",
+          currentUser,
+          cronSchedule,
+          isScheduled,
+          nextRunAt,
+        ]
+      );
+
+      const backupId = backupRecord.rows[0].backup_id;
+
+      (async () => {
+        try {
+          const historyRecord = await pool.query(
+            `INSERT INTO metadata.backup_history 
+             (backup_id, backup_name, status, started_at, triggered_by)
+             VALUES ($1, $2, $3, NOW(), $4)
+             RETURNING id`,
+            [backupId, backup_name, "in_progress", "manual"]
+          );
+
+          const connInfo = parseConnectionString(connection_string, db_engine);
+          if (!connInfo) {
+            throw new Error("Failed to parse connection string");
+          }
+
+          let resultPath;
+          if (db_engine === "PostgreSQL") {
+            resultPath = await createPostgreSQLBackup(
+              connInfo,
+              database_name,
+              backup_type,
+              filePath
+            );
+          } else if (db_engine === "MariaDB") {
+            resultPath = await createMariaDBBackup(
+              connInfo,
+              database_name,
+              backup_type,
+              filePath
+            );
+          } else if (db_engine === "MongoDB") {
+            resultPath = await createMongoDBBackup(
+              connInfo,
+              database_name,
+              backup_type,
+              filePath
+            );
+          } else if (db_engine === "Oracle") {
+            resultPath = await createOracleBackup(
+              connInfo,
+              database_name,
+              backup_type,
+              filePath
+            );
+          }
+
+          const stats = await fs.promises.stat(resultPath);
+          const fileSize = stats.size;
+          const completedAt = new Date();
+          const startedAt = new Date(historyRecord.rows[0].started_at);
+          const durationSeconds = Math.floor((completedAt - startedAt) / 1000);
+
+          await pool.query(
+            `UPDATE metadata.backups 
+             SET status = 'completed', file_size = $1, completed_at = NOW()
+             WHERE backup_id = $2`,
+            [fileSize, backupId]
+          );
+
+          await pool.query(
+            `UPDATE metadata.backup_history 
+             SET status = 'completed', completed_at = NOW(), 
+                 duration_seconds = $1, file_path = $2, file_size = $3
+             WHERE id = $4`,
+            [durationSeconds, resultPath, fileSize, historyRecord.rows[0].id]
+          );
+        } catch (err) {
+          console.error("Error creating backup:", err);
+          await pool.query(
+            `UPDATE metadata.backups 
+             SET status = 'failed', error_message = $1, completed_at = NOW()
+             WHERE backup_id = $2`,
+            [err.message, backupId]
+          );
+
+          await pool.query(
+            `UPDATE metadata.backup_history 
+             SET status = 'failed', completed_at = NOW(), error_message = $1
+             WHERE backup_id = $2 AND status = 'in_progress'
+             ORDER BY started_at DESC LIMIT 1`,
+            [err.message, backupId]
+          );
+        }
+      })();
+
+      res.json({
+        message: "Backup creation started",
+        backup_id: backupId,
+        status: "in_progress",
+      });
+    } catch (err) {
+      console.error("Error creating backup:", err);
+      res.status(500).json({
+        error: "Error al crear backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/backups",
+  requireAuth,
+  requireRole("admin", "user", "viewer"),
+  async (req, res) => {
+    try {
+      const { db_engine, status, page = 1, limit = 50 } = req.query;
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+
+      let query = "SELECT * FROM metadata.backups WHERE 1=1";
+      const params = [];
+      let paramCount = 0;
+
+      if (db_engine) {
+        paramCount++;
+        query += ` AND db_engine = $${paramCount}`;
+        params.push(db_engine);
+      }
+
+      if (status) {
+        paramCount++;
+        query += ` AND status = $${paramCount}`;
+        params.push(status);
+      }
+
+      query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${
+        paramCount + 2
+      }`;
+      params.push(parseInt(limit), offset);
+
+      const result = await pool.query(query, params);
+      const countResult = await pool.query(
+        "SELECT COUNT(*) as total FROM metadata.backups WHERE 1=1" +
+          (db_engine ? ` AND db_engine = '${db_engine}'` : "") +
+          (status ? ` AND status = '${status}'` : "")
+      );
+
+      res.json({
+        backups: result.rows,
+        total: parseInt(countResult.rows[0].total),
+        page: parseInt(page),
+        limit: parseInt(limit),
+      });
+    } catch (err) {
+      console.error("Error fetching backups:", err);
+      res.status(500).json({
+        error: "Error al obtener backups",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/backups/:id",
+  requireAuth,
+  requireRole("admin", "user", "viewer"),
+  async (req, res) => {
+    try {
+      const backupId = parseInt(req.params.id);
+      const result = await pool.query(
+        "SELECT * FROM metadata.backups WHERE backup_id = $1",
+        [backupId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Backup not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error fetching backup:", err);
+      res.status(500).json({
+        error: "Error al obtener backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/backups/:id/restore",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const backupId = parseInt(req.params.id);
+      const { target_connection_string, target_database_name } = req.body;
+
+      const backupResult = await pool.query(
+        "SELECT * FROM metadata.backups WHERE backup_id = $1",
+        [backupId]
+      );
+
+      if (backupResult.rows.length === 0) {
+        return res.status(404).json({ error: "Backup not found" });
+      }
+
+      const backup = backupResult.rows[0];
+
+      if (backup.status !== "completed") {
+        return res.status(400).json({
+          error: "Backup is not completed. Cannot restore.",
+        });
+      }
+
+      if (!fs.existsSync(backup.file_path)) {
+        return res.status(404).json({ error: "Backup file not found on disk" });
+      }
+
+      const targetConnString =
+        target_connection_string || backup.connection_string;
+      const targetDbName = target_database_name || backup.database_name;
+
+      res.json({
+        message:
+          "Restore operation started. This is a placeholder - restore functionality needs to be implemented.",
+        backup_id: backupId,
+        target_connection_string: targetConnString,
+        target_database_name: targetDbName,
+      });
+    } catch (err) {
+      console.error("Error restoring backup:", err);
+      res.status(500).json({
+        error: "Error al restaurar backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.delete(
+  "/api/backups/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const backupId = parseInt(req.params.id);
+      const backupResult = await pool.query(
+        "SELECT * FROM metadata.backups WHERE backup_id = $1",
+        [backupId]
+      );
+
+      if (backupResult.rows.length === 0) {
+        return res.status(404).json({ error: "Backup not found" });
+      }
+
+      const backup = backupResult.rows[0];
+
+      if (fs.existsSync(backup.file_path)) {
+        await fs.promises.unlink(backup.file_path);
+      }
+
+      await pool.query("DELETE FROM metadata.backups WHERE backup_id = $1", [
+        backupId,
+      ]);
+
+      res.json({ message: "Backup deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting backup:", err);
+      res.status(500).json({
+        error: "Error al eliminar backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/backups/mssql/:connectionId",
+  requireAuth,
+  requireRole("admin", "user", "viewer"),
+  async (req, res) => {
+    try {
+      const connectionId = req.params.connectionId;
+
+      const connectionResult = await pool.query(
+        `SELECT connection_string, db_engine 
+         FROM metadata.database_config 
+         WHERE id = $1 AND db_engine = 'MSSQL'`,
+        [connectionId]
+      );
+
+      if (connectionResult.rows.length === 0) {
+        return res.status(404).json({ error: "MSSQL connection not found" });
+      }
+
+      const connection = connectionResult.rows[0];
+      const sql = (await import("mssql")).default;
+
+      const config = {
+        connectionString: connection.connection_string,
+        options: {
+          enableArithAbort: true,
+          trustServerCertificate: true,
+        },
+      };
+
+      const pool_sql = await sql.connect(config);
+      const databaseName = new URL(
+        connection.connection_string.replace(/^mssql:\/\//, "http://")
+      ).pathname.slice(1);
+
+      const request = pool_sql.request();
+      request.input("databaseName", sql.VarChar, databaseName);
+      const result = await request.query(`
+        SELECT 
+          backup_set_id,
+          database_name,
+          backup_start_date,
+          backup_finish_date,
+          type,
+          CASE type
+            WHEN 'D' THEN 'Full'
+            WHEN 'I' THEN 'Differential'
+            WHEN 'L' THEN 'Log'
+          END as backup_type_name,
+          backup_size,
+          compressed_backup_size,
+          recovery_model,
+          user_name as backup_user
+        FROM msdb.dbo.backupset
+        WHERE database_name = @databaseName
+        ORDER BY backup_finish_date DESC
+      `);
+
+      await pool_sql.close();
+
+      res.json({
+        backups: result.recordset,
+        connection_id: connectionId,
+        database_name: databaseName,
+      });
+    } catch (err) {
+      console.error("Error fetching MSSQL backups:", err);
+      res.status(500).json({
+        error: "Error al obtener backups de MSSQL",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/backups/:id/history",
+  requireAuth,
+  requireRole("admin", "user", "viewer"),
+  async (req, res) => {
+    try {
+      const backupId = parseInt(req.params.id);
+      const limit = parseInt(req.query.limit) || 50;
+
+      const result = await pool.query(
+        `SELECT * FROM metadata.backup_history 
+         WHERE backup_id = $1 
+         ORDER BY started_at DESC 
+         LIMIT $2`,
+        [backupId, limit]
+      );
+
+      res.json({ history: result.rows });
+    } catch (err) {
+      console.error("Error fetching backup history:", err);
+      res.status(500).json({
+        error: "Error al obtener historial de backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/backups/:id/schedule",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const backupId = parseInt(req.params.id);
+      const { cron_schedule, is_scheduled } = req.body;
+
+      if (is_scheduled && (!cron_schedule || cron_schedule.trim() === "")) {
+        return res.status(400).json({
+          error: "cron_schedule is required when is_scheduled is true",
+        });
+      }
+
+      const parts = cron_schedule ? cron_schedule.trim().split(/\s+/) : [];
+      if (is_scheduled && parts.length !== 5) {
+        return res.status(400).json({
+          error:
+            "Invalid cron_schedule format. Expected: minute hour day month dow",
+        });
+      }
+
+      const nextRunAt =
+        is_scheduled && cron_schedule
+          ? calculateNextRunTime(cron_schedule)
+          : null;
+
+      await pool.query(
+        `UPDATE metadata.backups 
+         SET cron_schedule = $1, is_scheduled = $2, next_run_at = $3
+         WHERE backup_id = $4`,
+        [cron_schedule || null, is_scheduled || false, nextRunAt, backupId]
+      );
+
+      res.json({
+        message: "Backup schedule updated successfully",
+        next_run_at: nextRunAt,
+      });
+    } catch (err) {
+      console.error("Error updating backup schedule:", err);
+      res.status(500).json({
+        error: "Error al actualizar programación de backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/backups/:id/enable-schedule",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const backupId = parseInt(req.params.id);
+      const backupResult = await pool.query(
+        "SELECT cron_schedule FROM metadata.backups WHERE backup_id = $1",
+        [backupId]
+      );
+
+      if (backupResult.rows.length === 0) {
+        return res.status(404).json({ error: "Backup not found" });
+      }
+
+      const cronSchedule = backupResult.rows[0].cron_schedule;
+      if (!cronSchedule) {
+        return res.status(400).json({
+          error: "Backup does not have a cron_schedule. Set it first.",
+        });
+      }
+
+      const nextRunAt = calculateNextRunTime(cronSchedule);
+
+      await pool.query(
+        `UPDATE metadata.backups 
+         SET is_scheduled = true, next_run_at = $1
+         WHERE backup_id = $2`,
+        [nextRunAt, backupId]
+      );
+
+      res.json({
+        message: "Backup schedule enabled",
+        next_run_at: nextRunAt,
+      });
+    } catch (err) {
+      console.error("Error enabling backup schedule:", err);
+      res.status(500).json({
+        error: "Error al habilitar programación de backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/backups/:id/disable-schedule",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const backupId = parseInt(req.params.id);
+
+      await pool.query(
+        `UPDATE metadata.backups 
+         SET is_scheduled = false, next_run_at = NULL
+         WHERE backup_id = $1`,
+        [backupId]
+      );
+
+      res.json({ message: "Backup schedule disabled" });
+    } catch (err) {
+      console.error("Error disabling backup schedule:", err);
+      res.status(500).json({
+        error: "Error al deshabilitar programación de backup",
+        details: sanitizeError(
+          err,
+          "Error en el servidor",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
 // Export app for testing
 export default app;
 

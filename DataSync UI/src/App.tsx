@@ -45,6 +45,7 @@ const GoogleSheetsCatalog = lazy(() => import("./components/google-sheets/Google
 const UserManagement = lazy(() => import("./components/security/UserManagement"));
 const Webhooks = lazy(() => import("./components/governance/Webhooks"));
 const SchemaMigrations = lazy(() => import("./components/migrations/SchemaMigrations"));
+const BackupManager = lazy(() => import("./components/backups/BackupManager"));
 const Login = lazy(() => import("./components/auth/Login"));
 
 function App() {
@@ -343,6 +344,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <SchemaMigrations />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="backups"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <BackupManager />
                 </Suspense>
               </ProtectedRoute>
             }
