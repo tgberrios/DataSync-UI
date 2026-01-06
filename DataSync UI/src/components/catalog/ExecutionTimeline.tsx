@@ -23,71 +23,11 @@ const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
   onClose 
 }) => {
   const groupedExecutions = useMemo(() => {
-    const executions: any[] = [];
-    const processed = new Set<number>();
-    const MAX_TIME_RANGE_MS = 24 * 60 * 60 * 1000;
-    
-    history.forEach((exec) => {
-      if (processed.has(exec.id)) return;
-      
-      if (exec.status === 'IN_PROGRESS') {
-        const inProgressTime = new Date(exec.start_time).getTime();
-        
-        const matchingFinal = history.find((e: any) => 
-          !processed.has(e.id) &&
-          (e.status === 'SUCCESS' || e.status === 'ERROR') &&
-          new Date(e.start_time).getTime() > inProgressTime &&
-          (new Date(e.start_time).getTime() - inProgressTime) <= MAX_TIME_RANGE_MS
-        );
-        
-        if (matchingFinal) {
-          const finalStartTime = new Date(exec.start_time);
-          const finalEndTime = new Date(matchingFinal.end_time);
-          const duration = Math.floor((finalEndTime.getTime() - finalStartTime.getTime()) / 1000);
-          
-          executions.push({
-            ...matchingFinal,
-            start_time: finalStartTime.toISOString(),
-            end_time: finalEndTime.toISOString(),
-            duration_seconds: duration > 0 ? duration : (matchingFinal.duration_seconds || 0),
-          });
-          processed.add(exec.id);
-          processed.add(matchingFinal.id);
-        } else {
-          executions.push(exec);
-          processed.add(exec.id);
-        }
-      } else if (exec.status === 'SUCCESS' || exec.status === 'ERROR') {
-        const finalTime = new Date(exec.start_time).getTime();
-        
-        const matchingInProgress = history.find((e: any) => 
-          !processed.has(e.id) &&
-          e.status === 'IN_PROGRESS' &&
-          new Date(e.start_time).getTime() < finalTime &&
-          (finalTime - new Date(e.start_time).getTime()) <= MAX_TIME_RANGE_MS
-        );
-        
-        if (matchingInProgress) {
-          const finalStartTime = new Date(matchingInProgress.start_time);
-          const finalEndTime = new Date(exec.end_time);
-          const duration = Math.floor((finalEndTime.getTime() - finalStartTime.getTime()) / 1000);
-          
-          executions.push({
-            ...exec,
-            start_time: finalStartTime.toISOString(),
-            end_time: finalEndTime.toISOString(),
-            duration_seconds: duration > 0 ? duration : (exec.duration_seconds || 0),
-          });
-          processed.add(exec.id);
-          processed.add(matchingInProgress.id);
-        } else {
-          executions.push(exec);
-          processed.add(exec.id);
-        }
-      }
-    });
-    
-    return executions.sort((a, b) => 
+    return history.map((session: any) => ({
+      ...session,
+      start_time: session.start_time instanceof Date ? session.start_time.toISOString() : session.start_time,
+      end_time: session.end_time instanceof Date ? session.end_time.toISOString() : session.end_time,
+    })).sort((a, b) => 
       new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
     );
   }, [history]);
@@ -106,9 +46,11 @@ const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'SUCCESS') return asciiColors.accent;
-    if (status === 'ERROR') return asciiColors.accent;
+    if (status === 'LISTENING_CHANGES') return asciiColors.accent;
+    if (status === 'ERROR') return asciiColors.red || '#ff4444';
     if (status === 'IN_PROGRESS') return asciiColors.accentSoft;
+    if (status === 'FULL_LOAD') return asciiColors.accent;
+    if (status === 'NO_DATA') return asciiColors.muted;
     return asciiColors.muted;
   };
 
@@ -364,7 +306,8 @@ const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
                     }}>
                       {groupedExecutions.slice(0, 20).reverse().map((exec) => {
                         const height = maxDuration > 0 ? (exec.duration_seconds || 0) / maxDuration * 100 : 0;
-                        const tooltipText = `${exec.status}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}`;
+                        const statusFlow = exec.status_flow ? exec.status_flow.join(' → ') : exec.status;
+                        const tooltipText = `Status: ${exec.status}\nFlow: ${statusFlow}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nRows: ${exec.total_rows_processed || 0}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}${exec.error_message ? `\nError: ${exec.error_message}` : ''}`;
                         return (
                           <BarWithTooltip
                             key={exec.id}

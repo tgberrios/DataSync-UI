@@ -684,83 +684,121 @@ app.get("/api/catalog/execution-history", requireAuth, async (req, res) => {
       });
     }
 
-    const processNamePattern = `${schema_name}.${table_name}`;
-    const processNamePatternLower = `${schema_name.toLowerCase()}.${table_name.toLowerCase()}`;
-    const tableNameLower = table_name.toLowerCase();
-    const schemaNameLower = schema_name.toLowerCase();
-
-    console.log("🔍 [EXECUTION-HISTORY] Searching with patterns:", {
-      processNamePattern,
-      processNamePatternLower,
-      patternLike: `%${schema_name}.${table_name}%`,
-      schema_name,
-      table_name,
-      db_engine
-    });
-
     const result = await pool.query(
       `SELECT 
         id,
-        process_type,
-        process_name,
+        schema_name,
+        table_name,
+        db_engine,
         status,
-        start_time,
-        end_time,
-        COALESCE(duration_seconds, EXTRACT(EPOCH FROM (end_time - start_time))::integer) as duration_seconds,
-        total_rows_processed,
-        error_message,
-        metadata,
-        created_at
-       FROM metadata.process_log 
-       WHERE (
-         (LOWER(schema_name) = LOWER($1) AND LOWER(table_name) = LOWER($2) AND LOWER(db_engine) = LOWER($3))
-         OR (LOWER(process_name) = LOWER($4))
-         OR (LOWER(process_name) = LOWER($5))
-         OR (LOWER(process_name) LIKE LOWER($6))
-         OR (LOWER(process_name) LIKE LOWER($7))
-         OR (LOWER(source_schema) = LOWER($1) AND LOWER(target_schema) = LOWER($1))
-         OR (LOWER(metadata->>'schema_name') = LOWER($1) AND LOWER(metadata->>'table_name') = LOWER($2))
-         OR (LOWER(metadata->>'db_engine') = LOWER($3) AND LOWER(metadata->>'schema_name') = LOWER($1) AND LOWER(metadata->>'table_name') = LOWER($2))
-       )
-       ORDER BY created_at DESC 
-       LIMIT $8`,
+        processed_at,
+        record_count
+       FROM metadata.processing_log 
+       WHERE LOWER(schema_name) = LOWER($1) 
+         AND LOWER(table_name) = LOWER($2) 
+         AND LOWER(db_engine) = LOWER($3)
+         AND status != 'SKIP'
+       ORDER BY processed_at DESC 
+       LIMIT $4`,
       [
         schema_name,
         table_name,
         db_engine,
-        processNamePattern,
-        processNamePatternLower,
-        `%${schema_name}.${table_name}%`,
-        `%${table_name}%`,
-        limit,
+        limit * 20,
       ]
     );
 
-    console.log("🔍 [EXECUTION-HISTORY] Query result:", result.rows.length, "rows found");
-    if (result.rows.length > 0) {
-      console.log("🔍 [EXECUTION-HISTORY] Sample row:", {
-        id: result.rows[0].id,
-        process_name: result.rows[0].process_name,
-        status: result.rows[0].status,
-        metadata: result.rows[0].metadata
-      });
-    } else {
-      console.log("⚠️ [EXECUTION-HISTORY] No rows found. Checking if table exists...");
-      const tableCheck = await pool.query(
-        `SELECT COUNT(*) as count FROM metadata.process_log`
-      );
-      console.log("🔍 [EXECUTION-HISTORY] Total rows in process_log:", tableCheck.rows[0].count);
-      
-      const sampleRows = await pool.query(
-        `SELECT process_name, metadata->>'schema_name' as schema_name, metadata->>'table_name' as table_name, metadata->>'db_engine' as db_engine 
-         FROM metadata.process_log 
-         ORDER BY created_at DESC 
-         LIMIT 5`
-      );
-      console.log("🔍 [EXECUTION-HISTORY] Sample process_log entries:", sampleRows.rows);
+    function groupSyncSessions(records) {
+      if (records.length === 0) return [];
+
+      const sessions = [];
+      let currentSession = null;
+
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        const status = record.status;
+        const processedAt = new Date(record.processed_at);
+        const nextRecord = i < records.length - 1 ? records[i + 1] : null;
+
+        const isFullLoadStart = status === 'FULL_LOAD';
+        
+        const isIncrementalStart = status === 'LISTENING_CHANGES' && 
+                                  nextRecord && 
+                                  nextRecord.status === 'IN_PROGRESS';
+
+        const isFlowStart = isFullLoadStart || isIncrementalStart;
+
+        if (isFlowStart) {
+          if (currentSession && currentSession.status_flow.length > 1) {
+            currentSession.duration_seconds = Math.floor(
+              (currentSession.end_time - currentSession.start_time) / 1000
+            );
+            sessions.push(currentSession);
+          }
+
+          currentSession = {
+            id: record.id,
+            schema_name: record.schema_name,
+            table_name: record.table_name,
+            db_engine: record.db_engine,
+            start_time: processedAt,
+            end_time: processedAt,
+            status: status,
+            status_flow: [status],
+            total_rows_processed: record.record_count || 0,
+            error_message: status === 'ERROR' ? 'Sync error occurred' : null,
+            metadata: null,
+            created_at: processedAt,
+            record_ids: [record.id]
+          };
+        } else if (currentSession) {
+          const isFlowEnd = (status === 'LISTENING_CHANGES' || status === 'ERROR' || status === 'NO_DATA') &&
+                           currentSession.status_flow[0] !== status &&
+                           (currentSession.status_flow.includes('IN_PROGRESS') || 
+                            currentSession.status_flow[0] === 'FULL_LOAD');
+
+          currentSession.end_time = processedAt;
+          currentSession.status = status;
+          currentSession.status_flow.push(status);
+          currentSession.record_ids.push(record.id);
+          
+          if (record.record_count) {
+            currentSession.total_rows_processed = Math.max(
+              currentSession.total_rows_processed,
+              record.record_count
+            );
+          }
+
+          if (status === 'ERROR') {
+            currentSession.error_message = 'Sync error occurred';
+          }
+
+          if (isFlowEnd) {
+            currentSession.duration_seconds = Math.floor(
+              (currentSession.end_time - currentSession.start_time) / 1000
+            );
+            sessions.push(currentSession);
+            currentSession = null;
+          }
+        }
+      }
+
+      if (currentSession && currentSession.status_flow.length > 1) {
+        currentSession.duration_seconds = Math.floor(
+          (currentSession.end_time - currentSession.start_time) / 1000
+        );
+        sessions.push(currentSession);
+      }
+
+      return sessions.slice(0, limit);
     }
 
-    res.json(result.rows);
+    const groupedSessions = groupSyncSessions(result.rows);
+
+    console.log("🔍 [EXECUTION-HISTORY] Query result:", result.rows.length, "rows found");
+    console.log("🔍 [EXECUTION-HISTORY] Grouped into", groupedSessions.length, "sessions");
+
+    res.json(groupedSessions);
   } catch (err) {
     console.error("Error fetching execution history:", err);
     const safeError = sanitizeError(
