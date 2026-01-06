@@ -201,14 +201,30 @@ app.use(generalLimiter);
 
 const publicPaths = ["/api/auth/login", "/api/health"];
 app.use((req, res, next) => {
+  if (req.path && req.path.startsWith("/api/catalog/")) {
+    console.log("🌐 [GLOBAL AUTH MIDDLEWARE] Intercepting:", req.method, req.path);
+  }
   if (!req.path.startsWith("/api")) {
     return next();
   }
   const requestPath = req.path || (req.url ? req.url.split("?")[0] : "");
   if (publicPaths.includes(requestPath)) {
+    if (req.path && req.path.startsWith("/api/catalog/")) {
+      console.log("✅ [GLOBAL AUTH MIDDLEWARE] Public path, skipping auth");
+    }
     return next();
   }
+  if (req.path && req.path.startsWith("/api/catalog/")) {
+    console.log("🔐 [GLOBAL AUTH MIDDLEWARE] Calling requireAuth for:", req.method, req.path);
+  }
   requireAuth(req, res, next);
+});
+
+app.use((req, res, next) => {
+  if (req.path && req.path.startsWith("/api/catalog/")) {
+    console.log(`[ROUTE DEBUG] ${req.method} ${req.path} - Query:`, req.query, "Body:", req.body);
+  }
+  next();
 });
 
 app.post("/api/auth/login", authLimiter, async (req, res) => {
@@ -574,8 +590,495 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Resetear CDC (last_change_id a 0) - DEBE IR ANTES DE /api/catalog
+console.log("🔵 [ROUTE REGISTRATION] Registering POST /api/catalog/reset-cdc");
+app.post(
+  "/api/catalog/reset-cdc",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    console.log("🟢 [RESET-CDC HANDLER] Request received:", {
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      user: req.user ? { role: req.user.role } : null
+    });
+    const schema_name = validateIdentifier(req.body.schema_name);
+    const table_name = validateIdentifier(req.body.table_name);
+    const db_engine = validateEnum(
+      req.body.db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      null
+    );
+
+    console.log("🔍 [RESET-CDC] Validated parameters:", { schema_name, table_name, db_engine });
+
+    if (!schema_name || !table_name || !db_engine) {
+      console.log("❌ [RESET-CDC] Missing required parameters");
+      return res.status(400).json({
+        error: "schema_name, table_name, and db_engine are required",
+      });
+    }
+
+    try {
+      console.log("🔍 [RESET-CDC] Executing UPDATE query...");
+      const result = await pool.query(
+        `UPDATE metadata.catalog 
+         SET sync_metadata = COALESCE(sync_metadata, '{}'::jsonb) || 
+             jsonb_build_object('last_change_id', '0')
+         WHERE LOWER(schema_name) = LOWER($1) AND LOWER(table_name) = LOWER($2) AND db_engine = $3
+         RETURNING schema_name, table_name, db_engine, sync_metadata`,
+        [schema_name, table_name, db_engine]
+      );
+
+      console.log("🔍 [RESET-CDC] UPDATE query result:", result.rows.length, "rows affected");
+
+      if (result.rows.length === 0) {
+        console.log("❌ [RESET-CDC] Catalog entry not found, returning 404");
+        return res.status(404).json({
+          error: "Catalog entry not found",
+        });
+      }
+
+      console.log("✅ [RESET-CDC] Successfully reset CDC, sending response...");
+      res.json({
+        success: true,
+        message: `CDC reset for ${schema_name}.${table_name} (${db_engine})`,
+        entry: result.rows[0],
+      });
+      console.log("✅ [RESET-CDC] Response sent successfully");
+    } catch (err) {
+      console.error("❌ [RESET-CDC] Database error:", err);
+      console.error("❌ [RESET-CDC] Error stack:", err.stack);
+      const safeError = sanitizeError(
+        err,
+        "Error resetting CDC",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+console.log("✅ [ROUTE REGISTRATION] POST /api/catalog/reset-cdc registered successfully");
+
+// Obtener historial de ejecuciones de una tabla del catalog - DEBE IR ANTES DE /api/catalog
+console.log("🔵 [ROUTE REGISTRATION] Registering GET /api/catalog/execution-history");
+app.get("/api/catalog/execution-history", requireAuth, async (req, res) => {
+  console.log("🟢 [EXECUTION-HISTORY HANDLER] Request received:", {
+    method: req.method,
+    path: req.path,
+    query: req.query
+  });
+  try {
+    const schema_name = req.query.schema_name;
+    const table_name = req.query.table_name;
+    const db_engine = req.query.db_engine;
+    const limit = validateLimit(req.query.limit, 1, 100, 50);
+
+    console.log("🔍 [EXECUTION-HISTORY] Validating parameters:", { schema_name, table_name, db_engine, limit });
+
+    if (!schema_name || !table_name || !db_engine) {
+      console.log("❌ [EXECUTION-HISTORY] Missing required parameters");
+      return res.status(400).json({
+        error: "schema_name, table_name, and db_engine are required",
+      });
+    }
+
+    const processNamePattern = `${schema_name}.${table_name}`;
+    const processNamePatternLower = `${schema_name.toLowerCase()}.${table_name.toLowerCase()}`;
+    const tableNameLower = table_name.toLowerCase();
+    const schemaNameLower = schema_name.toLowerCase();
+
+    console.log("🔍 [EXECUTION-HISTORY] Searching with patterns:", {
+      processNamePattern,
+      processNamePatternLower,
+      patternLike: `%${schema_name}.${table_name}%`,
+      schema_name,
+      table_name,
+      db_engine
+    });
+
+    const result = await pool.query(
+      `SELECT 
+        id,
+        process_type,
+        process_name,
+        status,
+        start_time,
+        end_time,
+        COALESCE(duration_seconds, EXTRACT(EPOCH FROM (end_time - start_time))::integer) as duration_seconds,
+        total_rows_processed,
+        error_message,
+        metadata,
+        created_at
+       FROM metadata.process_log 
+       WHERE (
+         (LOWER(schema_name) = LOWER($1) AND LOWER(table_name) = LOWER($2) AND LOWER(db_engine) = LOWER($3))
+         OR (LOWER(process_name) = LOWER($4))
+         OR (LOWER(process_name) = LOWER($5))
+         OR (LOWER(process_name) LIKE LOWER($6))
+         OR (LOWER(process_name) LIKE LOWER($7))
+         OR (LOWER(source_schema) = LOWER($1) AND LOWER(target_schema) = LOWER($1))
+         OR (LOWER(metadata->>'schema_name') = LOWER($1) AND LOWER(metadata->>'table_name') = LOWER($2))
+         OR (LOWER(metadata->>'db_engine') = LOWER($3) AND LOWER(metadata->>'schema_name') = LOWER($1) AND LOWER(metadata->>'table_name') = LOWER($2))
+       )
+       ORDER BY created_at DESC 
+       LIMIT $8`,
+      [
+        schema_name,
+        table_name,
+        db_engine,
+        processNamePattern,
+        processNamePatternLower,
+        `%${schema_name}.${table_name}%`,
+        `%${table_name}%`,
+        limit,
+      ]
+    );
+
+    console.log("🔍 [EXECUTION-HISTORY] Query result:", result.rows.length, "rows found");
+    if (result.rows.length > 0) {
+      console.log("🔍 [EXECUTION-HISTORY] Sample row:", {
+        id: result.rows[0].id,
+        process_name: result.rows[0].process_name,
+        status: result.rows[0].status,
+        metadata: result.rows[0].metadata
+      });
+    } else {
+      console.log("⚠️ [EXECUTION-HISTORY] No rows found. Checking if table exists...");
+      const tableCheck = await pool.query(
+        `SELECT COUNT(*) as count FROM metadata.process_log`
+      );
+      console.log("🔍 [EXECUTION-HISTORY] Total rows in process_log:", tableCheck.rows[0].count);
+      
+      const sampleRows = await pool.query(
+        `SELECT process_name, metadata->>'schema_name' as schema_name, metadata->>'table_name' as table_name, metadata->>'db_engine' as db_engine 
+         FROM metadata.process_log 
+         ORDER BY created_at DESC 
+         LIMIT 5`
+      );
+      console.log("🔍 [EXECUTION-HISTORY] Sample process_log entries:", sampleRows.rows);
+    }
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching execution history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de ejecuciones",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+console.log("✅ [ROUTE REGISTRATION] GET /api/catalog/execution-history registered successfully");
+
+// Obtener estructura de tabla (source y target) - DEBE IR ANTES DE /api/catalog
+console.log("🔵 [ROUTE REGISTRATION] Registering GET /api/catalog/table-structure");
+app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
+  console.log("🟢 [TABLE-STRUCTURE HANDLER] Request received:", {
+    method: req.method,
+    path: req.path,
+    query: req.query
+  });
+  try {
+    const schema_name = req.query.schema_name;
+    const table_name = req.query.table_name;
+    const db_engine = req.query.db_engine;
+
+    console.log("🔍 [TABLE-STRUCTURE] Validating parameters:", { schema_name, table_name, db_engine });
+
+    if (!schema_name || !table_name || !db_engine) {
+      console.log("❌ [TABLE-STRUCTURE] Missing required parameters");
+      return res.status(400).json({
+        error: "schema_name, table_name, and db_engine are required",
+      });
+    }
+
+    console.log("🔍 [TABLE-STRUCTURE] Querying catalog for:", { schema_name, table_name, db_engine });
+
+    const catalogResult = await pool.query(
+      `SELECT connection_string, schema_name, table_name, db_engine
+       FROM metadata.catalog 
+       WHERE LOWER(schema_name) = LOWER($1) AND LOWER(table_name) = LOWER($2) AND db_engine = $3`,
+      [schema_name, table_name, db_engine]
+    );
+
+    console.log("🔍 [TABLE-STRUCTURE] Catalog query result:", catalogResult.rows.length, "rows found");
+
+    if (catalogResult.rows.length === 0) {
+      console.log("❌ [TABLE-STRUCTURE] Table not found in catalog, returning 404");
+      return res.status(404).json({ error: "Table not found in catalog" });
+    }
+
+    const catalogEntry = catalogResult.rows[0];
+    const sourceConnectionString = catalogEntry.connection_string;
+    const targetSchema = schema_name.toLowerCase();
+    const targetTable = table_name.toLowerCase();
+
+    let sourceColumns = [];
+    let targetColumns = [];
+
+    switch (db_engine) {
+      case "MariaDB": {
+        const mysql = (await import("mysql2/promise")).default;
+        const connection = await mysql.createConnection(sourceConnectionString);
+        const [rows] = await connection.execute(
+          `
+          SELECT 
+            COLUMN_NAME,
+            DATA_TYPE,
+            CHARACTER_MAXIMUM_LENGTH,
+            IS_NULLABLE,
+            COLUMN_DEFAULT
+          FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+          ORDER BY ORDINAL_POSITION
+        `,
+          [schema_name, table_name]
+        );
+        sourceColumns = rows.map((row) => ({
+          name: row.COLUMN_NAME,
+          type:
+            row.DATA_TYPE +
+            (row.CHARACTER_MAXIMUM_LENGTH
+              ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+              : ""),
+          nullable: row.IS_NULLABLE === "YES",
+          default: row.COLUMN_DEFAULT,
+        }));
+        await connection.end();
+        break;
+      }
+      case "MSSQL": {
+        const sql = (await import("mssql")).default;
+        let config;
+        
+        if (typeof sourceConnectionString === 'string') {
+          const parts = sourceConnectionString.split(';').reduce((acc, part) => {
+            const [key, value] = part.split('=').map(s => s.trim());
+            if (key && value) {
+              const keyLower = key.toLowerCase();
+              if (keyLower === 'server' || keyLower === 'data source') {
+                if (value.includes(',')) {
+                  const [host, port] = value.split(',').map(s => s.trim());
+                  acc.server = host;
+                  acc.port = parseInt(port) || 1433;
+                } else if (value.includes(':')) {
+                  const [host, port] = value.split(':').map(s => s.trim());
+                  acc.server = host;
+                  acc.port = parseInt(port) || 1433;
+                } else {
+                  acc.server = value;
+                }
+              }
+              else if (keyLower === 'database' || keyLower === 'initial catalog') acc.database = value;
+              else if (keyLower === 'user id' || keyLower === 'uid') acc.user = value;
+              else if (keyLower === 'password' || keyLower === 'pwd') acc.password = value;
+              else if (keyLower === 'port') acc.port = parseInt(value);
+            }
+            return acc;
+          }, {});
+          
+          config = {
+            ...parts,
+            options: {
+              encrypt: true,
+              trustServerCertificate: true
+            }
+          };
+        } else {
+          config = {
+            ...sourceConnectionString,
+            options: {
+              ...sourceConnectionString.options,
+              encrypt: true,
+              trustServerCertificate: true
+            }
+          };
+        }
+        
+        const pool = new sql.ConnectionPool(config);
+        await pool.connect();
+        const result = await pool
+          .request()
+          .input("schema", sql.VarChar, schema_name)
+          .input("table", sql.VarChar, table_name).query(`
+            SELECT 
+              COLUMN_NAME,
+              DATA_TYPE,
+              CHARACTER_MAXIMUM_LENGTH,
+              IS_NULLABLE,
+              COLUMN_DEFAULT
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+            ORDER BY ORDINAL_POSITION
+          `);
+        sourceColumns = result.recordset.map((row) => ({
+          name: row.COLUMN_NAME,
+          type:
+            row.DATA_TYPE +
+            (row.CHARACTER_MAXIMUM_LENGTH
+              ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
+              : ""),
+          nullable: row.IS_NULLABLE === "YES",
+          default: row.COLUMN_DEFAULT,
+        }));
+        await pool.close();
+        break;
+      }
+      case "Oracle": {
+        const oracledb = (await import("oracledb")).default;
+        const connection = await oracledb.getConnection(sourceConnectionString);
+        const result = await connection.execute(
+          `
+          SELECT 
+            COLUMN_NAME,
+            DATA_TYPE,
+            DATA_LENGTH,
+            NULLABLE,
+            DATA_DEFAULT
+          FROM ALL_TAB_COLUMNS
+          WHERE OWNER = :owner AND TABLE_NAME = :table
+          ORDER BY COLUMN_ID
+        `,
+          {
+            owner: schema_name.toUpperCase(),
+            table: table_name.toUpperCase(),
+          }
+        );
+        sourceColumns = result.rows.map((row) => ({
+          name: row[0],
+          type: row[1] + (row[2] ? `(${row[2]})` : ""),
+          nullable: row[3] === "Y",
+          default: row[4],
+        }));
+        await connection.close();
+        break;
+      }
+      case "MongoDB": {
+        const { MongoClient } = await import("mongodb");
+        const client = new MongoClient(sourceConnectionString);
+        await client.connect();
+        const db = client.db();
+        const collection = db.collection(table_name);
+        const sample = await collection.findOne({});
+        if (sample) {
+          sourceColumns = Object.keys(sample).map((key) => ({
+            name: key,
+            type:
+              typeof sample[key] === "object" ? "object" : typeof sample[key],
+            nullable: true,
+            default: null,
+          }));
+        }
+        await client.close();
+        break;
+      }
+      default: {
+        const { Client } = await import("pg");
+        const client = new Client(sourceConnectionString);
+        await client.connect();
+        const result = await client.query(
+          `
+          SELECT 
+            column_name,
+            data_type,
+            character_maximum_length,
+            is_nullable,
+            column_default
+          FROM information_schema.columns
+          WHERE table_schema = $1 AND table_name = $2
+          ORDER BY ordinal_position
+        `,
+          [schema_name, table_name]
+        );
+        sourceColumns = result.rows.map((row) => ({
+          name: row.column_name,
+          type:
+            row.data_type +
+            (row.character_maximum_length
+              ? `(${row.character_maximum_length})`
+              : ""),
+          nullable: row.is_nullable === "YES",
+          default: row.column_default,
+        }));
+        await client.end();
+        break;
+      }
+    }
+
+    const { Client } = await import("pg");
+    const targetClient = new Client({
+      host: config.database.postgres.host,
+      port: config.database.postgres.port,
+      database: config.database.postgres.database,
+      user: config.database.postgres.user,
+      password: config.database.postgres.password,
+    });
+    await targetClient.connect();
+    const targetResult = await targetClient.query(
+      `
+      SELECT 
+        column_name,
+        data_type,
+        character_maximum_length,
+        is_nullable,
+        column_default
+      FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = $2
+      ORDER BY ordinal_position
+    `,
+      [targetSchema, targetTable]
+    );
+    targetColumns = targetResult.rows.map((row) => ({
+      name: row.column_name,
+      type:
+        row.data_type +
+        (row.character_maximum_length
+          ? `(${row.character_maximum_length})`
+          : ""),
+      nullable: row.is_nullable === "YES",
+      default: row.column_default,
+    }));
+    await targetClient.end();
+
+    console.log("✅ [TABLE-STRUCTURE] Successfully fetched columns. Source:", sourceColumns.length, "Target:", targetColumns.length);
+    console.log("📤 [TABLE-STRUCTURE] Sending response...");
+    res.json({
+      source: {
+        columns: sourceColumns,
+        schema: schema_name,
+        table: table_name
+      },
+      target: {
+        columns: targetColumns,
+        schema: targetSchema,
+        table: targetTable
+      },
+    });
+    console.log("✅ [TABLE-STRUCTURE] Response sent successfully");
+  } catch (err) {
+    console.error("❌ [TABLE-STRUCTURE] Error fetching table structure:", err);
+    console.error("❌ [TABLE-STRUCTURE] Error stack:", err.stack);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estructura de tabla",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+console.log("✅ [ROUTE REGISTRATION] GET /api/catalog/table-structure registered successfully");
+
 // Obtener catálogo con paginación, filtros y búsqueda
+console.log("🔵 [ROUTE REGISTRATION] Registering GET /api/catalog (general route)");
 app.get("/api/catalog", requireAuth, async (req, res) => {
+  console.log("🟢 [CATALOG HANDLER] Request received:", {
+    method: req.method,
+    path: req.path,
+    query: req.query
+  });
   try {
     const page = validatePage(req.query.page, 1);
     const limit = validateLimit(req.query.limit, 1, 100);
@@ -1070,322 +1573,7 @@ app.patch(
   }
 );
 
-app.post(
-  "/api/catalog/reset-cdc",
-  requireAuth,
-  requireRole("admin", "user"),
-  async (req, res) => {
-    const schema_name = validateIdentifier(req.body.schema_name);
-    const table_name = validateIdentifier(req.body.table_name);
-    const db_engine = validateEnum(
-      req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
-      null
-    );
-
-    if (!schema_name || !table_name || !db_engine) {
-      return res.status(400).json({
-        error: "schema_name, table_name, and db_engine are required",
-      });
-    }
-
-    try {
-      const result = await pool.query(
-        `UPDATE metadata.catalog 
-         SET sync_metadata = COALESCE(sync_metadata, '{}'::jsonb) || 
-             jsonb_build_object('last_change_id', '0')
-         WHERE schema_name = $1 AND table_name = $2 AND db_engine = $3
-         RETURNING schema_name, table_name, db_engine, sync_metadata`,
-        [schema_name, table_name, db_engine]
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({
-          error: "Catalog entry not found",
-        });
-      }
-
-      res.json({
-        success: true,
-        message: `CDC reset for ${schema_name}.${table_name} (${db_engine})`,
-        entry: result.rows[0],
-      });
-    } catch (err) {
-      console.error("Database error:", err);
-      const safeError = sanitizeError(
-        err,
-        "Error resetting CDC",
-        process.env.NODE_ENV === "production"
-      );
-      res.status(500).json({ error: safeError });
-    }
-  }
-);
-
-// Obtener historial de ejecuciones de una tabla del catalog
-app.get("/api/catalog/execution-history", requireAuth, async (req, res) => {
-  try {
-    const schema_name = req.query.schema_name;
-    const table_name = req.query.table_name;
-    const db_engine = req.query.db_engine;
-    const limit = validateLimit(req.query.limit, 1, 100, 50);
-
-    if (!schema_name || !table_name || !db_engine) {
-      return res.status(400).json({
-        error: "schema_name, table_name, and db_engine are required",
-      });
-    }
-
-    const processNamePattern = `${schema_name}.${table_name}`;
-    const processNamePatternLower = `${schema_name.toLowerCase()}.${table_name.toLowerCase()}`;
-
-    const result = await pool.query(
-      `SELECT 
-        id,
-        process_type,
-        process_name,
-        status,
-        start_time,
-        end_time,
-        COALESCE(duration_seconds, EXTRACT(EPOCH FROM (end_time - start_time))::integer) as duration_seconds,
-        total_rows_processed,
-        error_message,
-        metadata,
-        created_at
-       FROM metadata.process_log 
-       WHERE (
-         process_name = $1 
-         OR process_name = $2
-         OR process_name ILIKE $3
-         OR (metadata->>'schema_name' = $4 AND metadata->>'table_name' = $5)
-         OR (metadata->>'db_engine' = $6 AND metadata->>'schema_name' = $4 AND metadata->>'table_name' = $5)
-       )
-       ORDER BY created_at DESC 
-       LIMIT $7`,
-      [
-        processNamePattern,
-        processNamePatternLower,
-        `%${schema_name}.${table_name}%`,
-        schema_name,
-        table_name,
-        db_engine,
-        limit,
-      ]
-    );
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching execution history:", err);
-    const safeError = sanitizeError(
-      err,
-      "Error al obtener historial de ejecuciones",
-      process.env.NODE_ENV === "production"
-    );
-    res.status(500).json({ error: safeError });
-  }
-});
-
-// Obtener estructura de tabla (source y target)
-app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
-  try {
-    const schema_name = req.query.schema_name;
-    const table_name = req.query.table_name;
-    const db_engine = req.query.db_engine;
-
-    if (!schema_name || !table_name || !db_engine) {
-      return res.status(400).json({
-        error: "schema_name, table_name, and db_engine are required",
-      });
-    }
-
-    const catalogResult = await pool.query(
-      `SELECT connection_string, schema_name, table_name, db_engine
-       FROM metadata.catalog 
-       WHERE schema_name = $1 AND table_name = $2 AND db_engine = $3`,
-      [schema_name, table_name, db_engine]
-    );
-
-    if (catalogResult.rows.length === 0) {
-      return res.status(404).json({ error: "Table not found in catalog" });
-    }
-
-    const catalogEntry = catalogResult.rows[0];
-    const sourceConnectionString = catalogEntry.connection_string;
-    const targetSchema = schema_name.toLowerCase();
-    const targetTable = table_name.toLowerCase();
-
-    let sourceColumns = [];
-    let targetColumns = [];
-
-    switch (db_engine) {
-      case "MariaDB": {
-        const mysql = (await import("mysql2/promise")).default;
-        const connection = await mysql.createConnection(sourceConnectionString);
-        const [rows] = await connection.execute(
-          `
-          SELECT 
-            COLUMN_NAME,
-            DATA_TYPE,
-            CHARACTER_MAXIMUM_LENGTH,
-            IS_NULLABLE,
-            COLUMN_DEFAULT
-          FROM information_schema.COLUMNS
-          WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
-          ORDER BY ORDINAL_POSITION
-        `,
-          [schema_name, table_name]
-        );
-        sourceColumns = rows.map((row) => ({
-          name: row.COLUMN_NAME,
-          type:
-            row.DATA_TYPE +
-            (row.CHARACTER_MAXIMUM_LENGTH
-              ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
-              : ""),
-          nullable: row.IS_NULLABLE === "YES",
-          default: row.COLUMN_DEFAULT,
-        }));
-        await connection.end();
-        break;
-      }
-      case "MSSQL": {
-        const sql = (await import("mssql")).default;
-        const pool = await sql.connect(sourceConnectionString);
-        const result = await pool
-          .request()
-          .input("schema", sql.VarChar, schema_name)
-          .input("table", sql.VarChar, table_name).query(`
-            SELECT 
-              COLUMN_NAME,
-              DATA_TYPE,
-              CHARACTER_MAXIMUM_LENGTH,
-              IS_NULLABLE,
-              COLUMN_DEFAULT
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
-            ORDER BY ORDINAL_POSITION
-          `);
-        sourceColumns = result.recordset.map((row) => ({
-          name: row.COLUMN_NAME,
-          type:
-            row.DATA_TYPE +
-            (row.CHARACTER_MAXIMUM_LENGTH
-              ? `(${row.CHARACTER_MAXIMUM_LENGTH})`
-              : ""),
-          nullable: row.IS_NULLABLE === "YES",
-          default: row.COLUMN_DEFAULT,
-        }));
-        await pool.close();
-        break;
-      }
-      case "Oracle": {
-        const oracledb = (await import("oracledb")).default;
-        const connection = await oracledb.getConnection(sourceConnectionString);
-        const result = await connection.execute(
-          `
-          SELECT 
-            COLUMN_NAME,
-            DATA_TYPE,
-            DATA_LENGTH,
-            NULLABLE,
-            DATA_DEFAULT
-          FROM ALL_TAB_COLUMNS
-          WHERE OWNER = :owner AND TABLE_NAME = :table
-          ORDER BY COLUMN_ID
-        `,
-          {
-            owner: schema_name.toUpperCase(),
-            table: table_name.toUpperCase(),
-          }
-        );
-        sourceColumns = result.rows.map((row) => ({
-          name: row[0],
-          type: row[1] + (row[2] ? `(${row[2]})` : ""),
-          nullable: row[3] === "Y",
-          default: row[4],
-        }));
-        await connection.close();
-        break;
-      }
-      case "MongoDB": {
-        const { MongoClient } = await import("mongodb");
-        const client = new MongoClient(sourceConnectionString);
-        await client.connect();
-        const db = client.db();
-        const collection = db.collection(table_name);
-        const sample = await collection.findOne({});
-        if (sample) {
-          sourceColumns = Object.keys(sample).map((key) => ({
-            name: key,
-            type:
-              typeof sample[key] === "object" ? "object" : typeof sample[key],
-            nullable: true,
-            default: null,
-          }));
-        }
-        await client.close();
-        break;
-      }
-      default:
-        return res
-          .status(400)
-          .json({ error: `Unsupported database engine: ${db_engine}` });
-    }
-
-    const targetResult = await pool.query(
-      `
-      SELECT 
-        column_name,
-        data_type,
-        character_maximum_length,
-        is_nullable,
-        column_default
-      FROM information_schema.columns
-      WHERE table_schema = $1 AND table_name = $2
-      ORDER BY ordinal_position
-    `,
-      [targetSchema, targetTable]
-    );
-
-    targetColumns = targetResult.rows.map((row) => ({
-      name: row.column_name,
-      type:
-        row.data_type +
-        (row.character_maximum_length
-          ? `(${row.character_maximum_length})`
-          : ""),
-      nullable: row.is_nullable === "YES",
-      default: row.column_default,
-    }));
-
-    res.json({
-      source: {
-        db_engine: db_engine,
-        schema: schema_name,
-        table: table_name,
-        columns: sourceColumns,
-      },
-      target: {
-        db_engine: "PostgreSQL",
-        schema: targetSchema,
-        table: targetTable,
-        columns: targetColumns,
-      },
-    });
-  } catch (err) {
-    console.error("Error fetching table structure:", err);
-    console.error("Error stack:", err.stack);
-    const safeError = sanitizeError(
-      err,
-      `Error al obtener estructura de la tabla: ${err.message}`,
-      process.env.NODE_ENV === "production"
-    );
-    res.status(500).json({
-      error: safeError,
-      details: process.env.NODE_ENV !== "production" ? err.message : undefined,
-    });
-  }
-});
+// Rutas movidas arriba antes de /api/catalog para evitar conflictos
 
 const PORT = process.env.PORT || 8765;
 // Obtener estadísticas del dashboard
@@ -13857,5 +14045,10 @@ export default app;
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log("📋 [SERVER STARTUP] Catalog routes should be registered:");
+    console.log("   - POST /api/catalog/reset-cdc");
+    console.log("   - GET /api/catalog/execution-history");
+    console.log("   - GET /api/catalog/table-structure");
+    console.log("   - GET /api/catalog (general route)");
   });
 }

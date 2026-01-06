@@ -181,9 +181,15 @@ function verifyToken(token) {
 }
 
 function requireAuth(req, res, next) {
+  if (req.path && req.path.startsWith("/api/catalog/")) {
+    console.log("🔐 [REQUIRE-AUTH] Checking auth for:", req.method, req.path);
+  }
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (req.path && req.path.startsWith("/api/catalog/")) {
+      console.log("❌ [REQUIRE-AUTH] No auth header found");
+    }
     return res.status(401).json({ error: "Authentication required" });
   }
 
@@ -191,23 +197,41 @@ function requireAuth(req, res, next) {
   const verification = verifyToken(token);
 
   if (!verification.success) {
+    if (req.path && req.path.startsWith("/api/catalog/")) {
+      console.log("❌ [REQUIRE-AUTH] Token verification failed:", verification.error);
+    }
     return res.status(401).json({ error: verification.error });
   }
 
   req.user = verification.user;
+  if (req.path && req.path.startsWith("/api/catalog/")) {
+    console.log("✅ [REQUIRE-AUTH] Auth successful, user role:", req.user.role);
+  }
   next();
 }
 
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
+    if (req.path && req.path.startsWith("/api/catalog/")) {
+      console.log("🔐 [REQUIRE-ROLE] Checking role for:", req.method, req.path, "Allowed roles:", allowedRoles);
+    }
     if (!req.user) {
+      if (req.path && req.path.startsWith("/api/catalog/")) {
+        console.log("❌ [REQUIRE-ROLE] No user found");
+      }
       return res.status(401).json({ error: "Authentication required" });
     }
 
     if (!allowedRoles.includes(req.user.role)) {
+      if (req.path && req.path.startsWith("/api/catalog/")) {
+        console.log("❌ [REQUIRE-ROLE] Insufficient permissions. User role:", req.user.role, "Required:", allowedRoles);
+      }
       return res.status(403).json({ error: "Insufficient permissions" });
     }
 
+    if (req.path && req.path.startsWith("/api/catalog/")) {
+      console.log("✅ [REQUIRE-ROLE] Role check passed");
+    }
     next();
   };
 }
