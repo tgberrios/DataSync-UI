@@ -6,7 +6,7 @@ import fs from "fs";
 
 function loadConfig() {
   try {
-    const configPath = path.join(process.cwd(), "config.json");
+    const configPath = path.join(process.cwd(), "config", "config.json");
     const configData = fs.readFileSync(configPath, "utf8");
     return JSON.parse(configData);
   } catch (error) {

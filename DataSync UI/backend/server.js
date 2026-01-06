@@ -13,7 +13,7 @@ import crypto from "crypto";
 // Load configuration from shared config file
 function loadConfig() {
   try {
-    const configPath = path.join(process.cwd(), "config.json");
+    const configPath = path.join(process.cwd(), "config", "config.json");
     const configData = fs.readFileSync(configPath, "utf8");
     const config = JSON.parse(configData);
 
@@ -645,37 +645,16 @@ app.get("/api/catalog", requireAuth, async (req, res) => {
         ? `WHERE ${whereConditions.join(" AND ")}`
         : "";
 
-    console.log("=== CATALOG API DEBUG START ===");
-    console.log("Request query params:", req.query);
-
     const totalCheckQuery = `SELECT COUNT(*) as total FROM metadata.catalog`;
     let totalCheckResult;
     try {
       totalCheckResult = await pool.query(totalCheckQuery);
       const totalInTable = parseInt(totalCheckResult.rows[0].total);
-      console.log("Total records in table (no filters):", totalInTable);
-
-      if (totalInTable === 0) {
-        console.log("⚠️ WARNING: Table metadata.catalog is EMPTY!");
-        console.log("Sample query to check table structure:");
-        console.log(
-          "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'metadata' AND table_name = 'catalog';"
-        );
-      } else {
-        const sampleQuery = `SELECT * FROM metadata.catalog LIMIT 3`;
-        const sampleResult = await pool.query(sampleQuery);
-        console.log(
-          "Sample records (first 3):",
-          JSON.stringify(sampleResult.rows, null, 2)
-        );
-      }
     } catch (checkErr) {
       console.error("❌ Error checking total records:", checkErr);
     }
 
     const countQuery = `SELECT COUNT(*) FROM metadata.catalog ${whereClause}`;
-    console.log("Count query:", countQuery);
-    console.log("Count query params:", queryParams);
 
     let countResult;
     try {
@@ -686,7 +665,6 @@ app.get("/api/catalog", requireAuth, async (req, res) => {
     }
 
     const total = parseInt(countResult.rows[0].count);
-    console.log("Total after filters:", total);
 
     const sortField = String(req.query.sort_field || "").toLowerCase();
     const sortDirection = String(
@@ -732,31 +710,6 @@ app.get("/api/catalog", requireAuth, async (req, res) => {
 
     queryParams.push(limit, offset);
 
-    console.log("=== CATALOG API DEBUG ===");
-    console.log("Query:", dataQuery);
-    console.log("Params:", queryParams);
-    console.log(
-      "Param count:",
-      paramCount,
-      "Limit param:",
-      limitParam,
-      "Offset param:",
-      offsetParam
-    );
-    console.log("Page:", page, "Limit:", limit, "Offset:", offset);
-    console.log("Where conditions:", whereConditions);
-    console.log("Where clause:", whereClause);
-    console.log(
-      "Filters - engine:",
-      engine,
-      "status:",
-      status,
-      "active:",
-      active,
-      "search:",
-      search
-    );
-
     let result;
     try {
       result = await pool.query(dataQuery, queryParams);
@@ -768,26 +721,6 @@ app.get("/api/catalog", requireAuth, async (req, res) => {
     }
 
     const totalPages = Math.ceil(total / limit);
-
-    console.log("Result rows count:", result.rows.length);
-    console.log("Total records:", total);
-    console.log("Total pages:", totalPages);
-    console.log(
-      "First row sample:",
-      result.rows.length > 0
-        ? JSON.stringify(result.rows[0], null, 2)
-        : "No rows"
-    );
-    console.log("Response data:", {
-      dataCount: result.rows.length,
-      pagination: {
-        total,
-        totalPages,
-        currentPage: parseInt(page),
-        limit: parseInt(limit),
-      },
-    });
-    console.log("=== END CATALOG DEBUG ===");
 
     res.json({
       data: result.rows,
@@ -1406,7 +1339,6 @@ const PORT = process.env.PORT || 8765;
 // Obtener estadísticas del dashboard
 app.get("/api/dashboard/stats", async (req, res) => {
   try {
-    console.log("Fetching dashboard stats...");
 
     const syncStatus = await pool.query(`
       SELECT 
@@ -1462,20 +1394,12 @@ app.get("/api/dashboard/stats", async (req, res) => {
     `);
 
     // 3. SYSTEM RESOURCES (from OS)
-    console.log("Getting system resources...");
-
     // CPU
     const cpus = os.cpus();
     const cpuCount = cpus.length;
     const loadAvg = os.loadavg()[0];
     const cpuUsagePercent =
       cpuCount > 0 ? ((loadAvg * 100) / cpuCount).toFixed(1) : "0.0";
-
-    console.log("CPU Info:", {
-      count: cpuCount,
-      loadAvg,
-      usagePercent: cpuUsagePercent,
-    });
 
     // Memory
     const totalMemory = os.totalmem();
@@ -1485,23 +1409,12 @@ app.get("/api/dashboard/stats", async (req, res) => {
     const memoryTotalGB = (totalMemory / (1024 * 1024 * 1024)).toFixed(2);
     const memoryPercentage = ((usedMemory / totalMemory) * 100).toFixed(1);
 
-    console.log("Memory Info:", {
-      total: memoryTotalGB,
-      used: memoryUsedGB,
-      percentage: memoryPercentage,
-    });
-
     // Process Memory
     const processMemory = process.memoryUsage();
     const rssGB = (processMemory.rss / (1024 * 1024 * 1024)).toFixed(2);
     const virtualGB = (processMemory.heapTotal / (1024 * 1024 * 1024)).toFixed(
       2
     );
-
-    console.log("Process Memory:", {
-      rss: rssGB,
-      virtual: virtualGB,
-    });
 
     const systemResources = {
       rows: [
@@ -1658,21 +1571,6 @@ app.get("/api/dashboard/stats", async (req, res) => {
         ? Math.round((stats.syncStatus.listeningChanges / totalActive) * 100)
         : 0;
 
-    console.log("Progress calculation:", {
-      listeningChanges: stats.syncStatus.listeningChanges,
-      pending: stats.syncStatus.pending,
-      noData: stats.syncStatus.noData,
-      fullLoadActive: stats.syncStatus.fullLoadActive,
-      fullLoadInactive: stats.syncStatus.fullLoadInactive,
-      errors: stats.syncStatus.errors,
-      totalActive: totalActive,
-      total: total,
-      progress: stats.syncStatus.progress + "%",
-    });
-
-    // Debug: Verificar datos de la consulta original
-    console.log("Raw sync status query result:", syncStatus.rows[0]);
-
     // Agregar métricas por motor
     stats.engineMetrics = {};
     transferPerformance.rows.forEach((metric) => {
@@ -1801,7 +1699,6 @@ app.get("/api/dashboard/stats", async (req, res) => {
       console.error("Error saving system logs:", err);
     }
 
-    console.log("Sending dashboard stats");
     res.json(stats);
   } catch (err) {
     console.error("Error getting dashboard stats:", err);
@@ -2984,7 +2881,6 @@ app.get("/api/dashboard/currently-processing", async (req, res) => {
 // Endpoint para obtener datos de seguridad
 app.get("/api/security/data", async (req, res) => {
   try {
-    console.log("Fetching security data...");
 
     // 1. USER MANAGEMENT
     const users = await pool.query(`
@@ -3074,7 +2970,6 @@ app.get("/api/security/data", async (req, res) => {
       activeUsers: activeUsers.rows,
     };
 
-    console.log("Sending security data");
     res.json(securityData);
   } catch (err) {
     console.error("Error getting security data:", err);
@@ -4078,11 +3973,6 @@ app.get("/api/data-lineage/mariadb/metrics", async (req, res) => {
       FROM metadata.mdb_lineage
     `);
 
-    console.log(
-      "MariaDB Metrics Query Result:",
-      JSON.stringify(result.rows[0], null, 2)
-    );
-    console.log("MariaDB Metrics Raw:", result.rows[0]);
     res.json(result.rows[0] || {});
   } catch (err) {
     console.error("Error getting MariaDB lineage metrics:", err);
@@ -4271,11 +4161,6 @@ app.get("/api/data-lineage/mssql/metrics", async (req, res) => {
       FROM metadata.mssql_lineage
     `);
 
-    console.log(
-      "MSSQL Metrics Query Result:",
-      JSON.stringify(result.rows[0], null, 2)
-    );
-    console.log("MSSQL Metrics Raw:", result.rows[0]);
     res.json(result.rows[0] || {});
   } catch (err) {
     console.error("Error getting MSSQL lineage metrics:", err);
@@ -4838,11 +4723,6 @@ app.get("/api/data-lineage/mongodb/metrics", async (req, res) => {
       FROM metadata.mongo_lineage
     `);
 
-    console.log(
-      "MongoDB Metrics Query Result:",
-      JSON.stringify(result.rows[0], null, 2)
-    );
-    console.log("MongoDB Metrics Raw:", result.rows[0]);
     res.json(result.rows[0] || {});
   } catch (err) {
     console.error("Error getting MongoDB lineage metrics:", err);
@@ -5196,11 +5076,6 @@ app.get("/api/data-lineage/oracle/metrics", async (req, res) => {
       FROM metadata.oracle_lineage
     `);
 
-    console.log(
-      "Oracle Metrics Query Result:",
-      JSON.stringify(result.rows[0], null, 2)
-    );
-    console.log("Oracle Metrics Raw:", result.rows[0]);
     res.json(result.rows[0] || {});
   } catch (err) {
     console.error("Error getting Oracle lineage metrics:", err);

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$SCRIPT_DIR/.."
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
@@ -9,7 +9,7 @@ echo "║              DataSync UI - Install Dependencies                ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-echo "▸ Project directory: $SCRIPT_DIR"
+echo "▸ Project directory: $SCRIPT_DIR/.."
 echo ""
 
 echo "▸ Loading NVM..."
@@ -82,4 +82,3 @@ else
     echo ""
     exit 1
 fi
-
