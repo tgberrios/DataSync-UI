@@ -1070,6 +1070,58 @@ app.patch(
   }
 );
 
+app.post(
+  "/api/catalog/reset-cdc",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const schema_name = validateIdentifier(req.body.schema_name);
+    const table_name = validateIdentifier(req.body.table_name);
+    const db_engine = validateEnum(
+      req.body.db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      null
+    );
+
+    if (!schema_name || !table_name || !db_engine) {
+      return res.status(400).json({
+        error: "schema_name, table_name, and db_engine are required",
+      });
+    }
+
+    try {
+      const result = await pool.query(
+        `UPDATE metadata.catalog 
+         SET sync_metadata = COALESCE(sync_metadata, '{}'::jsonb) || 
+             jsonb_build_object('last_change_id', '0')
+         WHERE schema_name = $1 AND table_name = $2 AND db_engine = $3
+         RETURNING schema_name, table_name, db_engine, sync_metadata`,
+        [schema_name, table_name, db_engine]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          error: "Catalog entry not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `CDC reset for ${schema_name}.${table_name} (${db_engine})`,
+        entry: result.rows[0],
+      });
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error resetting CDC",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
 // Obtener historial de ejecuciones de una tabla del catalog
 app.get("/api/catalog/execution-history", requireAuth, async (req, res) => {
   try {

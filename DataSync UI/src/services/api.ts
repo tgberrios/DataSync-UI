@@ -685,6 +685,32 @@ export const catalogApi = {
     }
   },
 
+  // Resetear CDC (last_change_id a 0)
+  resetCDC: async (
+    schema_name: string,
+    table_name: string,
+    db_engine: string
+  ) => {
+    try {
+      const response = await api.post("/catalog/reset-cdc", {
+        schema_name,
+        table_name,
+        db_engine,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error resetting CDC:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
   // Crear una nueva entrada del catálogo
   createEntry: async (
     entry: Omit<CatalogEntry, "last_sync_time" | "updated_at">

@@ -4,6 +4,7 @@ import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import type { CatalogEntry } from '../../services/api';
+import { catalogApi } from '../../services/api';
 
 interface TableDetailModalProps {
   entry: CatalogEntry;
@@ -27,6 +28,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'config' | 'timeline'>('config');
   const [editedEntry, setEditedEntry] = useState(entry);
   const [isClosing, setIsClosing] = useState(false);
+  const [resettingCDC, setResettingCDC] = useState(false);
 
   const handleClose = useCallback(() => {
     setIsClosing(true);
@@ -38,6 +40,29 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
   const handleSave = useCallback(() => {
     onSave(editedEntry);
   }, [editedEntry, onSave]);
+
+  const handleResetCDC = useCallback(async () => {
+    if (!window.confirm(
+      `Are you sure you want to reset CDC for ${entry.schema_name}.${entry.table_name}?\n\n` +
+      `This will reset last_change_id to 0, causing all CDC changes to be reprocessed.`
+    )) {
+      return;
+    }
+
+    try {
+      setResettingCDC(true);
+      await catalogApi.resetCDC(
+        entry.schema_name,
+        entry.table_name,
+        entry.db_engine
+      );
+      alert('CDC reset successfully! The system will reprocess all changes on the next sync cycle.');
+    } catch (error: any) {
+      alert(`Error resetting CDC: ${error.message || 'Unknown error'}`);
+    } finally {
+      setResettingCDC(false);
+    }
+  }, [entry]);
 
   const groupedExecutions = useMemo(() => {
     const executions: any[] = [];
@@ -613,6 +638,59 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                     Format: minute hour day month day-of-week. Leave empty to disable cron scheduling.
                   </div>
                 </div>
+
+                {entry.pk_strategy === 'CDC' && (
+                  <div style={{
+                    padding: "16px",
+                    backgroundColor: asciiColors.backgroundSoft,
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    marginTop: 12
+                  }}>
+                    <div style={{
+                      fontSize: 11,
+                      fontFamily: "Consolas",
+                      fontWeight: 600,
+                      color: asciiColors.foreground,
+                      marginBottom: 12,
+                      textTransform: "uppercase"
+                    }}>
+                      {ascii.v} CDC Management
+                    </div>
+                    <div style={{
+                      fontSize: 11,
+                      color: asciiColors.muted,
+                      marginBottom: 12,
+                      lineHeight: 1.5
+                    }}>
+                      Reset the CDC change tracking to reprocess all changes from the beginning.
+                    </div>
+                    <button
+                      onClick={handleResetCDC}
+                      disabled={resettingCDC}
+                      style={{
+                        border: `1px solid ${asciiColors.accent}`,
+                        backgroundColor: asciiColors.background,
+                        color: asciiColors.accent,
+                        padding: "6px 12px",
+                        fontSize: 12,
+                        fontFamily: "Consolas",
+                        cursor: resettingCDC ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontWeight: 500,
+                        borderRadius: 2,
+                        opacity: resettingCDC ? 0.5 : 1,
+                        transition: "all 0.2s ease",
+                        outline: "none"
+                      }}
+                    >
+                      <span>{ascii.v}</span>
+                      <span>{resettingCDC ? "Resetting..." : "Reset CDC"}</span>
+                    </button>
+                  </div>
+                )}
 
                 <div style={{
                   display: "flex",
