@@ -6797,12 +6797,36 @@ app.post("/api/discover-schemas", requireAuth, async (req, res) => {
             }
           });
 
+          if (!config.database) {
+            return res.status(400).json({
+              success: false,
+              error: "Database name is required in connection string for MSSQL",
+            });
+          }
+
           const pool = new ConnectionPool(config);
           await pool.connect();
+          
+          const systemSchemas = [
+            "INFORMATION_SCHEMA",
+            "sys",
+            "guest",
+            "db_owner",
+            "db_accessadmin",
+            "db_securityadmin",
+            "db_ddladmin",
+            "db_backupoperator",
+            "db_datareader",
+            "db_datawriter",
+            "db_denydatareader",
+            "db_denydatawriter",
+          ];
+          const systemSchemasList = systemSchemas.map((s) => `'${s}'`).join(", ");
+          
           const result = await pool
             .request()
             .query(
-              "SELECT name FROM sys.databases WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb') ORDER BY name"
+              `SELECT name FROM sys.schemas WHERE name NOT IN (${systemSchemasList}) ORDER BY name`
             );
           schemas = result.recordset.map((row) => row.name);
           await pool.close();
@@ -7128,15 +7152,16 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
             }
           });
 
-          if (config.database && config.database !== schema_name) {
-            config.database = schema_name;
-          } else if (!config.database) {
-            config.database = schema_name;
+          if (!config.database) {
+            return res.status(400).json({
+              success: false,
+              error: "Database name is required in connection string for MSSQL",
+            });
           }
 
           const pool = new ConnectionPool(config);
           await pool.connect();
-          // Filtrar por schema específico y excluir schemas del sistema
+          
           const systemSchemas = [
             "INFORMATION_SCHEMA",
             "sys",
@@ -7152,11 +7177,12 @@ app.post("/api/discover-tables", requireAuth, async (req, res) => {
             "db_denydatawriter",
           ];
           const schemaFilter = systemSchemas.map((s) => `'${s}'`).join(", ");
+          const escapedSchemaName = schema_name.replace(/'/g, "''");
           const result = await pool.request().query(
             `SELECT t.name AS TABLE_NAME 
                FROM sys.tables t 
                INNER JOIN sys.schemas s ON t.schema_id = s.schema_id 
-               WHERE s.name = '${schema_name.replace(/'/g, "''")}' 
+               WHERE s.name = '${escapedSchemaName}' 
                AND s.name NOT IN (${schemaFilter}) 
                AND t.type = 'U' 
                ORDER BY t.name`
