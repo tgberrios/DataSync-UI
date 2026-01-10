@@ -18,11 +18,27 @@ const BackupManager = () => {
   const [total, setTotal] = useState(0);
   const limit = 20;
 
+  const getConnectionStringExample = (engine: string) => {
+    switch (engine) {
+      case 'PostgreSQL':
+        return 'postgresql://username:password@localhost:5432/database_name';
+      case 'MariaDB':
+        return 'mysql://username:password@localhost:3306/database_name';
+      case 'MongoDB':
+        return 'mongodb://username:password@localhost:27017/database_name?authSource=admin';
+      case 'Oracle':
+        return 'oracle://username:password@localhost:1521/XE';
+      default:
+        return '';
+    }
+  };
+
   const [backupForm, setBackupForm] = useState({
     backup_name: '',
     db_engine: 'PostgreSQL',
-    connection_string: '',
+    connection_string: getConnectionStringExample('PostgreSQL'),
     database_name: '',
+    selected_databases: [] as string[],
     backup_type: 'full' as 'structure' | 'data' | 'full' | 'config',
     cron_schedule: '',
     is_scheduled: false,
@@ -30,6 +46,31 @@ const BackupManager = () => {
   const [backupHistory, setBackupHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyBackupId, setHistoryBackupId] = useState<number | null>(null);
+  const [availableDatabases, setAvailableDatabases] = useState<string[]>([]);
+  const [connectionTested, setConnectionTested] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+
+  useEffect(() => {
+    if (backupForm.db_engine) {
+      const example = getConnectionStringExample(backupForm.db_engine);
+      const currentValue = backupForm.connection_string;
+      const isExample = [
+        getConnectionStringExample('PostgreSQL'),
+        getConnectionStringExample('MariaDB'),
+        getConnectionStringExample('MongoDB'),
+        getConnectionStringExample('Oracle')
+      ].includes(currentValue);
+      
+      if (!currentValue || isExample) {
+        setBackupForm(prev => ({
+          ...prev,
+          connection_string: example
+        }));
+        setConnectionTested(false);
+        setAvailableDatabases([]);
+      }
+    }
+  }, [backupForm.db_engine]);
 
   const fetchBackups = useCallback(async () => {
     try {
@@ -55,17 +96,54 @@ const BackupManager = () => {
     return () => clearInterval(interval);
   }, [fetchBackups]);
 
+  const handleTestConnection = useCallback(async () => {
+    if (!backupForm.connection_string) {
+      setError('Please enter a connection string first');
+      return;
+    }
+    try {
+      setError(null);
+      setTestingConnection(true);
+      await backupsApi.testConnection(backupForm.db_engine, backupForm.connection_string);
+      const dbResponse = await backupsApi.discoverDatabases(backupForm.db_engine, backupForm.connection_string);
+      setAvailableDatabases(dbResponse.databases || []);
+      setConnectionTested(true);
+    } catch (err) {
+      setError(extractApiError(err));
+      setAvailableDatabases([]);
+      setConnectionTested(false);
+    } finally {
+      setTestingConnection(false);
+    }
+  }, [backupForm.db_engine, backupForm.connection_string]);
+
   const handleCreateBackup = useCallback(async () => {
     try {
       setError(null);
-      await backupsApi.create({
-        backup_name: backupForm.backup_name,
-        db_engine: backupForm.db_engine,
-        connection_string: backupForm.connection_string,
-        database_name: backupForm.database_name,
-        backup_type: backupForm.backup_type,
-        cron_schedule: backupForm.is_scheduled && backupForm.cron_schedule ? backupForm.cron_schedule : undefined,
-      });
+      
+      const databasesToBackup = backupForm.is_scheduled && backupForm.selected_databases.length > 0
+        ? backupForm.selected_databases
+        : [backupForm.database_name].filter(Boolean);
+
+      if (databasesToBackup.length === 0) {
+        setError('Please select at least one database');
+        return;
+      }
+
+      for (const dbName of databasesToBackup) {
+        const backupName = backupForm.is_scheduled
+          ? `${dbName}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`
+          : backupForm.backup_name || `${dbName}_backup`;
+
+        await backupsApi.create({
+          backup_name: backupName,
+          db_engine: backupForm.db_engine,
+          connection_string: backupForm.connection_string,
+          database_name: dbName,
+          backup_type: backupForm.backup_type,
+          cron_schedule: backupForm.is_scheduled && backupForm.cron_schedule ? backupForm.cron_schedule : undefined,
+        });
+      }
       
       setIsModalOpen(false);
       setBackupForm({
@@ -73,10 +151,13 @@ const BackupManager = () => {
         db_engine: 'PostgreSQL',
         connection_string: '',
         database_name: '',
+        selected_databases: [],
         backup_type: 'full',
         cron_schedule: '',
         is_scheduled: false,
       });
+      setAvailableDatabases([]);
+      setConnectionTested(false);
       fetchBackups();
     } catch (err) {
       setError(extractApiError(err));
@@ -564,52 +645,82 @@ const BackupManager = () => {
               }}>
                 {ascii.blockFull} CREATE BACKUP
               </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: asciiColors.foreground,
-                  fontSize: 20,
-                  cursor: 'pointer',
-                  padding: '0 8px'
-                }}
-              >
-                ×
-              </button>
+                  <button
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setBackupForm({
+                        backup_name: '',
+                        db_engine: 'PostgreSQL',
+                        connection_string: '',
+                        database_name: '',
+                        selected_databases: [],
+                        backup_type: 'full',
+                        cron_schedule: '',
+                        is_scheduled: false,
+                      });
+                      setAvailableDatabases([]);
+                      setConnectionTested(false);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: asciiColors.foreground,
+                      fontSize: 20,
+                      cursor: 'pointer',
+                      padding: '0 8px'
+                    }}
+                  >
+                    ×
+                  </button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: asciiColors.foreground,
-                  marginBottom: 6,
-                  fontFamily: 'Consolas',
-                  textTransform: 'uppercase'
-                }}>
-                  {ascii.v} BACKUP NAME *
-                </label>
-                <input
-                  type="text"
-                  value={backupForm.backup_name}
-                  onChange={(e) => setBackupForm(prev => ({ ...prev, backup_name: e.target.value }))}
-                  placeholder="my_backup_2024"
-                  style={{
-                    width: '100%',
-                    padding: '6px 10px',
-                    border: `1px solid ${asciiColors.border}`,
-                    borderRadius: 2,
+              {!backupForm.is_scheduled && (
+                <div>
+                  <label style={{
+                    display: 'block',
                     fontSize: 12,
-                    fontFamily: 'Consolas',
-                    backgroundColor: asciiColors.background,
+                    fontWeight: 600,
                     color: asciiColors.foreground,
-                    outline: 'none'
-                  }}
-                />
-              </div>
+                    marginBottom: 6,
+                    fontFamily: 'Consolas',
+                    textTransform: 'uppercase'
+                  }}>
+                    {ascii.v} BACKUP NAME *
+                  </label>
+                  <input
+                    type="text"
+                    value={backupForm.backup_name}
+                    onChange={(e) => setBackupForm(prev => ({ ...prev, backup_name: e.target.value }))}
+                    placeholder="my_backup_2024"
+                    style={{
+                      width: '100%',
+                      padding: '6px 10px',
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: 'Consolas',
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              )}
+              
+              {backupForm.is_scheduled && (
+                <div style={{
+                  padding: 12,
+                  background: asciiColors.backgroundSoft,
+                  border: `1px solid ${asciiColors.accent}`,
+                  borderRadius: 2,
+                  fontSize: 11,
+                  color: asciiColors.muted,
+                  fontFamily: 'Consolas'
+                }}>
+                  {ascii.blockSemi} Backup name will be auto-generated as: database_name_YYYY-MM-DDTHH-MM-SS
+                </div>
+              )}
 
               <div>
                 <label style={{
@@ -658,56 +769,160 @@ const BackupManager = () => {
                 }}>
                   {ascii.v} CONNECTION STRING *
                 </label>
-                <textarea
-                  value={backupForm.connection_string}
-                  onChange={(e) => setBackupForm(prev => ({ ...prev, connection_string: e.target.value }))}
-                  placeholder="postgresql://user:password@host:port/database"
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '6px 10px',
-                    border: `1px solid ${asciiColors.border}`,
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <textarea
+                    value={backupForm.connection_string}
+                    onChange={(e) => {
+                      setBackupForm(prev => ({ ...prev, connection_string: e.target.value }));
+                      setConnectionTested(false);
+                      setAvailableDatabases([]);
+                    }}
+                    rows={3}
+                    style={{
+                      flex: 1,
+                      padding: '6px 10px',
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: 'Consolas',
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      outline: 'none',
+                      resize: 'vertical'
+                    }}
+                  />
+                  <AsciiButton
+                    label={testingConnection ? "Testing..." : "Test"}
+                    onClick={handleTestConnection}
+                    variant="ghost"
+                    disabled={testingConnection || !backupForm.connection_string}
+                  />
+                </div>
+                {connectionTested && (
+                  <div style={{
+                    marginTop: 8,
+                    padding: 8,
+                    background: asciiColors.success + '20',
+                    border: `1px solid ${asciiColors.success}`,
                     borderRadius: 2,
-                    fontSize: 12,
-                    fontFamily: 'Consolas',
-                    backgroundColor: asciiColors.background,
-                    color: asciiColors.foreground,
-                    outline: 'none',
-                    resize: 'vertical'
-                  }}
-                />
+                    fontSize: 11,
+                    color: asciiColors.success,
+                    fontFamily: 'Consolas'
+                  }}>
+                    {ascii.blockSemi} Connection successful! Found {availableDatabases.length} database(s)
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: asciiColors.foreground,
-                  marginBottom: 6,
-                  fontFamily: 'Consolas',
-                  textTransform: 'uppercase'
-                }}>
-                  {ascii.v} DATABASE NAME *
-                </label>
-                <input
-                  type="text"
-                  value={backupForm.database_name}
-                  onChange={(e) => setBackupForm(prev => ({ ...prev, database_name: e.target.value }))}
-                  placeholder="mydatabase"
-                  style={{
-                    width: '100%',
-                    padding: '6px 10px',
+              {connectionTested && backupForm.is_scheduled && availableDatabases.length > 0 ? (
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: 'Consolas',
+                    textTransform: 'uppercase'
+                  }}>
+                    {ascii.v} SELECT DATABASES TO BACKUP *
+                  </label>
+                  <div style={{
+                    maxHeight: 200,
+                    overflowY: 'auto',
                     border: `1px solid ${asciiColors.border}`,
                     borderRadius: 2,
+                    padding: 8,
+                    background: asciiColors.background
+                  }}>
+                    {availableDatabases.map((db) => (
+                      <div key={db} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '4px 0',
+                        fontFamily: 'Consolas',
+                        fontSize: 12
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={backupForm.selected_databases.includes(db)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setBackupForm(prev => ({
+                                ...prev,
+                                selected_databases: [...prev.selected_databases, db]
+                              }));
+                            } else {
+                              setBackupForm(prev => ({
+                                ...prev,
+                                selected_databases: prev.selected_databases.filter(d => d !== db)
+                              }));
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ color: asciiColors.foreground }}>{db}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : !backupForm.is_scheduled && (
+                <div>
+                  <label style={{
+                    display: 'block',
                     fontSize: 12,
-                    fontFamily: 'Consolas',
-                    backgroundColor: asciiColors.background,
+                    fontWeight: 600,
                     color: asciiColors.foreground,
-                    outline: 'none'
-                  }}
-                />
-              </div>
+                    marginBottom: 6,
+                    fontFamily: 'Consolas',
+                    textTransform: 'uppercase'
+                  }}>
+                    {ascii.v} DATABASE NAME *
+                  </label>
+                  {connectionTested && availableDatabases.length > 0 ? (
+                    <select
+                      value={backupForm.database_name}
+                      onChange={(e) => setBackupForm(prev => ({ ...prev, database_name: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
+                        fontSize: 12,
+                        fontFamily: 'Consolas',
+                        backgroundColor: asciiColors.background,
+                        color: asciiColors.foreground,
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="">Select a database</option>
+                      {availableDatabases.map((db) => (
+                        <option key={db} value={db}>{db}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={backupForm.database_name}
+                      onChange={(e) => setBackupForm(prev => ({ ...prev, database_name: e.target.value }))}
+                      placeholder="mydatabase"
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
+                        fontSize: 12,
+                        fontFamily: 'Consolas',
+                        backgroundColor: asciiColors.background,
+                        color: asciiColors.foreground,
+                        outline: 'none'
+                      }}
+                    />
+                  )}
+                </div>
+              )}
 
               <div>
                 <label style={{
@@ -843,14 +1058,38 @@ const BackupManager = () => {
                 </button>
                 <button
                   onClick={handleCreateBackup}
-                  disabled={!backupForm.backup_name || !backupForm.connection_string || !backupForm.database_name}
+                  disabled={
+                    !backupForm.connection_string || 
+                    (backupForm.is_scheduled 
+                      ? backupForm.selected_databases.length === 0 
+                      : !backupForm.database_name) ||
+                    (!backupForm.is_scheduled && !backupForm.backup_name)
+                  }
                   style={{
                     padding: '8px 16px',
                     border: `1px solid ${asciiColors.accent}`,
                     borderRadius: 2,
-                    background: (!backupForm.backup_name || !backupForm.connection_string || !backupForm.database_name) ? asciiColors.backgroundSoft : asciiColors.accent,
-                    color: (!backupForm.backup_name || !backupForm.connection_string || !backupForm.database_name) ? asciiColors.muted : asciiColors.background,
-                    cursor: (!backupForm.backup_name || !backupForm.connection_string || !backupForm.database_name) ? 'not-allowed' : 'pointer',
+                    background: (
+                      !backupForm.connection_string || 
+                      (backupForm.is_scheduled 
+                        ? backupForm.selected_databases.length === 0 
+                        : !backupForm.database_name) ||
+                      (!backupForm.is_scheduled && !backupForm.backup_name)
+                    ) ? asciiColors.backgroundSoft : asciiColors.accent,
+                    color: (
+                      !backupForm.connection_string || 
+                      (backupForm.is_scheduled 
+                        ? backupForm.selected_databases.length === 0 
+                        : !backupForm.database_name) ||
+                      (!backupForm.is_scheduled && !backupForm.backup_name)
+                    ) ? asciiColors.muted : asciiColors.background,
+                    cursor: (
+                      !backupForm.connection_string || 
+                      (backupForm.is_scheduled 
+                        ? backupForm.selected_databases.length === 0 
+                        : !backupForm.database_name) ||
+                      (!backupForm.is_scheduled && !backupForm.backup_name)
+                    ) ? 'not-allowed' : 'pointer',
                     fontSize: 12,
                     fontFamily: 'Consolas',
                     fontWeight: 600

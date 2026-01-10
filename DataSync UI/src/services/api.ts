@@ -3580,4 +3580,44 @@ export const backupsApi = {
       throw error;
     }
   },
+
+  testConnection: async (db_engine: string, connection_string: string) => {
+    try {
+      const response = await api.post("/test-connection", {
+        db_engine,
+        connection_string,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error testing connection:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  discoverDatabases: async (db_engine: string, connection_string: string) => {
+    try {
+      const response = await api.post("/discover-databases", {
+        db_engine,
+        connection_string,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error discovering databases:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };

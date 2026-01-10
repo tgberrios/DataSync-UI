@@ -7084,6 +7084,211 @@ app.post("/api/test-connection", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/api/discover-databases", requireAuth, async (req, res) => {
+  const { db_engine, connection_string } = req.body;
+
+  if (!db_engine || !connection_string) {
+    return res.status(400).json({
+      success: false,
+      error: "Missing required fields: db_engine and connection_string",
+    });
+  }
+
+  try {
+    let databases = [];
+
+    switch (db_engine) {
+      case "PostgreSQL": {
+        try {
+          let config;
+          if (
+            connection_string.includes("postgresql://") ||
+            connection_string.includes("postgres://")
+          ) {
+            config = {
+              connectionString: connection_string,
+              connectionTimeoutMillis: 5000,
+            };
+          } else {
+            const params = {};
+            const parts = connection_string.split(";");
+            for (const part of parts) {
+              const [key, value] = part.split("=").map((s) => s.trim());
+              if (key && value) {
+                switch (key.toLowerCase()) {
+                  case "host":
+                  case "hostname":
+                    params.host = value;
+                    break;
+                  case "user":
+                  case "username":
+                    params.user = value;
+                    break;
+                  case "password":
+                    params.password = value;
+                    break;
+                  case "db":
+                  case "database":
+                    params.database = value;
+                    break;
+                  case "port":
+                    params.port = parseInt(value, 10);
+                    break;
+                }
+              }
+            }
+            config = {
+              ...params,
+              connectionTimeoutMillis: 5000,
+            };
+          }
+
+          const testPool = new Pool(config);
+          const result = await testPool.query(
+            "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname"
+          );
+          databases = result.rows.map((row) => row.datname);
+          await testPool.end();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover databases: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "MariaDB": {
+        try {
+          const mysql = require("mysql2/promise");
+          const config = {};
+          const parts = connection_string.split(";");
+          for (const part of parts) {
+            const [key, value] = part.split("=").map((s) => s.trim());
+            if (key && value) {
+              switch (key.toLowerCase()) {
+                case "host":
+                case "hostname":
+                  config.host = value;
+                  break;
+                case "user":
+                case "username":
+                  config.user = value;
+                  break;
+                case "password":
+                  config.password = value;
+                  break;
+                case "database":
+                case "db":
+                  config.database = value;
+                  break;
+                case "port":
+                  config.port = parseInt(value, 10);
+                  break;
+              }
+            }
+          }
+
+          const connection = await mysql.createConnection(config);
+          const [rows] = await connection.query("SHOW DATABASES");
+          databases = rows
+            .map((row) => Object.values(row)[0])
+            .filter(
+              (db) =>
+                !["information_schema", "performance_schema", "mysql", "sys"].includes(
+                  db
+                )
+            );
+          await connection.end();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover databases: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "MSSQL": {
+        try {
+          const sql = (await import("mssql")).default;
+          const config = {
+            connectionString: connection_string,
+            options: {
+              enableArithAbort: true,
+              trustServerCertificate: true,
+            },
+          };
+          const pool = await sql.connect(config);
+          const result = await pool
+            .request()
+            .query(
+              "SELECT name FROM sys.databases WHERE database_id > 4 ORDER BY name"
+            );
+          databases = result.recordset.map((row) => row.name);
+          await pool.close();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover databases: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "MongoDB": {
+        try {
+          const { MongoClient } = await import("mongodb");
+          const client = new MongoClient(connection_string, {
+            serverSelectionTimeoutMS: 5000,
+          });
+          await client.connect();
+          const adminDb = client.db().admin();
+          const dbs = await adminDb.listDatabases();
+          databases = dbs.databases
+            .map((db) => db.name)
+            .filter((name) => !["admin", "local", "config"].includes(name));
+          await client.close();
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            error: `Failed to discover databases: ${err.message}`,
+          });
+        }
+        break;
+      }
+
+      case "Oracle": {
+        return res.status(400).json({
+          success: false,
+          error: "Database discovery not yet implemented for Oracle",
+        });
+      }
+
+      default:
+        return res.status(400).json({
+          success: false,
+          error: `Unsupported database engine: ${db_engine}`,
+        });
+    }
+
+    res.json({
+      success: true,
+      databases: databases,
+    });
+  } catch (err) {
+    console.error("Error discovering databases:", err);
+    res.status(500).json({
+      success: false,
+      error: sanitizeError(
+        err,
+        "Error discovering databases",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
 app.post("/api/discover-schemas", requireAuth, async (req, res) => {
   const { db_engine, connection_string } = req.body;
 
@@ -13405,10 +13610,24 @@ async function executeScheduledBackup(backup) {
     }
 
     const stats = await fs.promises.stat(resultPath);
-    const fileSize = stats.size;
+    const fileSize = stats.size || 0;
     const completedAt = new Date();
-    const startedAt = new Date(historyRecord.rows[0].started_at);
-    const durationSeconds = Math.floor((completedAt - startedAt) / 1000);
+    const startedAt = historyRecord.rows[0].started_at ? new Date(historyRecord.rows[0].started_at) : completedAt;
+    const durationSeconds = Math.max(0, Math.floor((completedAt - startedAt) / 1000));
+    
+    if (isNaN(fileSize) || fileSize < 0) {
+      throw new Error(`Invalid file size: ${fileSize}`);
+    }
+    if (isNaN(durationSeconds) || durationSeconds < 0) {
+      throw new Error(`Invalid duration: ${durationSeconds}`);
+    }
+
+    await pool.query(
+      `UPDATE metadata.backups 
+       SET status = 'completed', file_size = $1, completed_at = NOW()
+       WHERE backup_id = $2`,
+      [fileSize, backup.backup_id]
+    );
 
     await pool.query(
       `UPDATE metadata.backup_history 
@@ -13489,9 +13708,10 @@ function parseConnectionString(connectionString, dbEngine) {
     const url = new URL(
       connectionString.replace(/^postgresql:\/\//, "http://")
     );
+    const port = parseInt(url.port) || 5432;
     return {
       host: url.hostname,
-      port: url.port || 5432,
+      port: isNaN(port) ? 5432 : port,
       database: url.pathname.slice(1),
       user: url.username,
       password: url.password,
@@ -13502,18 +13722,20 @@ function parseConnectionString(connectionString, dbEngine) {
       const [key, value] = param.split("=");
       if (key && value) params[key.trim().toLowerCase()] = value.trim();
     });
+    const port = parseInt(params.port) || 3306;
     return {
       host: params.host || params.server || "localhost",
-      port: params.port || 3306,
+      port: isNaN(port) ? 3306 : port,
       database: params.database || params.database || "",
       user: params.user || params.uid || "",
       password: params.password || params.pwd || "",
     };
   } else if (dbEngine === "MongoDB") {
     const url = new URL(connectionString);
+    const port = parseInt(url.port) || 27017;
     return {
       host: url.hostname,
-      port: url.port || 27017,
+      port: isNaN(port) ? 27017 : port,
       database: url.pathname.slice(1),
       user: url.username,
       password: url.password,
@@ -13524,9 +13746,10 @@ function parseConnectionString(connectionString, dbEngine) {
       const [key, value] = param.split("=");
       if (key && value) params[key.trim().toLowerCase()] = value.trim();
     });
+    const port = parseInt(params.port) || 1521;
     return {
       host: params.host || "localhost",
-      port: params.port || 1521,
+      port: isNaN(port) ? 1521 : port,
       database: params.servicename || params.sid || "",
       user: params.user || "",
       password: params.password || "",
@@ -13849,10 +14072,17 @@ app.post(
           }
 
           const stats = await fs.promises.stat(resultPath);
-          const fileSize = stats.size;
+          const fileSize = stats.size || 0;
           const completedAt = new Date();
-          const startedAt = new Date(historyRecord.rows[0].started_at);
-          const durationSeconds = Math.floor((completedAt - startedAt) / 1000);
+          const startedAt = historyRecord.rows[0].started_at ? new Date(historyRecord.rows[0].started_at) : completedAt;
+          const durationSeconds = Math.max(0, Math.floor((completedAt - startedAt) / 1000));
+          
+          if (isNaN(fileSize) || fileSize < 0) {
+            throw new Error(`Invalid file size: ${fileSize}`);
+          }
+          if (isNaN(durationSeconds) || durationSeconds < 0) {
+            throw new Error(`Invalid duration: ${durationSeconds}`);
+          }
 
           await pool.query(
             `UPDATE metadata.backups 
@@ -13937,14 +14167,49 @@ app.get(
       params.push(parseInt(limit), offset);
 
       const result = await pool.query(query, params);
-      const countResult = await pool.query(
-        "SELECT COUNT(*) as total FROM metadata.backups WHERE 1=1" +
-          (db_engine ? ` AND db_engine = '${db_engine}'` : "") +
-          (status ? ` AND status = '${status}'` : "")
-      );
+      
+      let countQuery = "SELECT COUNT(*) as total FROM metadata.backups WHERE 1=1";
+      const countParams = [];
+      let countParamCount = 0;
+      
+      if (db_engine) {
+        countParamCount++;
+        countQuery += ` AND db_engine = $${countParamCount}`;
+        countParams.push(db_engine);
+      }
+      
+      if (status) {
+        countParamCount++;
+        countQuery += ` AND status = $${countParamCount}`;
+        countParams.push(status);
+      }
+      
+      const countResult = await pool.query(countQuery, countParams);
+
+      const backups = result.rows.map(row => ({
+        backup_id: row.backup_id,
+        backup_name: row.backup_name,
+        db_engine: row.db_engine,
+        connection_string: row.connection_string || null,
+        database_name: row.database_name || null,
+        backup_type: row.backup_type,
+        file_path: row.file_path,
+        file_size: row.file_size ? parseInt(row.file_size) : null,
+        status: row.status,
+        error_message: row.error_message || null,
+        created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+        created_by: row.created_by || null,
+        completed_at: row.completed_at ? new Date(row.completed_at).toISOString() : null,
+        metadata: row.metadata || {},
+        cron_schedule: row.cron_schedule || null,
+        is_scheduled: row.is_scheduled || false,
+        next_run_at: row.next_run_at ? new Date(row.next_run_at).toISOString() : null,
+        last_run_at: row.last_run_at ? new Date(row.last_run_at).toISOString() : null,
+        run_count: row.run_count ? parseInt(row.run_count) : 0,
+      }));
 
       res.json({
-        backups: result.rows,
+        backups: backups,
         total: parseInt(countResult.rows[0].total),
         page: parseInt(page),
         limit: parseInt(limit),
