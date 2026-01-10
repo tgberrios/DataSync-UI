@@ -903,9 +903,7 @@ const UnifiedMonitor: React.FC = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (activeTab !== 'monitor') {
-      setSelectedItem(null);
-    }
+    setSelectedItem(null);
   }, [activeTab]);
 
   const [loading, setLoading] = useState(true);
@@ -916,7 +914,7 @@ const UnifiedMonitor: React.FC = () => {
   const [activeQueries, setActiveQueries] = useState<any[]>([]);
 
   useEffect(() => {
-    if (selectedItem && activeQueries.length > 0) {
+    if (activeTab === 'monitor' && selectedItem && activeQueries.length > 0) {
       const itemExists = activeQueries.some(q => 
         q.id === selectedItem.id || 
         (q.pid === selectedItem.pid && q.query === selectedItem.query)
@@ -925,7 +923,7 @@ const UnifiedMonitor: React.FC = () => {
         setSelectedItem(null);
       }
     }
-  }, [activeQueries, selectedItem]);
+  }, [activeTab, activeQueries, selectedItem]);
   const [processingLogs, setProcessingLogs] = useState<any[]>([]);
   const [processingStats, setProcessingStats] = useState<any>({});
   const [queryPerformance, setQueryPerformance] = useState<any[]>([]);
@@ -970,6 +968,13 @@ const UnifiedMonitor: React.FC = () => {
     dbQueryEfficiency: true,
   });
   const [dbHealth, setDbHealth] = useState<any>({});
+  
+  const [performanceTierFilter, setPerformanceTierFilter] = useState<string>('');
+  const [liveEventTypeFilter, setLiveEventTypeFilter] = useState<string>('');
+  const [liveEventStatusFilter, setLiveEventStatusFilter] = useState<string>('');
+  const [transferStatusFilter, setTransferStatusFilter] = useState<string>('');
+  const [transferTypeFilter, setTransferTypeFilter] = useState<string>('');
+  const [transferEngineFilter, setTransferEngineFilter] = useState<string>('');
   
   const isMountedRef = useRef(true);
 
@@ -1192,7 +1197,12 @@ const UnifiedMonitor: React.FC = () => {
       return databases;
     } else if (activeTab === 'live') {
       const databases = new Map<string, Map<string, any[]>>();
-      processingLogs.forEach(log => {
+      const filteredLogs = processingLogs.filter((log: any) => {
+        const typeMatch = !liveEventTypeFilter || (liveEventTypeFilter === 'N/A' && !log.pk_strategy) || log.pk_strategy === liveEventTypeFilter;
+        const statusMatch = !liveEventStatusFilter || log.status === liveEventStatusFilter;
+        return typeMatch && statusMatch;
+      });
+      filteredLogs.forEach(log => {
         const db = log.db_engine || 'Unknown';
         const schema = log.schema_name || 'public';
         if (!databases.has(db)) {
@@ -1207,7 +1217,13 @@ const UnifiedMonitor: React.FC = () => {
       return databases;
     } else if (activeTab === 'transfer') {
       const databases = new Map<string, any[]>();
-      transferMetrics.forEach(metric => {
+      const filteredMetrics = transferMetrics.filter((metric: any) => {
+        const statusMatch = !transferStatusFilter || metric.status === transferStatusFilter;
+        const typeMatch = !transferTypeFilter || metric.transfer_type === transferTypeFilter;
+        const engineMatch = !transferEngineFilter || metric.db_engine === transferEngineFilter;
+        return statusMatch && typeMatch && engineMatch;
+      });
+      filteredMetrics.forEach(metric => {
         const db = metric.db_engine || 'Unknown';
         if (!databases.has(db)) {
           databases.set(db, []);
@@ -1217,7 +1233,10 @@ const UnifiedMonitor: React.FC = () => {
       return databases;
     } else {
       const databases = new Map<string, any[]>();
-      queryPerformance.forEach(query => {
+      const filteredQueries = performanceTierFilter 
+        ? queryPerformance.filter((q: any) => q.performance_tier === performanceTierFilter)
+        : queryPerformance;
+      filteredQueries.forEach(query => {
         const db = query.dbname || 'Unknown';
         if (!databases.has(db)) {
           databases.set(db, []);
@@ -1226,7 +1245,7 @@ const UnifiedMonitor: React.FC = () => {
       });
       return databases;
     }
-  }, [activeTab, activeQueries, processingLogs, queryPerformance, transferMetrics]);
+  }, [activeTab, activeQueries, processingLogs, queryPerformance, transferMetrics, performanceTierFilter, liveEventTypeFilter, liveEventStatusFilter, transferStatusFilter, transferTypeFilter, transferEngineFilter]);
 
   const toggleNode = useCallback((key: string) => {
     setExpandedNodes(prev => {
@@ -1339,10 +1358,11 @@ const UnifiedMonitor: React.FC = () => {
             onMouseLeave={(e) => {
               const container = e.currentTarget.closest('.tree-view-container');
               if (container) {
-                const relatedTarget = e.relatedTarget as HTMLElement;
-                if (!relatedTarget || !container.contains(relatedTarget)) {
-                  container.classList.remove('showing-scrollbar');
+                const relatedTarget = e.relatedTarget as HTMLElement | null;
+                if (relatedTarget && relatedTarget instanceof Node && container.contains(relatedTarget)) {
+                  return;
                 }
+                container.classList.remove('showing-scrollbar');
               }
               if (!isDbExpanded) {
                 e.currentTarget.style.backgroundColor = asciiColors.background;
@@ -1608,18 +1628,22 @@ const UnifiedMonitor: React.FC = () => {
 
   const renderCharts = () => {
     if (activeTab === 'performance') {
+      const filteredQueries = performanceTierFilter 
+        ? queryPerformance.filter((q: any) => q.performance_tier === performanceTierFilter)
+        : queryPerformance;
+      
       const tierDistribution = {
-        EXCELLENT: queryPerformance.filter((q: any) => q.performance_tier === 'EXCELLENT').length,
-        GOOD: queryPerformance.filter((q: any) => q.performance_tier === 'GOOD').length,
-        FAIR: queryPerformance.filter((q: any) => q.performance_tier === 'FAIR').length,
-        POOR: queryPerformance.filter((q: any) => q.performance_tier === 'POOR').length,
+        EXCELLENT: filteredQueries.filter((q: any) => q.performance_tier === 'EXCELLENT').length,
+        GOOD: filteredQueries.filter((q: any) => q.performance_tier === 'GOOD').length,
+        FAIR: filteredQueries.filter((q: any) => q.performance_tier === 'FAIR').length,
+        POOR: filteredQueries.filter((q: any) => q.performance_tier === 'POOR').length,
       };
       
-      const blockingQueries = queryPerformance.filter((q: any) => q.is_blocking).length;
-      const nonBlockingQueries = queryPerformance.length - blockingQueries;
+      const blockingQueries = filteredQueries.filter((q: any) => q.is_blocking).length;
+      const nonBlockingQueries = filteredQueries.length - blockingQueries;
       
-      const avgTime = queryPerformance.length > 0
-        ? queryPerformance.reduce((sum: number, q: any) => sum + (Number(q.mean_time_ms) || 0), 0) / queryPerformance.length
+      const avgTime = filteredQueries.length > 0
+        ? filteredQueries.reduce((sum: number, q: any) => sum + (Number(q.mean_time_ms) || 0), 0) / filteredQueries.length
         : 0;
 
       return (
@@ -1898,13 +1922,19 @@ const UnifiedMonitor: React.FC = () => {
     }
     
     if (activeTab === 'live') {
-      const eventsByType = processingLogs.reduce((acc: Record<string, number>, log: any) => {
+      const filteredLogs = processingLogs.filter((log: any) => {
+        const typeMatch = !liveEventTypeFilter || (liveEventTypeFilter === 'N/A' && !log.pk_strategy) || log.pk_strategy === liveEventTypeFilter;
+        const statusMatch = !liveEventStatusFilter || log.status === liveEventStatusFilter;
+        return typeMatch && statusMatch;
+      });
+      
+      const eventsByType = filteredLogs.reduce((acc: Record<string, number>, log: any) => {
         const type = log.pk_strategy || 'Unknown';
         acc[type] = (acc[type] || 0) + 1;
         return acc;
       }, {});
       
-      const eventsByStatus = processingLogs.reduce((acc: Record<string, number>, log: any) => {
+      const eventsByStatus = filteredLogs.reduce((acc: Record<string, number>, log: any) => {
         const status = log.status || 'Unknown';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
@@ -2026,31 +2056,38 @@ const UnifiedMonitor: React.FC = () => {
     }
     
     if (activeTab === 'transfer') {
-      const metricsByStatus = transferMetrics.reduce((acc: Record<string, number>, metric: any) => {
+      const filteredMetrics = transferMetrics.filter((metric: any) => {
+        const statusMatch = !transferStatusFilter || metric.status === transferStatusFilter;
+        const typeMatch = !transferTypeFilter || metric.transfer_type === transferTypeFilter;
+        const engineMatch = !transferEngineFilter || metric.db_engine === transferEngineFilter;
+        return statusMatch && typeMatch && engineMatch;
+      });
+      
+      const metricsByStatus = filteredMetrics.reduce((acc: Record<string, number>, metric: any) => {
         const status = metric.status || 'PENDING';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
       }, {});
       
-      const metricsByType = transferMetrics.reduce((acc: Record<string, number>, metric: any) => {
+      const metricsByType = filteredMetrics.reduce((acc: Record<string, number>, metric: any) => {
         const type = metric.transfer_type || 'UNKNOWN';
         acc[type] = (acc[type] || 0) + 1;
         return acc;
       }, {});
 
-      const metricsByEngine = transferMetrics.reduce((acc: Record<string, number>, metric: any) => {
+      const metricsByEngine = filteredMetrics.reduce((acc: Record<string, number>, metric: any) => {
         const engine = metric.db_engine || 'Unknown';
         acc[engine] = (acc[engine] || 0) + 1;
         return acc;
       }, {});
 
-      const totalRecords = transferMetrics.reduce((sum: number, m: any) => sum + (parseInt(m.records_transferred) || 0), 0);
-      const totalBytes = transferMetrics.reduce((sum: number, m: any) => sum + (parseInt(m.bytes_transferred) || 0), 0);
-      const avgMemory = transferMetrics.length > 0 
-        ? transferMetrics.reduce((sum: number, m: any) => sum + (parseFloat(m.memory_used_mb) || 0), 0) / transferMetrics.length
+      const totalRecords = filteredMetrics.reduce((sum: number, m: any) => sum + (parseInt(m.records_transferred) || 0), 0);
+      const totalBytes = filteredMetrics.reduce((sum: number, m: any) => sum + (parseInt(m.bytes_transferred) || 0), 0);
+      const avgMemory = filteredMetrics.length > 0 
+        ? filteredMetrics.reduce((sum: number, m: any) => sum + (parseFloat(m.memory_used_mb) || 0), 0) / filteredMetrics.length
         : 0;
-      const avgIOPS = transferMetrics.length > 0
-        ? transferMetrics.reduce((sum: number, m: any) => sum + (parseInt(m.io_operations_per_second) || 0), 0) / transferMetrics.length
+      const avgIOPS = filteredMetrics.length > 0
+        ? filteredMetrics.reduce((sum: number, m: any) => sum + (parseInt(m.io_operations_per_second) || 0), 0) / filteredMetrics.length
         : 0;
 
       return (
@@ -2363,7 +2400,13 @@ const UnifiedMonitor: React.FC = () => {
         );
       }
 
-      const recentEvents = [...processingLogs]
+      const filteredLogs = processingLogs.filter((log: any) => {
+        const typeMatch = !liveEventTypeFilter || (liveEventTypeFilter === 'N/A' && !log.pk_strategy) || log.pk_strategy === liveEventTypeFilter;
+        const statusMatch = !liveEventStatusFilter || log.status === liveEventStatusFilter;
+        return typeMatch && statusMatch;
+      });
+      
+      const recentEvents = [...filteredLogs]
         .sort((a, b) => new Date(b.processed_at || 0).getTime() - new Date(a.processed_at || 0).getTime())
         .slice(0, 20);
 
@@ -2495,10 +2538,9 @@ const UnifiedMonitor: React.FC = () => {
       );
     }
 
-    if (!selectedItem) {
-      return (
-        <>
-          {renderCharts()}
+    if (activeTab === 'transfer') {
+      if (!selectedItem) {
+        return (
           <div style={{
             padding: 60,
             textAlign: "center",
@@ -2508,106 +2550,9 @@ const UnifiedMonitor: React.FC = () => {
           }}>
             {ascii.dot} Select an item to view details
           </div>
-        </>
-      );
-    }
-
-    if (activeTab === 'monitor') {
-      if (!selectedItem) {
-        return (
-          <div style={{
-            fontFamily: "Consolas",
-            fontSize: 12,
-            color: asciiColors.muted,
-            textAlign: "center",
-            padding: 20
-          }}>
-            {ascii.dot} Select a query to view details
-          </div>
         );
       }
 
-      const getStateColor = (state: string) => {
-        const upperState = (state || '').toUpperCase();
-        if (upperState.includes('ERROR') || upperState.includes('ABORTED')) {
-          return asciiColors.danger;
-        }
-        if (upperState.includes('IDLE IN TRANSACTION')) {
-          return asciiColors.warning;
-        }
-        if (upperState === 'ACTIVE') {
-          return asciiColors.success;
-        }
-        return asciiColors.muted;
-      };
-
-      return (
-        <div style={{
-          fontFamily: "Consolas",
-          fontSize: 12,
-          color: asciiColors.foreground
-        }}>
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            fontFamily: "Consolas",
-            fontSize: 11,
-            lineHeight: 1.8
-          }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ PID:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.pid}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ User:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.usename}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Database:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.datname}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ State:</span>
-                <span style={{ 
-                  marginLeft: 20,
-                  padding: "2px 8px",
-                  borderRadius: 2,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  border: `1px solid ${getStateColor(selectedItem.state)}`,
-                  color: getStateColor(selectedItem.state),
-                  backgroundColor: getStateColor(selectedItem.state) + "20"
-                }}>
-                  {selectedItem.state}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Duration:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.duration}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Application:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.application_name || '-'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Client Address:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.client_addr || '-'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Started At:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.query_start)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>└─ Wait Event:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>
-              {selectedItem.wait_event_type ? `${selectedItem.wait_event_type} (${selectedItem.wait_event})` : 'None'}
-                </span>
-              </div>
-            </div>
-        </div>
-      );
-    } else if (activeTab === 'transfer') {
       const getStatusColor = (status: string) => {
         const upperStatus = (status || '').toUpperCase();
         if (upperStatus === 'SUCCESS') {
@@ -2719,6 +2664,80 @@ const UnifiedMonitor: React.FC = () => {
                 <span style={{ color: asciiColors.muted }}>├─ IO Operations/sec:</span>
                 <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.io_operations_per_second || 0}</span>
               </div>
+              {selectedItem.duration_seconds && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Duration:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>
+                    {selectedItem.duration_seconds >= 3600 
+                      ? `${Math.floor(selectedItem.duration_seconds / 3600)}h ${Math.floor((selectedItem.duration_seconds % 3600) / 60)}m ${selectedItem.duration_seconds % 60}s`
+                      : selectedItem.duration_seconds >= 60
+                      ? `${Math.floor(selectedItem.duration_seconds / 60)}m ${selectedItem.duration_seconds % 60}s`
+                      : `${selectedItem.duration_seconds}s`}
+                  </span>
+                </div>
+              )}
+              {selectedItem.transfer_rate && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Transfer Rate:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>
+                    {selectedItem.transfer_rate >= 1024 * 1024
+                      ? `${(selectedItem.transfer_rate / (1024 * 1024)).toFixed(2)} MB/s`
+                      : selectedItem.transfer_rate >= 1024
+                      ? `${(selectedItem.transfer_rate / 1024).toFixed(2)} KB/s`
+                      : `${selectedItem.transfer_rate.toFixed(2)} B/s`}
+                  </span>
+                </div>
+              )}
+              {selectedItem.throughput_rps && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Throughput (RPS):</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.throughput_rps.toLocaleString()} records/sec</span>
+                </div>
+              )}
+              {selectedItem.progress_percentage !== null && selectedItem.progress_percentage !== undefined && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Progress:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{Number(selectedItem.progress_percentage).toFixed(1)}%</span>
+                </div>
+              )}
+              {selectedItem.retry_count !== null && selectedItem.retry_count !== undefined && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Retry Count:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.retry_count}</span>
+                </div>
+              )}
+              {selectedItem.source_connection && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Source Connection:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20, fontSize: 10, maxWidth: '60%', textAlign: 'right', wordBreak: 'break-word' }}>
+                    {selectedItem.source_connection.length > 50 
+                      ? `${selectedItem.source_connection.substring(0, 50)}...`
+                      : selectedItem.source_connection}
+                  </span>
+                </div>
+              )}
+              {selectedItem.target_connection && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Target Connection:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20, fontSize: 10, maxWidth: '60%', textAlign: 'right', wordBreak: 'break-word' }}>
+                    {selectedItem.target_connection.length > 50 
+                      ? `${selectedItem.target_connection.substring(0, 50)}...`
+                      : selectedItem.target_connection}
+                  </span>
+                </div>
+              )}
+              {selectedItem.server_name && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Server Name:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.server_name}</span>
+                </div>
+              )}
+              {selectedItem.database_name && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Database Name:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.database_name}</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: asciiColors.muted }}>├─ Started At:</span>
                 <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.started_at ? formatDate(selectedItem.started_at) : 'N/A'}</span>
@@ -2727,9 +2746,15 @@ const UnifiedMonitor: React.FC = () => {
                 <span style={{ color: asciiColors.muted }}>├─ Completed At:</span>
                 <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.completed_at ? formatDate(selectedItem.completed_at) : 'N/A'}</span>
               </div>
+              {selectedItem.updated_at && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: asciiColors.muted }}>├─ Updated At:</span>
+                  <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.updated_at)}</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: asciiColors.muted }}>{selectedItem.error_message ? '├─' : '└─'} Created At:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.created_at)}</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.created_at ? formatDate(selectedItem.created_at) : 'N/A'}</span>
               </div>
             {selectedItem.error_message && (
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -2748,6 +2773,106 @@ const UnifiedMonitor: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+      );
+    }
+
+    if (!selectedItem) {
+      return (
+        <>
+          {renderCharts()}
+          <div style={{
+            padding: 60,
+            textAlign: "center",
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            {ascii.dot} Select an item to view details
+          </div>
+        </>
+      );
+    }
+
+    if (activeTab === 'monitor') {
+      const getStateColor = (state: string) => {
+        const upperState = (state || '').toUpperCase();
+        if (upperState.includes('ERROR') || upperState.includes('ABORTED')) {
+          return asciiColors.danger;
+        }
+        if (upperState.includes('IDLE IN TRANSACTION')) {
+          return asciiColors.warning;
+        }
+        if (upperState === 'ACTIVE') {
+          return asciiColors.success;
+        }
+        return asciiColors.muted;
+      };
+
+      return (
+        <div style={{
+          fontFamily: "Consolas",
+          fontSize: 12,
+          color: asciiColors.foreground
+        }}>
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            fontFamily: "Consolas",
+            fontSize: 11,
+            lineHeight: 1.8
+          }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ PID:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.pid}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ User:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.usename}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Database:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.datname}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ State:</span>
+                <span style={{ 
+                  marginLeft: 20,
+                  padding: "2px 8px",
+                  borderRadius: 2,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  border: `1px solid ${getStateColor(selectedItem.state)}`,
+                  color: getStateColor(selectedItem.state),
+                  backgroundColor: getStateColor(selectedItem.state) + "20"
+                }}>
+                  {selectedItem.state}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Duration:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.duration}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Application:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.application_name || '-'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Client Address:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.client_addr || '-'}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>├─ Started At:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.query_start)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: asciiColors.muted }}>└─ Wait Event:</span>
+                <span style={{ fontWeight: 500, marginLeft: 20 }}>
+              {selectedItem.wait_event_type ? `${selectedItem.wait_event_type} (${selectedItem.wait_event})` : 'None'}
+                </span>
+              </div>
+            </div>
         </div>
       );
     } else {
@@ -3521,6 +3646,163 @@ const UnifiedMonitor: React.FC = () => {
         </div>
       )}
       
+      {activeTab === 'performance' && (
+        <AsciiPanel title="FILTERS">
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={performanceTierFilter}
+              onChange={(e) => setPerformanceTierFilter(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground
+              }}
+            >
+              <option value="">All Tiers</option>
+              <option value="EXCELLENT">EXCELLENT</option>
+              <option value="GOOD">GOOD</option>
+              <option value="FAIR">FAIR</option>
+              <option value="POOR">POOR</option>
+            </select>
+            <AsciiButton
+              label="Reset Filter"
+              onClick={() => setPerformanceTierFilter('')}
+              variant="ghost"
+            />
+          </div>
+        </AsciiPanel>
+      )}
+      
+      {activeTab === 'live' && (
+        <AsciiPanel title="FILTERS">
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={liveEventTypeFilter}
+              onChange={(e) => setLiveEventTypeFilter(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground
+              }}
+            >
+              <option value="">All Types</option>
+              <option value="CDC">CDC</option>
+              <option value="N/A">N/A</option>
+            </select>
+            <select
+              value={liveEventStatusFilter}
+              onChange={(e) => setLiveEventStatusFilter(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                backgroundColor: asciiColors.background,
+                color: asciiColors.foreground
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="LISTENING_CHANGES">LISTENING_CHANGES</option>
+              <option value="NO_DATA">NO_DATA</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+            <AsciiButton
+              label="Reset Filters"
+              onClick={() => {
+                setLiveEventTypeFilter('');
+                setLiveEventStatusFilter('');
+              }}
+              variant="ghost"
+            />
+          </div>
+        </AsciiPanel>
+      )}
+      
+      {activeTab === 'transfer' && (() => {
+        const uniqueTypes = Array.from(new Set(transferMetrics.map((m: any) => m.transfer_type).filter(Boolean))).sort();
+        const uniqueEngines = Array.from(new Set(transferMetrics.map((m: any) => m.db_engine).filter(Boolean))).sort();
+        const uniqueStatuses = Array.from(new Set(transferMetrics.map((m: any) => m.status).filter(Boolean))).sort();
+        
+        return (
+          <AsciiPanel title="FILTERS">
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                value={transferStatusFilter}
+                onChange={(e) => setTransferStatusFilter(e.target.value)}
+                style={{
+                  padding: '4px 8px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontFamily: 'Consolas',
+                  fontSize: 12,
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground
+                }}
+              >
+                <option value="">All Statuses</option>
+                {uniqueStatuses.map((status: string) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+              <select
+                value={transferTypeFilter}
+                onChange={(e) => setTransferTypeFilter(e.target.value)}
+                style={{
+                  padding: '4px 8px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontFamily: 'Consolas',
+                  fontSize: 12,
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground
+                }}
+              >
+                <option value="">All Types</option>
+                {uniqueTypes.map((type: string) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <select
+                value={transferEngineFilter}
+                onChange={(e) => setTransferEngineFilter(e.target.value)}
+                style={{
+                  padding: '4px 8px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontFamily: 'Consolas',
+                  fontSize: 12,
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground
+                }}
+              >
+                <option value="">All Engines</option>
+                {uniqueEngines.map((engine: string) => (
+                  <option key={engine} value={engine}>{engine}</option>
+                ))}
+              </select>
+              <AsciiButton
+                label="Reset Filters"
+                onClick={() => {
+                  setTransferStatusFilter('');
+                  setTransferTypeFilter('');
+                  setTransferEngineFilter('');
+                }}
+                variant="ghost"
+              />
+            </div>
+          </AsciiPanel>
+        );
+      })()}
+      
       {activeTab === 'system' ? (
         <div style={{ 
           width: "100%"
@@ -3707,7 +3989,8 @@ const UnifiedMonitor: React.FC = () => {
           gridTemplateColumns: "1fr 500px",
           gap: 20,
           height: "calc(100vh - 300px)",
-          minHeight: 600
+          minHeight: 600,
+          marginTop: activeTab === 'transfer' ? 24 : 0
         }}>
           <AsciiPanel title="TREE VIEW">
             <div style={{
