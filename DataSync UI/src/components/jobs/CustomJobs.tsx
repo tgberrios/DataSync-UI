@@ -572,6 +572,7 @@ const CustomJobs = () => {
     }
   }, [isModalOpen, jobForm.source_db_engine, loadScripts]);
 
+
   if (loadingTree && allJobs.length === 0) {
     return (
       <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
@@ -1355,48 +1356,123 @@ const CustomJobs = () => {
                         tables={sourceTables}
                         columns={sourceColumns}
                       />
-                      {jobForm.query_sql.trim() && pipelineGraph.nodes.length > 0 && (
-                        <div style={{
-                          marginTop: 16,
-                          padding: 12,
-                          background: asciiColors.backgroundSoft,
-                          border: `1px solid ${asciiColors.border}`,
-                          borderRadius: 2
-                        }}>
-                          <div style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: asciiColors.accent,
-                            marginBottom: 8,
-                            fontFamily: 'Consolas'
-                          }}>
-                            {ascii.blockSemi} VISUAL PREVIEW (Auto-generated from SQL)
-                          </div>
+                      
+                      {previewData && (
+                        <div style={{ marginTop: 16 }}>
                           <div style={{
                             border: `1px solid ${asciiColors.border}`,
                             borderRadius: 2,
-                            background: asciiColors.background,
-                            height: 300
+                            overflow: 'auto',
+                            maxHeight: '400px',
+                            fontFamily: "Consolas"
                           }}>
-                            <VisualPipelineEditor
-                              initialGraph={pipelineGraph}
-                              onGraphChange={setPipelineGraph}
-                              sourceConnectionString={jobForm.source_connection_string}
-                              sourceDbEngine={jobForm.source_db_engine}
-                              targetConnectionString={jobForm.target_connection_string}
-                              targetDbEngine={jobForm.target_db_engine}
-                              targetSchema={jobForm.target_schema}
-                              targetTable={jobForm.target_table}
-                            />
+                            <div style={{
+                              padding: '8px 12px',
+                              background: asciiColors.backgroundSoft,
+                              borderBottom: `1px solid ${asciiColors.border}`,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              fontFamily: "Consolas",
+                              color: asciiColors.foreground
+                            }}>
+                              Preview Results ({previewData.rowCount} rows)
+                            </div>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: "Consolas" }}>
+                              <thead>
+                                <tr style={{ background: asciiColors.backgroundSoft }}>
+                                  {previewData.columns.map((col, idx) => (
+                                    <th key={idx} style={{
+                                      padding: '8px',
+                                      textAlign: 'left',
+                                      borderBottom: `1px solid ${asciiColors.border}`,
+                                      fontWeight: 600,
+                                      fontFamily: "Consolas",
+                                      color: asciiColors.foreground
+                                    }}>
+                                      {col}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {previewData.rows.map((row, rowIdx) => (
+                                  <tr key={rowIdx} style={{ borderBottom: `1px solid ${asciiColors.border}` }}>
+                                    {previewData.columns.map((col, colIdx) => (
+                                      <td key={colIdx} style={{
+                                        padding: '8px',
+                                        maxWidth: '200px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        fontFamily: "Consolas",
+                                        fontSize: 11,
+                                        color: asciiColors.foreground
+                                      }}>
+                                        {row[col] !== null && row[col] !== undefined ? String(row[col]) : 'NULL'}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
+                        </div>
+                      )}
+
+                      {!previewData && jobForm.query_sql.trim() && pipelineGraph.nodes.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
                           <div style={{
-                            marginTop: 8,
-                            fontSize: 10,
-                            color: asciiColors.muted,
-                            fontFamily: 'Consolas',
-                            fontStyle: 'italic'
+                            padding: 12,
+                            background: asciiColors.backgroundSoft,
+                            border: `1px solid ${asciiColors.border}`,
+                            borderRadius: 2,
+                            maxHeight: '400px',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column'
                           }}>
-                            Note: This is a read-only preview. Switch to VISUAL mode to edit the pipeline.
+                            <div style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: asciiColors.accent,
+                              marginBottom: 8,
+                              fontFamily: 'Consolas',
+                              flexShrink: 0
+                            }}>
+                              {ascii.blockSemi} VISUAL PREVIEW (Auto-generated from SQL)
+                            </div>
+                            <div style={{
+                              border: `1px solid ${asciiColors.border}`,
+                              borderRadius: 2,
+                              background: asciiColors.background,
+                              height: 300,
+                              minHeight: 300,
+                              maxHeight: 300,
+                              overflow: 'hidden',
+                              position: 'relative',
+                              flexShrink: 0
+                            }}>
+                              <VisualPipelineEditor
+                                initialGraph={pipelineGraph}
+                                onGraphChange={setPipelineGraph}
+                                sourceConnectionString={jobForm.source_connection_string}
+                                sourceDbEngine={jobForm.source_db_engine}
+                                targetConnectionString={jobForm.target_connection_string}
+                                targetDbEngine={jobForm.target_db_engine}
+                                targetSchema={jobForm.target_schema}
+                                targetTable={jobForm.target_table}
+                              />
+                            </div>
+                            <div style={{
+                              marginTop: 8,
+                              fontSize: 10,
+                              color: asciiColors.muted,
+                              fontFamily: 'Consolas',
+                              fontStyle: 'italic',
+                              flexShrink: 0
+                            }}>
+                              Note: This is a read-only preview. Switch to VISUAL mode to edit the pipeline.
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1432,66 +1508,6 @@ const CustomJobs = () => {
                       border: `1px solid ${asciiColors.danger}`
                     }}>
                       {previewError}
-                    </div>
-                  )}
-                  {previewData && (
-                    <div style={{
-                      marginTop: 16,
-                      border: `1px solid ${asciiColors.border}`,
-                      borderRadius: 2,
-                      overflow: 'auto',
-                      maxHeight: '400px',
-                      fontFamily: "Consolas"
-                    }}>
-                      <div style={{
-                        padding: '8px 12px',
-                        background: asciiColors.backgroundSoft,
-                        borderBottom: `1px solid ${asciiColors.border}`,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        fontFamily: "Consolas",
-                        color: asciiColors.foreground
-                      }}>
-                        Preview Results ({previewData.rowCount} rows)
-                      </div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: "Consolas" }}>
-                        <thead>
-                          <tr style={{ background: asciiColors.backgroundSoft }}>
-                            {previewData.columns.map((col, idx) => (
-                              <th key={idx} style={{
-                                padding: '8px',
-                                textAlign: 'left',
-                                borderBottom: `1px solid ${asciiColors.border}`,
-                                fontWeight: 600,
-                                fontFamily: "Consolas",
-                                color: asciiColors.foreground
-                              }}>
-                                {col}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previewData.rows.map((row, rowIdx) => (
-                            <tr key={rowIdx} style={{ borderBottom: `1px solid ${asciiColors.border}` }}>
-                              {previewData.columns.map((col, colIdx) => (
-                                <td key={colIdx} style={{
-                                  padding: '8px',
-                                  maxWidth: '200px',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  fontFamily: "Consolas",
-                                  fontSize: 11,
-                                  color: asciiColors.foreground
-                                }}>
-                                  {row[col] !== null && row[col] !== undefined ? String(row[col]) : 'NULL'}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
                     </div>
                   )}
                 </div>
