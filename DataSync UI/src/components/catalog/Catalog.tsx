@@ -23,7 +23,6 @@ const Catalog = () => {
     engine: "",
     status: "",
     active: "",
-    strategy: "",
   });
 
   const [sortField, setSortField] = useState("active");
@@ -34,14 +33,11 @@ const Catalog = () => {
   const [availableSchemas, setAvailableSchemas] = useState<string[]>([]);
   const [availableEngines, setAvailableEngines] = useState<string[]>([]);
   const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
-  const [availableStrategies, setAvailableStrategies] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<CatalogEntry | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [allEntries, setAllEntries] = useState<CatalogEntry[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
-  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const [tableStructure, setTableStructure] = useState<any>(null);
   const [loadingStructure, setLoadingStructure] = useState(false);
   const isMountedRef = useRef(true);
@@ -53,17 +49,15 @@ const Catalog = () => {
    */
   const fetchFilterOptions = useCallback(async () => {
     try {
-      const [schemas, engines, statuses, strategies] = await Promise.all([
+      const [schemas, engines, statuses] = await Promise.all([
         catalogApi.getSchemas(),
         catalogApi.getEngines(),
         catalogApi.getStatuses(),
-        catalogApi.getStrategies(),
       ]);
       if (isMountedRef.current) {
         setAvailableSchemas(schemas);
         setAvailableEngines(engines);
         setAvailableStatuses(statuses);
-        setAvailableStrategies(strategies);
       }
     } catch (err) {
       console.error("Error loading filter options:", err);
@@ -228,18 +222,12 @@ const Catalog = () => {
 
   const handleTableClick = useCallback(async (entry: CatalogEntry) => {
     setSelectedEntry(entry);
-    setLoadingHistory(true);
     setLoadingStructure(true);
-    setExecutionHistory([]);
     setTableStructure(null);
     
     try {
-      const [history, structure] = await Promise.all([
-        catalogApi.getExecutionHistory(entry.schema_name, entry.table_name, entry.db_engine, 50).catch(() => []),
-        catalogApi.getTableStructure(entry.schema_name, entry.table_name, entry.db_engine).catch(() => null)
-      ]);
+      const structure = await catalogApi.getTableStructure(entry.schema_name, entry.table_name, entry.db_engine).catch(() => null);
       if (isMountedRef.current) {
-        setExecutionHistory(history);
         setTableStructure(structure);
       }
     } catch (err) {
@@ -248,7 +236,6 @@ const Catalog = () => {
       }
     } finally {
       if (isMountedRef.current) {
-        setLoadingHistory(false);
         setLoadingStructure(false);
       }
     }
@@ -499,37 +486,6 @@ const Catalog = () => {
             <option value="false">Inactive</option>
           </select>
 
-          <select
-            value={filters.strategy as string}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              setFilter("strategy", e.target.value);
-            }}
-            style={{
-              padding: "6px 10px",
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              fontSize: 12,
-              fontFamily: "Consolas",
-              backgroundColor: asciiColors.background,
-              color: asciiColors.foreground,
-              cursor: "pointer",
-              outline: "none"
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = asciiColors.accent;
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = asciiColors.border;
-            }}
-          >
-            <option value="">All Strategies ({availableStrategies.length})</option>
-            {availableStrategies.map((strategy) => (
-              <option key={strategy} value={strategy}>
-                {strategy === "PK" ? "Primary Key" : strategy === "OFFSET" ? "Offset" : strategy === "CDC" ? "CDC" : strategy}
-              </option>
-            ))}
-          </select>
-
           <AsciiButton
             label="Reset All"
             onClick={() => {
@@ -628,8 +584,6 @@ const Catalog = () => {
       {selectedEntry && (
         <TableDetailModal
           entry={selectedEntry}
-          history={executionHistory}
-          loadingHistory={loadingHistory}
           tableStructure={tableStructure}
           loadingStructure={loadingStructure}
           onClose={() => setSelectedEntry(null)}

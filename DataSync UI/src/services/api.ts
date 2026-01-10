@@ -850,7 +850,40 @@ export const catalogApi = {
       });
       return response.data;
     } catch (error) {
-      console.error("Error fetching table structure:", error);
+      console.error("❌ [API] Error fetching table structure:");
+      console.error("   Parameters:", { schema_name, table_name, db_engine });
+      
+      if (axios.isAxiosError(error)) {
+        console.error("   Status:", error.response?.status || "N/A");
+        console.error("   Status Text:", error.response?.statusText || "N/A");
+        console.error("   URL:", error.config?.url || "N/A");
+        console.error("   Method:", error.config?.method?.toUpperCase() || "N/A");
+        
+        if (error.response?.data) {
+          console.error("   Response Data:", error.response.data);
+          if (error.response.data.error) {
+            console.error("   Error Message:", error.response.data.error);
+          }
+          if (error.response.data.details) {
+            console.error("   Error Details:", error.response.data.details);
+          }
+        }
+        
+        if (error.message) {
+          console.error("   Axios Error Message:", error.message);
+        }
+        
+        if (error.stack) {
+          console.error("   Stack Trace:", error.stack);
+        }
+      } else {
+        console.error("   Non-Axios Error:", error);
+        if (error instanceof Error) {
+          console.error("   Error Message:", error.message);
+          console.error("   Stack Trace:", error.stack);
+        }
+      }
+      
       throw error;
     }
   },

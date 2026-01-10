@@ -836,7 +836,7 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
     console.log("🔍 [TABLE-STRUCTURE] Querying catalog for:", { schema_name, table_name, db_engine });
 
     const catalogResult = await pool.query(
-      `SELECT connection_string, schema_name, table_name, db_engine
+      `SELECT connection_string, schema_name, table_name, db_engine, status
        FROM metadata.catalog 
        WHERE LOWER(schema_name) = LOWER($1) AND LOWER(table_name) = LOWER($2) AND db_engine = $3`,
       [schema_name, table_name, db_engine]
@@ -855,7 +855,63 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
     const targetTable = table_name.toLowerCase();
 
     let sourceColumns = [];
+    let sourcePKs = [];
+    let sourceFKs = [];
+    let sourceIndexes = [];
+    let sourceStats = { rowCount: 0, tableSize: '0 bytes' };
     let targetColumns = [];
+    let targetPKs = [];
+    let targetFKs = [];
+    let targetIndexes = [];
+    let targetStats = { rowCount: 0, tableSize: '0 bytes' };
+
+    const getPostgreSQLConstraints = async (client, schema, table) => {
+      try {
+        const pkResult = await client.query(`
+          SELECT a.attname
+          FROM pg_index i
+          JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+          WHERE i.indrelid = $1::regclass AND i.indisprimary
+          ORDER BY a.attnum
+        `, [`${schema}.${table}`]);
+        
+        const fkResult = await client.query(`
+          SELECT
+            kcu.column_name,
+            ccu.table_schema AS foreign_table_schema,
+            ccu.table_name AS foreign_table_name,
+            ccu.column_name AS foreign_column_name
+          FROM information_schema.table_constraints AS tc
+          JOIN information_schema.key_column_usage AS kcu
+            ON tc.constraint_name = kcu.constraint_name
+          JOIN information_schema.constraint_column_usage AS ccu
+            ON ccu.constraint_name = tc.constraint_name
+          WHERE tc.constraint_type = 'FOREIGN KEY'
+            AND tc.table_schema = $1
+            AND tc.table_name = $2
+        `, [schema, table]);
+
+        const indexResult = await client.query(`
+          SELECT
+            indexname,
+            indexdef
+          FROM pg_indexes
+          WHERE schemaname = $1 AND tablename = $2
+        `, [schema, table]);
+
+        return {
+          pks: pkResult.rows.map(r => r.attname),
+          fks: fkResult.rows.map(r => ({
+            column: r.column_name,
+            references: `${r.foreign_table_schema}.${r.foreign_table_name}.${r.foreign_column_name}`
+          })),
+          indexes: indexResult.rows.map(r => r.indexname)
+        };
+      } catch (err) {
+        console.log("⚠️ [TABLE-STRUCTURE] Error getting constraints:", err.message);
+        return { pks: [], fks: [], indexes: [] };
+      }
+    };
 
     switch (db_engine) {
       case "MariaDB": {
@@ -868,7 +924,9 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
             DATA_TYPE,
             CHARACTER_MAXIMUM_LENGTH,
             IS_NULLABLE,
-            COLUMN_DEFAULT
+            COLUMN_DEFAULT,
+            COLUMN_KEY,
+            EXTRA
           FROM information_schema.COLUMNS
           WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
           ORDER BY ORDINAL_POSITION
@@ -884,7 +942,30 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
               : ""),
           nullable: row.IS_NULLABLE === "YES",
           default: row.COLUMN_DEFAULT,
+          isPK: row.COLUMN_KEY === "PRI",
+          isFK: row.COLUMN_KEY === "MUL",
+          isUnique: row.COLUMN_KEY === "UNI",
+          isAutoIncrement: row.EXTRA && row.EXTRA.includes("auto_increment")
         }));
+
+        const [pkRows] = await connection.execute(`
+          SELECT COLUMN_NAME
+          FROM information_schema.KEY_COLUMN_USAGE
+          WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = 'PRIMARY'
+        `, [schema_name, table_name]);
+        sourcePKs = pkRows.map(r => r.COLUMN_NAME);
+
+        try {
+          const escapedSchema = schema_name.replace(/`/g, '``');
+          const escapedTable = table_name.replace(/`/g, '``');
+          const [countRows] = await connection.execute(
+            `SELECT COUNT(*) as cnt FROM \`${escapedSchema}\`.\`${escapedTable}\``
+          );
+          sourceStats.rowCount = countRows[0]?.cnt || 0;
+        } catch (err) {
+          console.log("⚠️ [TABLE-STRUCTURE] Could not get row count:", err.message);
+        }
+
         await connection.end();
         break;
       }
@@ -943,14 +1024,24 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
           .input("schema", sql.VarChar, schema_name)
           .input("table", sql.VarChar, table_name).query(`
             SELECT 
-              COLUMN_NAME,
-              DATA_TYPE,
-              CHARACTER_MAXIMUM_LENGTH,
-              IS_NULLABLE,
-              COLUMN_DEFAULT
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
-            ORDER BY ORDINAL_POSITION
+              c.COLUMN_NAME,
+              c.DATA_TYPE,
+              c.CHARACTER_MAXIMUM_LENGTH,
+              c.IS_NULLABLE,
+              c.COLUMN_DEFAULT,
+              CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END as IS_PRIMARY_KEY
+            FROM INFORMATION_SCHEMA.COLUMNS c
+            LEFT JOIN (
+              SELECT ku.TABLE_SCHEMA, ku.TABLE_NAME, ku.COLUMN_NAME
+              FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+              INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
+                ON tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                AND tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
+                AND ku.TABLE_SCHEMA = @schema
+                AND ku.TABLE_NAME = @table
+            ) pk ON c.COLUMN_NAME = pk.COLUMN_NAME
+            WHERE c.TABLE_SCHEMA = @schema AND c.TABLE_NAME = @table
+            ORDER BY c.ORDINAL_POSITION
           `);
         sourceColumns = result.recordset.map((row) => ({
           name: row.COLUMN_NAME,
@@ -961,7 +1052,35 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
               : ""),
           nullable: row.IS_NULLABLE === "YES",
           default: row.COLUMN_DEFAULT,
+          isPK: row.IS_PRIMARY_KEY === 1
         }));
+
+        const pkResult = await pool.request()
+          .input("schema", sql.VarChar, schema_name)
+          .input("table", sql.VarChar, table_name).query(`
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+              AND CONSTRAINT_NAME IN (
+                SELECT CONSTRAINT_NAME
+                FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+                WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
+                  AND CONSTRAINT_TYPE = 'PRIMARY KEY'
+              )
+          `);
+        sourcePKs = pkResult.recordset.map(r => r.COLUMN_NAME);
+
+        try {
+          const escapedSchema = schema_name.replace(/\]/g, ']]');
+          const escapedTable = table_name.replace(/\]/g, ']]');
+          const countResult = await pool.request().query(`
+            SELECT COUNT(*) as cnt FROM [${escapedSchema}].[${escapedTable}]
+          `);
+          sourceStats.rowCount = countResult.recordset[0]?.cnt || 0;
+        } catch (err) {
+          console.log("⚠️ [TABLE-STRUCTURE] Could not get row count:", err.message);
+        }
+
         await pool.close();
         break;
       }
@@ -1039,8 +1158,30 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
               ? `(${row.character_maximum_length})`
               : ""),
           nullable: row.is_nullable === "YES",
-          default: row.column_default,
+          default: row.column_default
         }));
+
+        const constraints = await getPostgreSQLConstraints(client, schema_name, table_name);
+        sourcePKs = constraints.pks;
+        sourceFKs = constraints.fks;
+        sourceIndexes = constraints.indexes;
+
+        try {
+          const statsResult = await client.query(`
+            SELECT 
+              n_live_tup as row_count,
+              pg_size_pretty(pg_total_relation_size($1::regclass)) as size
+            FROM pg_stat_user_tables
+            WHERE schemaname = $2 AND relname = $3
+          `, [`${schema_name}.${table_name}`, schema_name, table_name]);
+          if (statsResult.rows.length > 0) {
+            sourceStats.rowCount = parseInt(statsResult.rows[0].row_count) || 0;
+            sourceStats.tableSize = statsResult.rows[0].size || '0 bytes';
+          }
+        } catch (err) {
+          console.log("⚠️ [TABLE-STRUCTURE] Could not get stats:", err.message);
+        }
+
         await client.end();
         break;
       }
@@ -1077,8 +1218,30 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
           ? `(${row.character_maximum_length})`
           : ""),
       nullable: row.is_nullable === "YES",
-      default: row.column_default,
+      default: row.column_default
     }));
+
+    const targetConstraints = await getPostgreSQLConstraints(targetClient, targetSchema, targetTable);
+    targetPKs = targetConstraints.pks;
+    targetFKs = targetConstraints.fks;
+    targetIndexes = targetConstraints.indexes;
+
+    try {
+      const targetStatsResult = await targetClient.query(`
+        SELECT 
+          n_live_tup as row_count,
+          pg_size_pretty(pg_total_relation_size($1::regclass)) as size
+        FROM pg_stat_user_tables
+        WHERE schemaname = $2 AND relname = $3
+      `, [`${targetSchema}.${targetTable}`, targetSchema, targetTable]);
+      if (targetStatsResult.rows.length > 0) {
+        targetStats.rowCount = parseInt(targetStatsResult.rows[0].row_count) || 0;
+        targetStats.tableSize = targetStatsResult.rows[0].size || '0 bytes';
+      }
+    } catch (err) {
+      console.log("⚠️ [TABLE-STRUCTURE] Could not get target stats:", err.message);
+    }
+
     await targetClient.end();
 
     console.log("✅ [TABLE-STRUCTURE] Successfully fetched columns. Source:", sourceColumns.length, "Target:", targetColumns.length);
@@ -1087,13 +1250,25 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
       source: {
         columns: sourceColumns,
         schema: schema_name,
-        table: table_name
+        table: table_name,
+        primaryKeys: sourcePKs,
+        foreignKeys: sourceFKs,
+        indexes: sourceIndexes,
+        stats: sourceStats
       },
       target: {
         columns: targetColumns,
         schema: targetSchema,
-        table: targetTable
+        table: targetTable,
+        primaryKeys: targetPKs,
+        foreignKeys: targetFKs,
+        indexes: targetIndexes,
+        stats: targetStats
       },
+      syncInfo: {
+        lastSyncTime: null,
+        status: catalogEntry.status
+      }
     });
     console.log("✅ [TABLE-STRUCTURE] Response sent successfully");
   } catch (err) {
@@ -5616,8 +5791,9 @@ app.get("/api/api-catalog", async (req, res) => {
       ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING", ""],
       ""
     );
-    const active =
-      req.query.active !== undefined ? validateBoolean(req.query.active) : "";
+    const active = req.query.active !== undefined 
+      ? validateBoolean(req.query.active) 
+      : undefined;
     const search = sanitizeSearch(req.query.search, 100);
 
     let whereConditions = [];
@@ -5642,10 +5818,10 @@ app.get("/api/api-catalog", async (req, res) => {
       queryParams.push(status);
     }
 
-    if (active !== "") {
+    if (active !== undefined) {
       paramCount++;
       whereConditions.push(`active = $${paramCount}`);
-      queryParams.push(active === "true");
+      queryParams.push(active);
     }
 
     if (search) {
@@ -5825,7 +6001,7 @@ app.post(
 
     try {
       const checkResult = await pool.query(
-        `SELECT api_name FROM metadata.api_catalog WHERE api_name = $1`,
+        `SELECT api_name FROM metadata.api_catalog WHERE LOWER(api_name) = LOWER($1)`,
         [api_name]
       );
 
@@ -5925,7 +6101,7 @@ app.get("/api/api-catalog/:apiName/history", async (req, res) => {
         metadata,
         created_at
        FROM metadata.process_log 
-       WHERE process_type = 'API_SYNC' AND process_name = $1 
+       WHERE process_type = 'API_SYNC' AND LOWER(process_name) = LOWER($1) 
        ORDER BY created_at DESC 
        LIMIT $2`,
       [apiName, limit]
@@ -5953,7 +6129,7 @@ app.get("/api/api-catalog/:apiName/table-structure", async (req, res) => {
     const apiResult = await pool.query(
       `SELECT target_db_engine, target_connection_string, target_schema, target_table 
        FROM metadata.api_catalog 
-       WHERE api_name = $1`,
+       WHERE LOWER(api_name) = LOWER($1)`,
       [apiName]
     );
 

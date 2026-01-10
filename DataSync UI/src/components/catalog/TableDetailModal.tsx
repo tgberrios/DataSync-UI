@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { format } from 'date-fns';
+import React, { useState, useCallback, useMemo } from 'react';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
@@ -8,8 +7,6 @@ import { catalogApi } from '../../services/api';
 
 interface TableDetailModalProps {
   entry: CatalogEntry;
-  history: any[];
-  loadingHistory: boolean;
   tableStructure: any;
   loadingStructure: boolean;
   onClose: () => void;
@@ -18,14 +15,12 @@ interface TableDetailModalProps {
 
 const TableDetailModal: React.FC<TableDetailModalProps> = ({
   entry,
-  history,
-  loadingHistory,
   tableStructure,
   loadingStructure,
   onClose,
   onSave
 }) => {
-  const [activeTab, setActiveTab] = useState<'config' | 'timeline'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'dataflow'>('config');
   const [editedEntry, setEditedEntry] = useState(entry);
   const [isClosing, setIsClosing] = useState(false);
   const [resettingCDC, setResettingCDC] = useState(false);
@@ -64,140 +59,6 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
     }
   }, [entry]);
 
-  const groupedExecutions = useMemo(() => {
-    return history.map((session: any) => ({
-      ...session,
-      start_time: session.start_time instanceof Date ? session.start_time.toISOString() : session.start_time,
-      end_time: session.end_time instanceof Date ? session.end_time.toISOString() : session.end_time,
-    })).sort((a, b) => 
-      new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
-    );
-  }, [history]);
-
-  const maxDuration = Math.max(...groupedExecutions.map(h => h.duration_seconds || 0), 1);
-
-  const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
-  };
-
-  const formatDateTime = (dateStr: string) => {
-    return format(new Date(dateStr), 'PPpp');
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === 'SUCCESS') return asciiColors.accent;
-    if (status === 'ERROR') return asciiColors.accent;
-    if (status === 'IN_PROGRESS') return asciiColors.accentSoft;
-    return asciiColors.muted;
-  };
-
-  const BarWithTooltip: React.FC<{ height: number; status: string; tooltipText: string }> = ({ height, status, tooltipText }) => {
-    const [showTooltip, setShowTooltip] = useState(false);
-    const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
-    const [arrowPosition, setArrowPosition] = useState<'top' | 'bottom'>('top');
-    const barRef = useRef<HTMLDivElement>(null);
-    const tooltipRef = useRef<HTMLDivElement>(null);
-    const statusColor = getStatusColor(status);
-    
-    const handleMouseEnter = () => {
-      setShowTooltip(true);
-      setTimeout(() => {
-        if (barRef.current && tooltipRef.current) {
-          const barRect = barRef.current.getBoundingClientRect();
-          const tooltipRect = tooltipRef.current.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
-          const viewportWidth = window.innerWidth;
-          const spaceAbove = barRect.top;
-          const spaceBelow = viewportHeight - barRect.bottom;
-          const tooltipHeight = tooltipRect.height || 120;
-          const tooltipWidth = tooltipRect.width || 220;
-          
-          let top = barRect.top - tooltipHeight - 12;
-          let left = barRect.left + barRect.width / 2;
-          let arrowPos: 'top' | 'bottom' = 'top';
-          
-          if (spaceAbove < tooltipHeight + 20 && spaceBelow > spaceAbove) {
-            top = barRect.bottom + 12;
-            arrowPos = 'bottom';
-          }
-          
-          if (left + tooltipWidth / 2 > viewportWidth - 10) {
-            left = viewportWidth - tooltipWidth / 2 - 10;
-          } else if (left - tooltipWidth / 2 < 10) {
-            left = tooltipWidth / 2 + 10;
-          }
-          
-          setTooltipStyle({
-            position: 'fixed',
-            top: `${top}px`,
-            left: `${left}px`,
-            transform: 'translateX(-50%)',
-            zIndex: 10000
-          });
-          setArrowPosition(arrowPos);
-        }
-      }, 0);
-    };
-    
-    return (
-      <div
-        ref={barRef}
-        style={{
-          flex: 1,
-          minWidth: 20,
-          height: `${height}%`,
-          backgroundColor: statusColor,
-          border: `2px solid ${statusColor}`,
-          borderRadius: '2px 2px 0 0',
-          position: 'relative',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          fontFamily: "Consolas",
-          fontSize: 11
-        }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => {
-          setShowTooltip(false);
-          setTooltipStyle({});
-          setArrowPosition('top');
-        }}
-      >
-        {showTooltip && (
-          <div 
-            ref={tooltipRef}
-            style={{
-              ...tooltipStyle,
-              backgroundColor: asciiColors.foreground,
-              color: asciiColors.background,
-              padding: '8px 12px',
-              borderRadius: 2,
-              fontSize: 11,
-              fontFamily: "Consolas",
-              whiteSpace: 'pre-line',
-              pointerEvents: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-              minWidth: 220,
-              maxWidth: 300,
-              textAlign: 'left'
-            }}
-          >
-            {tooltipText}
-            <div style={{
-              position: 'absolute',
-              [arrowPosition === 'top' ? 'top' : 'bottom']: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              border: '6px solid transparent',
-              [arrowPosition === 'top' ? 'borderTopColor' : 'borderBottomColor']: asciiColors.foreground
-            }} />
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <>
@@ -311,33 +172,33 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
               {ascii.v} Configuration
             </button>
             <button
-              onClick={() => setActiveTab('timeline')}
+              onClick={() => setActiveTab('dataflow')}
               style={{
                 flex: 1,
                 padding: "12px 20px",
                 border: "none",
-                borderBottom: activeTab === 'timeline' ? `3px solid ${asciiColors.accent}` : `3px solid transparent`,
+                borderBottom: activeTab === 'dataflow' ? `3px solid ${asciiColors.accent}` : `3px solid transparent`,
                 backgroundColor: "transparent",
-                color: activeTab === 'timeline' ? asciiColors.accent : asciiColors.muted,
+                color: activeTab === 'dataflow' ? asciiColors.accent : asciiColors.muted,
                 fontSize: 12,
                 fontFamily: "Consolas",
-                fontWeight: activeTab === 'timeline' ? 600 : 400,
+                fontWeight: activeTab === 'dataflow' ? 600 : 400,
                 cursor: "pointer",
                 transition: "all 0.2s ease",
                 textTransform: "uppercase"
               }}
               onMouseEnter={(e) => {
-                if (activeTab !== 'timeline') {
+                if (activeTab !== 'dataflow') {
                   e.currentTarget.style.color = asciiColors.foreground;
                 }
               }}
               onMouseLeave={(e) => {
-                if (activeTab !== 'timeline') {
+                if (activeTab !== 'dataflow') {
                   e.currentTarget.style.color = asciiColors.muted;
                 }
               }}
             >
-              {ascii.v} Execution Timeline
+              {ascii.v} Data Flow
             </button>
           </div>
           
@@ -656,92 +517,13 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                 </div>
               </div>
             ) : (
-              <>
-                {loadingHistory ? (
-                  <div style={{ 
-                    textAlign: 'center', 
-                    padding: '40px', 
-                    color: asciiColors.muted,
-                    fontFamily: "Consolas",
-                    fontSize: 12
-                  }}>
-                    {ascii.blockFull} Loading execution history...
-                  </div>
-                ) : groupedExecutions.length === 0 ? (
-                  <div style={{ 
-                    textAlign: 'center', 
-                    padding: '40px', 
-                    color: asciiColors.muted,
-                    fontFamily: "Consolas",
-                    fontSize: 12
-                  }}>
-                    <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
-                      {ascii.blockFull}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
-                      No execution history available
-                    </div>
-                    <div style={{ fontSize: 12, opacity: 0.7 }}>
-                      No execution history available for this table.
-                    </div>
-                  </div>
-                ) : (
-                  <AsciiPanel title="EXECUTION DURATION TIMELINE">
-                    <div style={{ 
-                      position: 'relative', 
-                      paddingLeft: '40px',
-                      padding: "8px 0"
-                    }}>
-                      <div style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        fontSize: 11,
-                        color: asciiColors.muted,
-                        fontFamily: "Consolas",
-                        padding: '8px 0',
-                        paddingBottom: '28px'
-                      }}>
-                        <span>{formatDuration(maxDuration)}</span>
-                        <span>{formatDuration(Math.floor(maxDuration / 2))}</span>
-                        <span style={{ paddingBottom: '8px' }}>0s</span>
-                      </div>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'flex-end',
-                        gap: 8,
-                        height: 200,
-                        padding: '8px 0'
-                      }}>
-                        {groupedExecutions.slice(0, 20).reverse().map((exec) => {
-                          const height = maxDuration > 0 ? (exec.duration_seconds || 0) / maxDuration * 100 : 0;
-                          const tooltipText = `${exec.status}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}`;
-                          return (
-                            <BarWithTooltip
-                              key={exec.id}
-                              height={height}
-                              status={exec.status}
-                              tooltipText={tooltipText}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </AsciiPanel>
-                )}
-                
-                <div style={{ marginTop: 20 }}>
-                  <MappingGraph
-                    table={entry}
-                    tableStructure={tableStructure}
-                    loading={loadingStructure}
-                  />
-                </div>
-              </>
+              <div>
+                <MappingGraph
+                  table={entry}
+                  tableStructure={tableStructure}
+                  loading={loadingStructure}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -787,337 +569,633 @@ interface MappingGraphProps {
 }
 
 const MappingGraph: React.FC<MappingGraphProps> = ({ table, tableStructure, loading }) => {
-  return (
-    <div style={{ marginTop: 20 }}>
-      <AsciiPanel title="DATA FLOW: SOURCE → TARGET">
-      {loading ? (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px',
-          color: asciiColors.muted,
-          fontFamily: "Consolas",
-          fontSize: 12
-        }}>
-          {ascii.blockFull} Loading table structure...
-        </div>
-      ) : !tableStructure ? (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px', 
-          color: asciiColors.muted,
-          fontFamily: "Consolas",
-          fontSize: 12
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
-            {ascii.blockFull}
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
-            Table structure not available
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>
-            The table may not exist yet or there was an error loading it.
-          </div>
-        </div>
-      ) : (
-        <div style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 24,
-          justifyContent: "center",
-          minHeight: 400,
-          padding: "8px 0"
-        }}>
-          <div style={{
-            flex: "0 0 300px",
-            background: asciiColors.background,
-            border: `2px solid ${asciiColors.accent}`,
-            borderRadius: 2,
-            padding: "16px",
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<'name' | 'type' | 'position'>('position');
+  const [expandedSections, setExpandedSections] = useState({
+    summary: true,
+    source: true,
+    target: true
+  });
+  const [hoveredColumn, setHoveredColumn] = useState<string | null>(null);
+
+  const toggleSection = (section: 'summary' | 'source' | 'target') => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const getColumnMapping = useMemo(() => {
+    if (!tableStructure?.source?.columns || !tableStructure?.target?.columns) return [];
+    return tableStructure.source.columns.map((sourceCol: any) => {
+      const targetCol = tableStructure.target.columns.find(
+        (t: any) => t.name.toLowerCase() === sourceCol.name.toLowerCase()
+      );
+      return {
+        source: sourceCol,
+        target: targetCol || null,
+        mapped: !!targetCol,
+        differences: targetCol ? {
+          type: sourceCol.type !== targetCol.type,
+          nullable: sourceCol.nullable !== targetCol.nullable,
+          default: sourceCol.default !== targetCol.default
+        } : null
+      };
+    });
+  }, [tableStructure]);
+
+  const getMappingStatus = useMemo(() => {
+    const mappings = getColumnMapping;
+    const mapped = mappings.filter(m => m.mapped).length;
+    const unmapped = mappings.length - mapped;
+    const withDifferences = mappings.filter(m => m.mapped && m.differences && 
+      (m.differences.type || m.differences.nullable || m.differences.default)).length;
+    return { total: mappings.length, mapped, unmapped, withDifferences };
+  }, [getColumnMapping]);
+
+  const getFilteredAndSortedColumns = (columns: any[], isSource: boolean) => {
+    let filtered = columns.filter((col: any) =>
+      col.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      col.type.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (sortBy === 'name') {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'type') {
+      filtered.sort((a, b) => a.type.localeCompare(b.type));
+    }
+
+    return filtered;
+  };
+
+  const isPrimaryKey = (colName: string, isSource: boolean) => {
+    const pks = isSource ? tableStructure?.source?.primaryKeys : tableStructure?.target?.primaryKeys;
+    return pks && pks.includes(colName);
+  };
+
+  const isForeignKey = (colName: string, isSource: boolean) => {
+    const fks = isSource ? tableStructure?.source?.foreignKeys : tableStructure?.target?.foreignKeys;
+    return fks && fks.some((fk: any) => fk.column === colName);
+  };
+
+  const isIndexed = (colName: string, isSource: boolean) => {
+    const indexes = isSource ? tableStructure?.source?.indexes : tableStructure?.target?.indexes;
+    return indexes && indexes.length > 0;
+  };
+
+  const getMappingColor = (mapping: any) => {
+    if (!mapping.mapped) return asciiColors.foreground;
+    if (mapping.differences && mapping.differences.type) return asciiColors.foreground;
+    if (mapping.differences && (mapping.differences.nullable || mapping.differences.default)) return asciiColors.muted;
+    return asciiColors.accent;
+  };
+
+  const exportMapping = () => {
+    const mapping = getColumnMapping.map(m => ({
+      sourceColumn: m.source.name,
+      sourceType: m.source.type,
+      targetColumn: m.target?.name || 'NOT MAPPED',
+      targetType: m.target?.type || 'N/A',
+      mapped: m.mapped,
+      differences: m.differences
+    }));
+    const csv = [
+      ['Source Column', 'Source Type', 'Target Column', 'Target Type', 'Mapped', 'Differences'].join(','),
+      ...mapping.map(m => [
+        m.sourceColumn,
+        m.sourceType,
+        m.targetColumn,
+        m.targetType,
+        m.mapped ? 'Yes' : 'No',
+        m.differences ? JSON.stringify(m.differences) : 'None'
+      ].join(','))
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mapping_${table.schema_name}_${table.table_name}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ marginTop: 20 }}>
+        <AsciiPanel title="DATA FLOW: SOURCE → TARGET">
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '40px',
+            color: asciiColors.muted,
             fontFamily: "Consolas",
             fontSize: 12
           }}>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingBottom: "8px",
-              borderBottom: `2px solid ${asciiColors.border}`,
-              marginBottom: "12px"
-            }}>
-              <div>
-                <h3 style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  margin: 0,
-                  color: asciiColors.accent,
-                  fontFamily: "Consolas"
-                }}>
-                  Source: {table.db_engine}
-                </h3>
-                <div style={{
+            {ascii.blockFull} Loading table structure...
+          </div>
+        </AsciiPanel>
+      </div>
+    );
+  }
+
+  if (!tableStructure) {
+    return (
+      <div style={{ marginTop: 20 }}>
+        <AsciiPanel title="DATA FLOW: SOURCE → TARGET">
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '40px', 
+            color: asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>
+              {ascii.blockFull}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+              Table structure not available
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>
+              The table may not exist yet or there was an error loading it.
+            </div>
+          </div>
+        </AsciiPanel>
+      </div>
+    );
+  }
+
+  const sourceColumns = getFilteredAndSortedColumns(tableStructure.source?.columns || [], true);
+  const targetColumns = getFilteredAndSortedColumns(tableStructure.target?.columns || [], false);
+  const status = getMappingStatus;
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <AsciiPanel title="DATA FLOW: SOURCE → TARGET">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "12px",
+            backgroundColor: asciiColors.backgroundSoft,
+            borderRadius: 2,
+            border: `1px solid ${asciiColors.border}`
+          }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <input
+                type="text"
+                placeholder="Search columns..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
                   fontSize: 11,
-                  color: asciiColors.muted,
                   fontFamily: "Consolas",
-                  marginTop: 4
-                }}>
-                  {table.schema_name}.{table.table_name}
-                </div>
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: "none",
+                  width: 200
+                }}
+              />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'name' | 'type' | 'position')}
+                style={{
+                  padding: "6px 10px",
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: "Consolas",
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  cursor: "pointer",
+                  outline: "none"
+                }}
+              >
+                <option value="position">Sort by Position</option>
+                <option value="name">Sort by Name</option>
+                <option value="type">Sort by Type</option>
+              </select>
+            </div>
+            <AsciiButton
+              label="Export CSV"
+              onClick={exportMapping}
+              variant="ghost"
+            />
+          </div>
+
+          <div style={{
+            padding: "12px",
+            backgroundColor: asciiColors.backgroundSoft,
+            borderRadius: 2,
+            border: `1px solid ${asciiColors.border}`,
+            cursor: "pointer"
+          }}
+          onClick={() => toggleSection('summary')}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.foreground, fontFamily: "Consolas" }}>
+                {ascii.v} Summary {expandedSections.summary ? '▼' : '▶'}
               </div>
             </div>
-            {tableStructure.source && tableStructure.source.columns ? (
-              <table style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 12,
-                fontFamily: "Consolas"
-              }}>
-                <thead style={{
-                  background: asciiColors.backgroundSoft,
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 10
-                }}>
-                  <tr style={{
-                    borderBottom: `2px solid ${asciiColors.border}`
-                  }}>
-                    <th style={{
-                      padding: "8px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontSize: 12,
-                      fontFamily: "Consolas",
-                      width: 20
-                    }}></th>
-                    <th style={{
-                      padding: "8px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontSize: 12,
-                      fontFamily: "Consolas",
-                      width: "40%"
-                    }}>Name</th>
-                    <th style={{
-                      padding: "8px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontSize: 12,
-                      fontFamily: "Consolas"
-                    }}>Data Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableStructure.source.columns.map((col: any, index: number) => (
-                    <tr 
-                      key={col.name}
-                      style={{
-                        borderBottom: `1px solid ${asciiColors.border}`,
-                        transition: "background-color 0.2s ease"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = asciiColors.background;
-                      }}
-                    >
-                      <td style={{
-                        padding: "4px 8px",
-                        color: asciiColors.muted,
-                        fontSize: 11,
-                        fontFamily: "Consolas"
-                      }}>{index + 1}</td>
-                      <td style={{
-                        padding: "4px 8px",
-                        fontWeight: 500,
-                        color: asciiColors.accent,
-                        fontFamily: "Consolas"
-                      }}>{col.name}</td>
-                      <td style={{
-                        padding: "4px 8px",
-                        color: asciiColors.muted,
-                        fontFamily: "Consolas",
-                        fontSize: 11
-                      }}>{col.type}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div style={{
-                padding: "20px",
-                textAlign: "center",
-                color: asciiColors.muted,
-                fontSize: 11,
-                fontFamily: "Consolas"
-              }}>
-                Source structure not available
+            {expandedSections.summary && (
+              <>
+                <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  <div style={{ textAlign: "center", padding: "8px", backgroundColor: asciiColors.background, borderRadius: 2 }}>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: asciiColors.accent }}>{status.total}</div>
+                    <div style={{ fontSize: 10, color: asciiColors.muted }}>Total Columns</div>
+                  </div>
+                  <div style={{ textAlign: "center", padding: "8px", backgroundColor: asciiColors.background, borderRadius: 2 }}>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: asciiColors.accent }}>{status.mapped}</div>
+                    <div style={{ fontSize: 10, color: asciiColors.muted }}>Mapped</div>
+                  </div>
+                  <div style={{ textAlign: "center", padding: "8px", backgroundColor: asciiColors.background, borderRadius: 2 }}>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: asciiColors.foreground }}>{status.unmapped}</div>
+                    <div style={{ fontSize: 10, color: asciiColors.muted }}>Unmapped</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, padding: "10px", backgroundColor: asciiColors.background, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.foreground, marginBottom: 8, fontFamily: "Consolas" }}>
+                    {ascii.v} Column Flags Legend
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, fontSize: 10, fontFamily: "Consolas" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>PK</span>
+                      <span style={{ color: asciiColors.muted }}>Primary Key</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>FK</span>
+                      <span style={{ color: asciiColors.muted }}>Foreign Key</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>UQ</span>
+                      <span style={{ color: asciiColors.muted }}>Unique</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>AI</span>
+                      <span style={{ color: asciiColors.muted }}>Auto Increment</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 9, color: asciiColors.accent }}>I</span>
+                      <span style={{ color: asciiColors.muted }}>Indexed</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: asciiColors.accent }}>✓</span>
+                      <span style={{ color: asciiColors.muted }}>Nullable</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: asciiColors.foreground }}>✗</span>
+                      <span style={{ color: asciiColors.muted }}>Not Nullable</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: asciiColors.muted }}>D</span>
+                      <span style={{ color: asciiColors.muted }}>Has Default</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+            {expandedSections.summary && tableStructure.syncInfo && (
+              <div style={{ marginTop: 12, padding: "8px", backgroundColor: asciiColors.background, borderRadius: 2, fontSize: 11 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: asciiColors.muted }}>Last Sync:</span>
+                  <span style={{ color: asciiColors.foreground }}>
+                    {tableStructure.syncInfo.lastSyncTime 
+                      ? new Date(tableStructure.syncInfo.lastSyncTime).toLocaleString() 
+                      : 'Never'}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: asciiColors.muted }}>Status:</span>
+                  <span style={{ color: asciiColors.accent }}>{tableStructure.syncInfo.status || 'N/A'}</span>
+                </div>
+                {tableStructure.source?.stats && (
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: asciiColors.muted }}>Source Rows:</span>
+                    <span style={{ color: asciiColors.foreground }}>{tableStructure.source.stats.rowCount?.toLocaleString() || 0}</span>
+                  </div>
+                )}
+                {tableStructure.target?.stats && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: asciiColors.muted }}>Target Rows:</span>
+                    <span style={{ color: asciiColors.foreground }}>{tableStructure.target.stats.rowCount?.toLocaleString() || 0}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
-          
+
           <div style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
+            gap: 24,
             justifyContent: "center",
-            flex: "0 0 80px",
-            paddingTop: 40
+            minHeight: 400
           }}>
             <div style={{
-              width: 60,
-              height: 4,
-              background: asciiColors.accent,
+              flex: "0 0 350px",
+              background: asciiColors.background,
+              border: `2px solid ${asciiColors.accent}`,
+              borderRadius: 2,
+              padding: "16px",
+              fontFamily: "Consolas",
+              fontSize: 12,
+              maxHeight: 600,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column"
+            }}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingBottom: "8px",
+                borderBottom: `2px solid ${asciiColors.border}`,
+                marginBottom: "12px",
+                cursor: "pointer"
+              }}
+              onClick={() => toggleSection('source')}
+              >
+                <div>
+                  <h3 style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    margin: 0,
+                    color: asciiColors.accent,
+                    fontFamily: "Consolas"
+                  }}>
+                    Source: {table.db_engine} {expandedSections.source ? '▼' : '▶'}
+                  </h3>
+                  <div style={{
+                    fontSize: 11,
+                    color: asciiColors.muted,
+                    fontFamily: "Consolas",
+                    marginTop: 4
+                  }}>
+                    {table.schema_name}.{table.table_name}
+                  </div>
+                  {tableStructure.source?.stats && (
+                    <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: 2 }}>
+                      {tableStructure.source.stats.rowCount?.toLocaleString() || 0} rows • {tableStructure.source.stats.tableSize || 'N/A'}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {expandedSections.source && tableStructure.source && tableStructure.source.columns ? (
+                <div style={{ overflowY: "auto", flex: 1 }}>
+                  <table style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 11,
+                    fontFamily: "Consolas"
+                  }}>
+                    <thead style={{
+                      background: asciiColors.backgroundSoft,
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 10
+                    }}>
+                      <tr style={{ borderBottom: `2px solid ${asciiColors.border}` }}>
+                        <th style={{ padding: "6px 4px", textAlign: "left", fontWeight: 600, fontSize: 10, width: 20 }}>#</th>
+                        <th style={{ padding: "6px 4px", textAlign: "left", fontWeight: 600, fontSize: 10, width: "35%" }}>Name</th>
+                        <th style={{ padding: "6px 4px", textAlign: "left", fontWeight: 600, fontSize: 10 }}>Type</th>
+                        <th style={{ padding: "6px 4px", textAlign: "center", fontWeight: 600, fontSize: 10, width: 60 }}>Flags</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sourceColumns.map((col: any, index: number) => {
+                        const mapping = getColumnMapping.find(m => m.source.name === col.name);
+                        const isPK = isPrimaryKey(col.name, true) || col.isPK;
+                        const isFK = isForeignKey(col.name, true) || col.isFK;
+                        const isIdx = isIndexed(col.name, true);
+                        const isHovered = hoveredColumn === `source-${col.name}`;
+                        const mappingColor = mapping ? getMappingColor(mapping) : asciiColors.accent;
+                        
+                        return (
+                          <tr 
+                            key={col.name}
+                            style={{
+                              borderBottom: `1px solid ${asciiColors.border}`,
+                              transition: "all 0.2s ease",
+                              backgroundColor: isHovered ? asciiColors.backgroundSoft : asciiColors.background,
+                              borderLeft: isHovered ? `3px solid ${mappingColor}` : '3px solid transparent'
+                            }}
+                            onMouseEnter={() => {
+                              setHoveredColumn(`source-${col.name}`);
+                              if (mapping?.target) {
+                                setHoveredColumn(`target-${mapping.target.name}`);
+                              }
+                            }}
+                            onMouseLeave={() => setHoveredColumn(null)}
+                          >
+                            <td style={{ padding: "4px", color: asciiColors.muted, fontSize: 10 }}>{index + 1}</td>
+                            <td style={{ padding: "4px", fontWeight: 500, color: asciiColors.accent }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                {col.name}
+                                {isPK && <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>PK</span>}
+                                {isFK && <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>FK</span>}
+                                {col.isUnique && <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>UQ</span>}
+                                {col.isAutoIncrement && <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>AI</span>}
+                              </div>
+                            </td>
+                            <td style={{ padding: "4px", color: asciiColors.muted, fontSize: 10 }}>{col.type}</td>
+                            <td style={{ padding: "4px", textAlign: "center", fontSize: 9 }}>
+                              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                {col.nullable ? <span style={{ color: asciiColors.accent }}>✓</span> : <span style={{ color: asciiColors.foreground }}>✗</span>}
+                                {col.default && <span style={{ color: asciiColors.muted }} title={col.default}>D</span>}
+                                {isIdx && <span style={{ color: asciiColors.accent }}>I</span>}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: "20px", textAlign: "center", color: asciiColors.muted, fontSize: 11 }}>
+                  Source structure not available
+                </div>
+              )}
+            </div>
+            
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: "0 0 80px",
+              paddingTop: 40,
               position: "relative"
             }}>
               <div style={{
-                position: "absolute",
-                right: -8,
-                top: -6,
-                width: 0,
-                height: 0,
-                borderLeft: `12px solid ${asciiColors.accent}`,
-                borderTop: "8px solid transparent",
-                borderBottom: "8px solid transparent"
-              }} />
-            </div>
-          </div>
-          
-          <div style={{
-            flex: "0 0 350px",
-            background: asciiColors.background,
-            border: `2px solid ${asciiColors.accent}`,
-            borderRadius: 2,
-            padding: "16px",
-            fontFamily: "Consolas",
-            fontSize: 12,
-            maxHeight: 600,
-            overflowY: "auto"
-          }}>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingBottom: "8px",
-              borderBottom: `2px solid ${asciiColors.border}`,
-              marginBottom: "12px"
-            }}>
-              <div>
-                <h3 style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  margin: 0,
-                  color: asciiColors.accent,
-                  fontFamily: "Consolas"
-                }}>
-                  Target: {tableStructure.target?.table || table.table_name}
-                </h3>
+                width: 60,
+                height: 4,
+                background: asciiColors.accent,
+                position: "relative"
+              }}>
                 <div style={{
-                  fontSize: 11,
-                  color: asciiColors.muted,
-                  fontFamily: "Consolas",
-                  marginBottom: "8px"
-                }}>
-                  {tableStructure.target?.schema || table.schema_name}.{tableStructure.target?.table || table.table_name} (PostgreSQL)
+                  position: "absolute",
+                  right: -8,
+                  top: -6,
+                  width: 0,
+                  height: 0,
+                  borderLeft: `12px solid ${asciiColors.accent}`,
+                  borderTop: "8px solid transparent",
+                  borderBottom: "8px solid transparent"
+                }} />
+              </div>
+              {hoveredColumn && (() => {
+                const sourceCol = sourceColumns.find((c: any) => hoveredColumn === `source-${c.name}`);
+                const mapping = sourceCol ? getColumnMapping.find(m => m.source.name === sourceCol.name) : null;
+                if (mapping && mapping.target) {
+                  const sourceIndex = sourceColumns.findIndex((c: any) => c.name === mapping.source.name);
+                  const targetIndex = targetColumns.findIndex((c: any) => c.name === mapping.target.name);
+                  if (sourceIndex >= 0 && targetIndex >= 0) {
+                    const sourceY = sourceIndex * 28 + 100;
+                    const targetY = targetIndex * 28 + 100;
+                    return (
+                      <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 5 }}>
+                        <line
+                          x1="0"
+                          y1={sourceY}
+                          x2="100%"
+                          y2={targetY}
+                          stroke={getMappingColor(mapping)}
+                          strokeWidth="2"
+                          strokeDasharray={mapping.differences && (mapping.differences.type || mapping.differences.nullable) ? "5,5" : "0"}
+                        />
+                      </svg>
+                    );
+                  }
+                }
+                return null;
+              })()}
+            </div>
+            
+            <div style={{
+              flex: "0 0 350px",
+              background: asciiColors.background,
+              border: `2px solid ${asciiColors.accent}`,
+              borderRadius: 2,
+              padding: "16px",
+              fontFamily: "Consolas",
+              fontSize: 12,
+              maxHeight: 600,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column"
+            }}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingBottom: "8px",
+                borderBottom: `2px solid ${asciiColors.border}`,
+                marginBottom: "12px",
+                cursor: "pointer"
+              }}
+              onClick={() => toggleSection('target')}
+              >
+                <div>
+                  <h3 style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    margin: 0,
+                    color: asciiColors.accent,
+                    fontFamily: "Consolas"
+                  }}>
+                    Target: PostgreSQL {expandedSections.target ? '▼' : '▶'}
+                  </h3>
+                  <div style={{
+                    fontSize: 11,
+                    color: asciiColors.muted,
+                    fontFamily: "Consolas",
+                    marginTop: 4
+                  }}>
+                    {tableStructure.target?.schema || table.schema_name}.{tableStructure.target?.table || table.table_name}
+                  </div>
+                  {tableStructure.target?.stats && (
+                    <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: 2 }}>
+                      {tableStructure.target.stats.rowCount?.toLocaleString() || 0} rows • {tableStructure.target.stats.tableSize || 'N/A'}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-            {tableStructure.target && tableStructure.target.columns ? (
-              <table style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 12,
-                fontFamily: "Consolas"
-              }}>
-                <thead style={{
-                  background: asciiColors.backgroundSoft,
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 10
-                }}>
-                  <tr style={{
-                    borderBottom: `2px solid ${asciiColors.border}`
+              {expandedSections.target && tableStructure.target && tableStructure.target.columns ? (
+                <div style={{ overflowY: "auto", flex: 1 }}>
+                  <table style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 11,
+                    fontFamily: "Consolas"
                   }}>
-                    <th style={{
-                      padding: "8px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontSize: 12,
-                      fontFamily: "Consolas",
-                      width: 20
-                    }}></th>
-                    <th style={{
-                      padding: "8px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontSize: 12,
-                      fontFamily: "Consolas",
-                      width: "40%"
-                    }}>Name</th>
-                    <th style={{
-                      padding: "8px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontSize: 12,
-                      fontFamily: "Consolas"
-                    }}>Data Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableStructure.target.columns.map((col: any, index: number) => (
-                    <tr 
-                      key={col.name}
-                      style={{
-                        borderBottom: `1px solid ${asciiColors.border}`,
-                        transition: "background-color 0.2s ease"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = asciiColors.background;
-                      }}
-                    >
-                      <td style={{
-                        padding: "4px 8px",
-                        color: asciiColors.muted,
-                        fontSize: 11,
-                        fontFamily: "Consolas"
-                      }}>{index + 1}</td>
-                      <td style={{
-                        padding: "4px 8px",
-                        fontWeight: 500,
-                        color: asciiColors.accent,
-                        fontFamily: "Consolas"
-                      }}>{col.name}</td>
-                      <td style={{
-                        padding: "4px 8px",
-                        color: asciiColors.muted,
-                        fontFamily: "Consolas",
-                        fontSize: 11
-                      }}>{col.type}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div style={{
-                padding: "20px",
-                textAlign: "center",
-                color: asciiColors.muted,
-                fontSize: 11,
-                fontFamily: "Consolas"
-              }}>
-                Target structure not available
-              </div>
-            )}
+                    <thead style={{
+                      background: asciiColors.backgroundSoft,
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 10
+                    }}>
+                      <tr style={{ borderBottom: `2px solid ${asciiColors.border}` }}>
+                        <th style={{ padding: "6px 4px", textAlign: "left", fontWeight: 600, fontSize: 10, width: 20 }}>#</th>
+                        <th style={{ padding: "6px 4px", textAlign: "left", fontWeight: 600, fontSize: 10, width: "35%" }}>Name</th>
+                        <th style={{ padding: "6px 4px", textAlign: "left", fontWeight: 600, fontSize: 10 }}>Type</th>
+                        <th style={{ padding: "6px 4px", textAlign: "center", fontWeight: 600, fontSize: 10, width: 60 }}>Flags</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {targetColumns.map((col: any, index: number) => {
+                        const mapping = getColumnMapping.find(m => m.target?.name === col.name);
+                        const isPK = isPrimaryKey(col.name, false);
+                        const isFK = isForeignKey(col.name, false);
+                        const isIdx = isIndexed(col.name, false);
+                        const isHovered = hoveredColumn === `target-${col.name}`;
+                        const mappingColor = mapping ? getMappingColor(mapping) : asciiColors.accent;
+                        
+                        return (
+                          <tr 
+                            key={col.name}
+                            style={{
+                              borderBottom: `1px solid ${asciiColors.border}`,
+                              transition: "all 0.2s ease",
+                              backgroundColor: isHovered ? asciiColors.backgroundSoft : asciiColors.background,
+                              borderLeft: isHovered ? `3px solid ${mappingColor}` : '3px solid transparent'
+                            }}
+                            onMouseEnter={() => {
+                              setHoveredColumn(`target-${col.name}`);
+                              if (mapping?.source) {
+                                setHoveredColumn(`source-${mapping.source.name}`);
+                              }
+                            }}
+                            onMouseLeave={() => setHoveredColumn(null)}
+                          >
+                            <td style={{ padding: "4px", color: asciiColors.muted, fontSize: 10 }}>{index + 1}</td>
+                            <td style={{ padding: "4px", fontWeight: 500, color: asciiColors.accent }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                {col.name}
+                                {isPK && <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>PK</span>}
+                                {isFK && <span style={{ fontSize: 9, color: asciiColors.accent, fontWeight: 600 }}>FK</span>}
+                              </div>
+                            </td>
+                            <td style={{ padding: "4px", color: asciiColors.muted, fontSize: 10 }}>{col.type}</td>
+                            <td style={{ padding: "4px", textAlign: "center", fontSize: 9 }}>
+                              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                                {col.nullable ? <span style={{ color: asciiColors.accent }}>✓</span> : <span style={{ color: asciiColors.foreground }}>✗</span>}
+                                {col.default && <span style={{ color: asciiColors.muted }} title={col.default}>D</span>}
+                                {isIdx && <span style={{ color: asciiColors.accent }}>I</span>}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: "20px", textAlign: "center", color: asciiColors.muted, fontSize: 11 }}>
+                  Target structure not available
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      )}
       </AsciiPanel>
     </div>
   );

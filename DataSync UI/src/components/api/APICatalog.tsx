@@ -74,7 +74,8 @@ const APICatalog = () => {
       
       const response = await apiCatalogApi.getAPIs(params);
       if (isMountedRef.current) {
-        setAllEntries(response.data || []);
+        const entries = response.data?.data || response.data || [];
+        setAllEntries(entries);
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -646,8 +647,10 @@ const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({ api, history, loa
               [arrowPosition === 'top' ? 'top' : 'bottom']: '100%',
               left: '50%',
               transform: 'translateX(-50%)',
-              border: '6px solid transparent',
-              [arrowPosition === 'top' ? 'borderTopColor' : 'borderBottomColor']: asciiColors.foreground
+              borderTop: arrowPosition === 'top' ? `6px solid ${asciiColors.foreground}` : '6px solid transparent',
+              borderBottom: arrowPosition === 'bottom' ? `6px solid ${asciiColors.foreground}` : '6px solid transparent',
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent'
             }} />
           </div>
         )}
