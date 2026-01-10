@@ -56,7 +56,8 @@ const CSVCatalog = () => {
       
       const response = await csvCatalogApi.getCSVs(params);
       if (isMountedRef.current) {
-        setAllEntries(response.data || []);
+        const entries = response.data?.data || response.data || [];
+        setAllEntries(entries);
       }
     } catch (err) {
       if (isMountedRef.current) {

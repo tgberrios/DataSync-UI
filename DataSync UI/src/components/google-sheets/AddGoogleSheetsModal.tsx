@@ -40,6 +40,15 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
   const [availableSheets, setAvailableSheets] = useState<Array<{title: string, sheetId: number | null, index: number}>>([]);
   const [isLoadingSheets, setIsLoadingSheets] = useState(false);
   
+  // Estados para validación/preview del Spreadsheet ID
+  const [isValidatingSheet, setIsValidatingSheet] = useState(false);
+  const [sheetPreview, setSheetPreview] = useState<{
+    valid: boolean;
+    title?: string;
+    sheets?: Array<{title: string, sheetId: number | null, index: number}>;
+    error?: string;
+  } | null>(null);
+  
   // Estados para análisis de Google Sheets
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{
@@ -108,6 +117,73 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
     }
   }, [formData.spreadsheet_id, formData.api_key, formData.access_token]);
 
+  // Handler para validar el Spreadsheet ID
+  const handleValidateSheetId = useCallback(async () => {
+    if (!formData.spreadsheet_id || formData.spreadsheet_id.length < 20) {
+      setSheetPreview(null);
+      return;
+    }
+
+    if (!formData.api_key && !formData.access_token) {
+      setSheetPreview(null);
+      return;
+    }
+
+    setIsValidatingSheet(true);
+    setSheetPreview(null);
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/google-sheets-catalog/validate-sheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          spreadsheet_id: formData.spreadsheet_id,
+          api_key: formData.api_key || null,
+          access_token: formData.access_token || null,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSheetPreview({
+          valid: data.success,
+          title: data.title,
+          sheets: data.sheets,
+          error: data.error
+        });
+      } else {
+        const errorData = await response.json();
+        setSheetPreview({
+          valid: false,
+          error: errorData.error || 'Failed to validate spreadsheet'
+        });
+      }
+    } catch (err) {
+      setSheetPreview({
+        valid: false,
+        error: 'Network error. Please check your connection.'
+      });
+    } finally {
+      setIsValidatingSheet(false);
+    }
+  }, [formData.spreadsheet_id, formData.api_key, formData.access_token]);
+
+  // Validar Spreadsheet ID automáticamente cuando se ingresa
+  React.useEffect(() => {
+    if (formData.spreadsheet_id && formData.spreadsheet_id.length >= 20 && (formData.api_key || formData.access_token)) {
+      const timer = setTimeout(() => {
+        handleValidateSheetId();
+      }, 800);
+      return () => clearTimeout(timer);
+    } else {
+      setSheetPreview(null);
+    }
+  }, [formData.spreadsheet_id, formData.api_key, formData.access_token, handleValidateSheetId]);
+
   // Obtener hojas automáticamente cuando cambian los campos relevantes
   React.useEffect(() => {
     if (formData.spreadsheet_id && (formData.api_key || formData.access_token)) {
@@ -175,7 +251,7 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
 
   // Handler para test de conexión
   const handleTestConnection = useCallback(async () => {
-    if (!formData.target_db_engine || !formData.target_connection_string.trim()) {
+    if (!formData.target_db_engine || !formData.target_connection_string || !formData.target_connection_string.trim()) {
       setConnectionTestResult({ success: false, message: 'Please select database engine and enter connection string' });
       return;
     }
@@ -212,12 +288,12 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
         const data = await response.json();
         setConnectionTestResult({ success: false, message: data.error || data.message || 'Connection failed' });
       }
-    } catch (err: any) {
+    } catch (err) {
       setConnectionTestResult({ success: false, message: err.message || 'Error testing connection' });
     } finally {
       setIsTestingConnection(false);
     }
-  }, [formData.target_db_engine, formData.target_connection_string]);
+  }, [formData.target_db_engine, formData.target_connection_string, handleDiscoverSchemas]);
 
   // Handler para obtener schemas
   const handleDiscoverSchemas = useCallback(async () => {
@@ -548,6 +624,49 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
               }}>
                 Found in the Google Sheets URL: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
               </div>
+              {isValidatingSheet && (
+                <div style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: asciiColors.muted,
+                  fontFamily: "Consolas"
+                }}>
+                  {ascii.blockFull} Validating spreadsheet...
+                </div>
+              )}
+              {sheetPreview && (
+                <div style={{
+                  marginTop: 8,
+                  padding: 8,
+                  backgroundColor: sheetPreview.valid ? asciiColors.backgroundSoft : asciiColors.background,
+                  border: `1px solid ${sheetPreview.valid ? asciiColors.accent : asciiColors.foreground}`,
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontFamily: "Consolas"
+                }}>
+                  {sheetPreview.valid ? (
+                    <>
+                      <div style={{ color: asciiColors.accent, fontWeight: 600, marginBottom: 4 }}>
+                        ✓ Spreadsheet found
+                      </div>
+                      {sheetPreview.title && (
+                        <div style={{ color: asciiColors.foreground, marginBottom: 4 }}>
+                          Title: {sheetPreview.title}
+                        </div>
+                      )}
+                      {sheetPreview.sheets && sheetPreview.sheets.length > 0 && (
+                        <div style={{ color: asciiColors.muted, fontSize: 10 }}>
+                          Available sheets: {sheetPreview.sheets.map(s => s.title).join(', ')}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ color: asciiColors.foreground }}>
+                      ✗ {sheetPreview.error || 'Invalid spreadsheet ID or access denied'}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -592,7 +711,20 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                 fontStyle: "italic",
                 fontFamily: "Consolas"
               }}>
-                Get your API key from Google Cloud Console. Required if not using Access Token.
+                Get your API key from{' '}
+                <a 
+                  href="https://console.cloud.google.com/apis/credentials" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    color: asciiColors.accent, 
+                    textDecoration: 'underline',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Google Cloud Console
+                </a>
+                . Required if not using Access Token.
               </div>
             </div>
 
@@ -638,7 +770,19 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                 fontStyle: "italic",
                 fontFamily: "Consolas"
               }}>
-                OAuth2 access token for authenticated access. Required if not using API Key.
+                OAuth2 access token for authenticated access. Required if not using API Key.{' '}
+                <a 
+                  href="https://console.cloud.google.com/apis/credentials" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    color: asciiColors.accent, 
+                    textDecoration: 'underline',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Get credentials from Google Cloud Console
+                </a>
               </div>
             </div>
 

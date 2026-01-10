@@ -9026,7 +9026,7 @@ app.get("/api/custom-jobs/:jobName/table-structure", async (req, res) => {
                      is_nullable,
                      column_default
                    FROM information_schema.columns
-                   WHERE table_schema = $1 AND table_name = $2
+                   WHERE LOWER(table_schema) = LOWER($1) AND LOWER(table_name) = LOWER($2)
                    ORDER BY ordinal_position
                  `,
             [target_schema, target_table]
@@ -9992,8 +9992,9 @@ app.get("/api/csv-catalog", async (req, res) => {
       ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING", ""],
       ""
     );
-    const active =
-      req.query.active !== undefined ? validateBoolean(req.query.active) : "";
+    const active = req.query.active !== undefined 
+      ? validateBoolean(req.query.active) 
+      : undefined;
     const search = sanitizeSearch(req.query.search, 100);
 
     let whereConditions = [];
@@ -10018,10 +10019,10 @@ app.get("/api/csv-catalog", async (req, res) => {
       queryParams.push(status);
     }
 
-    if (active !== "") {
+    if (active !== undefined) {
       paramCount++;
       whereConditions.push(`active = $${paramCount}`);
-      queryParams.push(active === "true");
+      queryParams.push(active);
     }
 
     if (search) {
@@ -10874,8 +10875,9 @@ app.get("/api/google-sheets-catalog", async (req, res) => {
       ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING", ""],
       ""
     );
-    const active =
-      req.query.active !== undefined ? validateBoolean(req.query.active) : "";
+    const active = req.query.active !== undefined 
+      ? validateBoolean(req.query.active) 
+      : undefined;
     const search = sanitizeSearch(req.query.search, 100);
 
     let whereConditions = [];
@@ -10894,10 +10896,10 @@ app.get("/api/google-sheets-catalog", async (req, res) => {
       queryParams.push(status);
     }
 
-    if (active !== "") {
+    if (active !== undefined) {
       paramCount++;
       whereConditions.push(`active = $${paramCount}`);
-      queryParams.push(active === "true");
+      queryParams.push(active);
     }
 
     if (search) {
@@ -11126,6 +11128,71 @@ app.post(
         process.env.NODE_ENV === "production"
       );
       res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Endpoint para validar/preview de Google Sheet
+app.post(
+  "/api/google-sheets-catalog/validate-sheet",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { spreadsheet_id, api_key, access_token } = req.body;
+
+      if (!spreadsheet_id) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Spreadsheet ID is required" 
+        });
+      }
+
+      if (!api_key && !access_token) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Either API key or access token is required" 
+        });
+      }
+
+      let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}`;
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (api_key) {
+        url += `?key=${encodeURIComponent(api_key)}`;
+      } else if (access_token) {
+        headers['Authorization'] = `Bearer ${access_token}`;
+      }
+
+      const response = await fetch(url, { headers });
+      const data = await response.json();
+
+      if (response.ok) {
+        const sheets = data.sheets?.map((sheet, index) => ({
+          title: sheet.properties?.title || `Sheet${index + 1}`,
+          sheetId: sheet.properties?.sheetId || null,
+          index: index
+        })) || [];
+
+        res.json({
+          success: true,
+          title: data.properties?.title,
+          sheets: sheets
+        });
+      } else {
+        res.status(response.status).json({
+          success: false,
+          error: data.error?.message || 'Failed to access spreadsheet'
+        });
+      }
+    } catch (err) {
+      console.error("Error validating Google Sheet:", err);
+      res.status(500).json({
+        success: false,
+        error: err.message || "Internal server error"
+      });
     }
   }
 );

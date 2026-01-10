@@ -37,6 +37,7 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
         
         const matchingFinal = history.find((e: any) => 
           !processed.has(e.id) &&
+          e.id !== exec.id &&
           (e.status === 'SUCCESS' || e.status === 'ERROR') &&
           new Date(e.start_time).getTime() > inProgressTime &&
           (new Date(e.start_time).getTime() - inProgressTime) <= MAX_TIME_RANGE_MS
@@ -47,16 +48,33 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
           const finalEndTime = new Date(matchingFinal.end_time);
           const duration = Math.floor((finalEndTime.getTime() - finalStartTime.getTime()) / 1000);
           
+          const inProgressEndTime = new Date(matchingFinal.start_time);
+          const inProgressDuration = Math.floor((inProgressEndTime.getTime() - finalStartTime.getTime()) / 1000);
+          const finalDuration = matchingFinal.duration_seconds || 0;
+          
           executions.push({
             ...matchingFinal,
+            id: exec.id,
             start_time: finalStartTime.toISOString(),
             end_time: finalEndTime.toISOString(),
             duration_seconds: duration > 0 ? duration : (matchingFinal.duration_seconds || 0),
+            in_progress: {
+              start_time: exec.start_time,
+              end_time: matchingFinal.start_time,
+              duration_seconds: inProgressDuration > 0 ? inProgressDuration : 0
+            },
+            final_status: matchingFinal.status,
+            status_flow: ['IN_PROGRESS', matchingFinal.status],
+            final_duration: finalDuration
           });
           processed.add(exec.id);
           processed.add(matchingFinal.id);
         } else {
-          executions.push(exec);
+          executions.push({
+            ...exec,
+            status_flow: ['IN_PROGRESS'],
+            final_status: 'IN_PROGRESS'
+          });
           processed.add(exec.id);
         }
       } else if (exec.status === 'SUCCESS' || exec.status === 'ERROR') {
@@ -64,6 +82,7 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
         
         const matchingInProgress = history.find((e: any) => 
           !processed.has(e.id) &&
+          e.id !== exec.id &&
           e.status === 'IN_PROGRESS' &&
           new Date(e.start_time).getTime() < finalTime &&
           (finalTime - new Date(e.start_time).getTime()) <= MAX_TIME_RANGE_MS
@@ -74,18 +93,41 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
           const finalEndTime = new Date(exec.end_time);
           const duration = Math.floor((finalEndTime.getTime() - finalStartTime.getTime()) / 1000);
           
+          const inProgressEndTime = new Date(exec.start_time);
+          const inProgressDuration = Math.floor((inProgressEndTime.getTime() - finalStartTime.getTime()) / 1000);
+          const finalDuration = exec.duration_seconds || 0;
+          
           executions.push({
             ...exec,
             start_time: finalStartTime.toISOString(),
             end_time: finalEndTime.toISOString(),
             duration_seconds: duration > 0 ? duration : (exec.duration_seconds || 0),
+            in_progress: {
+              start_time: matchingInProgress.start_time,
+              end_time: exec.start_time,
+              duration_seconds: inProgressDuration > 0 ? inProgressDuration : 0
+            },
+            final_status: exec.status,
+            status_flow: ['IN_PROGRESS', exec.status],
+            final_duration: finalDuration
           });
           processed.add(exec.id);
           processed.add(matchingInProgress.id);
         } else {
-          executions.push(exec);
+          executions.push({
+            ...exec,
+            status_flow: [exec.status],
+            final_status: exec.status
+          });
           processed.add(exec.id);
         }
+      } else {
+        executions.push({
+          ...exec,
+          status_flow: [exec.status],
+          final_status: exec.status
+        });
+        processed.add(exec.id);
       }
     });
     
@@ -114,13 +156,39 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
     return asciiColors.muted;
   };
 
-  const BarWithTooltip: React.FC<{ height: number; status: string; tooltipText: string }> = ({ height, status, tooltipText }) => {
+  const SegmentedBarWithTooltip: React.FC<{ 
+    height: number; 
+    exec: any;
+    tooltipText: string;
+  }> = ({ height, exec, tooltipText }) => {
     const [showTooltip, setShowTooltip] = useState(false);
     const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
     const [arrowPosition, setArrowPosition] = useState<'top' | 'bottom'>('top');
     const barRef = useRef<HTMLDivElement>(null);
     const tooltipRef = useRef<HTMLDivElement>(null);
-    const statusColor = getStatusColor(status);
+    
+    const inProgressColor = asciiColors.accentSoft;
+    const finalColor = exec.final_status === 'SUCCESS' ? asciiColors.accent : 
+                      exec.final_status === 'ERROR' ? asciiColors.foreground : 
+                      asciiColors.muted;
+    
+    const totalDuration = exec.duration_seconds || 1;
+    const inProgressDuration = exec.in_progress?.duration_seconds || 0;
+    const finalDuration = exec.final_duration || (exec.in_progress ? Math.max(0, totalDuration - inProgressDuration) : totalDuration);
+    
+    let inProgressHeightPercent = 0;
+    let finalHeightPercent = 100;
+    
+    if (exec.in_progress && totalDuration > 0) {
+      const totalParts = inProgressDuration + finalDuration;
+      if (totalParts > 0) {
+        inProgressHeightPercent = (inProgressDuration / totalParts) * 100;
+        finalHeightPercent = (finalDuration / totalParts) * 100;
+      } else {
+        inProgressHeightPercent = 50;
+        finalHeightPercent = 50;
+      }
+    }
     
     const handleMouseEnter = () => {
       setShowTooltip(true);
@@ -162,21 +230,25 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
       }, 0);
     };
     
+    const minHeight = Math.max(height, 2);
+    
     return (
       <div
         ref={barRef}
         style={{
           flex: 1,
           minWidth: 20,
-          height: `${height}%`,
-          backgroundColor: statusColor,
-          border: `2px solid ${statusColor}`,
-          borderRadius: '2px 2px 0 0',
+          height: `${minHeight}%`,
+          minHeight: '4px',
           position: 'relative',
           cursor: 'pointer',
           transition: 'all 0.2s ease',
           fontFamily: "Consolas",
-          fontSize: 11
+          fontSize: 11,
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: '2px 2px 0 0',
+          overflow: 'hidden'
         }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={() => {
@@ -185,6 +257,23 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
           setArrowPosition('top');
         }}
       >
+        {exec.in_progress && inProgressHeightPercent > 0 && (
+          <div style={{
+            height: `${inProgressHeightPercent}%`,
+            backgroundColor: inProgressColor,
+            border: `2px solid ${inProgressColor}`,
+            borderBottom: 'none',
+            minHeight: inProgressHeightPercent < 5 ? '5%' : undefined
+          }} />
+        )}
+        <div style={{
+          height: exec.in_progress ? `${finalHeightPercent}%` : '100%',
+          backgroundColor: finalColor,
+          border: `2px solid ${finalColor}`,
+          borderTop: exec.in_progress ? 'none' : undefined,
+          borderRadius: exec.in_progress ? '0' : '2px 2px 0 0',
+          minHeight: finalHeightPercent < 5 ? '5%' : undefined
+        }} />
         {showTooltip && (
           <div 
             ref={tooltipRef}
@@ -210,8 +299,10 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
               [arrowPosition === 'top' ? 'top' : 'bottom']: '100%',
               left: '50%',
               transform: 'translateX(-50%)',
-              border: '6px solid transparent',
-              [arrowPosition === 'top' ? 'borderTopColor' : 'borderBottomColor']: asciiColors.foreground
+              borderTop: arrowPosition === 'top' ? `6px solid ${asciiColors.foreground}` : '6px solid transparent',
+              borderBottom: arrowPosition === 'bottom' ? `6px solid ${asciiColors.foreground}` : '6px solid transparent',
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent'
             }} />
           </div>
         )}
@@ -365,13 +456,52 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
                       padding: '8px 0'
                     }}>
                       {groupedExecutions.slice(0, 20).reverse().map((exec) => {
-                        const height = maxDuration > 0 ? (exec.duration_seconds || 0) / maxDuration * 100 : 0;
-                        const tooltipText = `${exec.status}\nDuration: ${formatDuration(exec.duration_seconds || 0)}\nStart: ${formatDateTime(exec.start_time)}\nEnd: ${formatDateTime(exec.end_time)}`;
+                        const duration = exec.duration_seconds || 0;
+                        let height = 0;
+                        if (maxDuration > 0 && duration > 0) {
+                          height = (duration / maxDuration) * 100;
+                        } else if (duration > 0) {
+                          height = 1;
+                        } else {
+                          height = 1;
+                        }
+                        height = Math.max(height, 2);
+                        
+                        let tooltipText = '';
+                        if (exec.in_progress) {
+                          const statusFlow = exec.status_flow ? exec.status_flow.join(' → ') : exec.final_status;
+                          tooltipText = `Status Flow: ${statusFlow}\n\n`;
+                          tooltipText += `IN_PROGRESS:\n`;
+                          tooltipText += `  Duration: ${formatDuration(exec.in_progress.duration_seconds || 0)}\n`;
+                          tooltipText += `  Start: ${formatDateTime(exec.in_progress.start_time)}\n`;
+                          tooltipText += `  End: ${formatDateTime(exec.in_progress.end_time)}\n\n`;
+                          tooltipText += `${exec.final_status}:\n`;
+                          tooltipText += `  Duration: ${formatDuration(exec.final_duration || 0)}\n`;
+                          tooltipText += `  Start: ${formatDateTime(exec.start_time)}\n`;
+                          tooltipText += `  End: ${formatDateTime(exec.end_time)}\n\n`;
+                          tooltipText += `Total Duration: ${formatDuration(exec.duration_seconds || 0)}\n`;
+                          tooltipText += `Rows Processed: ${exec.total_rows_processed || 0}`;
+                          if (exec.error_message) {
+                            tooltipText += `\nError: ${exec.error_message}`;
+                          }
+                        } else {
+                          tooltipText = `Status: ${exec.final_status || exec.status}\n`;
+                          tooltipText += `Duration: ${formatDuration(exec.duration_seconds || 0)}\n`;
+                          tooltipText += `Start: ${formatDateTime(exec.start_time)}\n`;
+                          tooltipText += `End: ${formatDateTime(exec.end_time)}`;
+                          if (exec.total_rows_processed) {
+                            tooltipText += `\nRows Processed: ${exec.total_rows_processed}`;
+                          }
+                          if (exec.error_message) {
+                            tooltipText += `\nError: ${exec.error_message}`;
+                          }
+                        }
+                        
                         return (
-                          <BarWithTooltip
+                          <SegmentedBarWithTooltip
                             key={exec.id}
                             height={height}
-                            status={exec.status}
+                            exec={exec}
                             tooltipText={tooltipText}
                           />
                         );

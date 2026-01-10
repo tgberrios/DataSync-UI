@@ -9,8 +9,7 @@ import type { CustomJobEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
 import CustomJobsTreeView from './CustomJobsTreeView';
-import { ExecutionTimeline } from '../shared/ExecutionTimeline';
-import { MappingGraph } from '../shared/MappingGraph';
+import { EnrichedMappingGraph } from '../shared/EnrichedMappingGraph';
 import { SQLEditor } from './SQLEditor';
 import { VisualPipelineEditor } from './visual-editor/VisualPipelineEditor';
 import { generateSQL } from './visual-editor/utils/sqlGenerator';
@@ -74,8 +73,6 @@ const CustomJobs = () => {
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<CustomJobEntry | null>(null);
-  const [executionHistory, setExecutionHistory] = useState<any[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const [tableStructure, setTableStructure] = useState<any>(null);
   const [loadingStructure, setLoadingStructure] = useState(false);
   const [sourceSchemas, setSourceSchemas] = useState<string[]>([]);
@@ -369,19 +366,8 @@ const CustomJobs = () => {
 
   const handleJobClick = useCallback(async (job: CustomJobEntry) => {
     setSelectedJob(job);
-    setLoadingHistory(true);
-    setExecutionHistory([]);
     setTableStructure(null);
     setLoadingStructure(true);
-    
-    try {
-      const history = await customJobsApi.getHistory(job.job_name, 50);
-      setExecutionHistory(history);
-    } catch (err) {
-      setError(extractApiError(err));
-    } finally {
-      setLoadingHistory(false);
-    }
 
     try {
       const structure = await customJobsApi.getTableStructure(job.job_name);
@@ -1991,27 +1977,121 @@ const CustomJobs = () => {
       )}
 
       {selectedJob && (
-        <ExecutionTimeline
-          title={`Execution Timeline: ${selectedJob.job_name}`}
-          history={executionHistory}
-          loading={loadingHistory}
-          tableStructure={tableStructure}
-          loadingStructure={loadingStructure}
-          onClose={() => setSelectedJob(null)}
-          renderMappingGraph={(tableStructure, loadingStructure) => (
-            <MappingGraph
-              sourceTitle="Source: SQL Query"
-              sourceType="Pipeline Orchestration"
-              sourceInfo={[
-                { label: "Pipeline Name", value: selectedJob.job_name },
-                { label: "Source DB Engine", value: selectedJob.source_db_engine },
-                { label: "Query", value: selectedJob.query_sql?.substring(0, 100) + (selectedJob.query_sql?.length > 100 ? '...' : '') || 'N/A' },
-              ]}
-              tableStructure={tableStructure}
-              loading={loadingStructure}
-            />
-          )}
-        />
+        <>
+          <div 
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backdropFilter: "blur(5px)",
+              background: "rgba(0, 0, 0, 0.3)",
+              zIndex: 999,
+              animation: "fadeIn 0.2s ease-in"
+            }}
+            onClick={() => setSelectedJob(null)}
+          />
+          <div 
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+              animation: "fadeIn 0.2s ease-in"
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedJob(null);
+              }
+            }}
+          >
+            <div 
+              style={{
+                background: asciiColors.background,
+                borderRadius: 2,
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+                width: "90%",
+                maxWidth: 1400,
+                maxHeight: "90vh",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                animation: "slideIn 0.3s ease-out",
+                border: `2px solid ${asciiColors.border}`
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{
+                padding: "16px 20px",
+                borderBottom: `2px solid ${asciiColors.border}`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                backgroundColor: asciiColors.backgroundSoft
+              }}>
+                <h2 style={{
+                  margin: 0,
+                  fontSize: 14,
+                  fontFamily: "Consolas",
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  textTransform: "uppercase"
+                }}>
+                  <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+                  DATA FLOW: {selectedJob.job_name}
+                </h2>
+                <AsciiButton
+                  label="Close"
+                  onClick={() => setSelectedJob(null)}
+                  variant="ghost"
+                />
+              </div>
+              
+              <div style={{
+                padding: "20px",
+                overflowY: "auto",
+                flex: 1,
+                fontFamily: "Consolas",
+                fontSize: 12
+              }}>
+                <EnrichedMappingGraph
+                  sourceTitle="Source: SQL Query"
+                  sourceType="Pipeline Orchestration"
+                  sourceInfo={[
+                    { label: "Pipeline Name", value: selectedJob.job_name },
+                    { label: "Source DB Engine", value: selectedJob.source_db_engine },
+                    { label: "Query", value: selectedJob.query_sql?.substring(0, 150) + (selectedJob.query_sql?.length > 150 ? '...' : '') || 'N/A' },
+                  ]}
+                  tableStructure={tableStructure}
+                  loading={loadingStructure}
+                  job={selectedJob}
+                />
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes slideIn {
+              from {
+                transform: translateY(20px);
+                opacity: 0;
+              }
+              to {
+                transform: translateY(0);
+                opacity: 1;
+              }
+            }
+          `}</style>
+        </>
       )}
     </div>
   );
