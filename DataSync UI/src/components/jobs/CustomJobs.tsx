@@ -84,6 +84,7 @@ const CustomJobs = () => {
   const [isDataLake, setIsDataLake] = useState(false);
   const [editorMode, setEditorMode] = useState<'sql' | 'visual'>('sql');
   const [pipelineGraph, setPipelineGraph] = useState<PipelineGraph>({ nodes: [], edges: [] });
+  const [showCustomJobsPlaybook, setShowCustomJobsPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllJobs = useCallback(async () => {
@@ -621,11 +622,18 @@ const CustomJobs = () => {
           <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
           PIPELINE ORCHESTRATION
         </h1>
-        <AsciiButton
-          label="+ Add Pipeline"
-          onClick={() => handleOpenModal()}
-          variant="primary"
-        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <AsciiButton
+            label="Custom Jobs Info"
+            onClick={() => setShowCustomJobsPlaybook(true)}
+            variant="ghost"
+          />
+          <AsciiButton
+            label="+ Add Pipeline"
+            onClick={() => handleOpenModal()}
+            variant="primary"
+          />
+        </div>
       </div>
       
       {error && (
@@ -2108,6 +2116,150 @@ const CustomJobs = () => {
             }
           `}</style>
         </>
+      )}
+
+      {showCustomJobsPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowCustomJobsPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="CUSTOM JOBS PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Custom Jobs execute SQL queries from source databases and load results into target databases. They support complex ETL workflows 
+                    with custom transformations, column mappings, filters, and validations. Jobs can be scheduled using cron expressions.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SUPPORTED ENGINES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Source:</strong> PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle, DB2
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Target:</strong> PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle, DB2
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} EXECUTION MODES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>SQL Editor:</strong> Write custom SQL queries for data extraction
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Visual Pipeline:</strong> Build ETL pipelines using drag-and-drop components
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} TRANSFORMATION FEATURES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Column Mapping:</strong> Map source columns to target columns
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Filters:</strong> Apply WHERE conditions to filter source data
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Column Transforms:</strong> Apply expressions and transformations to columns
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Validations:</strong> Validate data quality before loading
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} LOAD STRATEGIES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>TRUNCATE:</strong> Delete all existing data before loading new data
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>APPEND:</strong> Add new data to existing data without deleting
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>UPSERT:</strong> Update existing records or insert new ones based on keys
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} CRON SCHEDULING
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Jobs can be scheduled using standard cron expressions. Examples: "0 * * * *" (every hour), 
+                    "0 0 * * *" (daily at midnight), "0 0 * * 0" (weekly on Sunday).
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Test SQL queries using the preview feature before saving<br/>
+                    • Use connection testing to verify database connectivity<br/>
+                    • Choose appropriate load strategies based on your use case<br/>
+                    • Set up cron schedules for regular data synchronization<br/>
+                    • Monitor execution history for job failures<br/>
+                    • Use visual pipeline editor for complex transformations<br/>
+                    • Review target table structures to ensure compatibility
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowCustomJobsPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );

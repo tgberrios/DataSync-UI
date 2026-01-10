@@ -28,6 +28,7 @@ const DataWarehouse = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<DataWarehouseEntry | null>(null);
   const [selectedWarehouse, setSelectedWarehouse] = useState<DataWarehouseEntry | null>(null);
+  const [showDataWarehousePlaybook, setShowDataWarehousePlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllWarehouses = useCallback(async () => {
@@ -157,17 +158,29 @@ const DataWarehouse = () => {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px"
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        DATA WAREHOUSE
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          DATA WAREHOUSE
+        </h1>
+        <AsciiButton
+          label="Data Warehouse Info"
+          onClick={() => setShowDataWarehousePlaybook(true)}
+          variant="ghost"
+        />
+      </div>
       
       {error && (
         <div style={{ marginBottom: 20 }}>
@@ -694,6 +707,172 @@ const DataWarehouse = () => {
           onSave={handleSave}
           initialData={editingWarehouse}
         />
+      )}
+
+      {showDataWarehousePlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowDataWarehousePlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="DATA WAREHOUSE PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Data Warehouses build analytical databases using star or snowflake schemas. They aggregate data from multiple source databases 
+                    into optimized dimensional models with fact tables and dimension tables. Builds are executed on-demand or via cron schedules.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SCHEMA TYPES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>STAR_SCHEMA:</strong> Central fact table surrounded by dimension tables (simpler, faster queries)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>SNOWFLAKE_SCHEMA:</strong> Normalized dimension tables with sub-dimensions (more normalized, less storage)
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} KEY COMPONENTS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Fact Tables:</strong> Contain business metrics and measures (sales, transactions, etc.)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Dimension Tables:</strong> Contain descriptive attributes (customers, products, time, etc.)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Measures:</strong> Numeric values aggregated in fact tables
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Index Columns:</strong> Columns used for indexing and performance optimization
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Partition Columns:</strong> Columns used for table partitioning
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SUPPORTED TARGET ENGINES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PostgreSQL:</strong> Native PostgreSQL warehouse
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>BigQuery:</strong> Google BigQuery warehouse
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Redshift:</strong> Amazon Redshift warehouse
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Snowflake:</strong> Snowflake data warehouse
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>MongoDB:</strong> MongoDB document warehouse
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} BUILD STATUSES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>IN_PROGRESS:</strong> Warehouse build is currently running
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SUCCESS:</strong> Warehouse build completed successfully
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.danger }}>{ascii.blockFull}</span> <strong>ERROR:</strong> Warehouse build encountered errors
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} BUILD PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Validation:</strong> Validates warehouse model and configuration
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Dimension Tables:</strong> Builds dimension tables first
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Fact Tables:</strong> Builds fact tables with references to dimensions
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Logging:</strong> Logs build progress to process_log table
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Design fact tables with appropriate granularity for your analytical needs<br/>
+                    • Use dimension tables to store descriptive attributes and reduce data redundancy<br/>
+                    • Choose appropriate indexes and partition columns for query performance<br/>
+                    • Schedule regular warehouse rebuilds to keep data current<br/>
+                    • Monitor build history and resolve errors promptly<br/>
+                    • Use star schema for simpler queries, snowflake for normalized storage<br/>
+                    • Test warehouse builds with small datasets before full builds
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowDataWarehousePlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );

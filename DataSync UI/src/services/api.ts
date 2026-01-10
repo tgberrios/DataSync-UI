@@ -470,22 +470,40 @@ export const qualityApi = {
   getQualityMetrics: async (params: {
     page?: number;
     limit?: number;
-    search?: string;
+    engine?: string;
     status?: string;
     minScore?: number;
     maxScore?: number;
-  }) => {
+  }, signal?: AbortSignal) => {
     try {
-      const response = await api.get("/quality/metrics", { params });
+      const response = await api.get("/quality/metrics", { 
+        params,
+        signal,
+        timeout: 30000
+      });
       return response.data;
     } catch (error) {
-      console.error("Error fetching quality metrics:", error);
-      if (axios.isAxiosError(error) && error.response) {
-        throw new Error(
-          error.response.data.details ||
-            error.response.data.error ||
-            error.message
-        );
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+          const abortError = new Error("Request cancelled");
+          abortError.name = 'AbortError';
+          throw abortError;
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
       }
       throw error;
     }

@@ -40,6 +40,7 @@ const Catalog = () => {
   const [loadingTree, setLoadingTree] = useState(false);
   const [tableStructure, setTableStructure] = useState<any>(null);
   const [loadingStructure, setLoadingStructure] = useState(false);
+  const [showCatalogPlaybook, setShowCatalogPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   /**
@@ -307,17 +308,29 @@ const Catalog = () => {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px"
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        DATALAKE CATALOG MANAGER
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          DATALAKE CATALOG MANAGER
+        </h1>
+        <AsciiButton
+          label="Catalog Info"
+          onClick={() => setShowCatalogPlaybook(true)}
+          variant="ghost"
+        />
+      </div>
       
       {error && (
         <div style={{ marginBottom: 20 }}>
@@ -596,6 +609,165 @@ const Catalog = () => {
           onClose={() => setShowAddModal(false)}
           onSave={handleAdd}
         />
+      )}
+
+      {showCatalogPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowCatalogPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="CATALOG PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    The DataLake Catalog Manager tracks and synchronizes tables from multiple database engines to PostgreSQL. 
+                    It manages the full lifecycle of data synchronization, from initial full loads to continuous change data capture (CDC).
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SUPPORTED DATABASE ENGINES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PostgreSQL:</strong> Native PostgreSQL to PostgreSQL sync
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MariaDB:</strong> MySQL-compatible database sync
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MSSQL:</strong> Microsoft SQL Server sync
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MongoDB:</strong> NoSQL document database sync
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Oracle:</strong> Oracle Database sync
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>DB2:</strong> IBM DB2 database sync
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SYNCHRONIZATION STATUSES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.warning }}>{ascii.blockFull}</span> <strong>FULL_LOAD:</strong> Performing initial complete table synchronization
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SYNC:</strong> Table is in normal synchronization mode
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>IN_PROGRESS:</strong> Synchronization operation currently running
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>LISTENING_CHANGES:</strong> Actively monitoring for CDC changes
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.warning }}>{ascii.blockFull}</span> <strong>RESET:</strong> Table synchronization is being reset
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} PRIMARY KEY STRATEGIES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>CDC:</strong> Change Data Capture - tracks changes using change log tables (default and recommended)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>OFFSET:</strong> Legacy strategy - automatically converted to CDC
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>PK:</strong> Legacy strategy - automatically converted to CDC
+                    </div>
+                  </div>
+                  <div style={{ color: asciiColors.muted, marginLeft: 16, marginTop: 8, fontSize: 11, fontStyle: 'italic' }}>
+                    CDC uses change log tables (e.g., datasync_metadata.ds_change_log) to track INSERT, UPDATE, and DELETE operations, 
+                    enabling efficient incremental synchronization without full table scans.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SYNCHRONIZATION PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Initial Load:</strong> FULL_LOAD status performs complete table copy
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>CDC Setup:</strong> System creates change log tables if needed
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Incremental Sync:</strong> LISTENING_CHANGES monitors change logs for updates
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Data Transformation:</strong> Values are cleaned and normalized for PostgreSQL compatibility
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Use CDC strategy for efficient incremental synchronization<br/>
+                    • Monitor LISTENING_CHANGES status to ensure CDC is active<br/>
+                    • Review table structures before enabling synchronization<br/>
+                    • Use schema-level operations for bulk management<br/>
+                    • Monitor FULL_LOAD progress for large tables<br/>
+                    • Reset tables (RESET status) when schema changes occur<br/>
+                    • Export catalog data for documentation and auditing
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowCatalogPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );

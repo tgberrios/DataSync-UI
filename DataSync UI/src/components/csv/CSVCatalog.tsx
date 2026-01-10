@@ -34,6 +34,7 @@ const CSVCatalog = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [tableStructure, setTableStructure] = useState<any>(null);
   const [loadingStructure, setLoadingStructure] = useState(false);
+  const [showCSVCatalogPlaybook, setShowCSVCatalogPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
 
@@ -203,17 +204,29 @@ const CSVCatalog = () => {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px"
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        CSV CATALOG
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          CSV CATALOG
+        </h1>
+        <AsciiButton
+          label="CSV Catalog Info"
+          onClick={() => setShowCSVCatalogPlaybook(true)}
+          variant="ghost"
+        />
+      </div>
       
       {error && (
         <div style={{ marginBottom: 20 }}>
@@ -468,6 +481,138 @@ const CSVCatalog = () => {
           onSave={handleAdd}
           initialData={duplicateData}
         />
+      )}
+
+      {showCSVCatalogPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowCSVCatalogPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="CSV CATALOG PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    The CSV Catalog synchronizes data from CSV files to target databases. CSVs are processed using full load strategy 
+                    (no incremental sync). Each CSV sync performs complete data replacement (TRUNCATE and INSERT) to ensure data consistency.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SOURCE TYPES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>LOCAL:</strong> CSV files stored on the local file system
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>S3:</strong> CSV files stored in Amazon S3 buckets
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>GCS:</strong> CSV files stored in Google Cloud Storage
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>AZURE:</strong> CSV files stored in Azure Blob Storage
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SUPPORTED TARGET ENGINES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PostgreSQL:</strong> Native PostgreSQL target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MariaDB:</strong> MySQL-compatible target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MSSQL:</strong> Microsoft SQL Server target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MongoDB:</strong> MongoDB document store target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Oracle:</strong> Oracle Database target
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SYNC PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Full Load:</strong> Each sync performs complete data replacement (TRUNCATE and INSERT)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Status Tracking:</strong> IN_PROGRESS during sync, SUCCESS/ERROR on completion
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Data Transformation:</strong> Values are cleaned and normalized for target database compatibility
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Error Handling:</strong> Failed syncs are logged with error messages
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Ensure CSV files have consistent structure and encoding (UTF-8 recommended)<br/>
+                    • Use column mapping to handle differences between CSV and target schema<br/>
+                    • Monitor execution history for import errors and data quality issues<br/>
+                    • Test with small files before processing large datasets<br/>
+                    • Each sync performs full load (TRUNCATE and INSERT) - no incremental updates<br/>
+                    • Use filters to organize CSVs by source type, engine, or status<br/>
+                    • Review target table structures to ensure data compatibility
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowCSVCatalogPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );

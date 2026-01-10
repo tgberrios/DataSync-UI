@@ -975,6 +975,7 @@ const UnifiedMonitor: React.FC = () => {
   const [transferStatusFilter, setTransferStatusFilter] = useState<string>('');
   const [transferTypeFilter, setTransferTypeFilter] = useState<string>('');
   const [transferEngineFilter, setTransferEngineFilter] = useState<string>('');
+  const [showMonitorPlaybook, setShowMonitorPlaybook] = useState(false);
   
   const isMountedRef = useRef(true);
 
@@ -3569,17 +3570,29 @@ const UnifiedMonitor: React.FC = () => {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px"
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        MONITOR
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          MONITOR
+        </h1>
+        <AsciiButton
+          label="Monitor Info"
+          onClick={() => setShowMonitorPlaybook(true)}
+          variant="ghost"
+        />
+      </div>
       
       {error && (
         <div style={{ marginBottom: 20 }}>
@@ -4114,6 +4127,183 @@ const UnifiedMonitor: React.FC = () => {
           transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
       `}</style>
+
+      {showMonitorPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}
+        onClick={() => setShowMonitorPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="MONITOR PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    The Monitor provides real-time visibility into system performance, active queries, live data changes, 
+                    transfer metrics, and system resources. It tracks the multi-threaded DataSync system with core threads 
+                    (initialization, catalog sync, monitoring, quality, maintenance, webhooks) and transfer threads 
+                    (MariaDB, MSSQL, MongoDB, Oracle, PostgreSQL, DB2, API, CSV, Google Sheets, Custom Jobs, Data Warehouse).
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} MONITORING TABS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Active Queries:</strong> Real-time view of currently executing database queries with PID, user, database, state, and query details
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Live Changes:</strong> Monitor Change Data Capture (CDC) events and full load operations in real-time
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Query Performance:</strong> Analyze query performance metrics with tier classification (EXCELLENT, GOOD, FAIR, POOR)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Transfer Metrics:</strong> Track data transfer operations across all database engines and sources
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>System Resources:</strong> Monitor CPU, memory, network, throughput, and database connection metrics
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} QUERY PERFORMANCE TIERS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>EXCELLENT:</strong> Queries with optimal performance metrics
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>GOOD:</strong> Queries with acceptable performance
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.warning }}>{ascii.blockFull}</span> <strong>FAIR:</strong> Queries with moderate performance issues
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.danger }}>{ascii.blockFull}</span> <strong>POOR:</strong> Queries with significant performance problems requiring optimization
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} LIVE CHANGES EVENTS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Event Types:</strong> CDC (Change Data Capture) and N/A (Full Load operations)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Event Status:</strong> LISTENING_CHANGES (actively monitoring), NO_DATA (no changes detected), ERROR (error occurred)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Real-time Tracking:</strong> Monitor processing logs and execution timelines for all synchronization operations
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} TRANSFER METRICS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Status Filtering:</strong> Filter by SUCCESS, FAILED, ERROR, PENDING, IN_PROGRESS
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Type Filtering:</strong> Filter by FULL_LOAD, SYNC, CDC, RESET
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Engine Filtering:</strong> Filter by PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle, DB2
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Metrics:</strong> Track records transferred, bytes transferred, duration, transfer rate, throughput, progress, retry count
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SYSTEM RESOURCES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>CPU Usage:</strong> Real-time CPU utilization percentage
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Memory:</strong> Memory usage percentage and available memory
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Network:</strong> Network throughput and bandwidth usage
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Database Connections:</strong> Active database connections and connection pool status
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Queries Per Second:</strong> Database query throughput
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Query Efficiency:</strong> Query performance efficiency metrics
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Monitor active queries to identify long-running or blocking queries<br/>
+                    • Use query performance tiers to prioritize optimization efforts<br/>
+                    • Track live changes to ensure CDC is working correctly<br/>
+                    • Monitor transfer metrics to identify bottlenecks in data synchronization<br/>
+                    • Watch system resources to prevent resource exhaustion<br/>
+                    • Use filters to focus on specific engines, statuses, or event types<br/>
+                    • Review execution timelines to understand operation duration and patterns
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowMonitorPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -33,6 +33,7 @@ const GoogleSheetsCatalog = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [tableStructure, setTableStructure] = useState<any>(null);
   const [loadingStructure, setLoadingStructure] = useState(false);
+  const [showGoogleSheetsPlaybook, setShowGoogleSheetsPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllEntries = useCallback(async () => {
@@ -197,17 +198,29 @@ const GoogleSheetsCatalog = () => {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px"
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        GOOGLE SHEETS CATALOG
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          GOOGLE SHEETS CATALOG
+        </h1>
+        <AsciiButton
+          label="Google Sheets Info"
+          onClick={() => setShowGoogleSheetsPlaybook(true)}
+          variant="ghost"
+        />
+      </div>
       
       {error && (
         <div style={{ marginBottom: 20 }}>
@@ -432,6 +445,129 @@ const GoogleSheetsCatalog = () => {
           onSave={handleAdd}
           initialData={duplicateData || undefined}
         />
+      )}
+
+      {showGoogleSheetsPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowGoogleSheetsPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="GOOGLE SHEETS CATALOG PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    The Google Sheets Catalog synchronizes data from Google Sheets spreadsheets to target databases. Sheets are processed 
+                    using full load strategy (no incremental sync). Each sync performs complete data replacement (TRUNCATE and INSERT) 
+                    to ensure data consistency.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SUPPORTED TARGET ENGINES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PostgreSQL:</strong> Native PostgreSQL target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MariaDB:</strong> MySQL-compatible target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MSSQL:</strong> Microsoft SQL Server target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MongoDB:</strong> MongoDB document store target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Oracle:</strong> Oracle Database target
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SYNC PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Full Load:</strong> Each sync performs complete data replacement (TRUNCATE and INSERT)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Status Tracking:</strong> IN_PROGRESS during sync, SUCCESS/ERROR on completion
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Data Transformation:</strong> Values are cleaned and normalized for target database compatibility
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Error Handling:</strong> Failed syncs are logged with error messages
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} AUTHENTICATION
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    To connect Google Sheets, you need to authenticate with Google using OAuth 2.0. The system will guide you 
+                    through the authentication process and securely store your credentials for automatic synchronization.
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Ensure Google Sheets have consistent structure and formatting<br/>
+                    • Use named ranges for better data organization<br/>
+                    • Monitor execution history for sync errors<br/>
+                    • Keep Google Sheets credentials secure and up-to-date<br/>
+                    • Each sync performs full load (TRUNCATE and INSERT) - no incremental updates<br/>
+                    • Use column mapping to handle schema differences<br/>
+                    • Test with small sheets before syncing large datasets
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowGoogleSheetsPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );
