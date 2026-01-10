@@ -105,6 +105,7 @@ const CatalogLocks = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [locks, setLocks] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({});
+  const [showCatalogLocksPlaybook, setShowCatalogLocksPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
@@ -320,17 +321,258 @@ const CatalogLocks = () => {
       flexDirection: "column",
       gap: 20
     }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px"
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        CATALOG LOCKS
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          CATALOG LOCKS
+        </h1>
+        <AsciiButton
+          label="Catalog Locks Info"
+          onClick={() => setShowCatalogLocksPlaybook(true)}
+          variant="ghost"
+        />
+      </div>
+
+      {showCatalogLocksPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowCatalogLocksPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="CATALOG LOCKS PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Catalog Locks are a critical mechanism to prevent race conditions and ensure data consistency 
+                    during catalog operations. When multiple processes or instances attempt to modify the catalog 
+                    simultaneously, locks prevent conflicts by allowing only one operation to proceed at a time. 
+                    This ensures catalog integrity and prevents data corruption.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} HOW LOCKS WORK
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Lock Acquisition
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        When a catalog operation begins, the system attempts to acquire a lock with a unique name 
+                        (e.g., "catalog_sync_postgresql"). The lock is stored in the database with an expiration time. 
+                        If another process already holds an active lock, the operation will wait or retry based on 
+                        configuration settings.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Lock Expiration
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Each lock has an expiration timestamp. If a process crashes or fails to release a lock, 
+                        it will automatically expire after the timeout period (typically 5 minutes). Expired locks 
+                        can be manually cleaned or are automatically removed by the system.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Lock Release
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        When an operation completes successfully, the lock is automatically released. This allows 
+                        other waiting operations to proceed. If an operation fails, the lock should still be released 
+                        to prevent blocking other processes.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} LOCK STATUSES
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success, fontWeight: 600 }}>Active</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Lock is currently held and has not expired. The associated operation is either in progress 
+                        or recently completed but the lock hasn't been released yet.
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.warning, fontWeight: 600 }}>Expiring Soon</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Lock will expire within 5 minutes. This may indicate a long-running operation or a process 
+                        that hasn't properly released the lock. Monitor these locks closely.
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.danger, fontWeight: 600 }}>Expired</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Lock has passed its expiration time. These locks should be cleaned to free up resources. 
+                        Expired locks typically indicate a crashed process or an operation that failed to release properly.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} METRICS EXPLAINED
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Total Locks
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Total number of lock records in the system, including both active and expired locks. 
+                        This gives you an overview of lock activity.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 4 }}>
+                        Active Locks
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Number of locks that are currently active (not expired). These locks are actively preventing 
+                        concurrent operations on the same catalog resources.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 4 }}>
+                        Expired Locks
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Number of locks that have passed their expiration time. These should be cleaned periodically 
+                        to maintain system health. High numbers of expired locks may indicate process failures.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 4 }}>
+                        Unique Hosts
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Number of distinct hostnames that have acquired locks. This helps identify how many different 
+                        systems or instances are accessing the catalog.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} LOCK INFORMATION
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Lock Name</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Unique identifier for the lock, typically indicating the operation type (e.g., "catalog_sync_postgresql")
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Acquired By</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Hostname or identifier of the system/process that acquired the lock
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Acquired At</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Timestamp when the lock was successfully acquired
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Expires At</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Timestamp when the lock will automatically expire if not released
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Session ID</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Unique session identifier for the process that holds the lock
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Monitor expired locks regularly and clean them to prevent resource buildup<br/>
+                    • If a lock appears stuck, verify the process is still running before force-unlocking<br/>
+                    • High numbers of active locks may indicate contention - review operation frequency<br/>
+                    • Use appropriate lock timeouts based on expected operation duration<br/>
+                    • Force-unlock only when absolutely necessary, as it may interrupt active operations<br/>
+                    • Review lock patterns to identify potential optimization opportunities
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowCatalogLocksPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
+      )}
       
       {error && (
         <div style={{ marginBottom: 20 }}>

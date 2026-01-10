@@ -153,7 +153,7 @@ const UserManagement = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'tree'>('tree');
+  const [showUserManagementPlaybook, setShowUserManagementPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchUsers = useCallback(async () => {
@@ -163,8 +163,8 @@ const UserManagement = () => {
       setError(null);
       const sanitizedSearch = sanitizeSearch(search, 100);
       const params: any = {
-        page: viewMode === 'tree' ? 1 : page,
-        limit: viewMode === 'tree' ? 1000 : limit,
+        page: 1,
+        limit: 1000,
         search: sanitizedSearch
       };
       
@@ -189,8 +189,8 @@ const UserManagement = () => {
       if (isMountedRef.current) {
         setLoading(false);
       }
-    }
-  }, [page, limit, filters.role, filters.active, search, viewMode]);
+      }
+    }, [filters.role, filters.active, search]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -358,6 +358,201 @@ const UserManagement = () => {
         USER MANAGEMENT
       </h1>
 
+      {showUserManagementPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowUserManagementPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="USER MANAGEMENT PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    User Management provides centralized control over system access and permissions. 
+                    Create, edit, and manage user accounts with different role-based access levels. 
+                    Monitor user activity, track login history, and maintain security through proper 
+                    access control.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} USER ROLES
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 4 }}>
+                        Admin
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Full system access with all privileges. Can create, edit, and delete users, 
+                        manage all system configurations, access all data sources, and perform 
+                        administrative operations. Use sparingly and only for trusted administrators.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 4 }}>
+                        User
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Standard user with access to create and manage data pipelines, view catalogs, 
+                        and perform data operations. Can create custom jobs, manage their own configurations, 
+                        and access most system features except user management and critical system settings.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                        Viewer
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Read-only access to view catalogs, lineage, governance data, and reports. 
+                        Cannot create or modify any configurations, jobs, or data. Ideal for 
+                        stakeholders who need visibility without modification capabilities.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} USER STATUS
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success, fontWeight: 600 }}>Active</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        User account is enabled and can log in to the system
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted, fontWeight: 600 }}>Inactive</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        User account is disabled and cannot log in. Useful for temporarily 
+                        suspending access without deleting the account.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} USER MANAGEMENT FEATURES
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Create User
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Create new user accounts with username, email, password, and role assignment. 
+                        Passwords must be at least 8 characters long. Username and email must be unique.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Edit User
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Update user information including email, role, and active status. 
+                        Username cannot be changed after creation. Password changes require 
+                        the Reset Password function.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Reset Password
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Administrators can reset user passwords. The new password must be at least 
+                        8 characters long and must be confirmed. Users will need to use the new 
+                        password on their next login.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        Activate/Deactivate
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Quickly enable or disable user accounts without deleting them. 
+                        Deactivated users cannot log in but their data and configurations are preserved.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 4 }}>
+                        Delete User
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        Permanently remove a user account from the system. This action cannot be undone. 
+                        Consider deactivating users instead if you may need to restore access later.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Security Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Limit admin accounts to essential personnel only<br/>
+                    • Use strong passwords (minimum 8 characters, recommend 12+)<br/>
+                    • Regularly review and audit user accounts<br/>
+                    • Deactivate unused accounts instead of deleting them<br/>
+                    • Monitor last login times to identify inactive accounts<br/>
+                    • Use role-based access control to enforce least privilege<br/>
+                    • Regularly rotate passwords for sensitive accounts
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowUserManagementPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div style={{ marginBottom: 20 }}>
           <AsciiPanel title="ERROR">
@@ -415,12 +610,13 @@ const UserManagement = () => {
       </AsciiPanel>
 
       <div style={{ marginTop: 20 }}>
-        <AsciiPanel title="FILTERS">
+        <AsciiPanel title="FILTERS & ACTIONS">
           <div style={{
             display: "flex",
             flexWrap: "wrap",
             gap: 12,
-            padding: "8px 0"
+            padding: "12px 0",
+            alignItems: "center"
           }}>
             <AsciiButton 
               label="Add User"
@@ -481,6 +677,11 @@ const UserManagement = () => {
               <option value="true">Active</option>
               <option value="false">Inactive</option>
             </select>
+            <AsciiButton
+              label="User Management Info"
+              onClick={() => setShowUserManagementPlaybook(true)}
+              variant="ghost"
+            />
           </div>
         </AsciiPanel>
       </div>
@@ -500,30 +701,6 @@ const UserManagement = () => {
           </AsciiPanel>
         </div>
       ) : (
-        <>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'flex-end', 
-            marginTop: 20,
-            marginBottom: 12,
-            fontFamily: "Consolas",
-            fontSize: 12
-          }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <AsciiButton
-                label="Tree View"
-                onClick={() => setViewMode('tree')}
-                variant={viewMode === 'tree' ? 'primary' : 'ghost'}
-              />
-              <AsciiButton
-                label="Table View"
-                onClick={() => setViewMode('table')}
-                variant={viewMode === 'table' ? 'primary' : 'ghost'}
-              />
-            </div>
-          </div>
-
-          {viewMode === 'tree' ? (
         <div style={{ display: 'grid', gridTemplateColumns: selectedUser ? '1fr 400px' : '1fr', gap: theme.spacing.lg }}>
           <UserManagementTreeView 
             users={data} 
@@ -540,11 +717,11 @@ const UserManagement = () => {
                 fontSize: 12
               }}>
                 <div>
-                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Username:</strong>
+                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Username:</strong>
                   <div style={{ 
                     color: asciiColors.foreground, 
                     fontSize: 12, 
-                    marginTop: '4px',
+                    marginTop: '6px',
                     fontFamily: "Consolas",
                     padding: theme.spacing.sm,
                     background: asciiColors.backgroundSoft,
@@ -555,11 +732,11 @@ const UserManagement = () => {
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Email:</strong>
+                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Email:</strong>
                   <div style={{ 
                     color: asciiColors.foreground, 
                     fontSize: 12, 
-                    marginTop: '4px',
+                    marginTop: '6px',
                     fontFamily: "Consolas",
                     padding: theme.spacing.sm,
                     background: asciiColors.backgroundSoft,
@@ -570,41 +747,51 @@ const UserManagement = () => {
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Role:</strong>
-                  <div style={{ marginTop: '4px' }}>
-                    <RoleBadge $role={selectedUser.role}>{selectedUser.role}</RoleBadge>
+                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Role:</strong>
+                  <div style={{ marginTop: '6px' }}>
+                    <RoleBadge $role={selectedUser.role}>{selectedUser.role.toUpperCase()}</RoleBadge>
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Status:</strong>
-                  <div style={{ marginTop: '4px' }}>
+                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Status:</strong>
+                  <div style={{ marginTop: '6px' }}>
                     <ActiveBadge $active={selectedUser.active}>
-                      {selectedUser.active ? 'Active' : 'Inactive'}
+                      {selectedUser.active ? 'ACTIVE' : 'INACTIVE'}
                     </ActiveBadge>
                   </div>
                 </div>
-                <div>
-                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Created:</strong>
-                  <div style={{ 
-                    color: asciiColors.foreground, 
-                    fontSize: 12, 
-                    marginTop: '4px',
-                    fontFamily: "Consolas"
-                  }}>
-                    {format(new Date(selectedUser.created_at), 'yyyy-MM-dd HH:mm')}
-                  </div>
-                </div>
-                <div>
-                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>Last Login:</strong>
-                  <div style={{ 
-                    color: asciiColors.foreground, 
-                    fontSize: 12, 
-                    marginTop: '4px',
-                    fontFamily: "Consolas"
-                  }}>
-                    {selectedUser.last_login
-                      ? format(new Date(selectedUser.last_login), 'yyyy-MM-dd HH:mm')
-                      : 'Never'}
+                <div style={{ 
+                  marginTop: theme.spacing.md, 
+                  paddingTop: theme.spacing.md, 
+                  borderTop: `1px solid ${asciiColors.border}` 
+                }}>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Account Information:</strong>
+                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div>
+                      <span style={{ color: asciiColors.muted, fontSize: 10 }}>Created:</span>{' '}
+                      <span style={{ color: asciiColors.foreground, fontSize: 11 }}>
+                        {format(new Date(selectedUser.created_at), 'yyyy-MM-dd HH:mm:ss')}
+                      </span>
+                    </div>
+                    {selectedUser.updated_at && selectedUser.updated_at !== selectedUser.created_at && (
+                      <div>
+                        <span style={{ color: asciiColors.muted, fontSize: 10 }}>Updated:</span>{' '}
+                        <span style={{ color: asciiColors.foreground, fontSize: 11 }}>
+                          {format(new Date(selectedUser.updated_at), 'yyyy-MM-dd HH:mm:ss')}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <span style={{ color: asciiColors.muted, fontSize: 10 }}>Last Login:</span>{' '}
+                      <span style={{ 
+                        color: selectedUser.last_login ? asciiColors.foreground : asciiColors.muted, 
+                        fontSize: 11 
+                      }}>
+                        {selectedUser.last_login
+                          ? format(new Date(selectedUser.last_login), 'yyyy-MM-dd HH:mm:ss')
+                          : 'Never'}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div style={{ 
@@ -651,99 +838,6 @@ const UserManagement = () => {
             </AsciiPanel>
           )}
         </div>
-      ) : (
-        <>
-          <AsciiPanel title="USERS TABLE">
-            <TableContainer>
-              <Table>
-          <thead>
-            <tr>
-              <Th>Username</Th>
-              <Th>Email</Th>
-              <Th>Role</Th>
-              <Th>Status</Th>
-              <Th>Created</Th>
-              <Th>Last Login</Th>
-              <Th>Actions</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((user) => (
-              <TableRow key={user.id}>
-                <Td>{user.username}</Td>
-                <Td>{user.email}</Td>
-                <Td>
-                  <RoleBadge $role={user.role}>{user.role}</RoleBadge>
-                </Td>
-                <Td>
-                  <ActiveBadge $active={user.active}>
-                    {user.active ? 'Active' : 'Inactive'}
-                  </ActiveBadge>
-                </Td>
-                <Td>{format(new Date(user.created_at), 'yyyy-MM-dd HH:mm')}</Td>
-                <Td>
-                  {user.last_login
-                    ? format(new Date(user.last_login), 'yyyy-MM-dd HH:mm')
-                    : 'Never'}
-                </Td>
-                <Td>
-                  <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-                    <AsciiButton label="Edit" onClick={() => handleOpenModal(user)} variant="ghost" />
-                    <AsciiButton
-                      label={user.active ? 'Deactivate' : 'Activate'}
-                      onClick={() => handleToggleActive(user.id, user.active)}
-                      variant="ghost"
-                    />
-                    <AsciiButton
-                      label="Reset Pwd"
-                      onClick={() => handleOpenPasswordModal(user.id)}
-                      variant="ghost"
-                    />
-                    <AsciiButton
-                      label="Delete"
-                      onClick={() => handleDelete(user.id, user.username)}
-                      variant="ghost"
-                    />
-                  </div>
-                </Td>
-              </TableRow>
-            ))}
-          </tbody>
-              </Table>
-            </TableContainer>
-
-          <div style={{
-            padding: theme.spacing.md,
-              fontFamily: "Consolas",
-              fontSize: 11,
-              color: asciiColors.muted,
-              textAlign: "center"
-            }}>
-              Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to{' '}
-              {Math.min(page * limit, pagination.total)} of {pagination.total} users
-            </div>
-          </AsciiPanel>
-
-          {pagination.totalPages > 1 && (
-        <Pagination>
-          <AsciiButton
-            label="Previous"
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-            variant="ghost"
-          />
-          <span style={{ fontFamily: "Consolas", fontSize: 12, color: asciiColors.foreground }}>
-            Page {page} of {pagination.totalPages}
-          </span>
-          <AsciiButton
-            label="Next"
-            disabled={page === pagination.totalPages}
-            onClick={() => setPage(page + 1)}
-            variant="ghost"
-          />
-          </Pagination>
-        )}
-        </>
       )}
 
       {isModalOpen && (
@@ -872,8 +966,6 @@ const UserManagement = () => {
           </ButtonGroup>
         </ModalContent>
       </ModalOverlay>
-      )}
-        </>
       )}
     </div>
   );

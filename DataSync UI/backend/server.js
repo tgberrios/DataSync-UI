@@ -3363,7 +3363,8 @@ app.get("/api/security/data", async (req, res) => {
     // 3. ACTIVE USERS
     const activeUsers = await pool.query(`
       SELECT 
-        usename as username,
+        sa.usename as username,
+        sa.datname as database,
         CASE 
           WHEN r.rolsuper THEN 'SUPERUSER'
           WHEN r.rolcreatedb THEN 'CREATEDB'
@@ -3378,12 +3379,26 @@ app.get("/api/security/data", async (req, res) => {
         END as status,
         COALESCE(sa.query_start, sa.backend_start) as last_activity,
         sa.client_addr,
-        sa.application_name
+        sa.application_name,
+        sa.backend_start,
+        sa.state_change,
+        CASE 
+          WHEN sa.state = 'active' AND sa.query_start IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM (NOW() - sa.query_start)) * 1000
+          ELSE NULL
+        END as query_duration,
+        sa.wait_event_type,
+        sa.wait_event,
+        CASE 
+          WHEN sa.query IS NOT NULL AND LENGTH(sa.query) > 0
+          THEN LEFT(sa.query, 500)
+          ELSE NULL
+        END as query
       FROM pg_stat_activity sa
       JOIN pg_roles r ON sa.usename = r.rolname
       WHERE sa.usename IS NOT NULL
       ORDER BY last_activity DESC
-      LIMIT 20
+      LIMIT 50
     `);
 
     // 4. PERMISSIONS OVERVIEW

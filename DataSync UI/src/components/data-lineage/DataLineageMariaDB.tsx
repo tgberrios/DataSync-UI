@@ -1,16 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 import {
-  Container,
   LoadingOverlay,
-  Pagination,
-  PageButton,
-  Table,
-  Th,
-  Td,
-  TableRow,
 } from '../shared/BaseComponents';
-import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { dataLineageApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
@@ -55,7 +47,6 @@ const getConfidenceColor = (score: number | string | null | undefined) => {
 
 
 const DataLineageMariaDB = () => {
-  const { page, limit, setPage } = usePagination(1, 20);
   const { filters, setFilter, clearFilters } = useTableFilters({
     server_name: '',
     database_name: '',
@@ -64,80 +55,15 @@ const DataLineageMariaDB = () => {
     search: ''
   });
   
-  const [sortField, setSortField] = useState<string>("");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lineage, setLineage] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({});
   const [openEdgeId, setOpenEdgeId] = useState<number | null>(null);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    totalPages: 0,
-    currentPage: 1,
-    limit: 20
-  });
   const [servers, setServers] = useState<string[]>([]);
   const [databases, setDatabases] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"table" | "tree">("tree");
   const [allEdges, setAllEdges] = useState<any[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
+  const [showLineagePlaybook, setShowLineagePlaybook] = useState(false);
   const isMountedRef = useRef(true);
-
-  const fetchData = useCallback(async () => {
-    if (!isMountedRef.current) {
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      const sanitizedSearch = sanitizeSearch(filters.search as string, 100);
-      const [lineageData, metricsData, serversData] = await Promise.all([
-        dataLineageApi.getMariaDBLineage({
-          page,
-          limit,
-          server_name: filters.server_name as string,
-          database_name: filters.database_name as string,
-          object_type: filters.object_type as string,
-          relationship_type: filters.relationship_type as string,
-          search: sanitizedSearch
-        }),
-        dataLineageApi.getMariaDBMetrics().catch(err => {
-          console.error("MariaDB getMariaDBMetrics error:", err);
-          throw err;
-        }),
-        dataLineageApi.getMariaDBServers()
-      ]);
-      if (isMountedRef.current) {
-        setLineage(lineageData.data || []);
-        setPagination(lineageData.pagination || {
-          total: 0,
-          totalPages: 0,
-          currentPage: 1,
-          limit: 20
-        });
-        setMetrics(metricsData || {});
-        setServers(serversData || []);
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(extractApiError(err));
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [
-    page, 
-    limit, 
-    filters.server_name, 
-    filters.database_name, 
-    filters.object_type, 
-    filters.relationship_type, 
-    filters.search
-  ]);
 
   const fetchMetrics = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -192,32 +118,18 @@ const DataLineageMariaDB = () => {
   useEffect(() => {
     isMountedRef.current = true;
     fetchMetrics();
-    if (viewMode === "table") {
-      fetchData();
-    } else {
-      fetchAllEdges();
-    }
+    fetchAllEdges();
     const interval = setInterval(() => {
       if (isMountedRef.current) {
         fetchMetrics();
-        if (viewMode === "table") {
-          fetchData();
-        } else {
-          fetchAllEdges();
-        }
+        fetchAllEdges();
       }
     }, 30000);
     return () => {
       isMountedRef.current = false;
       clearInterval(interval);
     };
-  }, [fetchData, fetchAllEdges, fetchMetrics, viewMode]);
-
-  useEffect(() => {
-    if (viewMode === "tree") {
-      fetchAllEdges();
-    }
-  }, [viewMode, fetchAllEdges]);
+  }, [fetchAllEdges, fetchMetrics]);
 
   useEffect(() => {
     const fetchDatabases = async () => {
@@ -260,49 +172,11 @@ const DataLineageMariaDB = () => {
     if (key === 'server_name') {
       setFilter('database_name' as any, '');
     }
-    setPage(1);
-  }, [setFilter, setPage]);
-
-  const handleSort = useCallback((field: string) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("desc");
-    }
-    setPage(1);
-  }, [sortField, setPage]);
-
-  const sortedLineage = useMemo(() => {
-    if (!sortField) return lineage;
-    return [...lineage].sort((a, b) => {
-      let aVal: any = a[sortField as keyof typeof a];
-      let bVal: any = b[sortField as keyof typeof b];
-      
-      if (aVal === null || aVal === undefined) aVal = "";
-      if (bVal === null || bVal === undefined) bVal = "";
-      
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortDirection === "asc" 
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-      
-      const aNum = Number(aVal);
-      const bNum = Number(bVal);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortDirection === "asc" ? aNum - bNum : bNum - aNum;
-      }
-      
-      return sortDirection === "asc"
-        ? String(aVal).localeCompare(String(bVal))
-        : String(bVal).localeCompare(String(aVal));
-    });
-  }, [lineage, sortField, sortDirection]);
+  }, [setFilter]);
 
   const handleExportCSV = useCallback(() => {
     const headers = ["Source Object", "Source Type", "Relationship", "Target Object", "Target Type", "Server", "Database", "Confidence", "Method"];
-    const rows = sortedLineage.map(edge => [
+    const rows = allEdges.map(edge => [
       edge.object_name || "",
       edge.object_type || "",
       edge.relationship_type || "",
@@ -328,9 +202,9 @@ const DataLineageMariaDB = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [sortedLineage, formatConfidence]);
+  }, [allEdges, formatConfidence]);
 
-  if ((loading && lineage.length === 0 && viewMode === "table") || (loadingTree && allEdges.length === 0 && viewMode === "tree")) {
+  if (loadingTree && allEdges.length === 0) {
     return (
       <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
         <h1 style={{
@@ -351,17 +225,183 @@ const DataLineageMariaDB = () => {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+      <div style={{
+        marginBottom: "20px"
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        DATA LINEAGE - MARIADB
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: "uppercase",
+          fontFamily: "Consolas"
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          DATA LINEAGE - MARIADB
+        </h1>
+      </div>
+
+      {showLineagePlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowLineagePlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="DATA LINEAGE - MARIADB PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Data Lineage tracks the flow of data through your MariaDB databases, showing how data moves 
+                    from source tables to target tables, views, stored procedures, and other database objects. 
+                    This helps you understand data dependencies, impact analysis, and data flow patterns across 
+                    your MariaDB infrastructure.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} RELATIONSHIP TYPES
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>DEPENDS_ON</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Target object depends on source object (e.g., view depends on table)
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>REFERENCES</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Foreign key or reference relationship between objects
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>USES</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Object uses another object (e.g., stored procedure uses table)
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>CONTAINS</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Parent-child relationship (e.g., schema contains table)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} CONFIDENCE SCORE
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success, fontWeight: 600 }}>High (0.8-1.0)</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Strong evidence of relationship, typically from explicit dependencies or foreign keys
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.warning, fontWeight: 600 }}>Medium (0.5-0.8)</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Moderate confidence, inferred from patterns or naming conventions
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.danger, fontWeight: 600 }}>Low (0.0-0.5)</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Weak evidence, may require manual verification
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} DISCOVERY METHODS
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>FOREIGN_KEY</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Discovered through foreign key constraints
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>VIEW_DEFINITION</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Extracted from view CREATE statements
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>STORED_PROCEDURE</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Analyzed from stored procedure code
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>TRIGGER</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                        Discovered from trigger definitions
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Use filters to narrow down lineage to specific servers, databases, or object types<br/>
+                    • Review confidence scores to identify relationships that may need verification<br/>
+                    • Export lineage data for documentation and compliance purposes<br/>
+                    • Monitor lineage changes to track data flow evolution over time<br/>
+                    • Use dependency level to understand the depth of relationships
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowLineagePlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
+      )}
       
       {error && (
         <div style={{ marginBottom: 20 }}>
@@ -550,7 +590,6 @@ const DataLineageMariaDB = () => {
             label="Reset All"
             onClick={() => {
               clearFilters();
-              setPage(1);
             }}
             variant="ghost"
           />
@@ -559,416 +598,34 @@ const DataLineageMariaDB = () => {
 
       <div style={{ 
         display: 'flex', 
-        justifyContent: 'space-between', 
+        justifyContent: 'flex-end', 
         alignItems: 'center', 
+        marginTop: 24,
         marginBottom: 16,
         fontFamily: 'Consolas',
         fontSize: 12
       }}>
-        <div style={{ color: asciiColors.muted }}>
-          {viewMode === "table" 
-            ? `Showing ${sortedLineage.length} of ${pagination.total} relationships (Page ${pagination.currentPage} of ${pagination.totalPages})`
-            : `Total: ${allEdges.length} relationships`
-          }
-        </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <AsciiButton
-            label="Table View"
-            onClick={() => setViewMode("table")}
-            variant={viewMode === "table" ? "primary" : "ghost"}
-          />
-          <AsciiButton
-            label="Tree View"
-            onClick={() => {
-              setViewMode("tree");
-              fetchAllEdges();
-            }}
-            variant={viewMode === "tree" ? "primary" : "ghost"}
-          />
           <AsciiButton
             label="Export CSV"
             onClick={handleExportCSV}
             variant="ghost"
           />
+          <AsciiButton
+            label="Lineage Info"
+            onClick={() => setShowLineagePlaybook(true)}
+            variant="ghost"
+          />
         </div>
       </div>
 
-      {viewMode === "tree" ? (
-        loadingTree ? (
-          <LoadingOverlay>Loading tree view...</LoadingOverlay>
-        ) : (
-          <DataLineageMariaDBTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
-        )
+      {loadingTree ? (
+        <LoadingOverlay>Loading tree view...</LoadingOverlay>
       ) : (
-        <AsciiPanel title="LINEAGE RELATIONSHIPS">
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ 
-              width: '100%', 
-              minWidth: '1400px',
-              borderCollapse: 'collapse',
-              fontFamily: 'Consolas',
-              fontSize: 12
-            }}>
-              <thead>
-                <tr>
-                  <th 
-                    onClick={() => handleSort("object_name")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "object_name" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "object_name" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Source Object {sortField === "object_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("object_type")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "object_type" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "object_type" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Source Type {sortField === "object_type" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("relationship_type")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "relationship_type" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "relationship_type" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Relationship {sortField === "relationship_type" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("target_object_name")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "target_object_name" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "target_object_name" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Target Object {sortField === "target_object_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("target_object_type")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "target_object_type" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "target_object_type" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Target Type {sortField === "target_object_type" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("server_name")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "server_name" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "server_name" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Server {sortField === "server_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("database_name")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "database_name" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "database_name" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Database {sortField === "database_name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("confidence_score")}
-                    style={{
-                      padding: '8px',
-                      textAlign: 'left',
-                      borderBottom: `2px solid ${asciiColors.border}`,
-                      cursor: 'pointer',
-                      fontFamily: 'Consolas',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: sortField === "confidence_score" ? asciiColors.accent : asciiColors.foreground,
-                      backgroundColor: sortField === "confidence_score" ? asciiColors.accentLight : 'transparent'
-                    }}
-                  >
-                    Confidence {sortField === "confidence_score" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th style={{
-                    padding: '8px',
-                    textAlign: 'left',
-                    borderBottom: `2px solid ${asciiColors.border}`,
-                    fontFamily: 'Consolas',
-                    fontSize: 12,
-                    fontWeight: 600
-                  }}>
-                    Method
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedLineage.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{ padding: '60px 40px', textAlign: 'center', color: asciiColors.muted, fontFamily: 'Consolas' }}>
-                      <div style={{ fontSize: 48, marginBottom: 16, fontFamily: 'Consolas', opacity: 0.5 }}>
-                        {ascii.arrowRight}
-                      </div>
-                      <div style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
-                        No lineage data available
-                      </div>
-                      <div style={{ fontSize: 12, fontFamily: 'Consolas', opacity: 0.7, color: asciiColors.muted }}>
-                        Lineage relationships will appear here once extracted.
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  sortedLineage.map((edge, index) => (
-                    <React.Fragment key={edge.id}>
-                      <tr 
-                        onClick={() => toggleEdge(edge.id)} 
-                        style={{ 
-                          cursor: 'pointer',
-                          borderBottom: `1px solid ${asciiColors.border}`,
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                          e.currentTarget.style.transform = 'translateX(4px)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                          e.currentTarget.style.transform = 'translateX(0)';
-                        }}
-                      >
-                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
-                          <strong style={{ color: asciiColors.accent }}>
-                            {edge.object_name || 'N/A'}
-                          </strong>
-                          {edge.column_name && (
-                            <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>.{edge.column_name}</div>
-                          )}
-                        </td>
-                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
-                          <span style={{
-                            padding: '2px 8px',
-                            borderRadius: 2,
-                            fontSize: 11,
-                            fontFamily: 'Consolas',
-                            backgroundColor: asciiColors.backgroundSoft,
-                            color: asciiColors.foreground,
-                            border: `1px solid ${asciiColors.border}`
-                          }}>
-                            {edge.object_type || 'N/A'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
-                          <div style={{ color: asciiColors.accent, fontSize: 14, fontWeight: 'bold' }}>
-                            {ascii.arrowRight}
-                          </div>
-                          <div style={{ fontSize: 11, color: asciiColors.muted, marginTop: 4, fontFamily: 'Consolas' }}>
-                            {edge.relationship_type || 'N/A'}
-                          </div>
-                        </td>
-                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
-                          <strong style={{ color: asciiColors.foreground }}>{edge.target_object_name || 'N/A'}</strong>
-                          {edge.target_column_name && (
-                            <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>.{edge.target_column_name}</div>
-                          )}
-                        </td>
-                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
-                          <span style={{
-                            padding: '2px 8px',
-                            borderRadius: 2,
-                            fontSize: 11,
-                            fontFamily: 'Consolas',
-                            backgroundColor: asciiColors.backgroundSoft,
-                            color: asciiColors.foreground,
-                            border: `1px solid ${asciiColors.border}`
-                          }}>
-                            {edge.target_object_type || 'N/A'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px', color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
-                          {edge.server_name || 'N/A'}
-                        </td>
-                        <td style={{ padding: '8px', color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
-                          {edge.database_name || 'N/A'}
-                        </td>
-                        <td style={{ padding: '8px', fontFamily: 'Consolas', fontSize: 12 }}>
-                          <span style={{
-                            padding: '2px 8px',
-                            borderRadius: 2,
-                            fontSize: 11,
-                            fontFamily: 'Consolas',
-                            backgroundColor: getConfidenceColor(edge.confidence_score) + '20',
-                            color: getConfidenceColor(edge.confidence_score),
-                            border: `1px solid ${getConfidenceColor(edge.confidence_score)}`
-                          }}>
-                            {formatConfidence(edge.confidence_score)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px', color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
-                          {edge.discovery_method || 'N/A'}
-                        </td>
-                      </tr>
-                      {openEdgeId === edge.id && (
-                        <tr>
-                          <td colSpan={9} style={{ padding: 0, border: 'none' }}>
-                            <div style={{
-                              maxHeight: openEdgeId === edge.id ? '700px' : '0',
-                              opacity: openEdgeId === edge.id ? '1' : '0',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              borderTop: openEdgeId === edge.id ? `1px solid ${asciiColors.border}` : 'none',
-                              backgroundColor: asciiColors.background,
-                              overflow: 'hidden'
-                            }}>
-                              <div style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: '200px 1fr', 
-                                padding: 16, 
-                                gap: 12,
-                                fontFamily: 'Consolas',
-                                fontSize: 12
-                              }}>
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Edge Key:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.edge_key || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Schema:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.schema_name || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Source Column:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.column_name || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Target Column:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.target_column_name || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Dependency Level:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.dependency_level !== null && edge.dependency_level !== undefined ? edge.dependency_level : 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Discovered By:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.discovered_by || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Type:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.consumer_type || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Name:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.consumer_name || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Context:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas', wordBreak: 'break-word' }}>{edge.consumer_context || 'N/A'}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>First Seen:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.first_seen_at)}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Last Seen:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.last_seen_at)}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Created At:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.created_at)}</div>
-                                
-                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Updated At:</div>
-                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.updated_at)}</div>
-                              </div>
-                              
-                              {edge.definition_text && (
-                                <>
-                                  <div style={{ padding: '15px 15px 5px 15px', fontWeight: 600, color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
-                                    Definition:
-                                  </div>
-                                  <pre style={{
-                                    margin: 0,
-                                    padding: 16,
-                                    backgroundColor: asciiColors.backgroundSoft,
-                                    borderRadius: 2,
-                                    overflowX: 'auto',
-                                    fontSize: 11,
-                                    border: `1px solid ${asciiColors.border}`,
-                                    fontFamily: 'Consolas',
-                                    color: asciiColors.foreground
-                                  }}>
-                                    {edge.definition_text}
-                                  </pre>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </AsciiPanel>
-      )}
-
-      {viewMode === "table" && pagination.totalPages > 1 && (
-        <Pagination>
-          <PageButton
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page === 1}
-          >
-            Previous
-          </PageButton>
-          <span>
-            Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
-          </span>
-          <PageButton
-            onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
-            disabled={page === pagination.totalPages}
-          >
-            Next
-          </PageButton>
-        </Pagination>
+        <DataLineageMariaDBTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
       )}
     </div>
   );
 };
 
-export default DataLineageMariaDB;
+export default DataLineageMariaDB; 
