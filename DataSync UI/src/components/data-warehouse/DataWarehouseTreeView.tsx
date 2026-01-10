@@ -68,9 +68,10 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
         <div style={{ 
           fontSize: 48, 
           marginBottom: 12,
-          opacity: 0.4
+          opacity: 0.4,
+          fontFamily: 'Consolas'
         }}>
-          📊
+          {ascii.blockFull}
         </div>
         <div style={{ 
           fontSize: 12, 

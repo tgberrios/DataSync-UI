@@ -401,10 +401,11 @@ const DataWarehouse = () => {
           </AsciiPanel>
         </div>
       ) : (
-        <div style={{ marginTop: 20, display: 'flex', gap: 20 }}>
-          <div style={{ flex: '0 0 400px' }}>
+        <div style={{ marginTop: 20, display: 'flex', gap: 20, alignItems: 'stretch' }}>
+          <div style={{ flex: '0 0 400px', display: 'flex', flexDirection: 'column' }}>
             <AsciiPanel title="WAREHOUSE TREE">
               <div style={{
+                minHeight: 300,
                 maxHeight: 800,
                 overflowY: 'auto',
                 overflowX: 'hidden',
@@ -423,7 +424,7 @@ const DataWarehouse = () => {
             </AsciiPanel>
           </div>
 
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {selectedWarehouse ? (
               <AsciiPanel title={`WAREHOUSE DETAILS: ${selectedWarehouse.warehouse_name}`}>
                 {selectedWarehouse.description && (
@@ -652,7 +653,9 @@ const DataWarehouse = () => {
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  minHeight: 300
+                  minHeight: 300,
+                  fontFamily: "Consolas",
+                  fontSize: 12
                 }}>
                   <div style={{ 
                     fontSize: 48, 

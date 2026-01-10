@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
-import { asciiColors } from '../../ui/theme/asciiTheme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { dataWarehouseApi, customJobsApi, type DataWarehouseEntry, type DimensionTable, type FactTable } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 
@@ -480,7 +480,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
             alignItems: 'center',
             gap: 8
           }}>
-            <span>{initialData ? '✎' : '+'}</span>
+            <span>{initialData ? ascii.blockFull : '+'}</span>
             <span>{initialData ? 'Edit Data Warehouse' : 'Create Data Warehouse'}</span>
           </h2>
           <AsciiButton label="×" onClick={onClose} variant="ghost" />
@@ -523,7 +523,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 }
               }}
             >
-              <span>⚙</span>
+              <span>{ascii.blockFull}</span>
               <span>Basic Info</span>
             </div>
             <div
@@ -554,7 +554,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>📐</span>
+                <span>{ascii.blockFull}</span>
                 <span>Dimensions</span>
               </div>
               <span style={{
@@ -595,7 +595,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>📈</span>
+                <span>{ascii.blockFull}</span>
                 <span>Facts</span>
               </div>
               <span style={{
@@ -625,7 +625,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 alignItems: 'center',
                 gap: 10
               }}>
-                <span style={{ fontSize: 16 }}>⚠</span>
+                <span style={{ fontSize: 16 }}>!</span>
                 <span>{error}</span>
               </div>
             )}
@@ -734,7 +734,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       fontFamily: 'Consolas',
                     }}>
                       <h3 style={{ margin: '0 0 12px 0', fontSize: 13, color: asciiColors.accent, fontFamily: 'Consolas' }}>
-                        📚 Data Warehouse Schema Guide
+                        Data Warehouse Schema Guide
                       </h3>
                       
                       <div style={{ marginBottom: 16 }}>
@@ -763,7 +763,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
 
                       <div style={{ marginBottom: 16 }}>
                         <h3 style={{ margin: '0 0 8px 0', fontSize: 13, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
-                          Star Schema ⭐
+                          Star Schema *
                         </h3>
                         <div style={{ 
                           padding: 12, 
@@ -789,7 +789,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
 
                       <div>
                         <h3 style={{ margin: '0 0 8px 0', fontSize: 13, color: asciiColors.foreground, fontFamily: 'Consolas', fontWeight: 600 }}>
-                          Snowflake Schema ❄️
+                          Snowflake Schema *
                         </h3>
                         <div style={{ 
                           padding: 12, 
@@ -821,7 +821,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                         border: `1px solid ${asciiColors.accent}`,
                       }}>
                         <strong style={{ color: asciiColors.accent, display: 'block', marginBottom: 4 }}>
-                          💡 Quick Example:
+                          Quick Example:
                         </strong>
                         <div style={{ color: asciiColors.foreground, fontSize: 10, lineHeight: 1.6 }}>
                           "How much did we sell (Fact) by customer (Dimension) in January (Dimension)?"<br/>
@@ -846,8 +846,8 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       outline: 'none',
                     }}
                   >
-                    <option value="STAR_SCHEMA">Star Schema ⭐</option>
-                    <option value="SNOWFLAKE_SCHEMA">Snowflake Schema ❄️</option>
+                    <option value="STAR_SCHEMA">Star Schema *</option>
+                    <option value="SNOWFLAKE_SCHEMA">Snowflake Schema *</option>
                   </select>
                 </div>
 
@@ -917,7 +917,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       fontSize: 11,
                       fontFamily: 'Consolas',
                     }}>
-                      {sourceConnectionTestResult.success ? '✓ ' : '✗ '}
+                      {sourceConnectionTestResult.success ? '[OK] ' : '[ERR] '}
                       {sourceConnectionTestResult.message}
                     </div>
                   )}
@@ -1047,7 +1047,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       fontSize: 11,
                       fontFamily: 'Consolas',
                     }}>
-                      {targetConnectionTestResult.success ? '✓ ' : '✗ '}
+                      {targetConnectionTestResult.success ? '[OK] ' : '[ERR] '}
                       {targetConnectionTestResult.message}
                     </div>
                   )}
@@ -1178,7 +1178,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
 
                 {dimensions.length === 0 ? (
                   <div style={{ padding: 40, textAlign: 'center', color: asciiColors.muted }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📐</div>
+                    <div style={{ fontSize: 32, marginBottom: 8, fontFamily: 'Consolas' }}>{ascii.blockFull}</div>
                     <div style={{ fontSize: 12, fontFamily: 'Consolas' }}>No dimensions defined</div>
                     <div style={{ fontSize: 11, marginTop: 4 }}>Click "Add Dimension" to create one</div>
                   </div>
@@ -1198,7 +1198,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                           Dimension {index + 1}
                         </h3>
                         <AsciiButton
-                          label="✗ Remove"
+                          label="[X] Remove"
                           onClick={() => handleRemoveDimension(index)}
                           variant="ghost"
                         />
@@ -1398,7 +1398,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                               fontSize: 11,
                               fontFamily: 'Consolas',
                             }}>
-                              {queryTestResults[`dimension-${index}`].success ? '✓ ' : '✗ '}
+                              {queryTestResults[`dimension-${index}`].success ? '[OK] ' : '[ERR] '}
                               {queryTestResults[`dimension-${index}`].message}
                             </div>
                           )}
@@ -1495,7 +1495,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
 
                 {facts.length === 0 ? (
                   <div style={{ padding: 40, textAlign: 'center', color: asciiColors.muted }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📈</div>
+                    <div style={{ fontSize: 32, marginBottom: 8, fontFamily: 'Consolas' }}>{ascii.blockFull}</div>
                     <div style={{ fontSize: 12, fontFamily: 'Consolas' }}>No fact tables defined</div>
                     <div style={{ fontSize: 11, marginTop: 4 }}>Click "Add Fact Table" to create one</div>
                   </div>
@@ -1515,7 +1515,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                           Fact Table {index + 1}
                         </h3>
                         <AsciiButton
-                          label="✗ Remove"
+                          label="[X] Remove"
                           onClick={() => handleRemoveFact(index)}
                           variant="ghost"
                         />
@@ -1596,7 +1596,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                               fontSize: 11,
                               fontFamily: 'Consolas',
                             }}>
-                              {queryTestResults[`fact-${index}`].success ? '✓ ' : '✗ '}
+                              {queryTestResults[`fact-${index}`].success ? '[OK] ' : '[ERR] '}
                               {queryTestResults[`fact-${index}`].message}
                             </div>
                           )}
