@@ -24,10 +24,15 @@ const MigrationDetailsModal = ({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedEnvironment, setSelectedEnvironment] = useState('dev');
   const [error, setError] = useState<string | null>(null);
+  const [isAppliedToSelectedEnv, setIsAppliedToSelectedEnv] = useState(false);
 
   useEffect(() => {
     fetchExecutionHistory();
   }, [migration.migration_name]);
+
+  useEffect(() => {
+    checkIfAppliedToEnvironment();
+  }, [selectedEnvironment, executionHistory]);
 
   const fetchExecutionHistory = async () => {
     try {
@@ -39,6 +44,13 @@ const MigrationDetailsModal = ({
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const checkIfAppliedToEnvironment = () => {
+    const appliedToEnv = executionHistory.some(
+      entry => entry.environment === selectedEnvironment && entry.status === 'APPLIED'
+    );
+    setIsAppliedToSelectedEnv(appliedToEnv);
   };
 
   const getStatusColor = (status: string) => {
@@ -345,6 +357,7 @@ const MigrationDetailsModal = ({
               >
                 <option value="dev">Development</option>
                 <option value="staging">Staging</option>
+                <option value="qa">QA</option>
                 <option value="production">Production</option>
               </select>
             </div>
@@ -370,7 +383,7 @@ const MigrationDetailsModal = ({
                   🧪 TEST MIGRATION
                 </button>
               )}
-              {migration.status !== 'APPLIED' && (
+              {!isAppliedToSelectedEnv && (
                 <button
                   onClick={() => onApply(migration.migration_name, selectedEnvironment)}
                   style={{
@@ -388,7 +401,7 @@ const MigrationDetailsModal = ({
                   ✓ APPLY TO {selectedEnvironment.toUpperCase()}
                 </button>
               )}
-              {migration.status === 'APPLIED' && migration.rollback_sql && (
+              {isAppliedToSelectedEnv && migration.rollback_sql && (
                 <button
                   onClick={() => onRollback(migration.migration_name, selectedEnvironment)}
                   style={{

@@ -1,13 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
-import { schemaMigrationsApi } from '../../services/api';
+import { schemaMigrationsApi, backupsApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 
 interface CreateMigrationModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+const getConnectionStringExample = (engine: string) => {
+  switch (engine) {
+    case 'PostgreSQL':
+      return 'postgresql://username:password@localhost:5432/database_name';
+    case 'MariaDB':
+      return 'mysql://username:password@localhost:3306/database_name';
+    case 'MSSQL':
+      return 'mssql://username:password@localhost:1433/database_name';
+    case 'MongoDB':
+      return 'mongodb://username:password@localhost:27017/database_name?authSource=admin';
+    case 'Oracle':
+      return 'oracle://username:password@localhost:1521/XE';
+    default:
+      return 'postgresql://username:password@localhost:5432/database_name';
+  }
+};
 
 const CreateMigrationModal = ({ onClose, onSuccess }: CreateMigrationModalProps) => {
   const [formData, setFormData] = useState({
@@ -17,10 +34,102 @@ const CreateMigrationModal = ({ onClose, onSuccess }: CreateMigrationModalProps)
     db_engine: 'PostgreSQL',
     forward_sql: '',
     rollback_sql: '',
-    connection_string: ''
+    environment_connections: {
+      dev: '',
+      staging: '',
+      qa: '',
+      production: getConnectionStringExample('PostgreSQL')
+    }
   });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [testingConnection, setTestingConnection] = useState<{ env: string; testing: boolean }>({ env: '', testing: false });
+  const [testingSQL, setTestingSQL] = useState(false);
+  const [connectionTestResults, setConnectionTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [sqlTestResult, setSqlTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [sqlTestEnvironment, setSqlTestEnvironment] = useState('production');
+
+  useEffect(() => {
+    const currentExample = getConnectionStringExample(formData.db_engine);
+    const previousExamples = [
+      'postgresql://username:password@localhost:5432/database_name',
+      'mysql://username:password@localhost:3306/database_name',
+      'mssql://username:password@localhost:1433/database_name',
+      'mongodb://username:password@localhost:27017/database_name?authSource=admin',
+      'oracle://username:password@localhost:1521/XE'
+    ];
+    
+    setFormData(prev => {
+      const updated = { ...prev.environment_connections };
+      if (!updated.production || previousExamples.includes(updated.production)) {
+        updated.production = currentExample;
+      }
+      return { ...prev, environment_connections: updated };
+    });
+  }, [formData.db_engine]);
+
+  const handleTestConnection = async (env: string) => {
+    const connectionString = formData.environment_connections[env as keyof typeof formData.environment_connections];
+    if (!connectionString || connectionString.trim() === '') {
+      setConnectionTestResults(prev => ({ ...prev, [env]: { success: false, message: 'Connection string is required' } }));
+      return;
+    }
+
+    setTestingConnection({ env, testing: true });
+    setConnectionTestResults(prev => ({ ...prev, [env]: null as any }));
+    setError(null);
+
+    try {
+      await backupsApi.testConnection(formData.db_engine, connectionString);
+      setConnectionTestResults(prev => ({ ...prev, [env]: { success: true, message: 'Connection successful!' } }));
+    } catch (err) {
+      setConnectionTestResults(prev => ({ ...prev, [env]: { success: false, message: extractApiError(err) } }));
+    } finally {
+      setTestingConnection({ env: '', testing: false });
+    }
+  };
+
+  const handleTestSQL = async () => {
+    if (!formData.forward_sql || formData.forward_sql.trim() === '') {
+      setSqlTestResult({ success: false, message: 'Forward SQL is required' });
+      return;
+    }
+
+    if (!formData.rollback_sql || formData.rollback_sql.trim() === '') {
+      setSqlTestResult({ success: false, message: 'Rollback SQL is required' });
+      return;
+    }
+
+    const connectionString = formData.environment_connections[sqlTestEnvironment as keyof typeof formData.environment_connections];
+    if (!connectionString || connectionString.trim() === '') {
+      setSqlTestResult({ success: false, message: `Connection string for ${sqlTestEnvironment} is required` });
+      return;
+    }
+
+    setTestingSQL(true);
+    setSqlTestResult(null);
+    setError(null);
+
+    try {
+      const result = await schemaMigrationsApi.testSQL({
+        db_engine: formData.db_engine,
+        connection_string: connectionString,
+        forward_sql: formData.forward_sql,
+        rollback_sql: formData.rollback_sql,
+      });
+
+      setSqlTestResult({
+        success: result.success,
+        message: result.message || (result.success
+          ? 'SQL test successful! Forward and rollback executed correctly.'
+          : result.errors?.join('; ') || 'SQL test failed'),
+      });
+    } catch (err) {
+      setSqlTestResult({ success: false, message: extractApiError(err) });
+    } finally {
+      setTestingSQL(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,9 +145,24 @@ const CreateMigrationModal = ({ onClose, onSuccess }: CreateMigrationModalProps)
       return;
     }
 
+    if (!formData.environment_connections.production || formData.environment_connections.production.trim() === '') {
+      setError('Production Connection String is MANDATORY.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await schemaMigrationsApi.create(formData);
+      const cleanConnections: Record<string, string> = {};
+      Object.entries(formData.environment_connections).forEach(([env, conn]) => {
+        if (conn && conn.trim() !== '') {
+          cleanConnections[env] = conn.trim();
+        }
+      });
+
+      await schemaMigrationsApi.create({
+        ...formData,
+        environment_connections: cleanConnections
+      });
       onSuccess();
     } catch (err) {
       setError(extractApiError(err));
@@ -222,31 +346,94 @@ const CreateMigrationModal = ({ onClose, onSuccess }: CreateMigrationModalProps)
             </div>
 
             <div>
-              <label style={{
-                display: 'block',
+              <div style={{
                 fontSize: 11,
                 color: asciiColors.muted,
-                marginBottom: 4,
-                fontFamily: 'Consolas'
+                marginBottom: 12,
+                fontFamily: 'Consolas',
+                fontWeight: 600
               }}>
-                Connection String (optional - for testing)
-              </label>
-              <input
-                type="text"
-                value={formData.connection_string}
-                onChange={(e) => setFormData({ ...formData, connection_string: e.target.value })}
-                placeholder="postgresql://user:pass@host:port/db"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  background: asciiColors.backgroundSoft,
-                  color: asciiColors.foreground,
-                  fontFamily: 'Consolas',
-                  fontSize: 12
-                }}
-              />
+                {ascii.blockSemi} ENVIRONMENT CONNECTION STRINGS
+              </div>
+              {(['dev', 'staging', 'qa', 'production'] as const).map((env) => {
+                const isRequired = env === 'production';
+                const connectionString = formData.environment_connections[env];
+                const testResult = connectionTestResults[env];
+                const isTesting = testingConnection.testing && testingConnection.env === env;
+
+                return (
+                  <div key={env} style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label style={{
+                        display: 'block',
+                        fontSize: 11,
+                        color: asciiColors.muted,
+                        fontFamily: 'Consolas'
+                      }}>
+                        {env.charAt(0).toUpperCase() + env.slice(1)} Connection {isRequired && '*'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleTestConnection(env)}
+                        disabled={isTesting || !connectionString || connectionString.trim() === ''}
+                        style={{
+                          padding: '6px 12px',
+                          border: `1px solid ${asciiColors.accent}`,
+                          borderRadius: 2,
+                          background: asciiColors.accent,
+                          color: asciiColors.background,
+                          cursor: (isTesting || !connectionString || connectionString.trim() === '') ? 'not-allowed' : 'pointer',
+                          fontSize: 11,
+                          fontFamily: 'Consolas',
+                          fontWeight: 600,
+                          opacity: (isTesting || !connectionString || connectionString.trim() === '') ? 0.5 : 1
+                        }}
+                      >
+                        {isTesting ? 'TESTING...' : 'TEST'}
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={connectionString}
+                      onChange={(e) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          environment_connections: {
+                            ...prev.environment_connections,
+                            [env]: e.target.value
+                          }
+                        }));
+                        setConnectionTestResults(prev => ({ ...prev, [env]: undefined as any }));
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: `1px solid ${isRequired && (!connectionString || connectionString.trim() === '') ? asciiColors.danger : asciiColors.border}`,
+                        borderRadius: 2,
+                        background: asciiColors.backgroundSoft,
+                        color: asciiColors.foreground,
+                        fontFamily: 'Consolas',
+                        fontSize: 12
+                      }}
+                    />
+                    {testResult && (
+                      <div style={{
+                        marginTop: 8,
+                        padding: 8,
+                        background: testResult.success ? (asciiColors.success + '20') : (asciiColors.danger + '20'),
+                        border: `1px solid ${testResult.success ? asciiColors.success : asciiColors.danger}`,
+                        borderRadius: 2,
+                        color: testResult.success ? asciiColors.success : asciiColors.danger,
+                        fontSize: 11,
+                        fontFamily: 'Consolas'
+                      }}>
+                        {testResult.success ? '✓ ' : '✗ '}
+                        {testResult.message}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div>
@@ -279,18 +466,62 @@ const CreateMigrationModal = ({ onClose, onSuccess }: CreateMigrationModalProps)
             </div>
 
             <div>
-              <label style={{
-                display: 'block',
-                fontSize: 11,
-                color: asciiColors.muted,
-                marginBottom: 4,
-                fontFamily: 'Consolas'
-              }}>
-                Rollback SQL * (MANDATORY)
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: 11,
+                  color: asciiColors.muted,
+                  fontFamily: 'Consolas'
+                }}>
+                  Rollback SQL * (MANDATORY)
+                </label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select
+                    value={sqlTestEnvironment}
+                    onChange={(e) => setSqlTestEnvironment(e.target.value)}
+                    style={{
+                      padding: '6px 12px',
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      background: asciiColors.backgroundSoft,
+                      color: asciiColors.foreground,
+                      fontFamily: 'Consolas',
+                      fontSize: 11,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="dev">Test on Dev</option>
+                    <option value="staging">Test on Staging</option>
+                    <option value="qa">Test on QA</option>
+                    <option value="production">Test on Production</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleTestSQL}
+                    disabled={testingSQL || !formData.forward_sql || !formData.rollback_sql || !formData.environment_connections[sqlTestEnvironment as keyof typeof formData.environment_connections]}
+                    style={{
+                      padding: '6px 12px',
+                      border: `1px solid ${asciiColors.accent}`,
+                      borderRadius: 2,
+                      background: asciiColors.accent,
+                      color: asciiColors.background,
+                      cursor: (testingSQL || !formData.forward_sql || !formData.rollback_sql || !formData.environment_connections[sqlTestEnvironment as keyof typeof formData.environment_connections]) ? 'not-allowed' : 'pointer',
+                      fontSize: 11,
+                      fontFamily: 'Consolas',
+                      fontWeight: 600,
+                      opacity: (testingSQL || !formData.forward_sql || !formData.rollback_sql || !formData.environment_connections[sqlTestEnvironment as keyof typeof formData.environment_connections]) ? 0.5 : 1
+                    }}
+                  >
+                    {testingSQL ? 'TESTING...' : 'TEST SQL'}
+                  </button>
+                </div>
+              </div>
               <textarea
                 value={formData.rollback_sql}
-                onChange={(e) => setFormData({ ...formData, rollback_sql: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, rollback_sql: e.target.value });
+                  setSqlTestResult(null);
+                }}
                 placeholder="ALTER TABLE users DROP COLUMN email;"
                 rows={8}
                 style={{
@@ -305,6 +536,21 @@ const CreateMigrationModal = ({ onClose, onSuccess }: CreateMigrationModalProps)
                   resize: 'vertical'
                 }}
               />
+              {sqlTestResult && (
+                <div style={{
+                  marginTop: 8,
+                  padding: 8,
+                  background: sqlTestResult.success ? (asciiColors.success + '20') : (asciiColors.danger + '20'),
+                  border: `1px solid ${sqlTestResult.success ? asciiColors.success : asciiColors.danger}`,
+                  borderRadius: 2,
+                  color: sqlTestResult.success ? asciiColors.success : asciiColors.danger,
+                  fontSize: 11,
+                  fontFamily: 'Consolas'
+                }}>
+                  {sqlTestResult.success ? '✓ ' : '✗ '}
+                  {sqlTestResult.message}
+                </div>
+              )}
             </div>
 
             {error && (

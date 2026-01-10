@@ -3060,6 +3060,7 @@ export interface SchemaMigrationEntry {
   last_applied_at?: string;
   applied_by?: string;
   connection_string?: string;
+  environment_connections?: Record<string, string>;
 }
 
 export const schemaMigrationsApi = {
@@ -3114,6 +3115,7 @@ export const schemaMigrationsApi = {
     forward_sql: string;
     rollback_sql?: string;
     connection_string?: string;
+    environment_connections?: Record<string, string>;
   }) => {
     try {
       const response = await api.post("/schema-migrations", migrationData);
@@ -3332,6 +3334,28 @@ export const schemaMigrationsApi = {
       return response.data;
     } catch (error) {
       console.error(`Error cleaning up test schema ${testSchema}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  testSQL: async (params: {
+    db_engine: string;
+    connection_string: string;
+    forward_sql: string;
+    rollback_sql: string;
+  }) => {
+    try {
+      const response = await api.post("/schema-migrations/test-sql", params);
+      return response.data;
+    } catch (error) {
+      console.error("Error testing SQL:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||

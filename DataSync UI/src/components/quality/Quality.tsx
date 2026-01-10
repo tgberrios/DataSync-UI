@@ -57,22 +57,24 @@ const Quality = () => {
   
   const fetchQualityData = useCallback(async (isBackgroundRefresh = false) => {
     if (!isMountedRef.current) return;
-    if (fetchingRef.current && !isBackgroundRefresh) {
-      return;
-    }
     
     const isInitialLoad = isInitialLoadRef.current && !isBackgroundRefresh;
     
-    if (abortControllerRef.current && !isInitialLoad) {
-      abortControllerRef.current.abort();
+    if (fetchingRef.current) {
+      if (isBackgroundRefresh) {
+        return;
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     }
     
     abortControllerRef.current = new AbortController();
     fetchingRef.current = true;
     
     try {
-      setError(null);
       if (isInitialLoad) {
+        setError(null);
         setLoading(true);
       } else if (isBackgroundRefresh) {
         setRefreshing(true);
@@ -100,13 +102,12 @@ const Quality = () => {
         setError(null);
       }
     } catch (err: any) {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && !abortControllerRef.current?.signal.aborted) {
         const isCanceled = err.name === 'CanceledError' || 
                           err.name === 'AbortError' || 
                           err.code === 'ERR_CANCELED' ||
                           err.message?.includes('aborted') || 
-                          err.message?.includes('canceled') ||
-                          abortControllerRef.current?.signal.aborted;
+                          err.message?.includes('canceled');
         
         if (isCanceled) {
           return;
@@ -136,19 +137,29 @@ const Quality = () => {
     isInitialLoadRef.current = true;
     fetchQualityData();
     
-    const interval = setInterval(() => {
-      if (isMountedRef.current && !fetchingRef.current && !isInitialLoadRef.current) {
-        fetchQualityData(true);
-      }
-    }, 30000);
     return () => {
       isMountedRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      clearInterval(interval);
     };
-  }, [fetchQualityData]);
+  }, [filters.engine, filters.status]);
+
+  useEffect(() => {
+    if (isInitialLoadRef.current || loading) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      if (isMountedRef.current && !fetchingRef.current && !isInitialLoadRef.current) {
+        fetchQualityData(true);
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [loading]);
 
   const handleItemClick = useCallback((item: any) => {
     setSelectedItem((prev: any) => prev?.id === item.id ? null : item);

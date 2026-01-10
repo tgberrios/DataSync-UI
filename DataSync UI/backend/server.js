@@ -12450,6 +12450,7 @@ app.post(
         forward_sql,
         rollback_sql,
         connection_string,
+        environment_connections,
       } = req.body;
 
       if (!migration_name || !version || !forward_sql) {
@@ -12485,10 +12486,13 @@ app.post(
         ? 0
         : lastMigrationResult.rows[0].chain_position + 1;
 
+      const legacyConnectionString = connection_string || (environment_connections && environment_connections.production) || null;
+      const envConnections = environment_connections || (legacyConnectionString ? { production: legacyConnectionString } : {});
+
       const result = await pool.query(
         `INSERT INTO metadata.schema_migrations 
-        (migration_name, version, description, db_engine, forward_sql, rollback_sql, checksum, status, prev_hash, chain_position, is_genesis, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9, $10, NOW())
+        (migration_name, version, description, db_engine, forward_sql, rollback_sql, checksum, status, prev_hash, chain_position, is_genesis, connection_string, environment_connections, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9, $10, $11, $12, NOW())
         RETURNING *`,
         [
           migration_name,
@@ -12501,6 +12505,8 @@ app.post(
           prevHash,
           chainPosition,
           isGenesis,
+          legacyConnectionString,
+          JSON.stringify(envConnections),
         ]
       );
 
@@ -12563,10 +12569,20 @@ app.post(
       const startTime = Date.now();
       let executionError = null;
 
+      let targetConnectionString = null;
+      if (migration.environment_connections && typeof migration.environment_connections === 'object') {
+        const envConnections = typeof migration.environment_connections === 'string' 
+          ? JSON.parse(migration.environment_connections) 
+          : migration.environment_connections;
+        targetConnectionString = envConnections[environment] || envConnections.production || null;
+      } else {
+        targetConnectionString = migration.connection_string || null;
+      }
+
       try {
-        if (migration.connection_string) {
+        if (targetConnectionString) {
           const targetPool = new Pool({
-            connectionString: migration.connection_string,
+            connectionString: targetConnectionString,
             max: 1,
           });
 
@@ -12730,10 +12746,20 @@ app.post(
       const startTime = Date.now();
       let executionError = null;
 
+      let targetConnectionString = null;
+      if (migration.environment_connections && typeof migration.environment_connections === 'object') {
+        const envConnections = typeof migration.environment_connections === 'string' 
+          ? JSON.parse(migration.environment_connections) 
+          : migration.environment_connections;
+        targetConnectionString = envConnections[environment] || envConnections.production || null;
+      } else {
+        targetConnectionString = migration.connection_string || null;
+      }
+
       try {
-        if (migration.connection_string) {
+        if (targetConnectionString) {
           const targetPool = new Pool({
-            connectionString: migration.connection_string,
+            connectionString: targetConnectionString,
             max: 1,
           });
 
@@ -13234,8 +13260,18 @@ app.post(
       const startTime = Date.now();
       const errors = [];
 
-      const targetPool = migration.connection_string
-        ? new Pool({ connectionString: migration.connection_string, max: 1 })
+      let targetConnectionString = null;
+      if (migration.environment_connections && typeof migration.environment_connections === 'object') {
+        const envConnections = typeof migration.environment_connections === 'string' 
+          ? JSON.parse(migration.environment_connections) 
+          : migration.environment_connections;
+        targetConnectionString = envConnections[req.body.environment || 'production'] || envConnections.production || null;
+      } else {
+        targetConnectionString = migration.connection_string || null;
+      }
+
+      const targetPool = targetConnectionString
+        ? new Pool({ connectionString: targetConnectionString, max: 1 })
         : pool;
 
       try {
@@ -13292,6 +13328,99 @@ app.post(
       const safeError = sanitizeError(
         err,
         "Error al probar migración",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/schema-migrations/test-sql",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { db_engine, connection_string, forward_sql, rollback_sql } = req.body;
+
+      if (!forward_sql || !rollback_sql || !connection_string) {
+        return res.status(400).json({
+          error: "forward_sql, rollback_sql, and connection_string are required",
+        });
+      }
+
+      const testSchema = `_migration_test_${Date.now()}`;
+      const startTime = Date.now();
+      const errors = [];
+
+      let targetPool;
+      try {
+        if (db_engine === "PostgreSQL") {
+          targetPool = new Pool({ connectionString: connection_string, max: 1 });
+        } else {
+          return res.status(400).json({
+            error: "Only PostgreSQL is supported for SQL testing at the moment",
+          });
+        }
+
+        await targetPool.query(`CREATE SCHEMA IF NOT EXISTS ${testSchema}`);
+
+        const forwardSqlWithSchema = forward_sql.replace(
+          /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?["']?(\w+)["']?/gi,
+          `CREATE TABLE ${testSchema}.$1`
+        );
+
+        try {
+          await targetPool.query(forwardSqlWithSchema);
+        } catch (forwardErr) {
+          errors.push(`Forward SQL failed: ${forwardErr.message}`);
+        }
+
+        if (errors.length === 0) {
+          const rollbackSqlWithSchema = rollback_sql.replace(
+            /DROP TABLE\s+(?:IF EXISTS\s+)?["']?(\w+)["']?/gi,
+            `DROP TABLE IF EXISTS ${testSchema}.$1`
+          );
+
+          try {
+            await targetPool.query(rollbackSqlWithSchema);
+          } catch (rollbackErr) {
+            errors.push(`Rollback SQL failed: ${rollbackErr.message}`);
+          }
+        }
+
+        await targetPool.query(`DROP SCHEMA IF EXISTS ${testSchema} CASCADE`);
+      } catch (testErr) {
+        errors.push(`Test execution failed: ${testErr.message}`);
+        try {
+          if (targetPool) {
+            await targetPool.query(`DROP SCHEMA IF EXISTS ${testSchema} CASCADE`);
+          }
+        } catch (cleanupErr) {
+          console.error("Error cleaning up test schema:", cleanupErr);
+        }
+      } finally {
+        if (targetPool) {
+          await targetPool.end();
+        }
+      }
+
+      const executionTime = Date.now() - startTime;
+
+      res.json({
+        success: errors.length === 0,
+        test_schema: testSchema,
+        execution_time_ms: executionTime,
+        errors: errors.length > 0 ? errors : undefined,
+        message: errors.length === 0
+          ? "SQL test successful! Forward and rollback executed correctly."
+          : errors.join("; "),
+      });
+    } catch (err) {
+      console.error("Error testing SQL:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error al probar SQL",
         process.env.NODE_ENV === "production"
       );
       res.status(500).json({ error: safeError });

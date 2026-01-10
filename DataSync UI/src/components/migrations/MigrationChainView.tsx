@@ -122,6 +122,7 @@ const MigrationChainView = () => {
           >
             <option value="dev">Development</option>
             <option value="staging">Staging</option>
+            <option value="qa">QA</option>
             <option value="production">Production</option>
           </select>
           <button

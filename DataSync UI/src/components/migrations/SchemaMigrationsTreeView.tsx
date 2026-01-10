@@ -324,7 +324,7 @@ const SchemaMigrationsTreeView = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const env = prompt('Enter environment (dev/staging/production):');
+                            const env = prompt('Enter environment (dev/staging/qa/production):');
                             if (env) {
                               onApplyMigration(migration.migration_name, env);
                             }
@@ -348,7 +348,7 @@ const SchemaMigrationsTreeView = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const env = prompt('Enter environment (dev/staging/production):');
+                            const env = prompt('Enter environment (dev/staging/qa/production):');
                             if (env) {
                               onRollbackMigration(migration.migration_name, env);
                             }
