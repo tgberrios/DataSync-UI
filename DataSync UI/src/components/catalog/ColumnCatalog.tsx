@@ -3,8 +3,11 @@ import styled from 'styled-components';
 import {
   Container,
   LoadingOverlay,
+  Pagination,
+  PageButton,
 } from '../shared/BaseComponents';
 import { useTableFilters } from '../../hooks/useTableFilters';
+import { usePagination } from '../../hooks/usePagination';
 import { columnCatalogApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
@@ -21,6 +24,7 @@ import ColumnCatalogTreeView from './ColumnCatalogTreeView';
  * Displays detailed metadata about database columns including data types, sensitivity levels, and PII/PHI flags
  */
 const ColumnCatalog = () => {
+  const { page, limit, setPage, setLimit } = usePagination(1, 20, 1000);
   const { filters, setFilter, clearFilters } = useTableFilters({
     schema_name: '',
     table_name: '',
@@ -38,7 +42,14 @@ const ColumnCatalog = () => {
   const [schemas, setSchemas] = useState<string[]>([]);
   const [tables, setTables] = useState<string[]>([]);
   const [allColumns, setAllColumns] = useState<any[]>([]);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 0,
+    currentPage: 1,
+    limit: 20
+  });
   const [loadingTree, setLoadingTree] = useState(false);
+  const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllColumns = useCallback(async () => {
@@ -49,8 +60,8 @@ const ColumnCatalog = () => {
       const sanitizedSearch = sanitizeSearch(filters.search as string, 100);
       const [columnsData, metricsData, schemasData] = await Promise.all([
         columnCatalogApi.getColumns({
-          page: 1,
-          limit: 10000,
+          page,
+          limit,
           schema_name: filters.schema_name as string,
           table_name: filters.table_name as string,
           db_engine: filters.db_engine as string,
@@ -65,6 +76,12 @@ const ColumnCatalog = () => {
       ]);
       if (isMountedRef.current) {
         setAllColumns(columnsData.data || []);
+        setPagination(columnsData.pagination || {
+          total: 0,
+          totalPages: 0,
+          currentPage: 1,
+          limit: 20
+        });
         setMetrics(metricsData || {});
         setSchemas(schemasData || []);
       }
@@ -78,6 +95,8 @@ const ColumnCatalog = () => {
       }
     }
   }, [
+    page,
+    limit,
     filters.schema_name,
     filters.table_name,
     filters.db_engine,
@@ -279,6 +298,171 @@ const ColumnCatalog = () => {
         </AsciiPanel>
       </div>
 
+      {showMetricsPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowMetricsPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 900,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="METRICS PLAYBOOK">
+          <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                {ascii.blockFull} Total Columns
+              </div>
+              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                Total number of columns cataloged across all schemas, tables, and database engines in the system.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+                {ascii.blockFull} PII Columns
+              </div>
+              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                Columns containing Personally Identifiable Information (PII) such as names, emails, phone numbers, SSNs, etc. 
+                Detected through pattern matching and confidence scoring.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+                {ascii.blockFull} PHI Columns
+              </div>
+              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                Columns containing Protected Health Information (PHI) such as medical records, patient IDs, diagnoses, etc. 
+                Subject to HIPAA regulations and requires special handling.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 8 }}>
+                {ascii.blockFull} High Sensitivity
+              </div>
+              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                Columns marked with HIGH sensitivity level, indicating they contain sensitive data requiring enhanced security measures, 
+                access controls, and compliance monitoring.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                {ascii.blockFull} Primary Keys
+              </div>
+              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                Columns defined as primary keys in their respective tables. Primary keys uniquely identify each row and are 
+                essential for data integrity and relationship mapping.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                {ascii.blockFull} Indexed Columns
+              </div>
+              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                Columns that have database indexes created on them. Indexed columns improve query performance but may require 
+                additional storage and maintenance overhead.
+              </div>
+            </div>
+
+            <div style={{ 
+              marginTop: 24, 
+              padding: 16, 
+              background: asciiColors.background, 
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.accent}`
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 12, paddingBottom: 6, borderBottom: `1px solid ${asciiColors.border}` }}>
+                {ascii.blockFull} PROFILING QUALITY SCORE
+              </div>
+              <div style={{ fontSize: 11, color: asciiColors.foreground, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <strong>What is it?</strong><br/>
+                  The Profiling Quality Score (0-100) measures how comprehensively a column has been analyzed and profiled. 
+                  Higher scores indicate more complete data profiling with richer statistical insights.
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                  <strong>How is it calculated?</strong><br/>
+                  The score is computed based on multiple factors:
+                </div>
+                <div style={{ marginLeft: 16, marginBottom: 8 }}>
+                  <div style={{ marginBottom: 4 }}>• <strong>Basic Statistics (20 points):</strong> Min, Max, Average, Null count, Distinct count</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Advanced Statistics (25 points):</strong> Median, Std Deviation, Mode, Percentiles (P25, P75, P90, P95, P99)</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Distribution Analysis (20 points):</strong> Value distribution histogram, Top values frequency</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Pattern Detection (15 points):</strong> Detected data patterns (EMAIL, PHONE, DATE, UUID, etc.)</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Anomaly Detection (10 points):</strong> Outlier detection and anomaly identification</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Data Quality (10 points):</strong> Completeness, consistency, and data quality metrics</div>
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                  <strong>Score Interpretation:</strong>
+                </div>
+                <div style={{ marginLeft: 16, marginBottom: 8 }}>
+                  <div style={{ marginBottom: 4 }}>• <strong style={{ color: asciiColors.success }}>90-100:</strong> Excellent - Comprehensive profiling with all metrics available</div>
+                  <div style={{ marginBottom: 4 }}>• <strong style={{ color: asciiColors.warning }}>70-89:</strong> Good - Most profiling metrics available, minor gaps</div>
+                  <div style={{ marginBottom: 4 }}>• <strong style={{ color: asciiColors.danger }}>0-69:</strong> Needs Improvement - Limited profiling, basic statistics only</div>
+                </div>
+                <div style={{ marginTop: 16, marginBottom: 8 }}>
+                  <strong>Benefits of High Scores:</strong>
+                </div>
+                <div style={{ marginLeft: 16, marginBottom: 8 }}>
+                  <div style={{ marginBottom: 4 }}>• <strong>Better Data Understanding:</strong> Complete statistical insights help identify data quality issues, outliers, and patterns early</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Improved Decision Making:</strong> Rich metadata enables better schema design, query optimization, and data modeling decisions</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Enhanced Data Governance:</strong> Comprehensive profiling supports compliance, data lineage tracking, and regulatory reporting</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Optimized Performance:</strong> Distribution analysis and pattern detection help optimize indexes, partitions, and query strategies</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Risk Mitigation:</strong> Anomaly detection and quality metrics enable proactive identification of data issues before they impact operations</div>
+                  <div style={{ marginBottom: 4 }}>• <strong>Cost Efficiency:</strong> Better data understanding reduces storage costs, improves query performance, and minimizes data processing errors</div>
+                </div>
+                <div style={{ marginTop: 12, padding: 8, background: asciiColors.backgroundSoft, borderRadius: 2, fontSize: 10, color: asciiColors.muted }}>
+                  {ascii.blockSemi} Tip: Re-run profiling analysis to improve scores for columns with low quality scores.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ 
+              marginTop: 16, 
+              padding: 12, 
+              background: asciiColors.backgroundSoft, 
+              borderRadius: 2,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                {ascii.blockSemi} Note
+              </div>
+              <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                These metrics are calculated in real-time from the column_catalog table and reflect the current state of your data catalog.
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, textAlign: 'right' }}>
+              <AsciiButton
+                label="Close"
+                onClick={() => setShowMetricsPlaybook(false)}
+                variant="ghost"
+              />
+            </div>
+          </div>
+          </AsciiPanel>
+          </div>
+        </div>
+      )}
+
       <AsciiPanel title="FILTERS">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <select
@@ -432,14 +616,46 @@ const ColumnCatalog = () => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        marginBottom: 16,
+        marginBottom: 24,
+        marginTop: 8,
         fontFamily: 'Consolas',
-        fontSize: 12
+        fontSize: 12,
+        gap: 32
       }}>
-        <div style={{ color: asciiColors.muted }}>
-          Total: {allColumns.length} columns
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <label style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
+            Items per page:
+          </label>
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: 'pointer'
+            }}
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+          </select>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <AsciiButton
+            label="Metrics Info"
+            onClick={() => setShowMetricsPlaybook(true)}
+            variant="ghost"
+          />
           <AsciiButton
             label="Export CSV"
             onClick={handleExportCSV}
@@ -451,10 +667,34 @@ const ColumnCatalog = () => {
       {loadingTree ? (
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
       ) : (
-        <ColumnCatalogTreeView 
-          columns={allColumns}
-          onColumnClick={(column) => toggleColumn(column.id)}
-        />
+        <>
+          <ColumnCatalogTreeView 
+            columns={allColumns}
+            onColumnClick={(column) => toggleColumn(column.id)}
+          />
+          
+          {pagination.totalPages > 1 && (
+            <div style={{ marginTop: 24 }}>
+              <Pagination>
+                <PageButton
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </PageButton>
+                <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                  Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
+                </span>
+                <PageButton
+                  onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
+                  disabled={page === pagination.totalPages}
+                >
+                  Next
+                </PageButton>
+              </Pagination>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -844,8 +844,32 @@ const DataLineageMongoDB = () => {
                                 <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Discovery Method:</div>
                                 <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.discovery_method || 'N/A'}</div>
                                 
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Discovered By:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.discovered_by || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Type:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.consumer_type || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Name:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.consumer_name || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Context:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas', wordBreak: 'break-word' }}>{edge.consumer_context || 'N/A'}</div>
+                                
                                 <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Snapshot Date:</div>
                                 <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.snapshot_date)}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>First Seen:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.first_seen_at)}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Last Seen:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.last_seen_at)}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Created At:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.created_at)}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Updated At:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.updated_at)}</div>
                               </div>
                               
                               {edge.definition_text && (

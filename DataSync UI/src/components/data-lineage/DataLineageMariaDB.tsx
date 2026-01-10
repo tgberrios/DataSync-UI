@@ -899,6 +899,9 @@ const DataLineageMariaDB = () => {
                                 <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Name:</div>
                                 <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.consumer_name || 'N/A'}</div>
                                 
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Context:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas', wordBreak: 'break-word' }}>{edge.consumer_context || 'N/A'}</div>
+                                
                                 <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>First Seen:</div>
                                 <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.first_seen_at)}</div>
                                 

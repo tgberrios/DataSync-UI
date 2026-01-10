@@ -971,6 +971,15 @@ const DataLineageMSSQL = () => {
                                 <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Name:</div>
                                 <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{edge.consumer_name || 'N/A'}</div>
                                 
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Consumer Context:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas', wordBreak: 'break-word' }}>{edge.consumer_context || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Source Query Hash:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 11 }}>{edge.source_query_hash || 'N/A'}</div>
+                                
+                                <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Last Execution:</div>
+                                <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.last_execution_at)}</div>
+                                
                                 <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>First Seen:</div>
                                 <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.first_seen_at)}</div>
                                 
@@ -983,6 +992,35 @@ const DataLineageMSSQL = () => {
                                 <div style={{ color: asciiColors.muted, fontWeight: 500, fontFamily: 'Consolas' }}>Updated At:</div>
                                 <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatDate(edge.updated_at)}</div>
                               </div>
+                              
+                              {edge.tags && Array.isArray(edge.tags) && edge.tags.length > 0 && (
+                                <div style={{
+                                  padding: 16,
+                                  margin: 16,
+                                  fontFamily: 'Consolas',
+                                  fontSize: 12,
+                                  backgroundColor: asciiColors.backgroundSoft,
+                                  borderRadius: 2,
+                                  border: `1px solid ${asciiColors.border}`
+                                }}>
+                                  <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 8, fontFamily: 'Consolas', fontWeight: 600 }}>Tags:</div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {edge.tags.map((tag: string, idx: number) => (
+                                      <span key={idx} style={{
+                                        padding: '4px 8px',
+                                        borderRadius: 2,
+                                        fontSize: 11,
+                                        fontFamily: 'Consolas',
+                                        backgroundColor: asciiColors.accent + '20',
+                                        color: asciiColors.accent,
+                                        border: `1px solid ${asciiColors.accent}`
+                                      }}>
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               
                               {(edge.execution_count || edge.avg_duration_ms || edge.avg_cpu_ms || edge.avg_logical_reads || edge.avg_physical_reads) && (
                                 <div style={{
@@ -1018,6 +1056,29 @@ const DataLineageMSSQL = () => {
                                     <div style={{ color: asciiColors.foreground, fontSize: 13, fontWeight: 600, fontFamily: 'Consolas' }}>{formatNumber(edge.avg_physical_reads)}</div>
                                   </div>
                                 </div>
+                              )}
+                              
+                              {edge.source_query_plan && (
+                                <>
+                                  <div style={{ padding: '15px 15px 5px 15px', fontWeight: 600, color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>
+                                    Query Plan (XML):
+                                  </div>
+                                  <pre style={{
+                                    margin: 0,
+                                    padding: 16,
+                                    backgroundColor: asciiColors.backgroundSoft,
+                                    borderRadius: 2,
+                                    overflowX: 'auto',
+                                    maxHeight: '300px',
+                                    overflowY: 'auto',
+                                    fontSize: 11,
+                                    border: `1px solid ${asciiColors.border}`,
+                                    fontFamily: 'Consolas',
+                                    color: asciiColors.foreground
+                                  }}>
+                                    {typeof edge.source_query_plan === 'string' ? edge.source_query_plan : JSON.stringify(edge.source_query_plan, null, 2)}
+                                  </pre>
+                                </>
                               )}
                               
                               {edge.definition_text && (

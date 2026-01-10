@@ -629,10 +629,34 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
                     <span>{column.numeric_precision}</span>
                   </div>
                 )}
+                {column.numeric_scale !== undefined && column.numeric_scale !== null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Scale:</strong>
+                    <span>{column.numeric_scale}</span>
+                  </div>
+                )}
                 {column.column_default && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Default:</strong>
                     <span>{column.column_default}</span>
+                  </div>
+                )}
+                {column.is_auto_increment && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Auto Increment:</strong>
+                    <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Yes</span>
+                  </div>
+                )}
+                {column.is_generated && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Generated:</strong>
+                    <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Yes</span>
+                  </div>
+                )}
+                {column.data_category && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <strong style={{ color: asciiColors.foreground, fontWeight: 600, minWidth: 100 }}>Data Category:</strong>
+                    <span>{column.data_category}</span>
                   </div>
                 )}
                 {column.null_percentage !== undefined && column.null_percentage !== null && (
@@ -648,6 +672,159 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
                   </div>
                 )}
               </div>
+
+              {(column.contains_pii || column.contains_phi) && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.background,
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.danger,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockFull} PII/PHI DETECTION
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 10
+                  }}>
+                    {column.contains_pii && (
+                      <>
+                        {column.pii_detection_method && (
+                          <div>
+                            <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>PII Method</div>
+                            <div style={{ fontSize: 12, fontWeight: 600 }}>{column.pii_detection_method}</div>
+                          </div>
+                        )}
+                        {column.pii_confidence_score !== undefined && column.pii_confidence_score !== null && (
+                          <div>
+                            <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>PII Confidence</div>
+                            <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.pii_confidence_score).toFixed(2)}%</div>
+                          </div>
+                        )}
+                        {column.pii_category && (
+                          <div>
+                            <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>PII Category</div>
+                            <div style={{ fontSize: 12, fontWeight: 600 }}>{column.pii_category}</div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {column.contains_phi && (
+                      <>
+                        {column.phi_detection_method && (
+                          <div>
+                            <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>PHI Method</div>
+                            <div style={{ fontSize: 12, fontWeight: 600 }}>{column.phi_detection_method}</div>
+                          </div>
+                        )}
+                        {column.phi_confidence_score !== undefined && column.phi_confidence_score !== null && (
+                          <div>
+                            <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>PHI Confidence</div>
+                            <div style={{ fontSize: 12, fontWeight: 600 }}>{Number(column.phi_confidence_score).toFixed(2)}%</div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(column.masking_applied || column.encryption_applied || column.tokenization_applied) && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.background,
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.accent}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockFull} SECURITY & PROTECTION
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: 10
+                  }}>
+                    {column.masking_applied && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Masking</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.success }}>Applied</div>
+                      </div>
+                    )}
+                    {column.encryption_applied && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Encryption</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.success }}>Applied</div>
+                      </div>
+                    )}
+                    {column.tokenization_applied && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Tokenization</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.success }}>Applied</div>
+                      </div>
+                    )}
+                    {column.last_pii_scan && (
+                      <div>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 2 }}>Last PII Scan</div>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>
+                          {new Date(column.last_pii_scan).toLocaleString()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {column.column_metadata && (
+                <div style={{
+                  marginTop: 16,
+                  padding: '12px',
+                  background: asciiColors.background,
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    marginBottom: 12,
+                    paddingBottom: 6,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockSemi} COLUMN METADATA (JSONB)
+                  </div>
+                  <pre style={{
+                    margin: 0,
+                    padding: 12,
+                    backgroundColor: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    overflowX: 'auto',
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    color: asciiColors.foreground,
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    {JSON.stringify(column.column_metadata, null, 2)}
+                  </pre>
+                </div>
+              )}
 
               {(column.median_value !== undefined || column.std_deviation !== undefined || 
                 column.percentile_25 !== undefined || column.mode_value) && (
@@ -1071,6 +1248,81 @@ const ColumnCatalogTreeView: React.FC<TreeViewProps> = ({ columns, onColumnClick
                   </div>
                 </div>
               )}
+
+              <div style={{
+                marginTop: 16,
+                padding: '12px',
+                background: asciiColors.backgroundSoft,
+                borderRadius: 2,
+                border: `1px solid ${asciiColors.border}`
+              }}>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: asciiColors.muted,
+                  marginBottom: 12,
+                  paddingBottom: 6,
+                  borderBottom: `1px solid ${asciiColors.border}`
+                }}>
+                  {ascii.blockSemi} TIMESTAMPS & METADATA
+                </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: 10,
+                  fontSize: 11,
+                  fontFamily: 'Consolas'
+                }}>
+                  {column.first_seen_at && (
+                    <div>
+                      <div style={{ color: asciiColors.muted, marginBottom: 2 }}>First Seen</div>
+                      <div style={{ color: asciiColors.foreground, fontWeight: 600 }}>
+                        {new Date(column.first_seen_at).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                  {column.last_seen_at && (
+                    <div>
+                      <div style={{ color: asciiColors.muted, marginBottom: 2 }}>Last Seen</div>
+                      <div style={{ color: asciiColors.foreground, fontWeight: 600 }}>
+                        {new Date(column.last_seen_at).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                  {column.last_analyzed_at && (
+                    <div>
+                      <div style={{ color: asciiColors.muted, marginBottom: 2 }}>Last Analyzed</div>
+                      <div style={{ color: asciiColors.foreground, fontWeight: 600 }}>
+                        {new Date(column.last_analyzed_at).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                  {column.last_profiled_at && (
+                    <div>
+                      <div style={{ color: asciiColors.muted, marginBottom: 2 }}>Last Profiled</div>
+                      <div style={{ color: asciiColors.foreground, fontWeight: 600 }}>
+                        {new Date(column.last_profiled_at).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                  {column.created_at && (
+                    <div>
+                      <div style={{ color: asciiColors.muted, marginBottom: 2 }}>Created At</div>
+                      <div style={{ color: asciiColors.foreground, fontWeight: 600 }}>
+                        {new Date(column.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                  {column.updated_at && (
+                    <div>
+                      <div style={{ color: asciiColors.muted, marginBottom: 2 }}>Updated At</div>
+                      <div style={{ color: asciiColors.foreground, fontWeight: 600 }}>
+                        {new Date(column.updated_at).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </ExpandableContent>
