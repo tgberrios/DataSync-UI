@@ -3,6 +3,8 @@ import styled, { keyframes } from 'styled-components';
 import {
   Container,
   LoadingOverlay,
+  Pagination,
+  PageButton,
 } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
@@ -60,7 +62,7 @@ const getScoreColor = (score: number) => {
  * Displays data governance catalog with filtering, sorting, and detailed information
  */
 const Governance = () => {
-  const { setPage } = usePagination(1, 10);
+  const { page, limit, setPage, setLimit } = usePagination(1, 20, 1000);
   const { filters, setFilter, clearFilters } = useTableFilters({
     engine: '',
     category: '',
@@ -73,8 +75,15 @@ const Governance = () => {
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'ownership' | 'security' | 'privacy' | 'retention' | 'legal' | 'quality' | 'integration' | 'documentation'>('overview');
   const [allItems, setAllItems] = useState<any[]>([]);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 0,
+    currentPage: 1,
+    limit: 20
+  });
   const [metrics, setMetrics] = useState<any>({});
   const [loadingTree, setLoadingTree] = useState(false);
+  const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllItems = useCallback(async () => {
@@ -83,8 +92,8 @@ const Governance = () => {
       setLoadingTree(true);
       setError(null);
       const response = await governanceApi.getGovernanceData({
-        page: 1,
-        limit: 10000,
+        page,
+        limit,
         engine: filters.engine as string,
         category: filters.category as string,
         health: filters.health as string,
@@ -93,6 +102,12 @@ const Governance = () => {
       });
       if (isMountedRef.current) {
         setAllItems(response.data || []);
+        setPagination(response.pagination || {
+          total: 0,
+          totalPages: 0,
+          currentPage: 1,
+          limit: 20
+        });
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -104,6 +119,8 @@ const Governance = () => {
       }
     }
   }, [
+    page,
+    limit,
     filters.engine,
     filters.category,
     filters.health,
@@ -1168,14 +1185,46 @@ const Governance = () => {
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center', 
-            marginBottom: 16,
+            marginBottom: 24,
+            marginTop: 8,
             fontFamily: 'Consolas',
-            fontSize: 12
+            fontSize: 12,
+            gap: 32
           }}>
-            <div style={{ color: asciiColors.muted }}>
-              Total: {allItems.length} entries
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <label style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
+                Items per page:
+              </label>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                style={{
+                  padding: '4px 8px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontFamily: 'Consolas',
+                  fontSize: 12,
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  cursor: 'pointer'
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <AsciiButton
+                label="Metrics Info"
+                onClick={() => setShowMetricsPlaybook(true)}
+                variant="ghost"
+              />
               <AsciiButton
                 label="Export CSV"
                 onClick={handleExportCSV}
@@ -1184,94 +1233,237 @@ const Governance = () => {
             </div>
           </div>
 
+          {showMetricsPlaybook && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}
+            onClick={() => setShowMetricsPlaybook(false)}
+            >
+              <div style={{
+                width: '90%',
+                maxWidth: 900,
+                maxHeight: '90vh',
+                overflowY: 'auto'
+              }}
+              onClick={(e) => e.stopPropagation()}
+              >
+                <AsciiPanel title="METRICS PLAYBOOK - DATA GOVERNANCE">
+                  <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                        {ascii.blockFull} Total Tables
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Total number of tables cataloged across all database engines in the unified governance system.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                        {ascii.blockFull} Total Size
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Combined storage size of all tables across all databases. Includes data and index sizes.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                        {ascii.blockFull} Total Rows
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Total number of rows across all tables in the governance catalog.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 8 }}>
+                        {ascii.blockFull} Healthy
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Tables with HEALTHY status, indicating optimal performance, good data quality, proper governance controls, and compliance.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 8 }}>
+                        {ascii.blockFull} Warning
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Tables with WARNING status, indicating potential governance issues such as missing metadata, 
+                        incomplete documentation, or compliance concerns that should be addressed.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+                        {ascii.blockFull} Critical
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Tables with CRITICAL status, indicating serious governance issues requiring immediate attention such as 
+                        missing data owners, unclassified sensitive data, or compliance violations.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                        {ascii.blockFull} Unique Engines
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Number of distinct database engines (PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle) being monitored in the unified governance catalog.
+                      </div>
+                    </div>
+
+                    <div style={{ 
+                      marginTop: 16, 
+                      padding: 12, 
+                      background: asciiColors.backgroundSoft, 
+                      borderRadius: 2,
+                      border: `1px solid ${asciiColors.border}`
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                        {ascii.blockSemi} Note
+                      </div>
+                      <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                        These metrics are calculated in real-time from the data_governance_catalog table and reflect 
+                        the current state of your unified data governance catalog across all database engines.
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 16, textAlign: 'right' }}>
+                      <AsciiButton
+                        label="Close"
+                        onClick={() => setShowMetricsPlaybook(false)}
+                        variant="ghost"
+                      />
+                    </div>
+                  </div>
+                </AsciiPanel>
+              </div>
+            </div>
+          )}
+
           {loadingTree ? (
             <LoadingOverlay>Loading tree view...</LoadingOverlay>
           ) : (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
-              gap: 16, 
-              marginTop: 16 
-            }}>
-              <GovernanceTreeView 
-                items={allItems} 
-                onItemClick={handleItemClick} 
-              />
-              
-              {selectedItem && (
-                <AsciiPanel title="DETAILS" style={{ 
-                  position: 'sticky', 
-                  top: 16, 
-                  maxHeight: 'calc(100vh - 200px)',
-                  overflowY: 'auto'
-                }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: 4, 
-                    marginBottom: 16, 
-                    borderBottom: `1px solid ${asciiColors.border}`, 
-                    paddingBottom: 8,
-                    flexWrap: 'wrap'
+            <>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
+                gap: 16, 
+                marginTop: 16 
+              }}>
+                <GovernanceTreeView 
+                  items={allItems} 
+                  onItemClick={handleItemClick} 
+                />
+                
+                {selectedItem && (
+                  <AsciiPanel title="DETAILS" style={{ 
+                    position: 'sticky', 
+                    top: 16, 
+                    maxHeight: 'calc(100vh - 200px)',
+                    overflowY: 'auto'
                   }}>
-                    <AsciiButton
-                      label="Overview"
-                      onClick={() => setActiveTab('overview')}
-                      variant={activeTab === 'overview' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Ownership"
-                      onClick={() => setActiveTab('ownership')}
-                      variant={activeTab === 'ownership' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Security"
-                      onClick={() => setActiveTab('security')}
-                      variant={activeTab === 'security' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Privacy/GDPR"
-                      onClick={() => setActiveTab('privacy')}
-                      variant={activeTab === 'privacy' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Retention"
-                      onClick={() => setActiveTab('retention')}
-                      variant={activeTab === 'retention' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Legal Hold"
-                      onClick={() => setActiveTab('legal')}
-                      variant={activeTab === 'legal' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Data Quality"
-                      onClick={() => setActiveTab('quality')}
-                      variant={activeTab === 'quality' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Integration"
-                      onClick={() => setActiveTab('integration')}
-                      variant={activeTab === 'integration' ? 'primary' : 'ghost'}
-                    />
-                    <AsciiButton
-                      label="Documentation"
-                      onClick={() => setActiveTab('documentation')}
-                      variant={activeTab === 'documentation' ? 'primary' : 'ghost'}
-                    />
-                  </div>
-                  
-                  {activeTab === 'overview' && renderOverviewTab(selectedItem)}
-                  {activeTab === 'ownership' && renderOwnershipTab(selectedItem)}
-                  {activeTab === 'security' && renderSecurityTab(selectedItem)}
-                  {activeTab === 'privacy' && renderPrivacyTab(selectedItem)}
-                  {activeTab === 'retention' && renderRetentionTab(selectedItem)}
-                  {activeTab === 'legal' && renderLegalTab(selectedItem)}
-                  {activeTab === 'quality' && renderQualityTab(selectedItem)}
-                  {activeTab === 'integration' && renderIntegrationTab(selectedItem)}
-                  {activeTab === 'documentation' && renderDocumentationTab(selectedItem)}
-                </AsciiPanel>
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: 4, 
+                      marginBottom: 16, 
+                      borderBottom: `1px solid ${asciiColors.border}`, 
+                      paddingBottom: 8,
+                      flexWrap: 'wrap'
+                    }}>
+                      <AsciiButton
+                        label="Overview"
+                        onClick={() => setActiveTab('overview')}
+                        variant={activeTab === 'overview' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Ownership"
+                        onClick={() => setActiveTab('ownership')}
+                        variant={activeTab === 'ownership' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Security"
+                        onClick={() => setActiveTab('security')}
+                        variant={activeTab === 'security' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Privacy/GDPR"
+                        onClick={() => setActiveTab('privacy')}
+                        variant={activeTab === 'privacy' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Retention"
+                        onClick={() => setActiveTab('retention')}
+                        variant={activeTab === 'retention' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Legal Hold"
+                        onClick={() => setActiveTab('legal')}
+                        variant={activeTab === 'legal' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Data Quality"
+                        onClick={() => setActiveTab('quality')}
+                        variant={activeTab === 'quality' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Integration"
+                        onClick={() => setActiveTab('integration')}
+                        variant={activeTab === 'integration' ? 'primary' : 'ghost'}
+                      />
+                      <AsciiButton
+                        label="Documentation"
+                        onClick={() => setActiveTab('documentation')}
+                        variant={activeTab === 'documentation' ? 'primary' : 'ghost'}
+                      />
+                    </div>
+                    
+                    {activeTab === 'overview' && renderOverviewTab(selectedItem)}
+                    {activeTab === 'ownership' && renderOwnershipTab(selectedItem)}
+                    {activeTab === 'security' && renderSecurityTab(selectedItem)}
+                    {activeTab === 'privacy' && renderPrivacyTab(selectedItem)}
+                    {activeTab === 'retention' && renderRetentionTab(selectedItem)}
+                    {activeTab === 'legal' && renderLegalTab(selectedItem)}
+                    {activeTab === 'quality' && renderQualityTab(selectedItem)}
+                    {activeTab === 'integration' && renderIntegrationTab(selectedItem)}
+                    {activeTab === 'documentation' && renderDocumentationTab(selectedItem)}
+                  </AsciiPanel>
+                )}
+              </div>
+              
+              {pagination.totalPages > 1 && (
+                <div style={{ marginTop: 24 }}>
+                  <Pagination>
+                    <PageButton
+                      onClick={() => setPage(Math.max(1, page - 1))}
+                      disabled={page === 1}
+                    >
+                      Previous
+                    </PageButton>
+                    <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                      Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
+                    </span>
+                    <PageButton
+                      onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
+                      disabled={page === pagination.totalPages}
+                    >
+                      Next
+                    </PageButton>
+                  </Pagination>
+                </div>
               )}
-            </div>
+            </>
           )}
         </>
       )}

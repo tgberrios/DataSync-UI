@@ -3,6 +3,8 @@ import styled, { keyframes } from 'styled-components';
 import {
   Container,
   LoadingOverlay,
+  Pagination,
+  PageButton,
 } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
@@ -53,7 +55,7 @@ const getStatusColor = (status?: string) => {
  * Displays governance metadata for Oracle tables including health status, access frequency, and recommendations
  */
 const GovernanceCatalogOracle = () => {
-  const { page, limit, setPage } = usePagination(1, 20);
+  const { page, limit, setPage, setLimit } = usePagination(1, 20, 1000);
   const { filters, setFilter, clearFilters } = useTableFilters({
     server_name: '',
     schema_name: '',
@@ -80,6 +82,7 @@ const GovernanceCatalogOracle = () => {
   const [schemas, setSchemas] = useState<string[]>([]);
   const [allItems, setAllItems] = useState<any[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
+  const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
@@ -138,8 +141,8 @@ const GovernanceCatalogOracle = () => {
       setError(null);
       const sanitizedSearch = sanitizeSearch(filters.search as string, 100);
       const itemsData = await governanceCatalogOracleApi.getOracleItems({
-        page: 1,
-        limit: 10000,
+        page,
+        limit,
         server_name: filters.server_name as string,
         schema_name: filters.schema_name as string,
         health_status: filters.health_status as string,
@@ -148,6 +151,12 @@ const GovernanceCatalogOracle = () => {
       });
       if (isMountedRef.current) {
         setAllItems(itemsData.data || []);
+        setPagination(itemsData.pagination || {
+          total: 0,
+          totalPages: 0,
+          currentPage: 1,
+          limit: 20
+        });
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -159,6 +168,8 @@ const GovernanceCatalogOracle = () => {
       }
     }
   }, [
+    page,
+    limit,
     filters.server_name,
     filters.schema_name,
     filters.health_status,
@@ -526,14 +537,46 @@ const GovernanceCatalogOracle = () => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        marginBottom: 16,
+        marginBottom: 24,
+        marginTop: 8,
         fontFamily: 'Consolas',
-        fontSize: 12
+        fontSize: 12,
+        gap: 32
       }}>
-        <div style={{ color: asciiColors.muted }}>
-          Total: {allItems.length} entries
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <label style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
+            Items per page:
+          </label>
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+            style={{
+              padding: '4px 8px',
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              backgroundColor: asciiColors.background,
+              color: asciiColors.foreground,
+              cursor: 'pointer'
+            }}
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+          </select>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <AsciiButton
+            label="Metrics Info"
+            onClick={() => setShowMetricsPlaybook(true)}
+            variant="ghost"
+          />
           <AsciiButton
             label="Export CSV"
             onClick={handleExportCSV}
@@ -542,10 +585,153 @@ const GovernanceCatalogOracle = () => {
         </div>
       </div>
 
+      {showMetricsPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowMetricsPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 900,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="METRICS PLAYBOOK - ORACLE GOVERNANCE">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                    {ascii.blockFull} Total Tables
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Total number of tables cataloged across all Oracle servers and schemas in the governance system.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                    {ascii.blockFull} Total Size
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Combined storage size of all tables across all Oracle databases. Includes data and index sizes from tablespaces.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                    {ascii.blockFull} Total Rows
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Total number of rows across all Oracle tables in the governance catalog.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 8 }}>
+                    {ascii.blockFull} Healthy
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Tables with HEALTHY status, indicating optimal performance, low fragmentation, proper indexing, and good access patterns.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 8 }}>
+                    {ascii.blockFull} Warning
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Tables with WARNING status, indicating potential issues such as moderate fragmentation, 
+                    suboptimal indexes, or performance concerns that should be monitored.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+                    {ascii.blockFull} Critical
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Tables with CRITICAL status, indicating serious issues requiring immediate attention such as 
+                    high fragmentation, missing indexes, or severe performance degradation.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                    {ascii.blockFull} Unique Servers
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Number of distinct Oracle server instances being monitored in the governance catalog.
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Note
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    These metrics are calculated in real-time from the data_governance_catalog_oracle table and reflect 
+                    the current state of your Oracle governance catalog.
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowMetricsPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
+      )}
+
       {loadingTree ? (
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
       ) : (
-        <GovernanceCatalogOracleTreeView items={allItems} onItemClick={(item: any) => toggleItem(item.id)}         />
+        <>
+          <GovernanceCatalogOracleTreeView items={allItems} onItemClick={(item: any) => toggleItem(item.id)} />
+          
+          {pagination.totalPages > 1 && (
+            <div style={{ marginTop: 24 }}>
+              <Pagination>
+                <PageButton
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </PageButton>
+                <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                  Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
+                </span>
+                <PageButton
+                  onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
+                  disabled={page === pagination.totalPages}
+                >
+                  Next
+                </PageButton>
+              </Pagination>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
