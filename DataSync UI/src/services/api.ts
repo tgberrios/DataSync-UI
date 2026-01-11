@@ -3645,3 +3645,210 @@ export const backupsApi = {
     }
   },
 };
+
+export interface MaskingPolicy {
+  policy_id?: number;
+  policy_name: string;
+  schema_name: string;
+  table_name: string;
+  column_name: string;
+  masking_type: string;
+  masking_function?: string;
+  masking_params?: Record<string, any>;
+  role_whitelist?: string[];
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const dataMaskingApi = {
+  getAll: async (params?: {
+    schema_name?: string;
+    table_name?: string;
+    masking_type?: string;
+    active?: boolean;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get("/data-masking/policies", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching masking policies:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  get: async (policyId: number) => {
+    try {
+      const response = await api.get(`/data-masking/policies/${policyId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching masking policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  create: async (policy: MaskingPolicy) => {
+    try {
+      const response = await api.post("/data-masking/policies", policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating masking policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  update: async (policyId: number, policy: MaskingPolicy) => {
+    try {
+      const response = await api.put(`/data-masking/policies/${policyId}`, policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating masking policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  delete: async (policyId: number) => {
+    try {
+      const response = await api.delete(`/data-masking/policies/${policyId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting masking policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  analyzeSensitiveColumns: async (schemaName: string, tableName: string) => {
+    try {
+      const response = await api.post("/data-masking/analyze", {
+        schema_name: schemaName,
+        table_name: tableName,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error analyzing sensitive columns:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createMaskedView: async (schemaName: string, tableName: string) => {
+    try {
+      const response = await api.post("/data-masking/create-view", {
+        schema_name: schemaName,
+        table_name: tableName,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error creating masked view:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  batchAnalyze: async (params: {
+    schema_name?: string;
+    masking_type?: string;
+    auto_activate?: boolean;
+    min_confidence?: number;
+  }) => {
+    try {
+      const response = await api.post("/data-masking/batch-analyze", params);
+      return response.data;
+    } catch (error) {
+      console.error("Error in batch analyze:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getStatus: async (schemaName?: string) => {
+    try {
+      const response = await api.get("/data-masking/status", {
+        params: schemaName ? { schema_name: schemaName } : {},
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching masking status:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getAvailableDatabases: async () => {
+    try {
+      const response = await api.get("/data-masking/databases");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching available databases:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};

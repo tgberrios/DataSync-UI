@@ -46,6 +46,7 @@ const UserManagement = lazy(() => import("./components/security/UserManagement")
 const Webhooks = lazy(() => import("./components/governance/Webhooks"));
 const SchemaMigrations = lazy(() => import("./components/migrations/SchemaMigrations"));
 const BackupManager = lazy(() => import("./components/backups/BackupManager"));
+const DataMasking = lazy(() => import("./components/governance/DataMasking"));
 const Login = lazy(() => import("./components/auth/Login"));
 
 function App() {
@@ -354,6 +355,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <BackupManager />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="data-masking"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DataMasking />
                 </Suspense>
               </ProtectedRoute>
             }
