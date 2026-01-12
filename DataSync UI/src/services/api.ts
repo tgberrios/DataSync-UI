@@ -175,6 +175,8 @@ export interface DashboardStats {
     inProgress: number;
     currentProcess: string;
     totalData?: number;
+    totalTables?: number;
+    totalColumns?: number;
   };
   systemResources: {
     cpuUsage: string;
@@ -241,6 +243,84 @@ export interface DashboardStats {
       totalRecords: number;
       transferCount: number;
     };
+  };
+  dataProtection?: {
+    masking: {
+      totalPolicies: number;
+      activePolicies: number;
+      inactivePolicies: number;
+      sensitiveColumns: number;
+      protectedColumns: number;
+      unprotectedColumns: number;
+      coveragePercentage: number;
+    };
+    alerts: {
+      total: number;
+      open: number;
+      critical: number;
+      warning: number;
+      info: number;
+      totalRules: number;
+      enabledRules: number;
+    };
+  };
+  backups?: {
+    total: number;
+    scheduled: number;
+    completed: number;
+    failed: number;
+    inProgress: number;
+    totalSize: number;
+    lastBackupTime: string | null;
+    nextBackup: {
+      name: string;
+      nextRunAt: string;
+      dbEngine: string;
+      databaseName: string;
+    } | null;
+  };
+  migrations?: {
+    total: number;
+    pending: number;
+    applied: number;
+    failed: number;
+    lastApplied: string | null;
+    byEnvironment: {
+      [env: string]: {
+        total: number;
+        applied: number;
+      };
+    };
+  };
+  dataQuality?: {
+    totalTablesChecked: number;
+    passed: number;
+    failed: number;
+    warning: number;
+    avgScore: number;
+    lastCheck: string | null;
+  };
+  governance?: {
+    totalTables: number;
+    encryptedTables: number;
+    maskedTables: number;
+    healthyTables: number;
+    warningTables: number;
+    criticalTables: number;
+  };
+  maintenance?: {
+    pending: number;
+    completedToday: number;
+    totalSpaceReclaimedMB: number;
+    avgPerformanceImprovement: number;
+  };
+  dataSources?: {
+    database: number;
+    api: number;
+    csv: number;
+    sheets: number;
+    warehouse: number;
+    total: number;
   };
 }
 

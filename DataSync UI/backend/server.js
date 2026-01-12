@@ -2152,6 +2152,219 @@ app.get("/api/dashboard/stats", async (req, res) => {
       console.error("Error saving system logs:", err);
     }
 
+    const totalColumnsResult = await pool.query(
+      `SELECT COUNT(*) as total FROM metadata.column_catalog`
+    );
+    stats.syncStatus.totalColumns = parseInt(totalColumnsResult.rows[0]?.total || 0);
+
+    const dataProtection = await pool.query(`
+      SELECT 
+        COUNT(*) as total_policies,
+        COUNT(*) FILTER (WHERE active = true) as active_policies,
+        COUNT(*) FILTER (WHERE active = false) as inactive_policies
+      FROM metadata.masking_policies
+    `);
+
+    const maskingStatus = await pool.query(`
+      SELECT * FROM metadata.get_masking_status(NULL)
+    `);
+    const maskingSummary = maskingStatus.rows.reduce((acc, row) => ({
+      total_tables: acc.total_tables + parseInt(row.total_tables || 0),
+      sensitive_columns: acc.sensitive_columns + parseInt(row.sensitive_columns_detected || 0),
+      protected: acc.protected + parseInt(row.columns_with_policies || 0),
+      unprotected: acc.unprotected + parseInt(row.columns_without_policies || 0),
+    }), { total_tables: 0, sensitive_columns: 0, protected: 0, unprotected: 0 });
+
+    const alertsSummary = await pool.query(`
+      SELECT 
+        COUNT(*) as total_alerts,
+        COUNT(*) FILTER (WHERE status = 'OPEN') as open_alerts,
+        COUNT(*) FILTER (WHERE severity = 'CRITICAL' AND status = 'OPEN') as critical_alerts,
+        COUNT(*) FILTER (WHERE severity = 'WARNING' AND status = 'OPEN') as warning_alerts,
+        COUNT(*) FILTER (WHERE severity = 'INFO' AND status = 'OPEN') as info_alerts
+      FROM metadata.alerts
+    `);
+
+    const alertRulesSummary = await pool.query(`
+      SELECT 
+        COUNT(*) as total_rules,
+        COUNT(*) FILTER (WHERE enabled = true) as enabled_rules
+      FROM metadata.alert_rules
+    `);
+
+    const backupsSummary = await pool.query(`
+      SELECT 
+        COUNT(*) as total_backups,
+        COUNT(*) FILTER (WHERE is_scheduled = true) as scheduled_backups,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed_backups,
+        COUNT(*) FILTER (WHERE status = 'failed') as failed_backups,
+        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress_backups,
+        COALESCE(SUM(file_size), 0) as total_backup_size,
+        MAX(completed_at) as last_backup_time
+      FROM metadata.backups
+    `);
+
+    const nextBackup = await pool.query(`
+      SELECT backup_name, next_run_at, db_engine, database_name
+      FROM metadata.backups
+      WHERE is_scheduled = true AND next_run_at IS NOT NULL
+      ORDER BY next_run_at ASC
+      LIMIT 1
+    `);
+
+    const migrationsSummary = await pool.query(`
+      SELECT 
+        COUNT(*) as total_migrations,
+        COUNT(*) FILTER (WHERE status = 'PENDING') as pending_migrations,
+        COUNT(*) FILTER (WHERE status = 'APPLIED') as applied_migrations,
+        COUNT(*) FILTER (WHERE status = 'FAILED') as failed_migrations,
+        MAX(last_applied_at) as last_migration_applied
+      FROM metadata.schema_migrations
+    `);
+
+    const migrationsByEnv = await pool.query(`
+      SELECT 
+        environment,
+        COUNT(*) as count,
+        COUNT(*) FILTER (WHERE status = 'APPLIED') as applied_count
+      FROM metadata.schema_migration_history
+      GROUP BY environment
+    `);
+
+    const qualitySummary = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT schema_name || '.' || table_name) as total_tables_checked,
+        COUNT(*) FILTER (WHERE validation_status = 'PASSED') as passed_checks,
+        COUNT(*) FILTER (WHERE validation_status = 'FAILED') as failed_checks,
+        COUNT(*) FILTER (WHERE validation_status = 'WARNING') as warning_checks,
+        ROUND(AVG(quality_score)::numeric, 2) as avg_quality_score,
+        MAX(check_timestamp) as last_quality_check
+      FROM metadata.data_quality
+      WHERE check_timestamp > NOW() - INTERVAL '30 days'
+    `);
+
+    const governanceSummary = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT schema_name || '.' || table_name) as total_tables,
+        COUNT(*) FILTER (WHERE encryption_at_rest = true OR encryption_in_transit = true) as encrypted_tables,
+        COUNT(*) FILTER (WHERE masking_policy_applied = true) as masked_tables,
+        COUNT(*) FILTER (WHERE health_status = 'HEALTHY') as healthy_tables,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning_tables,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical_tables
+      FROM metadata.data_governance_catalog
+      WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM metadata.data_governance_catalog)
+    `);
+
+    const maintenanceSummary = await pool.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE status = 'PENDING') as pending_maintenance,
+        COUNT(*) FILTER (WHERE status = 'COMPLETED' AND DATE(updated_at) = CURRENT_DATE) as completed_today,
+        COALESCE(SUM(space_reclaimed_mb), 0) as total_space_reclaimed,
+        COALESCE(ROUND(AVG(performance_improvement_pct)::numeric, 2), 0) as avg_performance_improvement
+      FROM metadata.maintenance_control
+    `);
+
+    const sourcesSummary = await pool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM metadata.catalog) as database_sources,
+        (SELECT COUNT(*) FROM metadata.api_catalog WHERE active = true) as api_sources,
+        (SELECT COUNT(*) FROM metadata.csv_catalog WHERE active = true) as csv_sources,
+        (SELECT COUNT(*) FROM metadata.google_sheets_catalog WHERE active = true) as sheets_sources,
+        (SELECT COUNT(*) FROM metadata.data_warehouse_catalog WHERE active = true) as warehouse_sources
+    `);
+
+    stats.dataProtection = {
+      masking: {
+        totalPolicies: parseInt(dataProtection.rows[0]?.total_policies || 0),
+        activePolicies: parseInt(dataProtection.rows[0]?.active_policies || 0),
+        inactivePolicies: parseInt(dataProtection.rows[0]?.inactive_policies || 0),
+        sensitiveColumns: maskingSummary.sensitive_columns,
+        protectedColumns: maskingSummary.protected,
+        unprotectedColumns: maskingSummary.unprotected,
+        coveragePercentage: maskingSummary.sensitive_columns > 0 
+          ? Math.round((maskingSummary.protected / maskingSummary.sensitive_columns) * 100) 
+          : 0,
+      },
+      alerts: {
+        total: parseInt(alertsSummary.rows[0]?.total_alerts || 0),
+        open: parseInt(alertsSummary.rows[0]?.open_alerts || 0),
+        critical: parseInt(alertsSummary.rows[0]?.critical_alerts || 0),
+        warning: parseInt(alertsSummary.rows[0]?.warning_alerts || 0),
+        info: parseInt(alertsSummary.rows[0]?.info_alerts || 0),
+        totalRules: parseInt(alertRulesSummary.rows[0]?.total_rules || 0),
+        enabledRules: parseInt(alertRulesSummary.rows[0]?.enabled_rules || 0),
+      },
+    };
+
+    stats.backups = {
+      total: parseInt(backupsSummary.rows[0]?.total_backups || 0),
+      scheduled: parseInt(backupsSummary.rows[0]?.scheduled_backups || 0),
+      completed: parseInt(backupsSummary.rows[0]?.completed_backups || 0),
+      failed: parseInt(backupsSummary.rows[0]?.failed_backups || 0),
+      inProgress: parseInt(backupsSummary.rows[0]?.in_progress_backups || 0),
+      totalSize: parseInt(backupsSummary.rows[0]?.total_backup_size || 0),
+      lastBackupTime: backupsSummary.rows[0]?.last_backup_time || null,
+      nextBackup: nextBackup.rows.length > 0 ? {
+        name: nextBackup.rows[0].backup_name,
+        nextRunAt: nextBackup.rows[0].next_run_at,
+        dbEngine: nextBackup.rows[0].db_engine,
+        databaseName: nextBackup.rows[0].database_name,
+      } : null,
+    };
+
+    stats.migrations = {
+      total: parseInt(migrationsSummary.rows[0]?.total_migrations || 0),
+      pending: parseInt(migrationsSummary.rows[0]?.pending_migrations || 0),
+      applied: parseInt(migrationsSummary.rows[0]?.applied_migrations || 0),
+      failed: parseInt(migrationsSummary.rows[0]?.failed_migrations || 0),
+      lastApplied: migrationsSummary.rows[0]?.last_migration_applied || null,
+      byEnvironment: migrationsByEnv.rows.reduce((acc, row) => {
+        acc[row.environment] = {
+          total: parseInt(row.count || 0),
+          applied: parseInt(row.applied_count || 0),
+        };
+        return acc;
+      }, {}),
+    };
+
+    stats.dataQuality = {
+      totalTablesChecked: parseInt(qualitySummary.rows[0]?.total_tables_checked || 0),
+      passed: parseInt(qualitySummary.rows[0]?.passed_checks || 0),
+      failed: parseInt(qualitySummary.rows[0]?.failed_checks || 0),
+      warning: parseInt(qualitySummary.rows[0]?.warning_checks || 0),
+      avgScore: parseFloat(qualitySummary.rows[0]?.avg_quality_score || 0),
+      lastCheck: qualitySummary.rows[0]?.last_quality_check || null,
+    };
+
+    stats.governance = {
+      totalTables: parseInt(governanceSummary.rows[0]?.total_tables || 0),
+      encryptedTables: parseInt(governanceSummary.rows[0]?.encrypted_tables || 0),
+      maskedTables: parseInt(governanceSummary.rows[0]?.masked_tables || 0),
+      healthyTables: parseInt(governanceSummary.rows[0]?.healthy_tables || 0),
+      warningTables: parseInt(governanceSummary.rows[0]?.warning_tables || 0),
+      criticalTables: parseInt(governanceSummary.rows[0]?.critical_tables || 0),
+    };
+
+    stats.maintenance = {
+      pending: parseInt(maintenanceSummary.rows[0]?.pending_maintenance || 0),
+      completedToday: parseInt(maintenanceSummary.rows[0]?.completed_today || 0),
+      totalSpaceReclaimedMB: parseFloat(maintenanceSummary.rows[0]?.total_space_reclaimed || 0),
+      avgPerformanceImprovement: parseFloat(maintenanceSummary.rows[0]?.avg_performance_improvement || 0),
+    };
+
+    stats.dataSources = {
+      database: parseInt(sourcesSummary.rows[0]?.database_sources || 0),
+      api: parseInt(sourcesSummary.rows[0]?.api_sources || 0),
+      csv: parseInt(sourcesSummary.rows[0]?.csv_sources || 0),
+      sheets: parseInt(sourcesSummary.rows[0]?.sheets_sources || 0),
+      warehouse: parseInt(sourcesSummary.rows[0]?.warehouse_sources || 0),
+      total: parseInt(sourcesSummary.rows[0]?.database_sources || 0) +
+             parseInt(sourcesSummary.rows[0]?.api_sources || 0) +
+             parseInt(sourcesSummary.rows[0]?.csv_sources || 0) +
+             parseInt(sourcesSummary.rows[0]?.sheets_sources || 0) +
+             parseInt(sourcesSummary.rows[0]?.warehouse_sources || 0),
+    };
+
     res.json(stats);
   } catch (err) {
     console.error("Error getting dashboard stats:", err);
