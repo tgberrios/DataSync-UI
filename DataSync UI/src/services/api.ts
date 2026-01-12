@@ -3795,6 +3795,8 @@ export const dataMaskingApi = {
   },
 
   batchAnalyze: async (params: {
+    database_name?: string;
+    database_names?: string[];
     schema_name?: string;
     masking_type?: string;
     auto_activate?: boolean;
@@ -3805,6 +3807,23 @@ export const dataMaskingApi = {
       return response.data;
     } catch (error) {
       console.error("Error in batch analyze:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deactivateAll: async () => {
+    try {
+      const response = await api.post("/data-masking/deactivate-all");
+      return response.data;
+    } catch (error) {
+      console.error("Error deactivating all masking policies:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||
@@ -3841,6 +3860,44 @@ export const dataMaskingApi = {
       return response.data;
     } catch (error) {
       console.error("Error fetching available databases:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getSensitiveColumns: async (schemaName?: string) => {
+    try {
+      const response = await api.get("/data-masking/sensitive-columns", {
+        params: schemaName ? { schema_name: schemaName } : {},
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching sensitive columns:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getUnprotectedColumns: async (schemaName?: string) => {
+    try {
+      const response = await api.get("/data-masking/unprotected-columns", {
+        params: schemaName ? { schema_name: schemaName } : {},
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching unprotected columns:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||

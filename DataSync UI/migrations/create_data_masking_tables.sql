@@ -537,7 +537,16 @@ BEGIN
       COUNT(DISTINCT c.table_name)::BIGINT as total_tables,
       COUNT(*)::BIGINT as total_columns
     FROM information_schema.columns c
-    WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+    INNER JOIN information_schema.tables t
+      ON c.table_schema = t.table_schema 
+      AND c.table_name = t.table_name
+    WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1', 'pg_toast_temp_1', 'pg_temp', 'pg_toast_temp')
+      AND c.table_schema NOT LIKE 'pg_temp%'
+      AND c.table_schema NOT LIKE 'pg_toast%'
+      AND c.table_schema != 'postgres'  -- Exclude postgres system schema
+      AND t.table_type = 'BASE TABLE'  -- Only base tables, exclude views
+      AND c.table_name NOT LIKE '%_masked_%'  -- Exclude masked views
+      AND c.table_name NOT LIKE '%_smart_%'  -- Exclude smart views
       AND (p_schema_name IS NULL OR c.table_schema = p_schema_name)
     GROUP BY COALESCE(p_schema_name, c.table_schema)
   ),
@@ -546,7 +555,16 @@ BEGIN
       c.table_schema,
       COUNT(*)::BIGINT as sensitive_count
     FROM information_schema.columns c
-    WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+    INNER JOIN information_schema.tables t
+      ON c.table_schema = t.table_schema 
+      AND c.table_name = t.table_name
+    WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1', 'pg_toast_temp_1', 'pg_temp', 'pg_toast_temp')
+      AND c.table_schema NOT LIKE 'pg_temp%'
+      AND c.table_schema NOT LIKE 'pg_toast%'
+      AND c.table_schema != 'postgres'  -- Exclude postgres system schema
+      AND t.table_type = 'BASE TABLE'  -- Only base tables, exclude views
+      AND c.table_name NOT LIKE '%_masked_%'  -- Exclude masked views
+      AND c.table_name NOT LIKE '%_smart_%'  -- Exclude smart views
       AND (p_schema_name IS NULL OR c.table_schema = p_schema_name)
       AND (
         c.column_name ILIKE '%email%' OR c.column_name ILIKE '%phone%' OR

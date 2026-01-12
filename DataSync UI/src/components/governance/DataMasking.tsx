@@ -117,12 +117,23 @@ const DataMasking = () => {
   const [batchResults, setBatchResults] = useState<any>(null);
   const [batchConfig, setBatchConfig] = useState({
     database_name: '',
+    database_names: [] as string[],
     schema_name: '',
     masking_type: 'FULL',
     auto_activate: true,
     min_confidence: 0.75,
   });
   const [availableDatabases, setAvailableDatabases] = useState<string[]>([]);
+  const [deactivatingAll, setDeactivatingAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<'policies' | 'sensitive' | 'unprotected'>('policies');
+  const [sensitiveColumnsList, setSensitiveColumnsList] = useState<any[]>([]);
+  const [unprotectedColumnsList, setUnprotectedColumnsList] = useState<any[]>([]);
+  const [loadingSensitiveColumns, setLoadingSensitiveColumns] = useState(false);
+  const [loadingUnprotectedColumns, setLoadingUnprotectedColumns] = useState(false);
+  const fetchingSensitiveRef = useRef(false);
+  const fetchingUnprotectedRef = useRef(false);
+  const lastSensitiveTabRef = useRef<string | null>(null);
+  const lastUnprotectedTabRef = useRef<string | null>(null);
 
   const maskingTypes = [
     { value: 'FULL', label: 'Full Mask (***MASKED***)' },
@@ -248,7 +259,21 @@ const DataMasking = () => {
     try {
       setBatchProcessing(true);
       setError(null);
-      const response = await dataMaskingApi.batchAnalyze(batchConfig);
+      const params: any = {
+        schema_name: batchConfig.schema_name,
+        masking_type: batchConfig.masking_type,
+        auto_activate: batchConfig.auto_activate,
+        min_confidence: batchConfig.min_confidence,
+      };
+      
+      // Use database_names if multiple selected, otherwise use database_name
+      if (batchConfig.database_names && batchConfig.database_names.length > 0) {
+        params.database_names = batchConfig.database_names;
+      } else if (batchConfig.database_name) {
+        params.database_name = batchConfig.database_name;
+      }
+      
+      const response = await dataMaskingApi.batchAnalyze(params);
       setBatchResults(response);
       await fetchPolicies();
       await fetchMaskingStatus();
@@ -258,6 +283,75 @@ const DataMasking = () => {
       setBatchProcessing(false);
     }
   }, [batchConfig, fetchPolicies, fetchMaskingStatus]);
+
+  const handleDeactivateAll = useCallback(async () => {
+    if (!confirm('Are you sure you want to deactivate ALL masking policies? This will disable masking for all columns.')) {
+      return;
+    }
+
+    try {
+      setDeactivatingAll(true);
+      setError(null);
+      const response = await dataMaskingApi.deactivateAll();
+      alert(`Successfully deactivated ${response.deactivated_count} masking policies.`);
+      await fetchPolicies();
+      await fetchMaskingStatus();
+    } catch (err) {
+      setError(extractApiError(err));
+    } finally {
+      setDeactivatingAll(false);
+    }
+  }, [fetchPolicies, fetchMaskingStatus]);
+
+  useEffect(() => {
+    if (activeTab === 'sensitive' && lastSensitiveTabRef.current !== 'sensitive' && !loadingSensitiveColumns && !fetchingSensitiveRef.current) {
+      lastSensitiveTabRef.current = 'sensitive';
+      fetchingSensitiveRef.current = true;
+      const fetchSensitive = async () => {
+        try {
+          setLoadingSensitiveColumns(true);
+          setError(null);
+          const response = await dataMaskingApi.getSensitiveColumns();
+          setSensitiveColumnsList(response.columns || []);
+        } catch (err) {
+          setError(extractApiError(err));
+          // Set a placeholder to prevent infinite loop
+          setSensitiveColumnsList([{ _error: true }]);
+        } finally {
+          setLoadingSensitiveColumns(false);
+          fetchingSensitiveRef.current = false;
+        }
+      };
+      fetchSensitive();
+    } else if (activeTab !== 'sensitive') {
+      lastSensitiveTabRef.current = null;
+    }
+  }, [activeTab]); // Only depend on activeTab
+
+  useEffect(() => {
+    if (activeTab === 'unprotected' && lastUnprotectedTabRef.current !== 'unprotected' && !loadingUnprotectedColumns && !fetchingUnprotectedRef.current) {
+      lastUnprotectedTabRef.current = 'unprotected';
+      fetchingUnprotectedRef.current = true;
+      const fetchUnprotected = async () => {
+        try {
+          setLoadingUnprotectedColumns(true);
+          setError(null);
+          const response = await dataMaskingApi.getUnprotectedColumns();
+          setUnprotectedColumnsList(response.columns || []);
+        } catch (err) {
+          setError(extractApiError(err));
+          // Set a placeholder to prevent infinite loop
+          setUnprotectedColumnsList([{ _error: true }]);
+        } finally {
+          setLoadingUnprotectedColumns(false);
+          fetchingUnprotectedRef.current = false;
+        }
+      };
+      fetchUnprotected();
+    } else if (activeTab !== 'unprotected') {
+      lastUnprotectedTabRef.current = null;
+    }
+  }, [activeTab]); // Only depend on activeTab
 
   useEffect(() => {
     fetchMaskingStatus();
@@ -380,47 +474,67 @@ const DataMasking = () => {
             <div>
               <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Sensitive Columns</div>
               <div style={{ color: asciiColors.warning, fontSize: 16, fontWeight: 'bold' }}>
-                {maskingStatus.overall_summary.sensitive_columns}
+                {(() => {
+                  const realCount = sensitiveColumnsList.filter(item => !item._error).length;
+                  return realCount || maskingStatus.overall_summary.sensitive_columns;
+                })()}
               </div>
             </div>
             <div>
               <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Protected</div>
               <div style={{ color: asciiColors.success, fontSize: 16, fontWeight: 'bold' }}>
-                {maskingStatus.overall_summary.columns_with_policies}
+                {(() => {
+                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+                  return realSensitive > 0 ? realSensitive - realUnprotected : maskingStatus.overall_summary.columns_with_policies;
+                })()}
               </div>
             </div>
             <div>
               <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Unprotected</div>
               <div style={{ color: asciiColors.danger, fontSize: 16, fontWeight: 'bold' }}>
-                {maskingStatus.overall_summary.columns_without_policies}
+                {unprotectedColumnsList.filter(item => !item._error).length}
               </div>
             </div>
             <div>
               <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Coverage</div>
               <div style={{ 
-                color: maskingStatus.overall_summary.coverage_percentage >= 90 
-                  ? asciiColors.success 
-                  : maskingStatus.overall_summary.coverage_percentage >= 70 
-                  ? asciiColors.warning 
-                  : asciiColors.danger, 
+                color: (() => {
+                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
+                  return realCoverage >= 90 ? asciiColors.success : realCoverage >= 70 ? asciiColors.warning : asciiColors.danger;
+                })(), 
                 fontSize: 16, 
                 fontWeight: 'bold' 
               }}>
-                {maskingStatus.overall_summary.coverage_percentage.toFixed(1)}%
+                {(() => {
+                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
+                  return realCoverage.toFixed(1);
+                })()}%
               </div>
             </div>
             <div>
               <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Status</div>
               <div style={{ 
-                color: maskingStatus.overall_summary.status === 'EXCELLENT' 
-                  ? asciiColors.success 
-                  : maskingStatus.overall_summary.status === 'GOOD' 
-                  ? asciiColors.warning 
-                  : asciiColors.danger, 
+                color: (() => {
+                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
+                  const realStatus = realCoverage >= 90 ? 'EXCELLENT' : realCoverage >= 70 ? 'GOOD' : realCoverage >= 50 ? 'FAIR' : realCoverage > 0 ? 'POOR' : 'NONE';
+                  return realStatus === 'EXCELLENT' ? asciiColors.success : realStatus === 'GOOD' ? asciiColors.warning : realStatus === 'FAIR' ? asciiColors.warning : asciiColors.danger;
+                })(), 
                 fontSize: 16, 
                 fontWeight: 'bold' 
               }}>
-                {maskingStatus.overall_summary.status}
+                {(() => {
+                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
+                  return realCoverage >= 90 ? 'EXCELLENT' : realCoverage >= 70 ? 'GOOD' : realCoverage >= 50 ? 'FAIR' : realCoverage > 0 ? 'POOR' : 'NONE';
+                })()}
               </div>
             </div>
           </div>
@@ -453,6 +567,12 @@ const DataMasking = () => {
             label={`${ascii.blockFull} Batch Analyze & Create`}
             onClick={() => setIsBatchModalOpen(true)}
             variant="primary"
+          />
+          <AsciiButton 
+            label={`${ascii.blockFull} Deactivate All Masking`}
+            onClick={handleDeactivateAll}
+            variant="ghost"
+            disabled={deactivatingAll}
           />
         </div>
         <div style={{ display: 'flex', gap: theme.spacing.sm }}>
@@ -524,9 +644,69 @@ const DataMasking = () => {
         </div>
       </div>
 
-      <AsciiPanel title="MASKING POLICIES">
-        {loading && <LoadingOverlay />}
-        <MaskingTable>
+      <div style={{
+        display: 'flex',
+        gap: theme.spacing.sm,
+        marginBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        <button
+          onClick={() => setActiveTab('policies')}
+          style={{
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: 'none',
+            borderBottom: activeTab === 'policies' ? `3px solid ${asciiColors.accent}` : '3px solid transparent',
+            background: 'transparent',
+            color: activeTab === 'policies' ? asciiColors.accent : asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12,
+            fontWeight: activeTab === 'policies' ? 'bold' : 'normal',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          Masking Policies ({policies.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('sensitive')}
+          style={{
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: 'none',
+            borderBottom: activeTab === 'sensitive' ? `3px solid ${asciiColors.warning}` : '3px solid transparent',
+            background: 'transparent',
+            color: activeTab === 'sensitive' ? asciiColors.warning : asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12,
+            fontWeight: activeTab === 'sensitive' ? 'bold' : 'normal',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          Sensitive Columns ({sensitiveColumnsList.filter(item => !item._error).length})
+        </button>
+        <button
+          onClick={() => setActiveTab('unprotected')}
+          style={{
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: 'none',
+            borderBottom: activeTab === 'unprotected' ? `3px solid ${asciiColors.danger}` : '3px solid transparent',
+            background: 'transparent',
+            color: activeTab === 'unprotected' ? asciiColors.danger : asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12,
+            fontWeight: activeTab === 'unprotected' ? 'bold' : 'normal',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          Unprotected ({unprotectedColumnsList.filter(item => !item._error).length})
+        </button>
+      </div>
+
+      {activeTab === 'policies' && (
+        <AsciiPanel title="MASKING POLICIES">
+          {loading && <LoadingOverlay />}
+          <MaskingTable>
           <thead>
             <tr>
               <Th>Policy Name</Th>
@@ -627,6 +807,116 @@ const DataMasking = () => {
           </div>
         )}
       </AsciiPanel>
+      )}
+
+      {activeTab === 'sensitive' && (
+        <AsciiPanel title={`SENSITIVE COLUMNS (${sensitiveColumnsList.length})`}>
+          {loadingSensitiveColumns ? (
+            <div style={{ textAlign: 'center', padding: theme.spacing.lg, color: asciiColors.muted }}>
+              Loading...
+            </div>
+          ) : sensitiveColumnsList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: theme.spacing.lg, color: asciiColors.muted }}>
+              No sensitive columns found
+            </div>
+          ) : (
+            <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <MaskingTable>
+                <thead>
+                  <tr>
+                    <Th>Schema</Th>
+                    <Th>Table</Th>
+                    <Th>Column</Th>
+                    <Th>Data Type</Th>
+                    <Th>PII Category</Th>
+                    <Th>Confidence</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensitiveColumnsList.filter(c => !c._error).map((col, idx) => (
+                    <TableRow key={idx}>
+                      <Td>{col.schema_name}</Td>
+                      <Td>{col.table_name}</Td>
+                      <Td>{col.column_name}</Td>
+                      <Td>{col.data_type}</Td>
+                      <Td>
+                        <span style={{ color: getMaskingTypeColor(col.pii_category) }}>
+                          {col.pii_category}
+                        </span>
+                      </Td>
+                      <Td>{(col.confidence_score * 100).toFixed(0)}%</Td>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </MaskingTable>
+            </div>
+          )}
+        </AsciiPanel>
+      )}
+
+      {activeTab === 'unprotected' && (
+        <AsciiPanel title={`UNPROTECTED COLUMNS (${unprotectedColumnsList.filter(c => !c._error).length})`}>
+          {loadingUnprotectedColumns ? (
+            <div style={{ textAlign: 'center', padding: theme.spacing.lg, color: asciiColors.muted }}>
+              Loading...
+            </div>
+          ) : unprotectedColumnsList.length === 0 || (unprotectedColumnsList.length === 1 && unprotectedColumnsList[0]._error) ? (
+            <div style={{ textAlign: 'center', padding: theme.spacing.lg, color: error ? asciiColors.danger : asciiColors.success }}>
+              {error ? `Error: ${error}` : 'All sensitive columns are protected! 🎉'}
+            </div>
+          ) : (
+            <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <MaskingTable>
+                <thead>
+                  <tr>
+                    <Th>Schema</Th>
+                    <Th>Table</Th>
+                    <Th>Column</Th>
+                    <Th>Data Type</Th>
+                    <Th>PII Category</Th>
+                    <Th>Confidence</Th>
+                    <Th>Action</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unprotectedColumnsList.filter(c => !c._error).map((col, idx) => (
+                    <TableRow key={idx}>
+                      <Td>{col.schema_name}</Td>
+                      <Td>{col.table_name}</Td>
+                      <Td>{col.column_name}</Td>
+                      <Td>{col.data_type}</Td>
+                      <Td>
+                        <span style={{ color: getMaskingTypeColor(col.pii_category) }}>
+                          {col.pii_category}
+                        </span>
+                      </Td>
+                      <Td>{(col.confidence_score * 100).toFixed(0)}%</Td>
+                      <Td>
+                        <AsciiButton
+                          label="Create Policy"
+                          onClick={() => {
+                            setSelectedPolicy({
+                              policy_name: `${col.schema_name}_${col.table_name}_${col.column_name}_mask`,
+                              schema_name: col.schema_name,
+                              table_name: col.table_name,
+                              column_name: col.column_name,
+                              masking_type: col.pii_category === 'EMAIL' ? 'EMAIL' : col.pii_category === 'PHONE' ? 'PHONE' : 'FULL',
+                              active: true,
+                            });
+                            setActiveTab('policies');
+                            setIsModalOpen(true);
+                          }}
+                          variant="ghost"
+                        />
+                      </Td>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </MaskingTable>
+            </div>
+          )}
+        </AsciiPanel>
+      )}
 
       {isModalOpen && selectedPolicy && (
         <div
@@ -846,34 +1136,84 @@ const DataMasking = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
                   <div>
                     <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
-                      Database Name *
+                      Select Databases * (Multiple selection allowed)
                     </label>
                     {availableDatabases.length > 0 ? (
-                      <select
-                        value={batchConfig.database_name}
-                        onChange={(e) => setBatchConfig(prev => ({ ...prev, database_name: e.target.value }))}
-                        style={{
-                          width: '100%',
-                          padding: '8px',
+                      <div>
+                        <div style={{
+                          padding: theme.spacing.xs,
+                          marginBottom: theme.spacing.sm,
+                          background: asciiColors.backgroundSoft,
+                          borderRadius: 2,
+                          fontSize: 10,
+                          color: asciiColors.warning,
+                          fontFamily: "Consolas",
+                          border: `1px solid ${asciiColors.warning}`
+                        }}>
+                          <strong>⚠️ Warning:</strong> Avoid selecting system databases like 'postgres' unless you have application data there. System databases typically don't need masking.
+                        </div>
+                        <div style={{
+                          maxHeight: '200px',
+                          overflowY: 'auto',
                           border: `1px solid ${asciiColors.border}`,
                           borderRadius: 2,
+                          padding: theme.spacing.sm,
                           background: asciiColors.background,
-                          color: asciiColors.foreground,
-                          fontFamily: "Consolas",
-                          fontSize: 12
-                        }}
-                      >
-                        <option value="">Select database...</option>
-                        {availableDatabases.map(db => (
-                          <option key={db} value={db}>{db}</option>
-                        ))}
-                      </select>
+                        }}>
+                          {availableDatabases.map(db => {
+                            const isSystemDb = db === 'postgres' || db === 'template0' || db === 'template1';
+                            return (
+                              <div key={db} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: theme.spacing.xs,
+                                padding: theme.spacing.xs,
+                                marginBottom: theme.spacing.xs,
+                                opacity: isSystemDb ? 0.7 : 1,
+                              }}>
+                                <input
+                                  type="checkbox"
+                                  checked={batchConfig.database_names.includes(db)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setBatchConfig(prev => ({
+                                        ...prev,
+                                        database_names: [...prev.database_names, db],
+                                        database_name: '' // Clear single selection
+                                      }));
+                                    } else {
+                                      setBatchConfig(prev => ({
+                                        ...prev,
+                                        database_names: prev.database_names.filter(d => d !== db)
+                                      }));
+                                    }
+                                  }}
+                                  style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    cursor: 'pointer'
+                                  }}
+                                />
+                                <label style={{
+                                  color: isSystemDb ? asciiColors.warning : asciiColors.foreground,
+                                  fontSize: 12,
+                                  fontFamily: "Consolas",
+                                  cursor: 'pointer',
+                                  flex: 1
+                                }}>
+                                  {db} {isSystemDb && '(System DB)'}
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     ) : (
                       <input
                         type="text"
                         value={batchConfig.database_name}
-                        onChange={(e) => setBatchConfig(prev => ({ ...prev, database_name: e.target.value }))}
-                        placeholder="DataLake, postgres, etc."
+                        onChange={(e) => setBatchConfig(prev => ({ ...prev, database_name: e.target.value, database_names: [] }))}
+                        placeholder="DataLake, postgres, etc. (single database)"
                         style={{
                           width: '100%',
                           padding: '8px',
@@ -885,6 +1225,16 @@ const DataMasking = () => {
                           fontSize: 12
                         }}
                       />
+                    )}
+                    {batchConfig.database_names.length > 0 && (
+                      <div style={{
+                        marginTop: theme.spacing.xs,
+                        fontSize: 10,
+                        color: asciiColors.muted,
+                        fontFamily: "Consolas"
+                      }}>
+                        Selected: {batchConfig.database_names.join(', ')}
+                      </div>
                     )}
                   </div>
 
@@ -991,7 +1341,7 @@ const DataMasking = () => {
                       label={batchProcessing ? "Processing..." : "Start Batch Analysis"}
                       onClick={handleBatchAnalyze}
                       variant="primary"
-                      disabled={batchProcessing || !batchConfig.database_name}
+                      disabled={batchProcessing || (batchConfig.database_names.length === 0 && !batchConfig.database_name)}
                     />
                     <AsciiButton
                       label="Cancel"
