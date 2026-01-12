@@ -134,6 +134,7 @@ const DataMasking = () => {
   const fetchingUnprotectedRef = useRef(false);
   const lastSensitiveTabRef = useRef<string | null>(null);
   const lastUnprotectedTabRef = useRef<string | null>(null);
+  const [showMaskingPlaybook, setShowMaskingPlaybook] = useState(false);
 
   const maskingTypes = [
     { value: 'FULL', label: 'Full Mask (***MASKED***)' },
@@ -538,7 +539,12 @@ const DataMasking = () => {
               </div>
             </div>
           </div>
-          <div style={{ marginTop: theme.spacing.md, padding: theme.spacing.sm, borderTop: `1px solid ${asciiColors.border}` }}>
+          <div style={{ marginTop: theme.spacing.md, padding: theme.spacing.sm, borderTop: `1px solid ${asciiColors.border}`, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <AsciiButton
+              label="Masking Info"
+              onClick={() => setShowMaskingPlaybook(true)}
+              variant="ghost"
+            />
             <AsciiButton
               label="Refresh Status"
               onClick={fetchMaskingStatus}
@@ -1410,6 +1416,386 @@ const DataMasking = () => {
                   </div>
                 </div>
               )}
+            </AsciiPanel>
+          </div>
+        </div>
+      )}
+
+      {showMaskingPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}
+        onClick={() => setShowMaskingPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="DATA MASKING PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Data Masking provides role-based column-level data protection at the database level. The system automatically redirects 
+                    queries to masked views or original data based on user privileges, ensuring sensitive data is protected while maintaining 
+                    seamless access for authorized users.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} FLOW: USER CONNECTION → ROLE MAPPING
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                        {ascii.blockSemi} Step 1: PostgreSQL User Identification
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        When you connect to PostgreSQL as a user (e.g., <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>tomy.berrios</code>), 
+                        PostgreSQL identifies the session user:
+                      </div>
+                      <pre style={{ 
+                        marginLeft: 32, 
+                        marginTop: 8, 
+                        padding: 8, 
+                        background: asciiColors.backgroundSoft, 
+                        border: `1px solid ${asciiColors.border}`,
+                        fontSize: 11,
+                        overflowX: 'auto'
+                      }}>
+{`-- PostgreSQL identifies your user
+current_user = 'tomy.berrios'
+session_user = 'tomy.berrios'`}
+                      </pre>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                        {ascii.blockSemi} Step 2: Role Mapping Function
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        The function <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.get_user_role_from_db()</code> maps PostgreSQL users to application roles:
+                      </div>
+                      <pre style={{ 
+                        marginLeft: 32, 
+                        marginTop: 8, 
+                        padding: 8, 
+                        background: asciiColors.backgroundSoft, 
+                        border: `1px solid ${asciiColors.border}`,
+                        fontSize: 11,
+                        overflowX: 'auto'
+                      }}>
+{`-- 1. Gets current PostgreSQL user
+v_db_user := current_user;  -- 'tomy.berrios'
+
+-- 2. Looks up in metadata.users
+SELECT role FROM metadata.users 
+WHERE username = 'tomy.berrios';
+-- Result: 'admin'
+
+-- 3. Returns the role
+RETURN 'admin';`}
+                      </pre>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
+                        <strong>Important:</strong> The mapping is <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>username</code> in <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.users</code> = <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>session_user</code> of PostgreSQL
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} FLOW: POLICY VERIFICATION
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                        {ascii.blockSemi} Step 3: Column Masking Decision
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        When querying a column, <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.should_mask_column()</code> verifies:
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
+                        <div style={{ marginBottom: 4 }}>1. <strong>Is the user admin?</strong></div>
+                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If YES: RETURN false (NO masking)</div>
+                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If NO: continue</div>
+                        <div style={{ marginBottom: 4, marginTop: 8 }}>2. <strong>Does an active policy exist for this column?</strong></div>
+                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If NO: RETURN false (NO masking)</div>
+                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If YES: continue</div>
+                        <div style={{ marginBottom: 4, marginTop: 8 }}>3. <strong>Is the role in the whitelist?</strong></div>
+                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If YES: RETURN false (NO masking)</div>
+                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If NO: RETURN true (YES masking)</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} FLOW: SMART VIEW - AUTOMATIC REDIRECTION
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                        {ascii.blockSemi} Step 4: Smart View Creation
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        The view <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>saleslt_smart_customer</code> is created with dynamic masking:
+                      </div>
+                      <pre style={{ 
+                        marginLeft: 32, 
+                        marginTop: 8, 
+                        padding: 8, 
+                        background: asciiColors.backgroundSoft, 
+                        border: `1px solid ${asciiColors.border}`,
+                        fontSize: 11,
+                        overflowX: 'auto'
+                      }}>
+{`CREATE VIEW saleslt_smart_customer AS
+SELECT 
+  customerid,
+  
+  -- For emailaddress (has EMAIL policy)
+  CASE 
+    WHEN (SELECT role FROM metadata.users 
+          WHERE username = session_user) = 'admin' 
+    THEN emailaddress  -- Admin sees original
+    ELSE metadata.mask_value(
+      emailaddress::TEXT, 'EMAIL', '{}'::jsonb
+    )  -- User sees masked
+  END as emailaddress,
+  
+  -- For phone (has PHONE policy)
+  CASE 
+    WHEN (SELECT role FROM metadata.users 
+          WHERE username = session_user) = 'admin' 
+    THEN phone  -- Admin sees original
+    ELSE metadata.mask_value(
+      phone::TEXT, 'PHONE', '{}'::jsonb
+    )  -- User sees masked
+  END as phone
+  
+FROM saleslt.customer;`}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} FLOW: EXECUTION EXAMPLES
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                        {ascii.blockSemi} Admin User Query
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        When <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>tomy.berrios</code> (admin) executes:
+                      </div>
+                      <pre style={{ 
+                        marginLeft: 32, 
+                        marginTop: 8, 
+                        padding: 8, 
+                        background: asciiColors.backgroundSoft, 
+                        border: `1px solid ${asciiColors.border}`,
+                        fontSize: 11,
+                        overflowX: 'auto'
+                      }}>
+{`SELECT emailaddress, phone 
+FROM saleslt.saleslt_smart_customer;`}
+                      </pre>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
+                        PostgreSQL evaluates CASE WHEN:
+                        <div style={{ marginLeft: 16, marginTop: 4 }}>
+                          • <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>session_user = 'tomy.berrios'</code>
+                        </div>
+                        <div style={{ marginLeft: 16 }}>
+                          • Query: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>SELECT role FROM metadata.users WHERE username = 'tomy.berrios'</code>
+                        </div>
+                        <div style={{ marginLeft: 16 }}>
+                          • Result: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>'admin'</code>
+                        </div>
+                        <div style={{ marginLeft: 16, color: asciiColors.success, marginTop: 4 }}>
+                          → Returns: <strong>original values</strong> (no masking)
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 6 }}>
+                        {ascii.blockSemi} Regular User Query
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                        When <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>testuser</code> (non-admin) executes the same query:
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
+                        PostgreSQL evaluates CASE WHEN:
+                        <div style={{ marginLeft: 16, marginTop: 4 }}>
+                          • <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>session_user = 'testuser'</code>
+                        </div>
+                        <div style={{ marginLeft: 16 }}>
+                          • Query: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>SELECT role FROM metadata.users WHERE username = 'testuser'</code>
+                        </div>
+                        <div style={{ marginLeft: 16 }}>
+                          • Result: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>'user'</code>
+                        </div>
+                        <div style={{ marginLeft: 16 }}>
+                          • Condition: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>'user' = 'admin'</code> → FALSE
+                        </div>
+                        <div style={{ marginLeft: 16, color: asciiColors.warning, marginTop: 4 }}>
+                          → Executes: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.mask_value(emailaddress, 'EMAIL', '{}')</code>
+                        </div>
+                        <div style={{ marginLeft: 16, color: asciiColors.warning }}>
+                          → Returns: <strong>'orl***@adventure-works.com'</strong> (masked)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} REQUIREMENTS
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        1. PostgreSQL User Must Exist
+                      </div>
+                      <pre style={{ 
+                        marginLeft: 16, 
+                        marginTop: 4, 
+                        padding: 8, 
+                        background: asciiColors.backgroundSoft, 
+                        border: `1px solid ${asciiColors.border}`,
+                        fontSize: 11,
+                        overflowX: 'auto'
+                      }}>
+{`CREATE USER tomy.berrios WITH PASSWORD 'your_password';`}
+                      </pre>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        2. User Must Be in metadata.users
+                      </div>
+                      <pre style={{ 
+                        marginLeft: 16, 
+                        marginTop: 4, 
+                        padding: 8, 
+                        background: asciiColors.backgroundSoft, 
+                        border: `1px solid ${asciiColors.border}`,
+                        fontSize: 11,
+                        overflowX: 'auto'
+                      }}>
+{`INSERT INTO metadata.users (username, email, password_hash, role, active)
+VALUES ('tomy.berrios', 'your@email.com', 'hash', 'admin', true);`}
+                      </pre>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                        3. Required Permissions
+                      </div>
+                      <pre style={{ 
+                        marginLeft: 16, 
+                        marginTop: 4, 
+                        padding: 8, 
+                        background: asciiColors.backgroundSoft, 
+                        border: `1px solid ${asciiColors.border}`,
+                        fontSize: 11,
+                        overflowX: 'auto'
+                      }}>
+{`GRANT CONNECT ON DATABASE DataLake TO tomy.berrios;
+GRANT USAGE ON SCHEMA saleslt TO tomy.berrios;
+GRANT SELECT ON saleslt.saleslt_smart_customer TO tomy.berrios;
+GRANT SELECT ON metadata.users TO tomy.berrios;`}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} MASKING TYPES
+                  </div>
+                  
+                  <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.danger, fontWeight: 600 }}>FULL</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Complete masking: ***MASKED***</span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.warning, fontWeight: 600 }}>PARTIAL</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Partial masking: Shows first/last characters</span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>EMAIL</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Email masking: orl***@adventure-works.com</span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>PHONE</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Phone masking: 245-****-0173</span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted, fontWeight: 600 }}>HASH</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Hash-based masking: Deterministic hash</span>
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success, fontWeight: 600 }}>TOKENIZE</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Tokenization: Replaces with tokens</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Important Notes
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • The view queries <code style={{ background: asciiColors.background, padding: '2px 4px' }}>metadata.users</code> at <strong>execution time</strong>, not at creation time<br/>
+                    • If a PostgreSQL user exists but is not in <code style={{ background: asciiColors.background, padding: '2px 4px' }}>metadata.users</code>, the function returns 'admin' by default (hardcoded)<br/>
+                    • If the user exists in <code style={{ background: asciiColors.background, padding: '2px 4px' }}>metadata.users</code>, it uses the role from that table<br/>
+                    • Masking is applied at the database level, ensuring consistent protection across all applications
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowMaskingPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
             </AsciiPanel>
           </div>
         </div>
