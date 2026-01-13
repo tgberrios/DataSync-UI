@@ -5201,6 +5201,82 @@ app.get("/api/data-lineage/mariadb/metrics", async (req, res) => {
   }
 });
 
+app.get("/api/data-lineage/mariadb/stats", async (req, res) => {
+  try {
+    const [relationshipDist, objectTypeDist, confidenceDist, discoveryDist] = await Promise.all([
+      pool.query(`
+        SELECT 
+          COALESCE(relationship_type, 'Unknown') as relationship_type,
+          COUNT(*) as count
+        FROM metadata.mdb_lineage
+        GROUP BY relationship_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(object_type, 'Unknown') as object_type,
+          COUNT(*) as count
+        FROM metadata.mdb_lineage
+        GROUP BY object_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          confidence_level,
+          count
+        FROM (
+          SELECT 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END as confidence_level,
+            COUNT(*) as count
+          FROM metadata.mdb_lineage
+          GROUP BY 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END
+        ) subquery
+        ORDER BY 
+          CASE confidence_level
+            WHEN 'High (≥0.8)' THEN 1
+            WHEN 'Medium (0.5-0.8)' THEN 2
+            WHEN 'Low (<0.5)' THEN 3
+            WHEN 'Unknown' THEN 4
+          END
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(discovery_method, 'Unknown') as discovery_method,
+          COUNT(*) as count
+        FROM metadata.mdb_lineage
+        GROUP BY discovery_method
+        ORDER BY count DESC
+      `)
+    ]);
+
+    res.json({
+      relationship_distribution: relationshipDist.rows,
+      object_type_distribution: objectTypeDist.rows,
+      confidence_distribution: confidenceDist.rows,
+      discovery_method_distribution: discoveryDist.rows
+    });
+  } catch (err) {
+    console.error("Error getting MariaDB lineage stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de lineage de MariaDB",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 app.get("/api/data-lineage/mariadb/servers", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -5383,6 +5459,82 @@ app.get("/api/data-lineage/mssql/metrics", async (req, res) => {
     const safeError = sanitizeError(
       err,
       "Error al obtener métricas de lineage de MSSQL",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/data-lineage/mssql/stats", async (req, res) => {
+  try {
+    const [relationshipDist, objectTypeDist, confidenceDist, discoveryDist] = await Promise.all([
+      pool.query(`
+        SELECT 
+          COALESCE(relationship_type, 'Unknown') as relationship_type,
+          COUNT(*) as count
+        FROM metadata.mssql_lineage
+        GROUP BY relationship_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(object_type, 'Unknown') as object_type,
+          COUNT(*) as count
+        FROM metadata.mssql_lineage
+        GROUP BY object_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          confidence_level,
+          count
+        FROM (
+          SELECT 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END as confidence_level,
+            COUNT(*) as count
+          FROM metadata.mssql_lineage
+          GROUP BY 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END
+        ) subquery
+        ORDER BY 
+          CASE confidence_level
+            WHEN 'High (≥0.8)' THEN 1
+            WHEN 'Medium (0.5-0.8)' THEN 2
+            WHEN 'Low (<0.5)' THEN 3
+            WHEN 'Unknown' THEN 4
+          END
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(discovery_method, 'Unknown') as discovery_method,
+          COUNT(*) as count
+        FROM metadata.mssql_lineage
+        GROUP BY discovery_method
+        ORDER BY count DESC
+      `)
+    ]);
+
+    res.json({
+      relationship_distribution: relationshipDist.rows,
+      object_type_distribution: objectTypeDist.rows,
+      confidence_distribution: confidenceDist.rows,
+      discovery_method_distribution: discoveryDist.rows
+    });
+  } catch (err) {
+    console.error("Error getting MSSQL lineage stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de lineage de MSSQL",
       process.env.NODE_ENV === "production"
     );
     res.status(500).json({ error: safeError });
@@ -6270,6 +6422,82 @@ app.get("/api/data-lineage/mongodb/metrics", async (req, res) => {
   }
 });
 
+app.get("/api/data-lineage/mongodb/stats", async (req, res) => {
+  try {
+    const [relationshipDist, objectTypeDist, confidenceDist, discoveryDist] = await Promise.all([
+      pool.query(`
+        SELECT 
+          COALESCE(relationship_type, 'Unknown') as relationship_type,
+          COUNT(*) as count
+        FROM metadata.mongo_lineage
+        GROUP BY relationship_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(object_type, 'Unknown') as object_type,
+          COUNT(*) as count
+        FROM metadata.mongo_lineage
+        GROUP BY object_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          confidence_level,
+          count
+        FROM (
+          SELECT 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END as confidence_level,
+            COUNT(*) as count
+          FROM metadata.mongo_lineage
+          GROUP BY 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END
+        ) subquery
+        ORDER BY 
+          CASE confidence_level
+            WHEN 'High (≥0.8)' THEN 1
+            WHEN 'Medium (0.5-0.8)' THEN 2
+            WHEN 'Low (<0.5)' THEN 3
+            WHEN 'Unknown' THEN 4
+          END
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(discovery_method, 'Unknown') as discovery_method,
+          COUNT(*) as count
+        FROM metadata.mongo_lineage
+        GROUP BY discovery_method
+        ORDER BY count DESC
+      `)
+    ]);
+
+    res.json({
+      relationship_distribution: relationshipDist.rows,
+      object_type_distribution: objectTypeDist.rows,
+      confidence_distribution: confidenceDist.rows,
+      discovery_method_distribution: discoveryDist.rows
+    });
+  } catch (err) {
+    console.error("Error getting MongoDB lineage stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de lineage de MongoDB",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 app.get("/api/data-lineage/mongodb/servers", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -6772,6 +7000,82 @@ app.get("/api/data-lineage/oracle/metrics", async (req, res) => {
         process.env.NODE_ENV === "production"
       ),
     });
+  }
+});
+
+app.get("/api/data-lineage/oracle/stats", async (req, res) => {
+  try {
+    const [relationshipDist, objectTypeDist, confidenceDist, discoveryDist] = await Promise.all([
+      pool.query(`
+        SELECT 
+          COALESCE(relationship_type, 'Unknown') as relationship_type,
+          COUNT(*) as count
+        FROM metadata.oracle_lineage
+        GROUP BY relationship_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(object_type, 'Unknown') as object_type,
+          COUNT(*) as count
+        FROM metadata.oracle_lineage
+        GROUP BY object_type
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          confidence_level,
+          count
+        FROM (
+          SELECT 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END as confidence_level,
+            COUNT(*) as count
+          FROM metadata.oracle_lineage
+          GROUP BY 
+            CASE 
+              WHEN confidence_score >= 0.8 THEN 'High (≥0.8)'
+              WHEN confidence_score >= 0.5 THEN 'Medium (0.5-0.8)'
+              WHEN confidence_score IS NOT NULL THEN 'Low (<0.5)'
+              ELSE 'Unknown'
+            END
+        ) subquery
+        ORDER BY 
+          CASE confidence_level
+            WHEN 'High (≥0.8)' THEN 1
+            WHEN 'Medium (0.5-0.8)' THEN 2
+            WHEN 'Low (<0.5)' THEN 3
+            WHEN 'Unknown' THEN 4
+          END
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(discovery_method, 'Unknown') as discovery_method,
+          COUNT(*) as count
+        FROM metadata.oracle_lineage
+        GROUP BY discovery_method
+        ORDER BY count DESC
+      `)
+    ]);
+
+    res.json({
+      relationship_distribution: relationshipDist.rows,
+      object_type_distribution: objectTypeDist.rows,
+      confidence_distribution: confidenceDist.rows,
+      discovery_method_distribution: discoveryDist.rows
+    });
+  } catch (err) {
+    console.error("Error getting Oracle lineage stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de lineage de Oracle",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
   }
 });
 

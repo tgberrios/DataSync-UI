@@ -12,6 +12,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import DataLineageOracleTreeView from './DataLineageOracleTreeView';
+import LineageCharts from './LineageCharts';
 
 const getConfidenceColor = (score: number | string | null | undefined) => {
   if (score === null || score === undefined) return asciiColors.muted;
@@ -38,6 +39,7 @@ const DataLineageOracle = () => {
   const [allEdges, setAllEdges] = useState<any[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [showLineagePlaybook, setShowLineagePlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const isMountedRef = useRef(true);
 
   const fetchMetrics = useCallback(async () => {
@@ -596,6 +598,11 @@ const DataLineageOracle = () => {
       }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <AsciiButton
+            label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+            onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+            variant={activeView === 'charts' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
             label="Export CSV"
             onClick={handleExportCSV}
             variant="ghost"
@@ -608,11 +615,19 @@ const DataLineageOracle = () => {
         </div>
       </div>
 
-      {loadingTree ? (
-        <LoadingOverlay>Loading tree view...</LoadingOverlay>
-      ) : (
-        <DataLineageOracleTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
+      {activeView === 'charts' && (
+        <LineageCharts
+          engine="oracle"
+          getMetrics={dataLineageOracleApi.getOracleMetrics}
+          getStats={dataLineageOracleApi.getOracleStats}
+        />
       )}
+
+      {activeView === 'list' && loadingTree ? (
+        <LoadingOverlay>Loading tree view...</LoadingOverlay>
+      ) : activeView === 'list' ? (
+        <DataLineageOracleTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
+      ) : null}
     </div>
   );
 };

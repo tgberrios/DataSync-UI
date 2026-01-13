@@ -12,6 +12,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import DataLineageMariaDBTreeView from './DataLineageMariaDBTreeView';
+import LineageCharts from './LineageCharts';
 
 const fadeIn = keyframes`
   from {
@@ -63,6 +64,7 @@ const DataLineageMariaDB = () => {
   const [allEdges, setAllEdges] = useState<any[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [showLineagePlaybook, setShowLineagePlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const isMountedRef = useRef(true);
 
   const fetchMetrics = useCallback(async () => {
@@ -607,6 +609,11 @@ const DataLineageMariaDB = () => {
       }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <AsciiButton
+            label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+            onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+            variant={activeView === 'charts' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
             label="Export CSV"
             onClick={handleExportCSV}
             variant="ghost"
@@ -619,11 +626,19 @@ const DataLineageMariaDB = () => {
         </div>
       </div>
 
-      {loadingTree ? (
-        <LoadingOverlay>Loading tree view...</LoadingOverlay>
-      ) : (
-        <DataLineageMariaDBTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
+      {activeView === 'charts' && (
+        <LineageCharts
+          engine="mariadb"
+          getMetrics={dataLineageApi.getMariaDBMetrics}
+          getStats={dataLineageApi.getMariaDBStats}
+        />
       )}
+
+      {activeView === 'list' && loadingTree ? (
+        <LoadingOverlay>Loading tree view...</LoadingOverlay>
+      ) : activeView === 'list' ? (
+        <DataLineageMariaDBTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
+      ) : null}
     </div>
   );
 };

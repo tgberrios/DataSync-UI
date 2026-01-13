@@ -1635,6 +1635,23 @@ export const dataLineageApi = {
     }
   },
 
+  getMariaDBStats: async () => {
+    try {
+      const response = await api.get("/data-lineage/mariadb/stats");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching MariaDB lineage stats:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
   getMariaDBServers: async () => {
     try {
       const response = await api.get("/data-lineage/mariadb/servers");
@@ -1705,6 +1722,23 @@ export const dataLineageMSSQLApi = {
       return response.data;
     } catch (error) {
       console.error("Error fetching MSSQL lineage metrics:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getMSSQLStats: async () => {
+    try {
+      const response = await api.get("/data-lineage/mssql/stats");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching MSSQL lineage stats:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||
@@ -1805,6 +1839,23 @@ export const dataLineageMongoDBApi = {
       return response.data;
     } catch (error) {
       console.error("Error fetching MongoDB lineage metrics:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getMongoDBStats: async () => {
+    try {
+      const response = await api.get("/data-lineage/mongodb/stats");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching MongoDB lineage stats:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||
@@ -2339,6 +2390,23 @@ export const dataLineageOracleApi = {
       return response.data;
     } catch (error) {
       console.error("Error fetching Oracle lineage metrics:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getOracleStats: async () => {
+    try {
+      const response = await api.get("/data-lineage/oracle/stats");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching Oracle lineage stats:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||

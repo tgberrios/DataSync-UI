@@ -12,6 +12,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import DataLineageMSSQLTreeView from './DataLineageMSSQLTreeView';
+import LineageCharts from './LineageCharts';
 
 const fadeIn = keyframes`
   from {
@@ -63,6 +64,7 @@ const DataLineageMSSQL = () => {
   const [allEdges, setAllEdges] = useState<any[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [showLineagePlaybook, setShowLineagePlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const isMountedRef = useRef(true);
 
   const fetchMetrics = useCallback(async () => {
@@ -717,6 +719,11 @@ const DataLineageMSSQL = () => {
       }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <AsciiButton
+            label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+            onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+            variant={activeView === 'charts' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
             label="Export CSV"
             onClick={handleExportCSV}
             variant="ghost"
@@ -729,11 +736,19 @@ const DataLineageMSSQL = () => {
         </div>
       </div>
 
-      {loadingTree ? (
-        <LoadingOverlay>Loading tree view...</LoadingOverlay>
-      ) : (
-        <DataLineageMSSQLTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
+      {activeView === 'charts' && (
+        <LineageCharts
+          engine="mssql"
+          getMetrics={dataLineageMSSQLApi.getMSSQLMetrics}
+          getStats={dataLineageMSSQLApi.getMSSQLStats}
+        />
       )}
+
+      {activeView === 'list' && loadingTree ? (
+        <LoadingOverlay>Loading tree view...</LoadingOverlay>
+      ) : activeView === 'list' ? (
+        <DataLineageMSSQLTreeView edges={allEdges} onEdgeClick={(edge) => toggleEdge(edge.id)} />
+      ) : null}
     </div>
   );
 };
