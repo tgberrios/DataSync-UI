@@ -16,6 +16,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceCatalogMSSQLTreeView from './GovernanceCatalogMSSQLTreeView';
+import GovernanceCatalogCharts from './GovernanceCatalogCharts';
 
 const fadeIn = keyframes`
   from {
@@ -84,6 +85,8 @@ const GovernanceCatalogMSSQL = () => {
   const [allItems, setAllItems] = useState<any[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const isMountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
@@ -239,7 +242,9 @@ const GovernanceCatalogMSSQL = () => {
 
   const toggleItem = useCallback((id: number) => {
     setOpenItemId(prev => prev === id ? null : id);
-  }, []);
+    const item = allItems.find(i => i.id === id);
+    setSelectedItem(prev => prev?.id === id ? null : (item || null));
+  }, [allItems]);
 
   const formatBytes = useCallback((mb: number | string | null | undefined) => {
     if (mb === null || mb === undefined) return 'N/A';
@@ -607,6 +612,11 @@ const GovernanceCatalogMSSQL = () => {
           </select>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <AsciiButton
+            label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+            onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+            variant={activeView === 'charts' ? 'primary' : 'ghost'}
+          />
           <AsciiButton
             label="Metrics Info"
             onClick={() => setShowMetricsPlaybook(true)}
@@ -730,9 +740,21 @@ const GovernanceCatalogMSSQL = () => {
         </div>
       )}
 
-      {loadingTree ? (
+      {activeView === 'charts' && (
+        <GovernanceCatalogCharts 
+          engine="mssql"
+          selectedItem={selectedItem ? {
+            server_name: selectedItem.server_name,
+            database_name: selectedItem.database_name,
+            schema_name: selectedItem.schema_name,
+            table_name: selectedItem.table_name
+          } : null}
+        />
+      )}
+
+      {activeView === 'list' && loadingTree ? (
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
-      ) : (
+      ) : activeView === 'list' ? (
         <>
           <GovernanceCatalogMSSQLTreeView items={allItems} onItemClick={(item: any) => toggleItem(item.id)} />
           
@@ -758,7 +780,7 @@ const GovernanceCatalogMSSQL = () => {
             </div>
           )}
         </>
-      )}
+      ) : null}
     </div>
   );
 };

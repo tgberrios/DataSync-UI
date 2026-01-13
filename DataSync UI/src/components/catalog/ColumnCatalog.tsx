@@ -16,6 +16,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import ColumnCatalogTreeView from './ColumnCatalogTreeView';
+import ColumnCatalogCharts from './ColumnCatalogCharts';
 
 
 
@@ -50,6 +51,7 @@ const ColumnCatalog = () => {
   });
   const [loadingTree, setLoadingTree] = useState(false);
   const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const isMountedRef = useRef(true);
 
   const fetchAllColumns = useCallback(async () => {
@@ -652,6 +654,11 @@ const ColumnCatalog = () => {
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <AsciiButton
+            label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+            onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+            variant={activeView === 'charts' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
             label="Metrics Info"
             onClick={() => setShowMetricsPlaybook(true)}
             variant="ghost"
@@ -664,9 +671,13 @@ const ColumnCatalog = () => {
         </div>
       </div>
 
-      {loadingTree ? (
+      {activeView === 'charts' && (
+        <ColumnCatalogCharts />
+      )}
+
+      {activeView === 'list' && loadingTree ? (
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
-      ) : (
+      ) : activeView === 'list' ? (
         <>
           <ColumnCatalogTreeView 
             columns={allColumns}
@@ -695,7 +706,7 @@ const ColumnCatalog = () => {
             </div>
           )}
         </>
-      )}
+      ) : null}
     </div>
   );
 };

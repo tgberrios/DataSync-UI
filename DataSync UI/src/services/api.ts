@@ -544,6 +544,75 @@ export const governanceApi = {
       throw error;
     }
   },
+
+  getGovernanceHistory: async (params: {
+    schema?: string;
+    table?: string;
+    engine?: string;
+    days?: number;
+    limit?: number;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance/history", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
+
+  getGovernanceStats: async (params: {
+    days?: number;
+    engine?: string;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance/stats", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
 };
 
 export const qualityApi = {
@@ -1431,6 +1500,23 @@ export const columnCatalogApi = {
       throw error;
     }
   },
+
+  getStats: async () => {
+    try {
+      const response = await api.get("/column-catalog/stats");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching column catalog stats:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
 
 export const catalogLocksApi = {
@@ -1849,6 +1935,76 @@ export const governanceCatalogApi = {
     }
   },
 
+  getMariaDBHistory: async (params: {
+    server_name?: string;
+    database_name?: string;
+    schema_name?: string;
+    table_name?: string;
+    days?: number;
+    limit?: number;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/mariadb/history", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
+
+  getMariaDBStats: async (params: {
+    days?: number;
+    server_name?: string;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/mariadb/stats", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
+
   getMSSQLItems: async (params: {
     page?: number;
     limit?: number;
@@ -1924,6 +2080,76 @@ export const governanceCatalogApi = {
             error.response.data.error ||
             error.message
         );
+      }
+      throw error;
+    }
+  },
+
+  getMSSQLHistory: async (params: {
+    server_name?: string;
+    database_name?: string;
+    schema_name?: string;
+    table_name?: string;
+    days?: number;
+    limit?: number;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/mssql/history", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
+
+  getMSSQLStats: async (params: {
+    days?: number;
+    server_name?: string;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/mssql/stats", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
       }
       throw error;
     }
@@ -2007,6 +2233,75 @@ export const governanceCatalogMongoDBApi = {
             error.response.data.error ||
             error.message
         );
+      }
+      throw error;
+    }
+  },
+
+  getMongoDBHistory: async (params: {
+    server_name?: string;
+    database_name?: string;
+    collection_name?: string;
+    days?: number;
+    limit?: number;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/mongodb/history", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
+
+  getMongoDBStats: async (params: {
+    days?: number;
+    server_name?: string;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/mongodb/stats", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
       }
       throw error;
     }
@@ -2167,6 +2462,75 @@ export const governanceCatalogOracleApi = {
             error.response.data.error ||
             error.message
         );
+      }
+      throw error;
+    }
+  },
+
+  getOracleHistory: async (params: {
+    server_name?: string;
+    schema_name?: string;
+    table_name?: string;
+    days?: number;
+    limit?: number;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/oracle/history", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
+
+  getOracleStats: async (params: {
+    days?: number;
+    server_name?: string;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/governance-catalog/oracle/stats", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
       }
       throw error;
     }

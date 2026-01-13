@@ -16,6 +16,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceCatalogMongoDBTreeView from './GovernanceCatalogMongoDBTreeView';
+import GovernanceCatalogCharts from './GovernanceCatalogCharts';
 
 const fadeIn = keyframes`
   from {
@@ -79,6 +80,7 @@ const GovernanceCatalogMongoDB = () => {
   });
   const [loadingTree, setLoadingTree] = useState(false);
   const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const isMountedRef = useRef(true);
 
   const fetchAllItems = useCallback(async () => {
@@ -790,6 +792,11 @@ const GovernanceCatalogMongoDB = () => {
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <AsciiButton
+            label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+            onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+            variant={activeView === 'charts' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
             label="Metrics Info"
             onClick={() => setShowMetricsPlaybook(true)}
             variant="ghost"
@@ -912,9 +919,20 @@ const GovernanceCatalogMongoDB = () => {
         </div>
       )}
 
-      {loadingTree ? (
+      {activeView === 'charts' && (
+        <GovernanceCatalogCharts 
+          engine="mongodb"
+          selectedItem={selectedItem ? {
+            server_name: selectedItem.server_name,
+            database_name: selectedItem.database_name,
+            collection_name: selectedItem.collection_name
+          } : null}
+        />
+      )}
+
+      {activeView === 'list' && loadingTree ? (
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
-      ) : (
+      ) : activeView === 'list' ? (
         <>
           <div style={{ 
             display: 'grid', 
@@ -996,7 +1014,7 @@ const GovernanceCatalogMongoDB = () => {
             </div>
           )}
         </>
-      )}
+      ) : null}
     </div>
   );
 };

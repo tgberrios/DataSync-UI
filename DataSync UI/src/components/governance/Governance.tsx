@@ -15,6 +15,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceTreeView from './GovernanceTreeView';
+import GovernanceCharts from './GovernanceCharts';
 
 const fadeIn = keyframes`
   from {
@@ -84,6 +85,7 @@ const Governance = () => {
   const [metrics, setMetrics] = useState<any>({});
   const [loadingTree, setLoadingTree] = useState(false);
   const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const isMountedRef = useRef(true);
 
   const fetchAllItems = useCallback(async () => {
@@ -1221,6 +1223,11 @@ const Governance = () => {
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <AsciiButton
+                label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+                onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+                variant={activeView === 'charts' ? 'primary' : 'ghost'}
+              />
+              <AsciiButton
                 label="Metrics Info"
                 onClick={() => setShowMetricsPlaybook(true)}
                 variant="ghost"
@@ -1352,116 +1359,130 @@ const Governance = () => {
             </div>
           )}
 
-          {loadingTree ? (
-            <LoadingOverlay>Loading tree view...</LoadingOverlay>
-          ) : (
+          {activeView === 'charts' && (
+            <GovernanceCharts 
+              selectedTable={selectedItem ? {
+                schema_name: selectedItem.schema_name,
+                table_name: selectedItem.table_name,
+                inferred_source_engine: selectedItem.inferred_source_engine
+              } : null}
+            />
+          )}
+
+          {activeView === 'list' && (
             <>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
-                gap: 16, 
-                marginTop: 16 
-              }}>
-                <GovernanceTreeView 
-                  items={allItems} 
-                  onItemClick={handleItemClick} 
-                />
-                
-                {selectedItem && (
-                  <AsciiPanel title="DETAILS" style={{ 
-                    position: 'sticky', 
-                    top: 16, 
-                    maxHeight: 'calc(100vh - 200px)',
-                    overflowY: 'auto'
+              {loadingTree ? (
+                <LoadingOverlay>Loading tree view...</LoadingOverlay>
+              ) : (
+                <>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
+                    gap: 16, 
+                    marginTop: 16 
                   }}>
-                    <div style={{ 
-                      display: 'flex', 
-                      gap: 4, 
-                      marginBottom: 16, 
-                      borderBottom: `1px solid ${asciiColors.border}`, 
-                      paddingBottom: 8,
-                      flexWrap: 'wrap'
-                    }}>
-                      <AsciiButton
-                        label="Overview"
-                        onClick={() => setActiveTab('overview')}
-                        variant={activeTab === 'overview' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Ownership"
-                        onClick={() => setActiveTab('ownership')}
-                        variant={activeTab === 'ownership' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Security"
-                        onClick={() => setActiveTab('security')}
-                        variant={activeTab === 'security' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Privacy/GDPR"
-                        onClick={() => setActiveTab('privacy')}
-                        variant={activeTab === 'privacy' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Retention"
-                        onClick={() => setActiveTab('retention')}
-                        variant={activeTab === 'retention' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Legal Hold"
-                        onClick={() => setActiveTab('legal')}
-                        variant={activeTab === 'legal' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Data Quality"
-                        onClick={() => setActiveTab('quality')}
-                        variant={activeTab === 'quality' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Integration"
-                        onClick={() => setActiveTab('integration')}
-                        variant={activeTab === 'integration' ? 'primary' : 'ghost'}
-                      />
-                      <AsciiButton
-                        label="Documentation"
-                        onClick={() => setActiveTab('documentation')}
-                        variant={activeTab === 'documentation' ? 'primary' : 'ghost'}
-                      />
-                    </div>
+                    <GovernanceTreeView 
+                      items={allItems} 
+                      onItemClick={handleItemClick} 
+                    />
                     
-                    {activeTab === 'overview' && renderOverviewTab(selectedItem)}
-                    {activeTab === 'ownership' && renderOwnershipTab(selectedItem)}
-                    {activeTab === 'security' && renderSecurityTab(selectedItem)}
-                    {activeTab === 'privacy' && renderPrivacyTab(selectedItem)}
-                    {activeTab === 'retention' && renderRetentionTab(selectedItem)}
-                    {activeTab === 'legal' && renderLegalTab(selectedItem)}
-                    {activeTab === 'quality' && renderQualityTab(selectedItem)}
-                    {activeTab === 'integration' && renderIntegrationTab(selectedItem)}
-                    {activeTab === 'documentation' && renderDocumentationTab(selectedItem)}
-                  </AsciiPanel>
-                )}
-              </div>
-              
-              {pagination.totalPages > 1 && (
-                <div style={{ marginTop: 24 }}>
-                  <Pagination>
-                    <PageButton
-                      onClick={() => setPage(Math.max(1, page - 1))}
-                      disabled={page === 1}
-                    >
-                      Previous
-                    </PageButton>
-                    <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
-                      Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
-                    </span>
-                    <PageButton
-                      onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
-                      disabled={page === pagination.totalPages}
-                    >
-                      Next
-                    </PageButton>
-                  </Pagination>
-                </div>
+                    {selectedItem && (
+                      <AsciiPanel title="DETAILS" style={{ 
+                        position: 'sticky', 
+                        top: 16, 
+                        maxHeight: 'calc(100vh - 200px)',
+                        overflowY: 'auto'
+                      }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          gap: 4, 
+                          marginBottom: 16, 
+                          borderBottom: `1px solid ${asciiColors.border}`, 
+                          paddingBottom: 8,
+                          flexWrap: 'wrap'
+                        }}>
+                          <AsciiButton
+                            label="Overview"
+                            onClick={() => setActiveTab('overview')}
+                            variant={activeTab === 'overview' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Ownership"
+                            onClick={() => setActiveTab('ownership')}
+                            variant={activeTab === 'ownership' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Security"
+                            onClick={() => setActiveTab('security')}
+                            variant={activeTab === 'security' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Privacy/GDPR"
+                            onClick={() => setActiveTab('privacy')}
+                            variant={activeTab === 'privacy' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Retention"
+                            onClick={() => setActiveTab('retention')}
+                            variant={activeTab === 'retention' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Legal Hold"
+                            onClick={() => setActiveTab('legal')}
+                            variant={activeTab === 'legal' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Data Quality"
+                            onClick={() => setActiveTab('quality')}
+                            variant={activeTab === 'quality' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Integration"
+                            onClick={() => setActiveTab('integration')}
+                            variant={activeTab === 'integration' ? 'primary' : 'ghost'}
+                          />
+                          <AsciiButton
+                            label="Documentation"
+                            onClick={() => setActiveTab('documentation')}
+                            variant={activeTab === 'documentation' ? 'primary' : 'ghost'}
+                          />
+                        </div>
+                        
+                        {activeTab === 'overview' && renderOverviewTab(selectedItem)}
+                        {activeTab === 'ownership' && renderOwnershipTab(selectedItem)}
+                        {activeTab === 'security' && renderSecurityTab(selectedItem)}
+                        {activeTab === 'privacy' && renderPrivacyTab(selectedItem)}
+                        {activeTab === 'retention' && renderRetentionTab(selectedItem)}
+                        {activeTab === 'legal' && renderLegalTab(selectedItem)}
+                        {activeTab === 'quality' && renderQualityTab(selectedItem)}
+                        {activeTab === 'integration' && renderIntegrationTab(selectedItem)}
+                        {activeTab === 'documentation' && renderDocumentationTab(selectedItem)}
+                      </AsciiPanel>
+                    )}
+                  </div>
+                  
+                  {pagination.totalPages > 1 && (
+                    <div style={{ marginTop: 24 }}>
+                      <Pagination>
+                        <PageButton
+                          onClick={() => setPage(Math.max(1, page - 1))}
+                          disabled={page === 1}
+                        >
+                          Previous
+                        </PageButton>
+                        <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                          Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
+                        </span>
+                        <PageButton
+                          onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
+                          disabled={page === pagination.totalPages}
+                        >
+                          Next
+                        </PageButton>
+                      </Pagination>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

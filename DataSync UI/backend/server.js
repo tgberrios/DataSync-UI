@@ -3062,6 +3062,174 @@ app.get("/api/governance/metrics", async (req, res) => {
   }
 });
 
+// Obtener historial de governance
+app.get("/api/governance/history", async (req, res) => {
+  try {
+    const schema = sanitizeSearch(req.query.schema, 100);
+    const table = sanitizeSearch(req.query.table, 100);
+    const engine = validateEnum(
+      req.query.engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+    const days = parseInt(req.query.days || "30", 10);
+    const limit = validateLimit(req.query.limit, 1, 10000, 1000);
+
+    const whereConditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (schema) {
+      whereConditions.push(`schema_name = $${paramCount}`);
+      params.push(schema);
+      paramCount++;
+    }
+
+    if (table) {
+      whereConditions.push(`table_name = $${paramCount}`);
+      params.push(table);
+      paramCount++;
+    }
+
+    if (engine) {
+      whereConditions.push(`inferred_source_engine = $${paramCount}`);
+      params.push(engine);
+      paramCount++;
+    }
+
+    whereConditions.push(`snapshot_date >= NOW() - INTERVAL '${days} days'`);
+
+    const whereClause =
+      whereConditions.length > 0
+        ? "WHERE " + whereConditions.join(" AND ")
+        : "";
+
+    const result = await pool.query(
+      `
+      SELECT 
+        id,
+        schema_name,
+        table_name,
+        inferred_source_engine,
+        snapshot_date,
+        total_columns,
+        total_rows,
+        table_size_mb,
+        data_quality_score,
+        null_percentage,
+        duplicate_percentage,
+        health_status,
+        data_category,
+        business_domain,
+        sensitivity_level,
+        access_frequency,
+        query_count_daily,
+        fragmentation_percentage
+      FROM metadata.data_governance_catalog
+      ${whereClause}
+      ORDER BY snapshot_date DESC
+      LIMIT $${paramCount}
+    `,
+      [...params, limit]
+    );
+
+    res.json({
+      data: result.rows,
+      count: result.rows.length,
+    });
+  } catch (err) {
+    console.error("Error getting governance history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de governance",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Obtener estadísticas históricas de governance
+app.get("/api/governance/stats", async (req, res) => {
+  try {
+    const days = parseInt(req.query.days || "30", 10);
+    const engine = validateEnum(
+      req.query.engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+
+    const whereConditions = [`snapshot_date >= NOW() - INTERVAL '${days} days'`];
+    const params = [];
+
+    if (engine) {
+      whereConditions.push(`inferred_source_engine = $1`);
+      params.push(engine);
+    }
+
+    const whereClause = "WHERE " + whereConditions.join(" AND ");
+
+    const result = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (schema_name, table_name)
+          *
+        FROM metadata.data_governance_catalog
+        ${whereClause}
+        ORDER BY schema_name, table_name, snapshot_date DESC
+      )
+      SELECT 
+        COUNT(*) as total_tables,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy_count,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning_count,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical_count,
+        ROUND(AVG(data_quality_score)::numeric, 2) as avg_quality_score,
+        SUM(COALESCE(table_size_mb, 0)) as total_size_mb,
+        SUM(COALESCE(total_rows, 0)) as total_rows,
+        COUNT(DISTINCT inferred_source_engine) as engine_count,
+        COUNT(DISTINCT schema_name) as schema_count
+      FROM latest_snapshots
+    `,
+      params
+    );
+
+    const engineStats = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (schema_name, table_name)
+          *
+        FROM metadata.data_governance_catalog
+        ${whereClause}
+        ORDER BY schema_name, table_name, snapshot_date DESC
+      )
+      SELECT 
+        inferred_source_engine,
+        COUNT(*) as table_count,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical,
+        ROUND(AVG(data_quality_score)::numeric, 2) as avg_score
+      FROM latest_snapshots
+      GROUP BY inferred_source_engine
+      ORDER BY table_count DESC
+    `,
+      params
+    );
+
+    res.json({
+      summary: result.rows[0],
+      byEngine: engineStats.rows,
+    });
+  } catch (err) {
+    console.error("Error getting governance stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de governance",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 // Endpoints para la configuración del sistema
 app.get("/api/config", async (req, res) => {
   try {
@@ -4617,7 +4785,10 @@ app.get("/api/column-catalog/metrics", async (req, res) => {
         COUNT(*) FILTER (WHERE contains_phi = true) as phi_columns,
         COUNT(*) FILTER (WHERE sensitivity_level = 'HIGH') as high_sensitivity,
         COUNT(*) FILTER (WHERE is_primary_key = true) as primary_keys,
-        COUNT(*) FILTER (WHERE is_indexed = true) as indexed_columns
+        COUNT(*) FILTER (WHERE is_indexed = true) as indexed_columns,
+        COUNT(*) FILTER (WHERE profiling_quality_score IS NOT NULL) as profiled_columns,
+        AVG(profiling_quality_score) FILTER (WHERE profiling_quality_score IS NOT NULL) as avg_profiling_score,
+        COUNT(*) FILTER (WHERE has_anomalies = true) as columns_with_anomalies
       FROM metadata.column_catalog
     `);
 
@@ -4627,6 +4798,106 @@ app.get("/api/column-catalog/metrics", async (req, res) => {
     const safeError = sanitizeError(
       err,
       "Error al obtener métricas del catálogo de columnas",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/column-catalog/stats", async (req, res) => {
+  try {
+    const [dataTypeDist, sensitivityDist, engineDist, piiDist, profilingDist] = await Promise.all([
+      pool.query(`
+        SELECT 
+          COALESCE(data_type, 'Unknown') as data_type,
+          COUNT(*) as count
+        FROM metadata.column_catalog
+        GROUP BY data_type
+        ORDER BY count DESC
+        LIMIT 15
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(sensitivity_level, 'UNKNOWN') as sensitivity_level,
+          COUNT(*) as count
+        FROM metadata.column_catalog
+        GROUP BY sensitivity_level
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          COALESCE(db_engine, 'Unknown') as db_engine,
+          COUNT(*) as count
+        FROM metadata.column_catalog
+        GROUP BY db_engine
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          CASE 
+            WHEN contains_pii = true AND contains_phi = true THEN 'PII + PHI'
+            WHEN contains_pii = true THEN 'PII Only'
+            WHEN contains_phi = true THEN 'PHI Only'
+            ELSE 'No Sensitive Data'
+          END as category,
+          COUNT(*) as count
+        FROM metadata.column_catalog
+        GROUP BY 
+          CASE 
+            WHEN contains_pii = true AND contains_phi = true THEN 'PII + PHI'
+            WHEN contains_pii = true THEN 'PII Only'
+            WHEN contains_phi = true THEN 'PHI Only'
+            ELSE 'No Sensitive Data'
+          END
+        ORDER BY count DESC
+      `),
+      pool.query(`
+        SELECT 
+          quality_range,
+          count
+        FROM (
+          SELECT 
+            CASE 
+              WHEN profiling_quality_score >= 90 THEN 'Excellent (90-100)'
+              WHEN profiling_quality_score >= 75 THEN 'Good (75-89)'
+              WHEN profiling_quality_score >= 50 THEN 'Fair (50-74)'
+              WHEN profiling_quality_score IS NOT NULL THEN 'Poor (<50)'
+              ELSE 'Not Profiled'
+            END as quality_range,
+            COUNT(*) as count
+          FROM metadata.column_catalog
+          GROUP BY 
+            CASE 
+              WHEN profiling_quality_score >= 90 THEN 'Excellent (90-100)'
+              WHEN profiling_quality_score >= 75 THEN 'Good (75-89)'
+              WHEN profiling_quality_score >= 50 THEN 'Fair (50-74)'
+              WHEN profiling_quality_score IS NOT NULL THEN 'Poor (<50)'
+              ELSE 'Not Profiled'
+            END
+        ) subquery
+        ORDER BY 
+          CASE quality_range
+            WHEN 'Excellent (90-100)' THEN 1
+            WHEN 'Good (75-89)' THEN 2
+            WHEN 'Fair (50-74)' THEN 3
+            WHEN 'Poor (<50)' THEN 4
+            WHEN 'Not Profiled' THEN 5
+          END
+      `)
+    ]);
+
+    res.json({
+      data_type_distribution: dataTypeDist.rows,
+      sensitivity_distribution: sensitivityDist.rows,
+      engine_distribution: engineDist.rows,
+      pii_distribution: piiDist.rows,
+      profiling_distribution: profilingDist.rows
+    });
+  } catch (err) {
+    console.error("Error getting column catalog stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas del catálogo de columnas",
       process.env.NODE_ENV === "production"
     );
     res.status(500).json({ error: safeError });
@@ -5339,6 +5610,164 @@ app.get("/api/governance-catalog/mariadb/servers", async (req, res) => {
   }
 });
 
+app.get("/api/governance-catalog/mariadb/history", async (req, res) => {
+  try {
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+    const database_name = validateIdentifier(req.query.database_name) || "";
+    const schema_name = validateIdentifier(req.query.schema_name) || "";
+    const table_name = validateIdentifier(req.query.table_name) || "";
+    const days = parseInt(req.query.days || "30", 10);
+    const limit = validateLimit(req.query.limit, 1, 10000, 1000);
+
+    const whereConditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (server_name) {
+      whereConditions.push(`server_name = $${paramCount}`);
+      params.push(server_name);
+      paramCount++;
+    }
+
+    if (database_name) {
+      whereConditions.push(`database_name = $${paramCount}`);
+      params.push(database_name);
+      paramCount++;
+    }
+
+    if (schema_name) {
+      whereConditions.push(`schema_name = $${paramCount}`);
+      params.push(schema_name);
+      paramCount++;
+    }
+
+    if (table_name) {
+      whereConditions.push(`table_name = $${paramCount}`);
+      params.push(table_name);
+      paramCount++;
+    }
+
+    whereConditions.push(`snapshot_date >= NOW() - INTERVAL '${days} days'`);
+
+    const whereClause =
+      whereConditions.length > 0
+        ? "WHERE " + whereConditions.join(" AND ")
+        : "";
+
+    const result = await pool.query(
+      `
+      SELECT 
+        id,
+        server_name,
+        database_name,
+        schema_name,
+        table_name,
+        snapshot_date,
+        row_count,
+        data_size_mb,
+        index_size_mb,
+        total_size_mb,
+        health_status,
+        fragmentation_pct,
+        access_frequency
+      FROM metadata.data_governance_catalog_mariadb
+      ${whereClause}
+      ORDER BY snapshot_date DESC
+      LIMIT $${paramCount}
+    `,
+      [...params, limit]
+    );
+
+    res.json({
+      data: result.rows,
+      count: result.rows.length,
+    });
+  } catch (err) {
+    console.error("Error getting MariaDB governance history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de governance de MariaDB",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/governance-catalog/mariadb/stats", async (req, res) => {
+  try {
+    const days = parseInt(req.query.days || "30", 10);
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+
+    const whereConditions = [`snapshot_date >= NOW() - INTERVAL '${days} days'`];
+    const params = [];
+
+    if (server_name) {
+      whereConditions.push(`server_name = $1`);
+      params.push(server_name);
+    }
+
+    const whereClause = "WHERE " + whereConditions.join(" AND ");
+
+    const result = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, database_name, schema_name, table_name)
+          *
+        FROM metadata.data_governance_catalog_mariadb
+        ${whereClause}
+        ORDER BY server_name, database_name, schema_name, table_name, snapshot_date DESC
+      )
+      SELECT 
+        COUNT(*) as total_tables,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy_count,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning_count,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical_count,
+        SUM(COALESCE(total_size_mb, 0)) as total_size_mb,
+        SUM(COALESCE(row_count, 0)) as total_rows,
+        COUNT(DISTINCT server_name) as server_count,
+        COUNT(DISTINCT database_name) as database_count
+      FROM latest_snapshots
+    `,
+      params
+    );
+
+    const serverStats = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, database_name, schema_name, table_name)
+          *
+        FROM metadata.data_governance_catalog_mariadb
+        ${whereClause}
+        ORDER BY server_name, database_name, schema_name, table_name, snapshot_date DESC
+      )
+      SELECT 
+        server_name,
+        COUNT(*) as table_count,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical
+      FROM latest_snapshots
+      GROUP BY server_name
+      ORDER BY table_count DESC
+    `,
+      params
+    );
+
+    res.json({
+      summary: result.rows[0],
+      byServer: serverStats.rows,
+    });
+  } catch (err) {
+    console.error("Error getting MariaDB governance stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de governance de MariaDB",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 app.get(
   "/api/governance-catalog/mariadb/databases/:serverName",
   async (req, res) => {
@@ -5517,6 +5946,165 @@ app.get("/api/governance-catalog/mssql/servers", async (req, res) => {
     const safeError = sanitizeError(
       err,
       "Error al obtener servidores",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/governance-catalog/mssql/history", async (req, res) => {
+  try {
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+    const database_name = validateIdentifier(req.query.database_name) || "";
+    const schema_name = validateIdentifier(req.query.schema_name) || "";
+    const table_name = validateIdentifier(req.query.table_name) || "";
+    const days = parseInt(req.query.days || "30", 10);
+    const limit = validateLimit(req.query.limit, 1, 10000, 1000);
+
+    const whereConditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (server_name) {
+      whereConditions.push(`server_name = $${paramCount}`);
+      params.push(server_name);
+      paramCount++;
+    }
+
+    if (database_name) {
+      whereConditions.push(`database_name = $${paramCount}`);
+      params.push(database_name);
+      paramCount++;
+    }
+
+    if (schema_name) {
+      whereConditions.push(`schema_name = $${paramCount}`);
+      params.push(schema_name);
+      paramCount++;
+    }
+
+    if (table_name) {
+      whereConditions.push(`table_name = $${paramCount}`);
+      params.push(table_name);
+      paramCount++;
+    }
+
+    whereConditions.push(`snapshot_date >= NOW() - INTERVAL '${days} days'`);
+
+    const whereClause =
+      whereConditions.length > 0
+        ? "WHERE " + whereConditions.join(" AND ")
+        : "";
+
+    const result = await pool.query(
+      `
+      SELECT 
+        id,
+        server_name,
+        database_name,
+        schema_name,
+        table_name,
+        snapshot_date,
+        row_count,
+        table_size_mb,
+        health_score,
+        health_status,
+        fragmentation_pct,
+        access_frequency
+      FROM metadata.data_governance_catalog_mssql
+      ${whereClause}
+      ORDER BY snapshot_date DESC
+      LIMIT $${paramCount}
+    `,
+      [...params, limit]
+    );
+
+    res.json({
+      data: result.rows,
+      count: result.rows.length,
+    });
+  } catch (err) {
+    console.error("Error getting MSSQL governance history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de governance de MSSQL",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/governance-catalog/mssql/stats", async (req, res) => {
+  try {
+    const days = parseInt(req.query.days || "30", 10);
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+
+    const whereConditions = [`snapshot_date >= NOW() - INTERVAL '${days} days'`];
+    const params = [];
+
+    if (server_name) {
+      whereConditions.push(`server_name = $1`);
+      params.push(server_name);
+    }
+
+    const whereClause = "WHERE " + whereConditions.join(" AND ");
+
+    const result = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, database_name, schema_name, table_name, object_type, object_name)
+          *
+        FROM metadata.data_governance_catalog_mssql
+        ${whereClause}
+        ORDER BY server_name, database_name, schema_name, table_name, object_type, object_name, snapshot_date DESC
+      )
+      SELECT 
+        COUNT(*) as total_objects,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy_count,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning_count,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical_count,
+        ROUND(AVG(health_score)::numeric, 2) as avg_health_score,
+        SUM(COALESCE(table_size_mb, 0)) as total_size_mb,
+        SUM(COALESCE(row_count, 0)) as total_rows,
+        COUNT(DISTINCT server_name) as server_count,
+        COUNT(DISTINCT database_name) as database_count
+      FROM latest_snapshots
+    `,
+      params
+    );
+
+    const serverStats = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, database_name, schema_name, table_name, object_type, object_name)
+          *
+        FROM metadata.data_governance_catalog_mssql
+        ${whereClause}
+        ORDER BY server_name, database_name, schema_name, table_name, object_type, object_name, snapshot_date DESC
+      )
+      SELECT 
+        server_name,
+        COUNT(*) as object_count,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical,
+        ROUND(AVG(health_score)::numeric, 2) as avg_score
+      FROM latest_snapshots
+      GROUP BY server_name
+      ORDER BY object_count DESC
+    `,
+      params
+    );
+
+    res.json({
+      summary: result.rows[0],
+      byServer: serverStats.rows,
+    });
+  } catch (err) {
+    console.error("Error getting MSSQL governance stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de governance de MSSQL",
       process.env.NODE_ENV === "production"
     );
     res.status(500).json({ error: safeError });
@@ -5878,6 +6466,158 @@ app.get("/api/governance-catalog/mongodb/servers", async (req, res) => {
   }
 });
 
+app.get("/api/governance-catalog/mongodb/history", async (req, res) => {
+  try {
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+    const database_name = validateIdentifier(req.query.database_name) || "";
+    const collection_name = validateIdentifier(req.query.collection_name) || "";
+    const days = parseInt(req.query.days || "30", 10);
+    const limit = validateLimit(req.query.limit, 1, 10000, 1000);
+
+    const whereConditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (server_name) {
+      whereConditions.push(`server_name = $${paramCount}`);
+      params.push(server_name);
+      paramCount++;
+    }
+
+    if (database_name) {
+      whereConditions.push(`database_name = $${paramCount}`);
+      params.push(database_name);
+      paramCount++;
+    }
+
+    if (collection_name) {
+      whereConditions.push(`collection_name = $${paramCount}`);
+      params.push(collection_name);
+      paramCount++;
+    }
+
+    whereConditions.push(`snapshot_date >= NOW() - INTERVAL '${days} days'`);
+
+    const whereClause =
+      whereConditions.length > 0
+        ? "WHERE " + whereConditions.join(" AND ")
+        : "";
+
+    const result = await pool.query(
+      `
+      SELECT 
+        id,
+        server_name,
+        database_name,
+        collection_name,
+        snapshot_date,
+        document_count,
+        storage_size_mb,
+        index_size_mb,
+        total_size_mb,
+        health_score,
+        health_status,
+        access_frequency
+      FROM metadata.data_governance_catalog_mongodb
+      ${whereClause}
+      ORDER BY snapshot_date DESC
+      LIMIT $${paramCount}
+    `,
+      [...params, limit]
+    );
+
+    res.json({
+      data: result.rows,
+      count: result.rows.length,
+    });
+  } catch (err) {
+    console.error("Error getting MongoDB governance history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de governance de MongoDB",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/governance-catalog/mongodb/stats", async (req, res) => {
+  try {
+    const days = parseInt(req.query.days || "30", 10);
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+
+    const whereConditions = [`snapshot_date >= NOW() - INTERVAL '${days} days'`];
+    const params = [];
+
+    if (server_name) {
+      whereConditions.push(`server_name = $1`);
+      params.push(server_name);
+    }
+
+    const whereClause = "WHERE " + whereConditions.join(" AND ");
+
+    const result = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, database_name, collection_name, index_name)
+          *
+        FROM metadata.data_governance_catalog_mongodb
+        ${whereClause}
+        ORDER BY server_name, database_name, collection_name, index_name, snapshot_date DESC
+      )
+      SELECT 
+        COUNT(DISTINCT collection_name) as total_collections,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy_count,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning_count,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical_count,
+        ROUND(AVG(health_score)::numeric, 2) as avg_health_score,
+        SUM(COALESCE(total_size_mb, 0)) as total_size_mb,
+        SUM(COALESCE(document_count, 0)) as total_documents,
+        COUNT(DISTINCT server_name) as server_count,
+        COUNT(DISTINCT database_name) as database_count
+      FROM latest_snapshots
+    `,
+      params
+    );
+
+    const serverStats = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, database_name, collection_name, index_name)
+          *
+        FROM metadata.data_governance_catalog_mongodb
+        ${whereClause}
+        ORDER BY server_name, database_name, collection_name, index_name, snapshot_date DESC
+      )
+      SELECT 
+        server_name,
+        COUNT(DISTINCT collection_name) as collection_count,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical,
+        ROUND(AVG(health_score)::numeric, 2) as avg_score
+      FROM latest_snapshots
+      GROUP BY server_name
+      ORDER BY collection_count DESC
+    `,
+      params
+    );
+
+    res.json({
+      summary: result.rows[0],
+      byServer: serverStats.rows,
+    });
+  } catch (err) {
+    console.error("Error getting MongoDB governance stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de governance de MongoDB",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 app.get(
   "/api/governance-catalog/mongodb/databases/:serverName",
   async (req, res) => {
@@ -6227,6 +6967,159 @@ app.get("/api/governance-catalog/oracle/servers", async (req, res) => {
     const safeError = sanitizeError(
       err,
       "Error al obtener servidores",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/governance-catalog/oracle/history", async (req, res) => {
+  try {
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+    const schema_name = validateIdentifier(req.query.schema_name) || "";
+    const table_name = validateIdentifier(req.query.table_name) || "";
+    const days = parseInt(req.query.days || "30", 10);
+    const limit = validateLimit(req.query.limit, 1, 10000, 1000);
+
+    const whereConditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (server_name) {
+      whereConditions.push(`server_name = $${paramCount}`);
+      params.push(server_name);
+      paramCount++;
+    }
+
+    if (schema_name) {
+      whereConditions.push(`schema_name = $${paramCount}`);
+      params.push(schema_name);
+      paramCount++;
+    }
+
+    if (table_name) {
+      whereConditions.push(`table_name = $${paramCount}`);
+      params.push(table_name);
+      paramCount++;
+    }
+
+    whereConditions.push(`snapshot_date >= NOW() - INTERVAL '${days} days'`);
+
+    const whereClause =
+      whereConditions.length > 0
+        ? "WHERE " + whereConditions.join(" AND ")
+        : "";
+
+    const result = await pool.query(
+      `
+      SELECT 
+        id,
+        server_name,
+        schema_name,
+        table_name,
+        snapshot_date,
+        row_count,
+        table_size_mb,
+        index_size_mb,
+        total_size_mb,
+        health_score,
+        health_status,
+        fragmentation_pct,
+        access_frequency
+      FROM metadata.data_governance_catalog_oracle
+      ${whereClause}
+      ORDER BY snapshot_date DESC
+      LIMIT $${paramCount}
+    `,
+      [...params, limit]
+    );
+
+    res.json({
+      data: result.rows,
+      count: result.rows.length,
+    });
+  } catch (err) {
+    console.error("Error getting Oracle governance history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de governance de Oracle",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/governance-catalog/oracle/stats", async (req, res) => {
+  try {
+    const days = parseInt(req.query.days || "30", 10);
+    const server_name = sanitizeSearch(req.query.server_name, 100);
+
+    const whereConditions = [`snapshot_date >= NOW() - INTERVAL '${days} days'`];
+    const params = [];
+
+    if (server_name) {
+      whereConditions.push(`server_name = $1`);
+      params.push(server_name);
+    }
+
+    const whereClause = "WHERE " + whereConditions.join(" AND ");
+
+    const result = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, schema_name, table_name)
+          *
+        FROM metadata.data_governance_catalog_oracle
+        ${whereClause}
+        ORDER BY server_name, schema_name, table_name, snapshot_date DESC
+      )
+      SELECT 
+        COUNT(*) as total_tables,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy_count,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning_count,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical_count,
+        ROUND(AVG(health_score)::numeric, 2) as avg_health_score,
+        SUM(COALESCE(total_size_mb, 0)) as total_size_mb,
+        SUM(COALESCE(row_count, 0)) as total_rows,
+        COUNT(DISTINCT server_name) as server_count,
+        COUNT(DISTINCT schema_name) as schema_count
+      FROM latest_snapshots
+    `,
+      params
+    );
+
+    const serverStats = await pool.query(
+      `
+      WITH latest_snapshots AS (
+        SELECT DISTINCT ON (server_name, schema_name, table_name)
+          *
+        FROM metadata.data_governance_catalog_oracle
+        ${whereClause}
+        ORDER BY server_name, schema_name, table_name, snapshot_date DESC
+      )
+      SELECT 
+        server_name,
+        COUNT(*) as table_count,
+        COUNT(*) FILTER (WHERE health_status IN ('EXCELLENT', 'HEALTHY')) as healthy,
+        COUNT(*) FILTER (WHERE health_status = 'WARNING') as warning,
+        COUNT(*) FILTER (WHERE health_status = 'CRITICAL') as critical,
+        ROUND(AVG(health_score)::numeric, 2) as avg_score
+      FROM latest_snapshots
+      GROUP BY server_name
+      ORDER BY table_count DESC
+    `,
+      params
+    );
+
+    res.json({
+      summary: result.rows[0],
+      byServer: serverStats.rows,
+    });
+  } catch (err) {
+    console.error("Error getting Oracle governance stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de governance de Oracle",
       process.env.NODE_ENV === "production"
     );
     res.status(500).json({ error: safeError });
