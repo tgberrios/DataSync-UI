@@ -588,6 +588,75 @@ export const qualityApi = {
       throw error;
     }
   },
+
+  getQualityHistory: async (params: {
+    schema?: string;
+    table?: string;
+    engine?: string;
+    days?: number;
+    limit?: number;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/quality/history", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
+
+  getQualityStats: async (params: {
+    days?: number;
+    engine?: string;
+  }, signal?: AbortSignal) => {
+    try {
+      const response = await api.get("/quality/stats", {
+        params,
+        signal,
+        timeout: 30000
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message?.includes('canceled')) {
+          const cancelError = new Error("Request cancelled");
+          cancelError.name = 'CanceledError';
+          throw cancelError;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error("Request timeout - the server is taking too long to respond");
+        }
+        if (error.response) {
+          throw new Error(
+            error.response.data.details ||
+              error.response.data.error ||
+              error.message
+          );
+        }
+      }
+      throw error;
+    }
+  },
 };
 
 export const monitorApi = {

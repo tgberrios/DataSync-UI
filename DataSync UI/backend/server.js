@@ -2736,6 +2736,168 @@ app.get("/api/quality/metrics", async (req, res) => {
   }
 });
 
+app.get("/api/quality/history", async (req, res) => {
+  try {
+    const schema = sanitizeSearch(req.query.schema, 100);
+    const table = sanitizeSearch(req.query.table, 100);
+    const engine = validateEnum(
+      req.query.engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+    const days = parseInt(req.query.days || "30", 10);
+    const limit = validateLimit(req.query.limit, 1, 10000, 1000);
+
+    const whereConditions = [];
+    const params = [];
+    let paramCount = 1;
+
+    if (schema) {
+      whereConditions.push(`schema_name = $${paramCount}`);
+      params.push(schema);
+      paramCount++;
+    }
+
+    if (table) {
+      whereConditions.push(`table_name = $${paramCount}`);
+      params.push(table);
+      paramCount++;
+    }
+
+    if (engine) {
+      whereConditions.push(`source_db_engine = $${paramCount}`);
+      params.push(engine);
+      paramCount++;
+    }
+
+    whereConditions.push(`check_timestamp >= NOW() - INTERVAL '${days} days'`);
+
+    const whereClause =
+      whereConditions.length > 0
+        ? "WHERE " + whereConditions.join(" AND ")
+        : "";
+
+    const result = await pool.query(
+      `
+      SELECT 
+        id,
+        schema_name,
+        table_name,
+        source_db_engine,
+        check_timestamp,
+        total_rows,
+        null_count,
+        duplicate_count,
+        invalid_type_count,
+        out_of_range_count,
+        referential_integrity_errors,
+        constraint_violation_count,
+        validation_status,
+        error_details,
+        quality_score,
+        check_duration_ms
+      FROM metadata.data_quality
+      ${whereClause}
+      ORDER BY check_timestamp DESC
+      LIMIT $${paramCount}
+    `,
+      [...params, limit]
+    );
+
+    res.json({
+      data: result.rows,
+      count: result.rows.length,
+    });
+  } catch (err) {
+    console.error("Error getting quality history:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener historial de calidad",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/quality/stats", async (req, res) => {
+  try {
+    const days = parseInt(req.query.days || "30", 10);
+    const engine = validateEnum(
+      req.query.engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+
+    const whereConditions = [`check_timestamp >= NOW() - INTERVAL '${days} days'`];
+    const params = [];
+
+    if (engine) {
+      whereConditions.push(`source_db_engine = $1`);
+      params.push(engine);
+    }
+
+    const whereClause = "WHERE " + whereConditions.join(" AND ");
+
+    const result = await pool.query(
+      `
+      WITH latest_checks AS (
+        SELECT DISTINCT ON (schema_name, table_name, source_db_engine)
+          *
+        FROM metadata.data_quality
+        ${whereClause}
+        ORDER BY schema_name, table_name, source_db_engine, check_timestamp DESC
+      )
+      SELECT 
+        COUNT(*) as total_tables,
+        COUNT(*) FILTER (WHERE validation_status = 'PASSED') as passed_count,
+        COUNT(*) FILTER (WHERE validation_status = 'WARNING') as warning_count,
+        COUNT(*) FILTER (WHERE validation_status = 'FAILED') as failed_count,
+        ROUND(AVG(quality_score)::numeric, 2) as avg_score,
+        COUNT(DISTINCT source_db_engine) as engine_count,
+        COUNT(DISTINCT schema_name) as schema_count
+      FROM latest_checks
+    `,
+      params
+    );
+
+    const engineStats = await pool.query(
+      `
+      WITH latest_checks AS (
+        SELECT DISTINCT ON (schema_name, table_name, source_db_engine)
+          *
+        FROM metadata.data_quality
+        ${whereClause}
+        ORDER BY schema_name, table_name, source_db_engine, check_timestamp DESC
+      )
+      SELECT 
+        source_db_engine,
+        COUNT(*) as table_count,
+        COUNT(*) FILTER (WHERE validation_status = 'PASSED') as passed,
+        COUNT(*) FILTER (WHERE validation_status = 'WARNING') as warning,
+        COUNT(*) FILTER (WHERE validation_status = 'FAILED') as failed,
+        ROUND(AVG(quality_score)::numeric, 2) as avg_score
+      FROM latest_checks
+      GROUP BY source_db_engine
+      ORDER BY table_count DESC
+    `,
+      params
+    );
+
+    res.json({
+      summary: result.rows[0],
+      byEngine: engineStats.rows,
+    });
+  } catch (err) {
+    console.error("Error getting quality stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener estadísticas de calidad",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 // Obtener datos de governance
 app.get("/api/governance/data", async (req, res) => {
   try {
