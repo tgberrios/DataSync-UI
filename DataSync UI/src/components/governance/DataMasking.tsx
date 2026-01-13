@@ -357,6 +357,40 @@ const DataMasking = () => {
   useEffect(() => {
     fetchMaskingStatus();
     fetchAvailableDatabases();
+    
+    const fetchInitialData = async () => {
+      if (!fetchingSensitiveRef.current) {
+        fetchingSensitiveRef.current = true;
+        try {
+          setLoadingSensitiveColumns(true);
+          const sensitiveResponse = await dataMaskingApi.getSensitiveColumns();
+          setSensitiveColumnsList(sensitiveResponse.columns || []);
+        } catch (err) {
+          setError(extractApiError(err));
+          setSensitiveColumnsList([{ _error: true }]);
+        } finally {
+          setLoadingSensitiveColumns(false);
+          fetchingSensitiveRef.current = false;
+        }
+      }
+      
+      if (!fetchingUnprotectedRef.current) {
+        fetchingUnprotectedRef.current = true;
+        try {
+          setLoadingUnprotectedColumns(true);
+          const unprotectedResponse = await dataMaskingApi.getUnprotectedColumns();
+          setUnprotectedColumnsList(unprotectedResponse.columns || []);
+        } catch (err) {
+          setError(extractApiError(err));
+          setUnprotectedColumnsList([{ _error: true }]);
+        } finally {
+          setLoadingUnprotectedColumns(false);
+          fetchingUnprotectedRef.current = false;
+        }
+      }
+    };
+    
+    fetchInitialData();
   }, [fetchMaskingStatus]);
 
   const fetchAvailableDatabases = useCallback(async () => {

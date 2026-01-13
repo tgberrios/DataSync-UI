@@ -1898,7 +1898,27 @@ app.get("/api/dashboard/stats", async (req, res) => {
         ) as cache_stats,
         (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_queries,
         (SELECT count(*) FROM pg_stat_activity WHERE wait_event_type IS NOT NULL) as waiting_queries,
-        (SELECT ROUND(AVG(EXTRACT(EPOCH FROM (now() - query_start)))::numeric, 2) FROM pg_stat_activity WHERE state = 'active' AND query_start IS NOT NULL) as avg_query_duration,
+        (SELECT ROUND(AVG(EXTRACT(EPOCH FROM (now() - query_start)))::numeric, 2) 
+         FROM pg_stat_activity 
+         WHERE state = 'active' 
+           AND query_start IS NOT NULL
+           AND query NOT ILIKE '%pg_stat%'
+           AND query NOT ILIKE '%information_schema%'
+           AND query NOT ILIKE '%pg_catalog%'
+           AND query NOT ILIKE '%pg_class%'
+           AND query NOT ILIKE '%pg_namespace%'
+           AND query NOT ILIKE '%pg_extension%'
+           AND query NOT ILIKE '%pg_depend%'
+           AND query NOT ILIKE '%pg_attribute%'
+           AND query NOT ILIKE '%pg_index%'
+           AND query NOT ILIKE '%pg_settings%'
+           AND query NOT ILIKE '%pg_database%'
+           AND query NOT ILIKE '%pg_user%'
+           AND query NOT ILIKE '%pg_roles%'
+           AND query NOT ILIKE '%pg_postmaster%'
+           AND query NOT ILIKE '%pg_statio%'
+           AND query NOT ILIKE '%current_database()%'
+        ) as avg_query_duration,
         (SELECT pg_database_size(current_database())) as database_size_bytes
     `);
 
@@ -1910,6 +1930,23 @@ app.get("/api/dashboard/stats", async (req, res) => {
         COUNT(*) as total_queries_24h
       FROM metadata.query_performance
       WHERE captured_at > NOW() - INTERVAL '24 hours'
+        AND query_text NOT ILIKE '%information_schema%'
+        AND query_text NOT ILIKE '%pg_stat%'
+        AND query_text NOT ILIKE '%pg_catalog%'
+        AND query_text NOT ILIKE '%pg_class%'
+        AND query_text NOT ILIKE '%pg_namespace%'
+        AND query_text NOT ILIKE '%pg_extension%'
+        AND query_text NOT ILIKE '%pg_depend%'
+        AND query_text NOT ILIKE '%pg_attribute%'
+        AND query_text NOT ILIKE '%pg_index%'
+        AND query_text NOT ILIKE '%pg_settings%'
+        AND query_text NOT ILIKE '%pg_database%'
+        AND query_text NOT ILIKE '%pg_user%'
+        AND query_text NOT ILIKE '%pg_roles%'
+        AND query_text NOT ILIKE '%pg_postmaster%'
+        AND query_text NOT ILIKE '%pg_statio%'
+        AND query_text NOT ILIKE '%current_database()%'
+        AND operation_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
     `);
 
     // Connection pooling removed - using direct connections now
@@ -4099,6 +4136,23 @@ app.get("/api/query-performance/metrics", async (req, res) => {
         ROUND(AVG(query_efficiency_score)::numeric, 2) as avg_efficiency
       FROM metadata.query_performance
       WHERE captured_at > NOW() - INTERVAL '24 hours'
+        AND query_text NOT ILIKE '%information_schema%'
+        AND query_text NOT ILIKE '%pg_stat%'
+        AND query_text NOT ILIKE '%pg_catalog%'
+        AND query_text NOT ILIKE '%pg_class%'
+        AND query_text NOT ILIKE '%pg_namespace%'
+        AND query_text NOT ILIKE '%pg_extension%'
+        AND query_text NOT ILIKE '%pg_depend%'
+        AND query_text NOT ILIKE '%pg_attribute%'
+        AND query_text NOT ILIKE '%pg_index%'
+        AND query_text NOT ILIKE '%pg_settings%'
+        AND query_text NOT ILIKE '%pg_database%'
+        AND query_text NOT ILIKE '%pg_user%'
+        AND query_text NOT ILIKE '%pg_roles%'
+        AND query_text NOT ILIKE '%pg_postmaster%'
+        AND query_text NOT ILIKE '%pg_statio%'
+        AND query_text NOT ILIKE '%current_database()%'
+        AND operation_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
     `);
 
     res.json(result.rows[0] || {});

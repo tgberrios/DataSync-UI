@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { dashboardApi, configApi } from "../../services/api";
+import { dashboardApi, configApi, dataMaskingApi } from "../../services/api";
 import type {
   DashboardStats,
   BatchConfig,
@@ -485,6 +485,10 @@ const Dashboard = () => {
   const [isProcessingExpanded, setIsProcessingExpanded] = useState(false);
   const isMountedRef = useRef(true);
   const isInitialLoadRef = useRef(true);
+  const [sensitiveColumnsList, setSensitiveColumnsList] = useState<any[]>([]);
+  const [unprotectedColumnsList, setUnprotectedColumnsList] = useState<any[]>([]);
+  const fetchingSensitiveRef = useRef(false);
+  const fetchingUnprotectedRef = useRef(false);
 
   const [stats, setStats] = useState<DashboardStats>({
     syncStatus: {
@@ -682,23 +686,84 @@ const Dashboard = () => {
     await fetchStats();
   }, [fetchStats]);
 
+  /**
+   * Carga los datos de sensitive columns y unprotected columns para calcular métricas correctas
+   */
+  const fetchMaskingData = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    
+    if (!fetchingSensitiveRef.current) {
+      fetchingSensitiveRef.current = true;
+      try {
+        const sensitiveResponse = await dataMaskingApi.getSensitiveColumns();
+        if (isMountedRef.current) {
+          setSensitiveColumnsList(sensitiveResponse.columns || []);
+        }
+      } catch (err) {
+        if (isMountedRef.current) {
+          console.error("Error fetching sensitive columns:", err);
+          setSensitiveColumnsList([{ _error: true }]);
+        }
+      } finally {
+        fetchingSensitiveRef.current = false;
+      }
+    }
+    
+    if (!fetchingUnprotectedRef.current) {
+      fetchingUnprotectedRef.current = true;
+      try {
+        const unprotectedResponse = await dataMaskingApi.getUnprotectedColumns();
+        if (isMountedRef.current) {
+          setUnprotectedColumnsList(unprotectedResponse.columns || []);
+        }
+      } catch (err) {
+        if (isMountedRef.current) {
+          console.error("Error fetching unprotected columns:", err);
+          setUnprotectedColumnsList([{ _error: true }]);
+        }
+      } finally {
+        fetchingUnprotectedRef.current = false;
+      }
+    }
+  }, []);
+
+  /**
+   * Calcula las métricas correctas de masking basadas en los datos reales
+   */
+  const maskingMetrics = useMemo(() => {
+    const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+    const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+    const realProtected = realSensitive > 0 ? realSensitive - realUnprotected : 0;
+    const realCoverage = realSensitive > 0 ? (realProtected / realSensitive) * 100 : 0;
+    
+    return {
+      sensitiveColumns: realSensitive || (stats.dataProtection?.masking?.sensitiveColumns || 0),
+      protected: realProtected,
+      unprotected: realUnprotected,
+      coverage: realCoverage || (stats.dataProtection?.masking?.coveragePercentage || 0),
+    };
+  }, [sensitiveColumnsList, unprotectedColumnsList, stats.dataProtection]);
+
   useEffect(() => {
     isMountedRef.current = true;
     isInitialLoadRef.current = true;
     fetchStats();
     fetchCurrentlyProcessing(1);
+    fetchMaskingData();
 
     const syncStatsInterval = setInterval(fetchSyncStats, 500);
     const systemResourcesInterval = setInterval(fetchSystemResources, 10000);
     const dbHealthInterval = setInterval(fetchDbHealth, 1000);
+    const maskingDataInterval = setInterval(fetchMaskingData, 30000);
 
     return () => {
       isMountedRef.current = false;
       clearInterval(syncStatsInterval);
       clearInterval(systemResourcesInterval);
       clearInterval(dbHealthInterval);
+      clearInterval(maskingDataInterval);
     };
-  }, [fetchStats, fetchSyncStats, fetchSystemResources, fetchDbHealth]);
+  }, [fetchStats, fetchSyncStats, fetchSystemResources, fetchDbHealth, fetchMaskingData]);
 
   useEffect(() => {
     if (isProcessingExpanded) {
@@ -1010,13 +1075,13 @@ const Dashboard = () => {
             />
             <MetricRow
               label="Sensitive Columns"
-              value={stats.dataProtection.masking.sensitiveColumns}
+              value={maskingMetrics.sensitiveColumns}
               color={asciiColors.warning}
             />
             <MetricRow
               label="Coverage"
-              value={`${stats.dataProtection.masking.coveragePercentage}%`}
-              color={stats.dataProtection.masking.coveragePercentage >= 90 ? asciiColors.success : stats.dataProtection.masking.coveragePercentage >= 50 ? asciiColors.warning : asciiColors.danger}
+              value={`${maskingMetrics.coverage.toFixed(1)}%`}
+              color={maskingMetrics.coverage >= 90 ? asciiColors.success : maskingMetrics.coverage >= 50 ? asciiColors.warning : asciiColors.danger}
               size="large"
             />
             <SectionHeader title="Alerts" subtitle="System alerts and monitoring rules" />
