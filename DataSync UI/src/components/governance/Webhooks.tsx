@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { WebhookModal } from './WebhookModal';
+import AlertRules from './AlertRules';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
@@ -23,6 +24,7 @@ interface Webhook {
 }
 
 const Webhooks = () => {
+  const [activeTab, setActiveTab] = useState<'webhooks' | 'alert-rules'>('webhooks');
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -221,20 +223,66 @@ const Webhooks = () => {
           fontFamily: "Consolas"
         }}>
           <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          WEBHOOKS & NOTIFICATIONS
+          WEBHOOKS & ALERTS
         </h1>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <AsciiButton
-            label="Webhooks Info"
-            onClick={() => setShowWebhooksPlaybook(true)}
-            variant="ghost"
-          />
-          <AsciiButton
-            label="Add Webhook"
-            onClick={handleAdd}
-            variant="primary"
-          />
+          {activeTab === 'webhooks' && (
+            <>
+              <AsciiButton
+                label="Webhooks Info"
+                onClick={() => setShowWebhooksPlaybook(true)}
+                variant="ghost"
+              />
+              <AsciiButton
+                label="Add Webhook"
+                onClick={handleAdd}
+                variant="primary"
+              />
+            </>
+          )}
         </div>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        gap: 8,
+        marginBottom: 20,
+        borderBottom: `2px solid ${asciiColors.border}`
+      }}>
+        <button
+          onClick={() => setActiveTab('webhooks')}
+          style={{
+            padding: '8px 16px',
+            border: 'none',
+            borderBottom: activeTab === 'webhooks' ? `3px solid ${asciiColors.accent}` : '3px solid transparent',
+            background: 'transparent',
+            color: activeTab === 'webhooks' ? asciiColors.accent : asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12,
+            fontWeight: activeTab === 'webhooks' ? 'bold' : 'normal',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          Webhooks ({webhooks.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('alert-rules')}
+          style={{
+            padding: '8px 16px',
+            border: 'none',
+            borderBottom: activeTab === 'alert-rules' ? `3px solid ${asciiColors.warning}` : '3px solid transparent',
+            background: 'transparent',
+            color: activeTab === 'alert-rules' ? asciiColors.warning : asciiColors.muted,
+            fontFamily: "Consolas",
+            fontSize: 12,
+            fontWeight: activeTab === 'alert-rules' ? 'bold' : 'normal',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          Alert Rules
+        </button>
       </div>
 
       {error && (
@@ -443,28 +491,30 @@ const Webhooks = () => {
         </div>
       )}
 
-      {webhooks.length === 0 ? (
-        <AsciiPanel title="NO WEBHOOKS">
-          <div style={{
-            padding: "40px",
-            textAlign: "center",
-            fontSize: 12,
-            fontFamily: "Consolas",
-            color: asciiColors.muted
-          }}>
-            {ascii.blockEmpty} No webhooks configured
-            <br />
-            <br />
-            <AsciiButton
-              label="Create First Webhook"
-              onClick={handleAdd}
-              variant="primary"
-            />
-          </div>
-        </AsciiPanel>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {webhooks.map(webhook => (
+      {activeTab === 'webhooks' && (
+        <>
+          {webhooks.length === 0 ? (
+            <AsciiPanel title="NO WEBHOOKS">
+              <div style={{
+                padding: "40px",
+                textAlign: "center",
+                fontSize: 12,
+                fontFamily: "Consolas",
+                color: asciiColors.muted
+              }}>
+                {ascii.blockEmpty} No webhooks configured
+                <br />
+                <br />
+                <AsciiButton
+                  label="Create First Webhook"
+                  onClick={handleAdd}
+                  variant="primary"
+                />
+              </div>
+            </AsciiPanel>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {webhooks.map(webhook => (
             <AsciiPanel key={webhook.id} title={webhook.name}>
               <div style={{ padding: "15px" }}>
                 <div style={{
@@ -591,9 +641,13 @@ const Webhooks = () => {
                 </div>
               </div>
             </AsciiPanel>
-          ))}
-        </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
+
+      {activeTab === 'alert-rules' && <AlertRules />}
 
       <WebhookModal
         isOpen={showModal}
