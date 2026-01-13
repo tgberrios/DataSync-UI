@@ -71,6 +71,7 @@ export const AlertRuleModal: React.FC<AlertRuleModalProps> = ({ isOpen, onClose,
   const [messagePreview, setMessagePreview] = useState<string | null>(null);
   const [testingMessage, setTestingMessage] = useState(false);
   const [showPlaceholders, setShowPlaceholders] = useState(false);
+  const [showPlaybook, setShowPlaybook] = useState(false);
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<string[]>([]);
   const [autocompletePosition, setAutocompletePosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedRowIndex, setSelectedRowIndex] = useState(0);
@@ -148,6 +149,7 @@ export const AlertRuleModal: React.FC<AlertRuleModalProps> = ({ isOpen, onClose,
     setAutocompleteSuggestions([]);
     setAutocompletePosition(null);
     setShowPlaceholders(false);
+    setShowPlaybook(false);
     setConnectionTestResult(null);
     setShowQueryResult(false);
     // NO limpiar queryResult aquí - el usuario puede estar testeando
@@ -415,10 +417,26 @@ export const AlertRuleModal: React.FC<AlertRuleModalProps> = ({ isOpen, onClose,
         { placeholder: '{value}', description: 'Numeric value from query' }
       ];
     } else {
-      // TEXT - placeholders comunes basados en metadata.catalog
-      return [
+      // TEXT - placeholders dinámicos basados en los resultados de la query
+      const basePlaceholders = [
         { placeholder: '{row_count}', description: 'Number of rows returned' },
-        { placeholder: '{first_row}', description: 'First row as JSON' },
+        { placeholder: '{first_row}', description: 'First row as JSON' }
+      ];
+      
+      // Si hay resultados de query, agregar las columnas reales
+      const currentQueryResult = queryResultRef.current || queryResult;
+      if (currentQueryResult && currentQueryResult.success && currentQueryResult.sampleRows && currentQueryResult.sampleRows.length > 0) {
+        const firstRow = currentQueryResult.sampleRows[0];
+        const columnPlaceholders = Object.keys(firstRow).map(columnName => ({
+          placeholder: `{${columnName}}`,
+          description: `Column: ${columnName}`
+        }));
+        return [...basePlaceholders, ...columnPlaceholders];
+      }
+      
+      // Si no hay resultados, usar placeholders comunes por defecto
+      return [
+        ...basePlaceholders,
         { placeholder: '{schema_name}', description: 'Schema name' },
         { placeholder: '{table_name}', description: 'Table name' },
         { placeholder: '{db_engine}', description: 'Database engine' },
@@ -436,7 +454,7 @@ export const AlertRuleModal: React.FC<AlertRuleModalProps> = ({ isOpen, onClose,
         { placeholder: '{next_sync_time}', description: 'Next sync time' }
       ];
     }
-  }, [evaluationType]);
+  }, [evaluationType, queryResult, queryResult?.success, queryResult?.sampleRows?.length, queryResult?.sampleRows]);
 
   // Función para reemplazar placeholders en el mensaje
   const replacePlaceholders = (message: string, queryResult: any, rowIndex: number = 0) => {
@@ -454,15 +472,31 @@ export const AlertRuleModal: React.FC<AlertRuleModalProps> = ({ isOpen, onClose,
       replaced = replaced.replace(/\{row_count\}/g, queryResult.rowCount?.toString() || '0');
       
       if (queryResult.sampleRows && queryResult.sampleRows.length > 0) {
+        // Primero, reemplazar placeholders con índice específico: {column_name[0]}, {column_name[1]}, etc.
+        Object.keys(queryResult.sampleRows[0]).forEach(columnName => {
+          const indexedRegex = new RegExp(`\\{${columnName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\[(\\d+)\\]\\}`, 'g');
+          replaced = replaced.replace(indexedRegex, (match, indexStr) => {
+            const index = parseInt(indexStr);
+            if (index >= 0 && index < queryResult.sampleRows.length) {
+              const value = queryResult.sampleRows[index][columnName];
+              if (value === null || value === undefined) return 'null';
+              if (typeof value === 'object') return JSON.stringify(value);
+              return String(value);
+            }
+            return match;
+          });
+        });
+        
         // Usar la fila seleccionada o la primera si no hay selección válida
         const selectedRow = queryResult.sampleRows[rowIndex] || queryResult.sampleRows[0];
         
         // Reemplazar {first_row}
         replaced = replaced.replace(/\{first_row\}/g, JSON.stringify(selectedRow, null, 2));
         
-        // Reemplazar columnas específicas
+        // Reemplazar columnas específicas sin índice (solo las que no tienen índice ya reemplazado)
         Object.keys(selectedRow).forEach(columnName => {
-          const regex = new RegExp(`\\{${columnName}\\}`, 'g');
+          const escapedColumnName = columnName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\{${escapedColumnName}\\}(?!\\[)`, 'g');
           const value = selectedRow[columnName];
           let displayValue = '';
           if (value === null || value === undefined) {
@@ -484,7 +518,6 @@ export const AlertRuleModal: React.FC<AlertRuleModalProps> = ({ isOpen, onClose,
   useEffect(() => {
     if (customMessage && queryResult && queryResult.success) {
       const preview = replacePlaceholders(customMessage, queryResult, selectedRowIndex);
-      const severityEmoji = severity === 'CRITICAL' ? '🔴' : severity === 'WARNING' ? '🟡' : 'ℹ️';
       const fullMessage = `[${severity}] ${alertType}: ${preview}`;
       setMessagePreview(fullMessage);
     } else {
@@ -1110,29 +1143,58 @@ Example: SELECT COUNT(*) FROM metadata.processing_log WHERE status = 'FAILED' AN
                   <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 0 }}>
                     Custom Alert Message (Optional)
                   </label>
-                  <AsciiButton
-                    label={showPlaceholders ? "Hide Placeholders" : "Show Placeholders"}
-                    onClick={() => setShowPlaceholders(!showPlaceholders)}
-                    variant="ghost"
-                    style={{ fontSize: 10, padding: '4px 8px' }}
-                  />
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {evaluationType === 'TEXT' && (
+                      <AsciiButton
+                        label={showPlaybook ? "Hide Guide" : "Show Guide"}
+                        onClick={() => setShowPlaybook(!showPlaybook)}
+                        variant="ghost"
+                        style={{ fontSize: 10, padding: '4px 8px' }}
+                      />
+                    )}
+                    <AsciiButton
+                      label={showPlaceholders ? "Hide Placeholders" : "Show Placeholders"}
+                      onClick={() => setShowPlaceholders(!showPlaceholders)}
+                      variant="ghost"
+                      style={{ fontSize: 10, padding: '4px 8px' }}
+                    />
+                  </div>
                 </div>
                 
-                {showPlaceholders && (
-                  <div style={{
-                    marginBottom: 8,
-                    padding: '8px',
-                    backgroundColor: asciiColors.backgroundSoft,
-                    border: `1px solid ${asciiColors.border}`,
-                    borderRadius: 2,
-                    maxHeight: '150px',
-                    overflowY: 'auto'
-                  }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: asciiColors.accent, marginBottom: 6 }}>
-                      Available Placeholders (Drag & Drop or Click):
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {getAvailablePlaceholders.map((item, idx) => (
+                {showPlaceholders && (() => {
+                  // Calcular placeholders dinámicamente cuando se muestran
+                  let placeholdersToShow = getAvailablePlaceholders;
+                  
+                  // Si hay resultados de query, usar las columnas reales
+                  const currentQueryResult = queryResultRef.current || queryResult;
+                  if (evaluationType === 'TEXT' && currentQueryResult && currentQueryResult.success && currentQueryResult.sampleRows && currentQueryResult.sampleRows.length > 0) {
+                    const basePlaceholders = [
+                      { placeholder: '{row_count}', description: 'Number of rows returned' },
+                      { placeholder: '{first_row}', description: 'First row as JSON' }
+                    ];
+                    const firstRow = currentQueryResult.sampleRows[0];
+                    const columnPlaceholders = Object.keys(firstRow).map(columnName => ({
+                      placeholder: `{${columnName}}`,
+                      description: `Column: ${columnName}`
+                    }));
+                    placeholdersToShow = [...basePlaceholders, ...columnPlaceholders];
+                  }
+                  
+                  return (
+                    <div style={{
+                      marginBottom: 8,
+                      padding: '8px',
+                      backgroundColor: asciiColors.backgroundSoft,
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      maxHeight: '150px',
+                      overflowY: 'auto'
+                    }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: asciiColors.accent, marginBottom: 6 }}>
+                        Available Placeholders (Drag & Drop or Click):
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {placeholdersToShow.map((item, idx) => (
                         <div
                           key={idx}
                           draggable
@@ -1162,9 +1224,10 @@ Example: SELECT COUNT(*) FROM metadata.processing_log WHERE status = 'FAILED' AN
                           {item.placeholder}
                         </div>
                       ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 <div style={{ position: 'relative' }}>
                   <textarea
@@ -1232,10 +1295,64 @@ Example: SELECT COUNT(*) FROM metadata.processing_log WHERE status = 'FAILED' AN
                   )}
                 </div>
 
-                <div style={{ marginTop: 4, fontSize: 10, color: asciiColors.muted }}>
-                  {evaluationType === 'NUMERIC' 
-                    ? 'Available placeholders: {value} (the numeric value from query). Type { for autocomplete.'
-                    : 'Available placeholders: {row_count}, {first_row}, or column names. Type { for autocomplete or drag from list above.'}
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>
+                    {evaluationType === 'NUMERIC' 
+                      ? 'Available placeholders: {value} (the numeric value from query). Type { for autocomplete.'
+                      : 'Available placeholders: {row_count}, {first_row}, or column names. Type { for autocomplete or drag from list above.'}
+                  </div>
+                  
+                  {evaluationType === 'TEXT' && showPlaybook && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '12px',
+                      backgroundColor: asciiColors.backgroundSoft,
+                      border: `1px solid ${asciiColors.accent}`,
+                      borderRadius: 2,
+                      fontSize: 10,
+                      fontFamily: "Consolas, monospace"
+                    }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                        Guide: Using Placeholders with Multiple Rows
+                      </div>
+                      <div style={{ color: asciiColors.foreground, lineHeight: 1.6 }}>
+                        <div style={{ marginBottom: 6 }}>
+                          <strong>When your query returns multiple rows, you can reference specific rows using indices:</strong>
+                        </div>
+                        <div style={{ marginBottom: 4, paddingLeft: 8 }}>
+                          • <code style={{ color: asciiColors.accent }}>{`{table_name}`}</code> - Uses the row selected in the dropdown above
+                        </div>
+                        <div style={{ marginBottom: 4, paddingLeft: 8 }}>
+                          • <code style={{ color: asciiColors.accent }}>{`{table_name[0]}`}</code> - Always uses row 0 (first row)
+                        </div>
+                        <div style={{ marginBottom: 4, paddingLeft: 8 }}>
+                          • <code style={{ color: asciiColors.accent }}>{`{table_name[1]}`}</code> - Always uses row 1 (second row)
+                        </div>
+                        <div style={{ marginBottom: 4, paddingLeft: 8 }}>
+                          • <code style={{ color: asciiColors.accent }}>{`{status[2]}`}</code> - Always uses row 2 (third row)
+                        </div>
+                        <div style={{ marginTop: 8, marginBottom: 4 }}>
+                          <strong>Example:</strong>
+                        </div>
+                        <div style={{ 
+                          padding: '8px', 
+                          backgroundColor: asciiColors.background, 
+                          borderRadius: 2,
+                          border: `1px solid ${asciiColors.border}`,
+                          marginTop: 4,
+                          whiteSpace: 'pre-wrap'
+                        }}>
+{`Found {row_count} issues:
+- {table_name[0]} has status {status[0]}
+- {table_name[1]} has status {status[1]}
+- Default: {table_name} (uses selected row)`}
+                        </div>
+                        <div style={{ marginTop: 8, color: asciiColors.muted, fontStyle: 'italic' }}>
+                          You can mix indexed and non-indexed placeholders in the same message!
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {customMessage && queryResult && queryResult.success && queryResult.sampleRows && queryResult.sampleRows.length > 1 && (
@@ -1261,12 +1378,23 @@ Example: SELECT COUNT(*) FROM metadata.processing_log WHERE status = 'FAILED' AN
                       }}
                     >
                       {queryResult.sampleRows.map((row: any, idx: number) => {
-                        // Crear un label descriptivo basado en las columnas comunes
                         let label = `Row ${idx + 1}`;
                         if (row.schema_name && row.table_name) {
                           label = `Row ${idx + 1}: ${row.schema_name}.${row.table_name}`;
                         } else if (row.table_name) {
                           label = `Row ${idx + 1}: ${row.table_name}`;
+                        } else {
+                          const keys = Object.keys(row);
+                          if (keys.length > 0) {
+                            const firstKey = keys[0];
+                            const firstValue = row[firstKey];
+                            if (firstValue && typeof firstValue === 'string' && firstValue.length < 50) {
+                              label = `Row ${idx + 1}: ${firstKey}=${firstValue}`;
+                            } else if (firstValue !== null && firstValue !== undefined) {
+                              const valueStr = String(firstValue).substring(0, 30);
+                              label = `Row ${idx + 1}: ${firstKey}=${valueStr}${String(firstValue).length > 30 ? '...' : ''}`;
+                            }
+                          }
                         }
                         return (
                           <option key={idx} value={idx}>
@@ -1276,29 +1404,16 @@ Example: SELECT COUNT(*) FROM metadata.processing_log WHERE status = 'FAILED' AN
                       })}
                     </select>
                     <div style={{ marginTop: 4, fontSize: 10, color: asciiColors.muted }}>
-                      Placeholders will use values from the selected row
+                      Placeholders will use values from the selected row. Preview updates automatically.
                     </div>
                   </div>
                 )}
 
                 {customMessage && (
                   <div style={{ marginTop: 8 }}>
-                    <AsciiButton
-                      label={testingMessage ? "Testing..." : "Test Custom Alert Message"}
-                      onClick={handleTestCustomMessage}
-                      variant="ghost"
-                      disabled={testingMessage}
-                      style={{ fontSize: 10, padding: '4px 8px' }}
-                    />
-                    {!queryResult && (
-                      <div style={{ marginTop: 4, fontSize: 10, color: asciiColors.muted }}>
-                        💡 Test the query first to see the preview with actual data
-                      </div>
-                    )}
-                    
                     {messagePreview && (
                       <div style={{
-                        marginTop: 12,
+                        marginBottom: 12,
                         padding: '12px',
                         borderRadius: 2,
                         backgroundColor: asciiColors.backgroundSoft,
@@ -1336,6 +1451,19 @@ Example: SELECT COUNT(*) FROM metadata.processing_log WHERE status = 'FAILED' AN
                         }}>
                           {messagePreview}
                         </div>
+                      </div>
+                    )}
+                    
+                    <AsciiButton
+                      label={testingMessage ? "Testing..." : "Test Custom Alert Message"}
+                      onClick={handleTestCustomMessage}
+                      variant="ghost"
+                      disabled={testingMessage}
+                      style={{ fontSize: 10, padding: '4px 8px' }}
+                    />
+                    {!queryResult && (
+                      <div style={{ marginTop: 4, fontSize: 10, color: asciiColors.muted }}>
+                        Test the query first to see the preview with actual data
                       </div>
                     )}
                   </div>
