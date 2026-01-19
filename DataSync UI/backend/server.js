@@ -11487,6 +11487,11 @@ app.post(
         ["STAR_SCHEMA", "SNOWFLAKE_SCHEMA"],
         null
       );
+      const target_layer = validateEnum(
+        req.body.target_layer,
+        ["BRONZE", "SILVER", "GOLD"],
+        "BRONZE"
+      );
       const source_db_engine = validateEnum(
         req.body.source_db_engine,
         ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
@@ -11542,15 +11547,16 @@ app.post(
 
       const result = await pool.query(
         `INSERT INTO metadata.data_warehouse_catalog 
-       (warehouse_name, description, schema_type, source_db_engine, source_connection_string,
+       (warehouse_name, description, schema_type, target_layer, source_db_engine, source_connection_string,
         target_db_engine, target_connection_string, target_schema, dimensions, facts,
         schedule_cron, active, enabled, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14::jsonb)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12, $13, $14, $15::jsonb)
        RETURNING *`,
         [
           warehouse_name,
           description || null,
           schema_type,
+          target_layer,
           source_db_engine,
           source_connection_string,
           target_db_engine,
@@ -11637,15 +11643,16 @@ app.put(
 
       const result = await pool.query(
         `UPDATE metadata.data_warehouse_catalog 
-       SET description = $1, schema_type = $2, source_db_engine = $3, source_connection_string = $4,
-           target_db_engine = $5, target_connection_string = $6, target_schema = $7,
-           dimensions = $8::jsonb, facts = $9::jsonb, schedule_cron = $10, active = $11,
-           enabled = $12, metadata = $13::jsonb, updated_at = NOW()
-       WHERE warehouse_name = $14
+       SET description = $1, schema_type = $2, target_layer = $3, source_db_engine = $4, source_connection_string = $5,
+           target_db_engine = $6, target_connection_string = $7, target_schema = $8,
+           dimensions = $9::jsonb, facts = $10::jsonb, schedule_cron = $11, active = $12,
+           enabled = $13, metadata = $14::jsonb, updated_at = NOW()
+       WHERE warehouse_name = $15
        RETURNING *`,
         [
           description || null,
           schema_type,
+          target_layer,
           source_db_engine,
           source_connection_string,
           target_db_engine,
@@ -11865,6 +11872,104 @@ app.get("/api/data-warehouse/:warehouseName/history", async (req, res) => {
     });
   }
 });
+
+// Cleanup previous layer schemas for a warehouse
+app.delete(
+  "/api/data-warehouse/:warehouseName/cleanup-layers",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const warehouseName = validateIdentifier(req.params.warehouseName);
+      if (!warehouseName) {
+        return res.status(400).json({ error: "Invalid warehouse name" });
+      }
+
+      const { layers } = req.body; // Array of layers to delete: ['BRONZE', 'SILVER', 'GOLD']
+      
+      if (!Array.isArray(layers) || layers.length === 0) {
+        return res.status(400).json({ 
+          error: "layers must be a non-empty array of layer names (BRONZE, SILVER, GOLD)" 
+        });
+      }
+
+      // Validate layer names
+      const validLayers = ['BRONZE', 'SILVER', 'GOLD'];
+      const invalidLayers = layers.filter(l => !validLayers.includes(l.toUpperCase()));
+      if (invalidLayers.length > 0) {
+        return res.status(400).json({ 
+          error: `Invalid layer names: ${invalidLayers.join(', ')}. Valid layers are: BRONZE, SILVER, GOLD` 
+        });
+      }
+
+      const warehouseCheck = await pool.query(
+        "SELECT warehouse_name, target_layer FROM metadata.data_warehouse_catalog WHERE warehouse_name = $1",
+        [warehouseName]
+      );
+
+      if (warehouseCheck.rows.length === 0) {
+        return res.status(404).json({
+          error: "Warehouse not found",
+          warehouse_name: warehouseName,
+        });
+      }
+
+      const warehouse = warehouseCheck.rows[0];
+      const currentLayer = (warehouse.target_layer || 'BRONZE').toUpperCase();
+      
+      // Normalize warehouse name (replace spaces with underscores, lowercase)
+      const normalizedName = warehouseName.toLowerCase().replace(/\s+/g, '_');
+      
+      const droppedSchemas = [];
+      const errors = [];
+
+      // Drop each requested schema if it exists
+      for (const layer of layers.map(l => l.toUpperCase())) {
+        // Prevent deleting current layer
+        if (layer === currentLayer) {
+          errors.push(`Cannot delete current layer: ${layer}`);
+          continue;
+        }
+
+        const schemaName = `${normalizedName}_${layer.toLowerCase()}`;
+        
+        try {
+          const schemaExists = await pool.query(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name = $1)",
+            [schemaName]
+          );
+
+          if (schemaExists.rows[0].exists) {
+            await pool.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+            droppedSchemas.push(schemaName);
+          } else {
+            errors.push(`Schema ${schemaName} does not exist`);
+          }
+        } catch (err) {
+          console.error(`Error dropping schema ${schemaName}:`, err);
+          errors.push(`Error dropping ${schemaName}: ${err.message}`);
+        }
+      }
+
+      res.json({
+        message: "Layer cleanup completed",
+        warehouse_name: warehouseName,
+        current_layer: currentLayer,
+        dropped_schemas: droppedSchemas,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (err) {
+      console.error("Error cleaning up previous layers:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error cleaning up previous layers",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
 
 app.get("/api/csv-catalog", async (req, res) => {
   try {

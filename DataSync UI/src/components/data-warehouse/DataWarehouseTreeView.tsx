@@ -223,6 +223,24 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                       }}>
                         <span>{warehouse.schema_type.replace('_', ' ')}</span>
                         <span style={{ color: asciiColors.border }}>•</span>
+                        <span style={{
+                          padding: '2px 6px',
+                          borderRadius: 2,
+                          backgroundColor: warehouse.target_layer === 'GOLD' ? asciiColors.success + '20' :
+                                         warehouse.target_layer === 'SILVER' ? asciiColors.accent + '20' :
+                                         asciiColors.backgroundSoft,
+                          color: warehouse.target_layer === 'GOLD' ? asciiColors.success :
+                                 warehouse.target_layer === 'SILVER' ? asciiColors.accent :
+                                 asciiColors.muted,
+                          fontWeight: 600,
+                          fontSize: 10,
+                          border: `1px solid ${warehouse.target_layer === 'GOLD' ? asciiColors.success :
+                                  warehouse.target_layer === 'SILVER' ? asciiColors.accent :
+                                  asciiColors.border}`
+                        }}>
+                          {warehouse.target_layer || 'BRONZE'}
+                        </span>
+                        <span style={{ color: asciiColors.border }}>•</span>
                         <span>{warehouse.dimensions.length}D</span>
                         <span style={{ color: asciiColors.border }}>•</span>
                         <span>{warehouse.facts.length}F</span>

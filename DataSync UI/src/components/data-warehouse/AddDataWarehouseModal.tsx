@@ -44,6 +44,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
     warehouse_name: initialData?.warehouse_name || '',
     description: initialData?.description || '',
     schema_type: (initialData?.schema_type || 'STAR_SCHEMA') as 'STAR_SCHEMA' | 'SNOWFLAKE_SCHEMA',
+    target_layer: (initialData?.target_layer || 'BRONZE') as 'BRONZE' | 'SILVER' | 'GOLD',
     source_db_engine: defaultSourceEngine,
     source_connection_string: initialData?.source_connection_string || connectionStringExamples[defaultSourceEngine] || '',
     target_db_engine: defaultTargetEngine,
@@ -849,6 +850,49 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                     <option value="STAR_SCHEMA">Star Schema *</option>
                     <option value="SNOWFLAKE_SCHEMA">Snowflake Schema *</option>
                   </select>
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: asciiColors.foreground,
+                    marginBottom: 6,
+                    fontFamily: 'Consolas',
+                    textTransform: 'uppercase',
+                  }}>
+                    Medallion Layer *
+                  </label>
+                  <select
+                    value={formData.target_layer}
+                    onChange={(e) => setFormData(prev => ({ ...prev, target_layer: e.target.value as 'BRONZE' | 'SILVER' | 'GOLD' }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2,
+                      fontSize: 12,
+                      fontFamily: 'Consolas',
+                      backgroundColor: asciiColors.background,
+                      color: asciiColors.foreground,
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="BRONZE">BRONZE (Raw Data)</option>
+                    <option value="SILVER">SILVER (Cleaned/Validated)</option>
+                    <option value="GOLD">GOLD (Business-Ready)</option>
+                  </select>
+                  <div style={{
+                    marginTop: 6,
+                    fontSize: 10,
+                    color: asciiColors.muted,
+                    fontFamily: 'Consolas',
+                    lineHeight: 1.4,
+                  }}>
+                    BRONZE: Raw data from source | SILVER: Cleaned & validated | GOLD: Business-ready analytics
+                  </div>
                 </div>
 
                 <div>

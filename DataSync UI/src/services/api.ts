@@ -3425,6 +3425,7 @@ export interface DataWarehouseEntry {
   warehouse_name: string;
   description: string | null;
   schema_type: "STAR_SCHEMA" | "SNOWFLAKE_SCHEMA";
+  target_layer: "BRONZE" | "SILVER" | "GOLD";
   source_db_engine: string;
   source_connection_string: string;
   target_db_engine: string;
@@ -3590,6 +3591,28 @@ export const dataWarehouseApi = {
       return response.data;
     } catch (error) {
       console.error(`Error building warehouse ${warehouseName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  cleanupLayers: async (warehouseName: string, layers: string[]) => {
+    try {
+      const response = await api.delete(
+        `/data-warehouse/${encodeURIComponent(warehouseName)}/cleanup-layers`,
+        {
+          data: { layers },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error cleaning up layers for ${warehouseName}:`, error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||
