@@ -18021,6 +18021,1034 @@ app.get(
 
 console.log("✅ [ROUTE REGISTRATION] Data masking routes registered successfully");
 
+console.log("✅ [ROUTE REGISTRATION] Registering data encryption routes");
+
+app.get(
+  "/api/data-encryption/policies",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        schema_name,
+        table_name,
+        active,
+        page = 1,
+        limit = 20,
+      } = req.query;
+
+      let query = "SELECT * FROM metadata.encryption_policies WHERE 1=1";
+      const params = [];
+      let paramCount = 0;
+
+      if (schema_name) {
+        paramCount++;
+        query += ` AND schema_name ILIKE $${paramCount}`;
+        params.push(`%${schema_name}%`);
+      }
+
+      if (table_name) {
+        paramCount++;
+        query += ` AND table_name ILIKE $${paramCount}`;
+        params.push(`%${table_name}%`);
+      }
+
+      if (active !== undefined && active !== "") {
+        paramCount++;
+        query += ` AND active = $${paramCount}`;
+        params.push(active === "true");
+      }
+
+      const countQuery = query.replace("SELECT *", "SELECT COUNT(*) as total");
+      const countResult = await pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].total, 10);
+
+      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(parseInt(limit, 10), offset);
+
+      const result = await pool.query(query, params);
+
+      res.json({
+        policies: result.rows,
+        total,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+      });
+    } catch (err) {
+      console.error("Error fetching encryption policies:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching encryption policies",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/data-encryption/policies/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const policyId = parseInt(req.params.id);
+      const result = await pool.query(
+        "SELECT * FROM metadata.encryption_policies WHERE policy_id = $1",
+        [policyId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Encryption policy not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error fetching encryption policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching encryption policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/data-encryption/policies",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const {
+        policy_name,
+        schema_name,
+        table_name,
+        column_name,
+        encryption_algorithm,
+        key_id,
+        key_rotation_interval_days,
+        active,
+      } = req.body;
+
+      if (!policy_name || !schema_name || !table_name || !column_name || !key_id) {
+        return res.status(400).json({
+          error: "policy_name, schema_name, table_name, column_name, and key_id are required",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.encryption_policies 
+         (policy_name, schema_name, table_name, column_name, encryption_algorithm, key_id, key_rotation_interval_days, active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          policy_name,
+          schema_name,
+          table_name,
+          column_name,
+          encryption_algorithm || 'AES256',
+          key_id,
+          key_rotation_interval_days || 90,
+          active !== undefined ? active : true,
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating encryption policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error creating encryption policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/data-encryption/policies/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const policyId = parseInt(req.params.id);
+      const {
+        policy_name,
+        encryption_algorithm,
+        key_id,
+        key_rotation_interval_days,
+        active,
+      } = req.body;
+
+      const updates = [];
+      const params = [];
+      let paramCount = 0;
+
+      if (policy_name !== undefined) {
+        paramCount++;
+        updates.push(`policy_name = $${paramCount}`);
+        params.push(policy_name);
+      }
+
+      if (encryption_algorithm !== undefined) {
+        paramCount++;
+        updates.push(`encryption_algorithm = $${paramCount}`);
+        params.push(encryption_algorithm);
+      }
+
+      if (key_id !== undefined) {
+        paramCount++;
+        updates.push(`key_id = $${paramCount}`);
+        params.push(key_id);
+      }
+
+      if (key_rotation_interval_days !== undefined) {
+        paramCount++;
+        updates.push(`key_rotation_interval_days = $${paramCount}`);
+        params.push(key_rotation_interval_days);
+      }
+
+      if (active !== undefined) {
+        paramCount++;
+        updates.push(`active = $${paramCount}`);
+        params.push(active);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+      }
+
+      paramCount++;
+      updates.push(`updated_at = NOW()`);
+      params.push(policyId);
+
+      const result = await pool.query(
+        `UPDATE metadata.encryption_policies 
+         SET ${updates.join(", ")}
+         WHERE policy_id = $${paramCount}
+         RETURNING *`,
+        params
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Encryption policy not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating encryption policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error updating encryption policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.delete(
+  "/api/data-encryption/policies/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const policyId = parseInt(req.params.id);
+      const result = await pool.query(
+        "DELETE FROM metadata.encryption_policies WHERE policy_id = $1 RETURNING *",
+        [policyId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Encryption policy not found" });
+      }
+
+      res.json({ message: "Encryption policy deleted successfully", policy: result.rows[0] });
+    } catch (err) {
+      console.error("Error deleting encryption policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error deleting encryption policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/data-encryption/encrypt-column",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, column_name, key_id } = req.body;
+
+      if (!schema_name || !table_name || !column_name || !key_id) {
+        return res.status(400).json({
+          error: "schema_name, table_name, column_name, and key_id are required",
+        });
+      }
+
+      const result = await pool.query(
+        `UPDATE ${validateIdentifier(schema_name)}.${validateIdentifier(table_name)}
+         SET ${validateIdentifier(column_name)} = encode(
+           encrypt(${validateIdentifier(column_name)}::bytea, 
+                   (SELECT key_value FROM metadata.encryption_keys WHERE key_id = $1 AND active = true LIMIT 1),
+                   'aes'),
+           'base64')
+         WHERE ${validateIdentifier(column_name)} IS NOT NULL
+         RETURNING COUNT(*) as rows_updated`,
+        [key_id]
+      );
+
+      res.json({
+        message: "Column encrypted successfully",
+        rows_updated: parseInt(result.rows[0].rows_updated, 10),
+      });
+    } catch (err) {
+      console.error("Error encrypting column:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error encrypting column",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/data-encryption/rotate-key",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { policy_id, new_key_id } = req.body;
+
+      if (!policy_id || !new_key_id) {
+        return res.status(400).json({
+          error: "policy_id and new_key_id are required",
+        });
+      }
+
+      await pool.query("SELECT metadata.rotate_encryption_key($1, $2)", [
+        policy_id,
+        new_key_id,
+      ]);
+
+      res.json({ message: "Encryption key rotated successfully" });
+    } catch (err) {
+      console.error("Error rotating encryption key:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error rotating encryption key",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/data-encryption/keys",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT key_id, algorithm, created_at, last_used_at, rotation_count, active FROM metadata.encryption_keys WHERE active = true ORDER BY created_at DESC"
+      );
+
+      res.json({ keys: result.rows });
+    } catch (err) {
+      console.error("Error fetching encryption keys:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching encryption keys",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/data-encryption/keys",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { key_id, key_value, algorithm } = req.body;
+
+      if (!key_id || !key_value) {
+        return res.status(400).json({
+          error: "key_id and key_value are required",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.encryption_keys (key_id, key_value, algorithm)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (key_id) DO UPDATE SET
+           key_value = EXCLUDED.key_value,
+           algorithm = EXCLUDED.algorithm,
+           rotation_count = encryption_keys.rotation_count + 1
+         RETURNING key_id, algorithm, created_at, rotation_count`,
+        [key_id, key_value, algorithm || 'AES256']
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating encryption key:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error creating encryption key",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+console.log("✅ [ROUTE REGISTRATION] Data encryption routes registered successfully");
+
+console.log("✅ [ROUTE REGISTRATION] Registering RLS routes");
+
+app.get(
+  "/api/rls/policies",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, active, page = 1, limit = 20 } = req.query;
+
+      let query = "SELECT * FROM metadata.rls_policies WHERE 1=1";
+      const params = [];
+      let paramCount = 0;
+
+      if (schema_name) {
+        paramCount++;
+        query += ` AND schema_name ILIKE $${paramCount}`;
+        params.push(`%${schema_name}%`);
+      }
+
+      if (table_name) {
+        paramCount++;
+        query += ` AND table_name ILIKE $${paramCount}`;
+        params.push(`%${table_name}%`);
+      }
+
+      if (active !== undefined && active !== "") {
+        paramCount++;
+        query += ` AND active = $${paramCount}`;
+        params.push(active === "true");
+      }
+
+      const countQuery = query.replace("SELECT *", "SELECT COUNT(*) as total");
+      const countResult = await pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].total, 10);
+
+      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(parseInt(limit, 10), offset);
+
+      const result = await pool.query(query, params);
+
+      res.json({
+        policies: result.rows,
+        total,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+      });
+    } catch (err) {
+      console.error("Error fetching RLS policies:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching RLS policies",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/rls/policies/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const policyId = parseInt(req.params.id);
+      const result = await pool.query(
+        "SELECT * FROM metadata.rls_policies WHERE policy_id = $1",
+        [policyId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "RLS policy not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error fetching RLS policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching RLS policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/rls/policies",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const {
+        policy_name,
+        schema_name,
+        table_name,
+        policy_expression,
+        policy_type,
+        description,
+        active,
+      } = req.body;
+
+      if (!policy_name || !schema_name || !table_name || !policy_expression) {
+        return res.status(400).json({
+          error: "policy_name, schema_name, table_name, and policy_expression are required",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.rls_policies 
+         (policy_name, schema_name, table_name, policy_expression, policy_type, description, active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [
+          policy_name,
+          schema_name,
+          table_name,
+          policy_expression,
+          policy_type || 'SELECT',
+          description || null,
+          active !== undefined ? active : true,
+        ]
+      );
+
+      if (active !== false) {
+        await pool.query("SELECT metadata.create_rls_policy($1, $2, $3, $4, $5)", [
+          schema_name,
+          table_name,
+          policy_name,
+          policy_expression,
+          policy_type || 'SELECT',
+        ]);
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating RLS policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error creating RLS policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/rls/policies/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const policyId = parseInt(req.params.id);
+      const {
+        policy_name,
+        policy_expression,
+        policy_type,
+        description,
+        active,
+      } = req.body;
+
+      const policyResult = await pool.query(
+        "SELECT * FROM metadata.rls_policies WHERE policy_id = $1",
+        [policyId]
+      );
+
+      if (policyResult.rows.length === 0) {
+        return res.status(404).json({ error: "RLS policy not found" });
+      }
+
+      const oldPolicy = policyResult.rows[0];
+
+      const updates = [];
+      const params = [];
+      let paramCount = 0;
+
+      if (policy_name !== undefined) {
+        paramCount++;
+        updates.push(`policy_name = $${paramCount}`);
+        params.push(policy_name);
+      }
+
+      if (policy_expression !== undefined) {
+        paramCount++;
+        updates.push(`policy_expression = $${paramCount}`);
+        params.push(policy_expression);
+      }
+
+      if (policy_type !== undefined) {
+        paramCount++;
+        updates.push(`policy_type = $${paramCount}`);
+        params.push(policy_type);
+      }
+
+      if (description !== undefined) {
+        paramCount++;
+        updates.push(`description = $${paramCount}`);
+        params.push(description);
+      }
+
+      if (active !== undefined) {
+        paramCount++;
+        updates.push(`active = $${paramCount}`);
+        params.push(active);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+      }
+
+      paramCount++;
+      updates.push(`updated_at = NOW()`);
+      params.push(policyId);
+
+      const result = await pool.query(
+        `UPDATE metadata.rls_policies 
+         SET ${updates.join(", ")}
+         WHERE policy_id = $${paramCount}
+         RETURNING *`,
+        params
+      );
+
+      const newPolicy = result.rows[0];
+
+      if (oldPolicy.active && !newPolicy.active) {
+        await pool.query("SELECT metadata.drop_rls_policy($1, $2, $3)", [
+          oldPolicy.schema_name,
+          oldPolicy.table_name,
+          oldPolicy.policy_name,
+        ]);
+      } else if (!oldPolicy.active && newPolicy.active) {
+        await pool.query("SELECT metadata.create_rls_policy($1, $2, $3, $4, $5)", [
+          newPolicy.schema_name,
+          newPolicy.table_name,
+          newPolicy.policy_name,
+          newPolicy.policy_expression,
+          newPolicy.policy_type,
+        ]);
+      } else if (newPolicy.active && (policy_expression !== undefined || policy_type !== undefined)) {
+        await pool.query("SELECT metadata.drop_rls_policy($1, $2, $3)", [
+          oldPolicy.schema_name,
+          oldPolicy.table_name,
+          oldPolicy.policy_name,
+        ]);
+        await pool.query("SELECT metadata.create_rls_policy($1, $2, $3, $4, $5)", [
+          newPolicy.schema_name,
+          newPolicy.table_name,
+          newPolicy.policy_name,
+          newPolicy.policy_expression,
+          newPolicy.policy_type,
+        ]);
+      }
+
+      res.json(newPolicy);
+    } catch (err) {
+      console.error("Error updating RLS policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error updating RLS policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.delete(
+  "/api/rls/policies/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const policyId = parseInt(req.params.id);
+      const policyResult = await pool.query(
+        "SELECT * FROM metadata.rls_policies WHERE policy_id = $1",
+        [policyId]
+      );
+
+      if (policyResult.rows.length === 0) {
+        return res.status(404).json({ error: "RLS policy not found" });
+      }
+
+      const policy = policyResult.rows[0];
+
+      if (policy.active) {
+        await pool.query("SELECT metadata.drop_rls_policy($1, $2, $3)", [
+          policy.schema_name,
+          policy.table_name,
+          policy.policy_name,
+        ]);
+      }
+
+      const result = await pool.query(
+        "DELETE FROM metadata.rls_policies WHERE policy_id = $1 RETURNING *",
+        [policyId]
+      );
+
+      res.json({ message: "RLS policy deleted successfully", policy: result.rows[0] });
+    } catch (err) {
+      console.error("Error deleting RLS policy:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error deleting RLS policy",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/rls/enable",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name } = req.body;
+
+      if (!schema_name || !table_name) {
+        return res.status(400).json({
+          error: "schema_name and table_name are required",
+        });
+      }
+
+      await pool.query("SELECT metadata.create_rls_policy($1, $2, $3, $4, $5)", [
+        schema_name,
+        table_name,
+        'default_policy',
+        'true',
+        'ALL',
+      ]);
+
+      res.json({ message: "RLS enabled successfully" });
+    } catch (err) {
+      console.error("Error enabling RLS:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error enabling RLS",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/rls/disable",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name } = req.body;
+
+      if (!schema_name || !table_name) {
+        return res.status(400).json({
+          error: "schema_name and table_name are required",
+        });
+      }
+
+      await pool.query("SELECT metadata.disable_rls($1, $2)", [schema_name, table_name]);
+
+      res.json({ message: "RLS disabled successfully" });
+    } catch (err) {
+      console.error("Error disabling RLS:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error disabling RLS",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/rls/policies-active",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name } = req.query;
+
+      const result = await pool.query("SELECT * FROM metadata.get_rls_policies($1, $2)", [
+        schema_name || null,
+        table_name || null,
+      ]);
+
+      res.json({ policies: result.rows });
+    } catch (err) {
+      console.error("Error fetching active RLS policies:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching active RLS policies",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+console.log("✅ [ROUTE REGISTRATION] RLS routes registered successfully");
+
+console.log("✅ [ROUTE REGISTRATION] Registering audit log routes");
+
+app.get(
+  "/api/audit/logs",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        schema_name,
+        table_name,
+        username,
+        action_type,
+        start_date,
+        end_date,
+        page = 1,
+        limit = 100,
+      } = req.query;
+
+      const result = await pool.query("SELECT * FROM metadata.get_audit_trail($1, $2, $3, $4, $5, $6, $7)", [
+        schema_name || null,
+        table_name || null,
+        username || null,
+        action_type || null,
+        start_date ? new Date(start_date) : null,
+        end_date ? new Date(end_date) : null,
+        parseInt(limit, 10),
+      ]);
+
+      const total = result.rows.length;
+
+      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const paginatedRows = result.rows.slice(offset, offset + parseInt(limit, 10));
+
+      res.json({
+        logs: paginatedRows,
+        total,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+      });
+    } catch (err) {
+      console.error("Error fetching audit logs:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching audit logs",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/audit/log",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const {
+        schema_name,
+        table_name,
+        column_name,
+        username,
+        action_type,
+        query_text,
+        old_values,
+        new_values,
+        rows_affected,
+        client_addr,
+        application_name,
+        compliance_requirement,
+      } = req.body;
+
+      if (!username || !action_type) {
+        return res.status(400).json({
+          error: "username and action_type are required",
+        });
+      }
+
+      const result = await pool.query(
+        "SELECT metadata.log_audit_event($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) as log_id",
+        [
+          schema_name || null,
+          table_name || null,
+          column_name || null,
+          username,
+          action_type,
+          query_text || null,
+          old_values ? JSON.stringify(old_values) : null,
+          new_values ? JSON.stringify(new_values) : null,
+          rows_affected || 0,
+          client_addr || null,
+          application_name || null,
+          compliance_requirement || null,
+        ]
+      );
+
+      res.json({ log_id: result.rows[0].log_id });
+    } catch (err) {
+      console.error("Error logging audit event:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error logging audit event",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/audit/compliance-report",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { compliance_type, start_date, end_date } = req.query;
+
+      if (!compliance_type) {
+        return res.status(400).json({
+          error: "compliance_type is required (GDPR, HIPAA, SOX, etc.)",
+        });
+      }
+
+      const result = await pool.query("SELECT * FROM metadata.get_compliance_report($1, $2, $3)", [
+        compliance_type,
+        start_date ? new Date(start_date) : null,
+        end_date ? new Date(end_date) : null,
+      ]);
+
+      res.json({ report: result.rows[0] || {} });
+    } catch (err) {
+      console.error("Error generating compliance report:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error generating compliance report",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/audit/stats",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { days = 30 } = req.query;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(days, 10));
+
+      const statsResult = await pool.query(
+        `SELECT 
+          COUNT(*) as total_events,
+          COUNT(DISTINCT username) as unique_users,
+          COUNT(DISTINCT (schema_name || '.' || table_name)) as unique_tables,
+          COUNT(*) FILTER (WHERE action_type = 'SELECT') as select_count,
+          COUNT(*) FILTER (WHERE action_type = 'INSERT') as insert_count,
+          COUNT(*) FILTER (WHERE action_type = 'UPDATE') as update_count,
+          COUNT(*) FILTER (WHERE action_type = 'DELETE') as delete_count,
+          COUNT(*) FILTER (WHERE compliance_requirement IS NOT NULL) as compliance_events
+         FROM metadata.audit_log
+         WHERE created_at >= $1`,
+        [startDate]
+      );
+
+      const actionTypeResult = await pool.query(
+        `SELECT action_type, COUNT(*) as count
+         FROM metadata.audit_log
+         WHERE created_at >= $1
+         GROUP BY action_type
+         ORDER BY count DESC`,
+        [startDate]
+      );
+
+      const topUsersResult = await pool.query(
+        `SELECT username, COUNT(*) as event_count
+         FROM metadata.audit_log
+         WHERE created_at >= $1
+         GROUP BY username
+         ORDER BY event_count DESC
+         LIMIT 10`,
+        [startDate]
+      );
+
+      res.json({
+        summary: statsResult.rows[0],
+        action_types: actionTypeResult.rows,
+        top_users: topUsersResult.rows,
+      });
+    } catch (err) {
+      console.error("Error fetching audit stats:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error fetching audit stats",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+console.log("✅ [ROUTE REGISTRATION] Audit log routes registered successfully");
+
 // Export app for testing
 export default app;
 

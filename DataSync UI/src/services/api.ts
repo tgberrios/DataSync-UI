@@ -4513,3 +4513,485 @@ export const dataMaskingApi = {
     }
   },
 };
+
+export interface EncryptionPolicy {
+  policy_id?: number;
+  policy_name: string;
+  schema_name: string;
+  table_name: string;
+  column_name: string;
+  encryption_algorithm: string;
+  key_id: string;
+  key_rotation_interval_days?: number;
+  last_rotated_at?: string;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface EncryptionKey {
+  key_id: string;
+  algorithm: string;
+  created_at: string;
+  last_used_at?: string;
+  rotation_count: number;
+  active: boolean;
+}
+
+export const dataEncryptionApi = {
+  getAll: async (params?: {
+    schema_name?: string;
+    table_name?: string;
+    active?: boolean;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get("/data-encryption/policies", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching encryption policies:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  get: async (policyId: number) => {
+    try {
+      const response = await api.get(`/data-encryption/policies/${policyId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching encryption policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  create: async (policy: EncryptionPolicy) => {
+    try {
+      const response = await api.post("/data-encryption/policies", policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating encryption policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  update: async (policyId: number, policy: Partial<EncryptionPolicy>) => {
+    try {
+      const response = await api.put(`/data-encryption/policies/${policyId}`, policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating encryption policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  delete: async (policyId: number) => {
+    try {
+      const response = await api.delete(`/data-encryption/policies/${policyId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting encryption policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  encryptColumn: async (schemaName: string, tableName: string, columnName: string, keyId: string) => {
+    try {
+      const response = await api.post("/data-encryption/encrypt-column", {
+        schema_name: schemaName,
+        table_name: tableName,
+        column_name: columnName,
+        key_id: keyId,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error encrypting column:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  rotateKey: async (policyId: number, newKeyId: string) => {
+    try {
+      const response = await api.post("/data-encryption/rotate-key", {
+        policy_id: policyId,
+        new_key_id: newKeyId,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error rotating encryption key:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getKeys: async () => {
+    try {
+      const response = await api.get("/data-encryption/keys");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching encryption keys:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createKey: async (keyId: string, keyValue: string, algorithm?: string) => {
+    try {
+      const response = await api.post("/data-encryption/keys", {
+        key_id: keyId,
+        key_value: keyValue,
+        algorithm: algorithm || 'AES256',
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error creating encryption key:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};
+
+export interface RLSPolicy {
+  policy_id?: number;
+  policy_name: string;
+  schema_name: string;
+  table_name: string;
+  policy_expression: string;
+  policy_type: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'ALL';
+  description?: string;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const rlsApi = {
+  getAll: async (params?: {
+    schema_name?: string;
+    table_name?: string;
+    active?: boolean;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get("/rls/policies", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching RLS policies:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  get: async (policyId: number) => {
+    try {
+      const response = await api.get(`/rls/policies/${policyId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching RLS policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  create: async (policy: RLSPolicy) => {
+    try {
+      const response = await api.post("/rls/policies", policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating RLS policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  update: async (policyId: number, policy: Partial<RLSPolicy>) => {
+    try {
+      const response = await api.put(`/rls/policies/${policyId}`, policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating RLS policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  delete: async (policyId: number) => {
+    try {
+      const response = await api.delete(`/rls/policies/${policyId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting RLS policy:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  enable: async (schemaName: string, tableName: string) => {
+    try {
+      const response = await api.post("/rls/enable", {
+        schema_name: schemaName,
+        table_name: tableName,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error enabling RLS:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  disable: async (schemaName: string, tableName: string) => {
+    try {
+      const response = await api.post("/rls/disable", {
+        schema_name: schemaName,
+        table_name: tableName,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error disabling RLS:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getActive: async (schemaName?: string, tableName?: string) => {
+    try {
+      const response = await api.get("/rls/policies-active", {
+        params: {
+          schema_name: schemaName,
+          table_name: tableName,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching active RLS policies:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};
+
+export interface AuditLogEntry {
+  log_id: number;
+  schema_name?: string;
+  table_name?: string;
+  column_name?: string;
+  username: string;
+  action_type: string;
+  query_text?: string;
+  old_values?: any;
+  new_values?: any;
+  rows_affected: number;
+  client_addr?: string;
+  application_name?: string;
+  compliance_requirement?: string;
+  created_at: string;
+}
+
+export const auditApi = {
+  getLogs: async (params?: {
+    schema_name?: string;
+    table_name?: string;
+    username?: string;
+    action_type?: string;
+    start_date?: string;
+    end_date?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get("/audit/logs", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  logEvent: async (event: {
+    schema_name?: string;
+    table_name?: string;
+    column_name?: string;
+    username: string;
+    action_type: string;
+    query_text?: string;
+    old_values?: any;
+    new_values?: any;
+    rows_affected?: number;
+    client_addr?: string;
+    application_name?: string;
+    compliance_requirement?: string;
+  }) => {
+    try {
+      const response = await api.post("/audit/log", event);
+      return response.data;
+    } catch (error) {
+      console.error("Error logging audit event:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getComplianceReport: async (complianceType: string, startDate?: string, endDate?: string) => {
+    try {
+      const response = await api.get("/audit/compliance-report", {
+        params: {
+          compliance_type: complianceType,
+          start_date: startDate,
+          end_date: endDate,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error generating compliance report:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getStats: async (days?: number) => {
+    try {
+      const response = await api.get("/audit/stats", {
+        params: { days },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching audit stats:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};

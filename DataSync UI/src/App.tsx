@@ -47,6 +47,9 @@ const Webhooks = lazy(() => import("./components/governance/Webhooks"));
 const SchemaMigrations = lazy(() => import("./components/migrations/SchemaMigrations"));
 const BackupManager = lazy(() => import("./components/backups/BackupManager"));
 const DataMasking = lazy(() => import("./components/governance/DataMasking"));
+const DataEncryption = lazy(() => import("./components/governance/DataEncryption"));
+const RowLevelSecurity = lazy(() => import("./components/governance/RowLevelSecurity"));
+const AuditTrail = lazy(() => import("./components/governance/AuditTrail"));
 const Login = lazy(() => import("./components/auth/Login"));
 
 function App() {
@@ -365,6 +368,36 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <DataMasking />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="data-encryption"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <DataEncryption />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="row-level-security"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <RowLevelSecurity />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="audit-trail"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <AuditTrail />
                 </Suspense>
               </ProtectedRoute>
             }

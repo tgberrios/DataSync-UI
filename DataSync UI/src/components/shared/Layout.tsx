@@ -344,7 +344,16 @@ const Layout = () => {
               ■ Backup Manager
             </NavSubItem>
             <NavSubItem to="/data-masking">
-              ■ Data Masking & Encryption
+              ■ Data Masking
+            </NavSubItem>
+            <NavSubItem to="/data-encryption">
+              ■ Column Encryption
+            </NavSubItem>
+            <NavSubItem to="/row-level-security">
+              ■ Row-Level Security
+            </NavSubItem>
+            <NavSubItem to="/audit-trail">
+              ■ Audit Trail
             </NavSubItem>
             <NavSubItem to="/security">
               ■ Security

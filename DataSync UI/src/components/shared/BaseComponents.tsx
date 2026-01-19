@@ -1,3 +1,4 @@
+import React from 'react';
 import styled from 'styled-components';
 import { theme } from '../../theme/theme';
 
@@ -363,7 +364,7 @@ export const ErrorMessage = styled.div`
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
 `;
 
-export const LoadingOverlay = styled.div`
+const LoadingOverlayStyled = styled.div`
   position: fixed;
   top: 0;
   left: 0;
@@ -376,6 +377,17 @@ export const LoadingOverlay = styled.div`
   z-index: ${theme.zIndex.modal};
   animation: fadeIn 0.2s ease-in;
 `;
+
+export const LoadingOverlay: React.FC<{ loading: boolean }> = ({ loading }) => {
+  if (!loading) return null;
+  return (
+    <LoadingOverlayStyled>
+      <div style={{ color: 'white', fontSize: '16px', fontFamily: 'Consolas' }}>
+        Loading...
+      </div>
+    </LoadingOverlayStyled>
+  );
+};
 
 export const SearchContainer = styled.div`
   display: flex;
