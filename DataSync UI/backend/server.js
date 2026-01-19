@@ -20145,6 +20145,445 @@ app.put("/api/workflows/:workflowName/toggle-enabled", requireAuth, requireRole(
 
 console.log("✅ [ROUTE REGISTRATION] Workflow routes registered successfully");
 
+app.get("/api/dbt/models", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, model_name, model_type, materialization, schema_name, database_name,
+       sql_content, config, description, tags, depends_on, columns, tests, documentation,
+       metadata, version, git_commit_hash, git_branch, active, created_at, updated_at,
+       last_run_time, last_run_status, last_run_rows
+       FROM metadata.dbt_models
+       ORDER BY model_name`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting dbt models:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error getting dbt models", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.get("/api/dbt/models/:modelName", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const result = await pool.query(
+      `SELECT id, model_name, model_type, materialization, schema_name, database_name,
+       sql_content, config, description, tags, depends_on, columns, tests, documentation,
+       metadata, version, git_commit_hash, git_branch, active, created_at, updated_at,
+       last_run_time, last_run_status, last_run_rows
+       FROM metadata.dbt_models WHERE model_name = $1`,
+      [modelName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Model not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting dbt model:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error getting dbt model", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.post("/api/dbt/models", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const {
+      model_name,
+      model_type = "sql",
+      materialization = "table",
+      schema_name,
+      database_name,
+      sql_content,
+      config = {},
+      description,
+      tags = [],
+      depends_on = [],
+      columns = [],
+      tests = [],
+      documentation,
+      metadata = {},
+      version = 1,
+      git_commit_hash,
+      git_branch,
+      active = true,
+    } = req.body;
+
+    if (!model_name || !sql_content || !schema_name) {
+      return res.status(400).json({ error: "model_name, sql_content, and schema_name are required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO metadata.dbt_models 
+       (model_name, model_type, materialization, schema_name, database_name, sql_content,
+        config, description, tags, depends_on, columns, tests, documentation, metadata,
+        version, git_commit_hash, git_branch, active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::text[], $10::text[], 
+               $11::jsonb, $12::jsonb, $13, $14::jsonb, $15, $16, $17, $18)
+       ON CONFLICT (model_name) DO UPDATE SET
+         model_type = EXCLUDED.model_type,
+         materialization = EXCLUDED.materialization,
+         schema_name = EXCLUDED.schema_name,
+         database_name = EXCLUDED.database_name,
+         sql_content = EXCLUDED.sql_content,
+         config = EXCLUDED.config,
+         description = EXCLUDED.description,
+         tags = EXCLUDED.tags,
+         depends_on = EXCLUDED.depends_on,
+         columns = EXCLUDED.columns,
+         tests = EXCLUDED.tests,
+         documentation = EXCLUDED.documentation,
+         metadata = EXCLUDED.metadata,
+         version = EXCLUDED.version + 1,
+         git_commit_hash = EXCLUDED.git_commit_hash,
+         git_branch = EXCLUDED.git_branch,
+         active = EXCLUDED.active,
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        model_name, model_type, materialization, schema_name, database_name || null,
+        sql_content, JSON.stringify(config), description || null, tags, depends_on,
+        JSON.stringify(columns), JSON.stringify(tests), documentation || null,
+        JSON.stringify(metadata), version, git_commit_hash || null, git_branch || null, active
+      ]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error creating/updating dbt model:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error creating/updating dbt model", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.delete("/api/dbt/models/:modelName", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const result = await pool.query(
+      "DELETE FROM metadata.dbt_models WHERE model_name = $1 RETURNING *",
+      [modelName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Model not found" });
+    }
+
+    res.json({ message: "Model deleted successfully", model: result.rows[0] });
+  } catch (err) {
+    console.error("Error deleting dbt model:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error deleting dbt model", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.post("/api/dbt/models/:modelName/execute", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const result = await pool.query(
+      "SELECT model_name FROM metadata.dbt_models WHERE model_name = $1 AND active = true",
+      [modelName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Model not found or inactive" });
+    }
+
+    const { spawn } = await import("child_process");
+    const cppProcess = spawn("./DataSync", ["--execute-dbt-model", modelName], {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    cppProcess.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    cppProcess.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    cppProcess.on("close", async (code) => {
+      if (code === 0) {
+        const runResult = await pool.query(
+          `SELECT * FROM metadata.dbt_model_runs 
+           WHERE model_name = $1 ORDER BY created_at DESC LIMIT 1`,
+          [modelName]
+        );
+        res.json({
+          success: true,
+          message: "Model executed successfully",
+          run: runResult.rows[0] || null,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Model execution failed",
+          stderr: stderr,
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Error executing dbt model:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error executing dbt model", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.get("/api/dbt/models/:modelName/tests", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const result = await pool.query(
+      `SELECT id, test_name, model_name, test_type, column_name, test_config, test_sql,
+       description, severity, active, created_at, updated_at
+       FROM metadata.dbt_tests WHERE model_name = $1 ORDER BY test_name`,
+      [modelName]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting dbt tests:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error getting dbt tests", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.post("/api/dbt/models/:modelName/tests/run", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const { spawn } = await import("child_process");
+    const cppProcess = spawn("./DataSync", ["--run-dbt-tests", modelName], {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    cppProcess.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    cppProcess.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    cppProcess.on("close", async (code) => {
+      if (code === 0) {
+        const testResults = await pool.query(
+          `SELECT * FROM metadata.dbt_test_results 
+           WHERE model_name = $1 ORDER BY created_at DESC LIMIT 50`,
+          [modelName]
+        );
+        res.json({
+          success: true,
+          message: "Tests executed successfully",
+          results: testResults.rows,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: "Test execution failed",
+          stderr: stderr,
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Error running dbt tests:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error running dbt tests", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.get("/api/dbt/models/:modelName/test-results", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const runId = req.query.run_id;
+    let query, params;
+
+    if (runId) {
+      query = `SELECT * FROM metadata.dbt_test_results 
+               WHERE model_name = $1 AND run_id = $2 ORDER BY created_at DESC`;
+      params = [modelName, runId];
+    } else {
+      query = `SELECT * FROM metadata.dbt_test_results 
+               WHERE model_name = $1 ORDER BY created_at DESC LIMIT 100`;
+      params = [modelName];
+    }
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting test results:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error getting test results", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.get("/api/dbt/models/:modelName/runs", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const limit = parseInt(req.query.limit || "50", 10);
+    const result = await pool.query(
+      `SELECT * FROM metadata.dbt_model_runs 
+       WHERE model_name = $1 ORDER BY created_at DESC LIMIT $2`,
+      [modelName, limit]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting model runs:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error getting model runs", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.get("/api/dbt/macros", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, macro_name, macro_sql, parameters, description, return_type,
+       examples, tags, active, created_at, updated_at
+       FROM metadata.dbt_macros WHERE active = true ORDER BY macro_name`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting dbt macros:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error getting dbt macros", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.post("/api/dbt/macros", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const {
+      macro_name,
+      macro_sql,
+      parameters = [],
+      description,
+      return_type,
+      examples,
+      tags = [],
+      active = true,
+    } = req.body;
+
+    if (!macro_name || !macro_sql) {
+      return res.status(400).json({ error: "macro_name and macro_sql are required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO metadata.dbt_macros 
+       (macro_name, macro_sql, parameters, description, return_type, examples, tags, active)
+       VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7::text[], $8)
+       ON CONFLICT (macro_name) DO UPDATE SET
+         macro_sql = EXCLUDED.macro_sql,
+         parameters = EXCLUDED.parameters,
+         description = EXCLUDED.description,
+         return_type = EXCLUDED.return_type,
+         examples = EXCLUDED.examples,
+         tags = EXCLUDED.tags,
+         active = EXCLUDED.active,
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        macro_name, macro_sql, JSON.stringify(parameters), description || null,
+        return_type || null, examples || null, tags, active
+      ]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error creating/updating dbt macro:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error creating/updating dbt macro", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+app.get("/api/dbt/models/:modelName/compile", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
+  try {
+    const modelName = validateIdentifier(req.params.modelName);
+    if (!modelName) {
+      return res.status(400).json({ error: "Invalid model name" });
+    }
+
+    const { spawn } = await import("child_process");
+    const cppProcess = spawn("./DataSync", ["--compile-dbt-model", modelName], {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    cppProcess.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    cppProcess.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    cppProcess.on("close", (code) => {
+      if (code === 0) {
+        res.json({ compiled_sql: stdout.trim() });
+      } else {
+        res.status(500).json({
+          error: "Compilation failed",
+          stderr: stderr,
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Error compiling dbt model:", err);
+    res.status(500).json({
+      error: sanitizeError(err, "Error compiling dbt model", process.env.NODE_ENV === "production"),
+    });
+  }
+});
+
+console.log("✅ [ROUTE REGISTRATION] DBT routes registered successfully");
+
 // Export app for testing
 export default app;
 

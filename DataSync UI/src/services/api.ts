@@ -5523,3 +5523,298 @@ export const workflowApi = {
     }
   },
 };
+
+export interface DBTModel {
+  id?: number;
+  model_name: string;
+  model_type?: string;
+  materialization?: string;
+  schema_name: string;
+  database_name?: string;
+  sql_content: string;
+  config?: any;
+  description?: string;
+  tags?: string[];
+  depends_on?: string[];
+  columns?: any[];
+  tests?: any[];
+  documentation?: string;
+  metadata?: any;
+  version?: number;
+  git_commit_hash?: string;
+  git_branch?: string;
+  active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  last_run_time?: string;
+  last_run_status?: string;
+  last_run_rows?: number;
+}
+
+export interface DBTTest {
+  id?: number;
+  test_name: string;
+  model_name: string;
+  test_type: string;
+  column_name?: string;
+  test_config?: any;
+  test_sql?: string;
+  description?: string;
+  severity?: string;
+  active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DBTTestResult {
+  id?: number;
+  test_name: string;
+  model_name: string;
+  test_type: string;
+  status: string;
+  error_message?: string;
+  rows_affected?: number;
+  execution_time_seconds?: number;
+  test_result?: any;
+  run_id?: string;
+  created_at?: string;
+}
+
+export interface DBTMacro {
+  id?: number;
+  macro_name: string;
+  macro_sql: string;
+  parameters?: any[];
+  description?: string;
+  return_type?: string;
+  examples?: string;
+  tags?: string[];
+  active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DBTModelRun {
+  id?: number;
+  model_name: string;
+  run_id: string;
+  status: string;
+  materialization?: string;
+  start_time?: string;
+  end_time?: string;
+  duration_seconds?: number;
+  rows_affected?: number;
+  error_message?: string;
+  compiled_sql?: string;
+  executed_sql?: string;
+  metadata?: any;
+  created_at?: string;
+}
+
+export const dbtApi = {
+  getModels: async (): Promise<DBTModel[]> => {
+    try {
+      const response = await api.get("/dbt/models");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching dbt models:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getModel: async (modelName: string): Promise<DBTModel> => {
+    try {
+      const response = await api.get(`/dbt/models/${encodeURIComponent(modelName)}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching dbt model ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createOrUpdateModel: async (model: DBTModel): Promise<DBTModel> => {
+    try {
+      const response = await api.post("/dbt/models", model);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating/updating dbt model:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteModel: async (modelName: string): Promise<void> => {
+    try {
+      await api.delete(`/dbt/models/${encodeURIComponent(modelName)}`);
+    } catch (error) {
+      console.error(`Error deleting dbt model ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  executeModel: async (modelName: string): Promise<any> => {
+    try {
+      const response = await api.post(`/dbt/models/${encodeURIComponent(modelName)}/execute`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error executing dbt model ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  compileModel: async (modelName: string): Promise<{ compiled_sql: string }> => {
+    try {
+      const response = await api.get(`/dbt/models/${encodeURIComponent(modelName)}/compile`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error compiling dbt model ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTests: async (modelName: string): Promise<DBTTest[]> => {
+    try {
+      const response = await api.get(`/dbt/models/${encodeURIComponent(modelName)}/tests`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching tests for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  runTests: async (modelName: string): Promise<{ success: boolean; results: DBTTestResult[] }> => {
+    try {
+      const response = await api.post(`/dbt/models/${encodeURIComponent(modelName)}/tests/run`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error running tests for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTestResults: async (modelName: string, runId?: string): Promise<DBTTestResult[]> => {
+    try {
+      const params = runId ? { run_id: runId } : {};
+      const response = await api.get(`/dbt/models/${encodeURIComponent(modelName)}/test-results`, { params });
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching test results for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getModelRuns: async (modelName: string, limit: number = 50): Promise<DBTModelRun[]> => {
+    try {
+      const response = await api.get(`/dbt/models/${encodeURIComponent(modelName)}/runs`, {
+        params: { limit },
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching runs for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getMacros: async (): Promise<DBTMacro[]> => {
+    try {
+      const response = await api.get("/dbt/macros");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching dbt macros:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createOrUpdateMacro: async (macro: DBTMacro): Promise<DBTMacro> => {
+    try {
+      const response = await api.post("/dbt/macros", macro);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating/updating dbt macro:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};

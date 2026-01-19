@@ -262,6 +262,9 @@ const Layout = () => {
             <NavSubItem to="/workflows">
               ■ Data Integration - Workflow Orchestration (DAGs)
             </NavSubItem>
+            <NavSubItem to="/dbt-models">
+              ■ Data Integration - dbt Models
+            </NavSubItem>
           </NavGroupContent>
         </NavGroup>
 
