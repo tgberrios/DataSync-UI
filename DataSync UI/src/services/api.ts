@@ -5236,3 +5236,290 @@ export const auditApi = {
     }
   },
 };
+
+export interface WorkflowTask {
+  id?: number;
+  workflow_name: string;
+  task_name: string;
+  task_type: "CUSTOM_JOB" | "DATA_WAREHOUSE" | "DATA_VAULT" | "SYNC" | "API_CALL" | "SCRIPT";
+  task_reference: string;
+  description?: string;
+  task_config?: Record<string, unknown>;
+  retry_policy?: {
+    max_retries: number;
+    retry_delay_seconds: number;
+  };
+  position_x?: number;
+  position_y?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowDependency {
+  id?: number;
+  workflow_name: string;
+  upstream_task_name: string;
+  downstream_task_name: string;
+  dependency_type?: "SUCCESS" | "COMPLETION" | "SKIP_ON_FAILURE";
+  condition_expression?: string;
+}
+
+export interface WorkflowEntry {
+  id: number;
+  workflow_name: string;
+  description?: string;
+  schedule_cron?: string;
+  active: boolean;
+  enabled: boolean;
+  retry_policy: {
+    max_retries: number;
+    retry_delay_seconds: number;
+    retry_backoff_multiplier: number;
+  };
+  sla_config: {
+    max_execution_time_seconds: number;
+    alert_on_sla_breach: boolean;
+  };
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  last_execution_time?: string;
+  last_execution_status?: string;
+  tasks?: WorkflowTask[];
+  dependencies?: WorkflowDependency[];
+}
+
+export interface WorkflowExecution {
+  id: number;
+  workflow_name: string;
+  execution_id: string;
+  status: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED" | "SKIPPED";
+  trigger_type: "SCHEDULED" | "MANUAL" | "API" | "EVENT";
+  start_time?: string;
+  end_time?: string;
+  duration_seconds?: number;
+  total_tasks: number;
+  completed_tasks: number;
+  failed_tasks: number;
+  skipped_tasks: number;
+  error_message?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  tasks?: TaskExecution[];
+}
+
+export interface TaskExecution {
+  id: number;
+  workflow_execution_id: number;
+  workflow_name: string;
+  task_name: string;
+  status: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED" | "SKIPPED" | "RETRYING";
+  start_time?: string;
+  end_time?: string;
+  duration_seconds?: number;
+  retry_count: number;
+  error_message?: string;
+  task_output?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export const workflowApi = {
+  getWorkflows: async (params: {
+    page?: number;
+    limit?: number;
+    active?: string;
+    enabled?: string;
+    search?: string;
+  }) => {
+    try {
+      const response = await api.get("/workflows", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching workflows:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getWorkflow: async (workflowName: string) => {
+    try {
+      const response = await api.get(`/workflows/${encodeURIComponent(workflowName)}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching workflow ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createWorkflow: async (workflowData: Omit<WorkflowEntry, "id" | "created_at" | "updated_at" | "last_execution_time" | "last_execution_status">) => {
+    try {
+      const response = await api.post("/workflows", workflowData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating workflow:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateWorkflow: async (workflowName: string, workflowData: Partial<WorkflowEntry>) => {
+    try {
+      const response = await api.put(`/workflows/${encodeURIComponent(workflowName)}`, workflowData);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating workflow ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteWorkflow: async (workflowName: string) => {
+    try {
+      const response = await api.delete(`/workflows/${encodeURIComponent(workflowName)}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting workflow ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  executeWorkflow: async (workflowName: string) => {
+    try {
+      const response = await api.post(`/workflows/${encodeURIComponent(workflowName)}/execute`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error executing workflow ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getExecutions: async (workflowName: string, limit: number = 50) => {
+    try {
+      const response = await api.get(`/workflows/${encodeURIComponent(workflowName)}/executions`, {
+        params: { limit },
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching executions for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getExecution: async (workflowName: string, executionId: string) => {
+    try {
+      const response = await api.get(
+        `/workflows/${encodeURIComponent(workflowName)}/executions/${encodeURIComponent(executionId)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching execution ${executionId}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTaskExecutions: async (workflowName: string, executionId: string) => {
+    try {
+      const response = await api.get(
+        `/workflows/${encodeURIComponent(workflowName)}/executions/${encodeURIComponent(executionId)}/tasks`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching task executions for ${executionId}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  toggleActive: async (workflowName: string) => {
+    try {
+      const response = await api.put(`/workflows/${encodeURIComponent(workflowName)}/toggle-active`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error toggling active status for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  toggleEnabled: async (workflowName: string) => {
+    try {
+      const response = await api.put(`/workflows/${encodeURIComponent(workflowName)}/toggle-enabled`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error toggling enabled status for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};

@@ -41,6 +41,7 @@ const APICatalog = lazy(() => import("./components/api/APICatalog"));
 const CustomJobs = lazy(() => import("./components/jobs/CustomJobs"));
 const DataWarehouse = lazy(() => import("./components/data-warehouse/DataWarehouse"));
 const DataVault = lazy(() => import("./components/data-vault/DataVault"));
+const Workflows = lazy(() => import("./components/workflows/Workflows"));
 const CSVCatalog = lazy(() => import("./components/csv/CSVCatalog"));
 const GoogleSheetsCatalog = lazy(() => import("./components/google-sheets/GoogleSheetsCatalog"));
 const UserManagement = lazy(() => import("./components/security/UserManagement"));
@@ -219,6 +220,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={<LoadingFallback />}>
                   <DataVault />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="workflows"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <Workflows />
                 </Suspense>
               </ProtectedRoute>
             }
