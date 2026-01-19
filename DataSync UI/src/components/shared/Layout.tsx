@@ -256,6 +256,9 @@ const Layout = () => {
             <NavSubItem to="/data-warehouse">
               ■ Data Integration - Data Warehouse
             </NavSubItem>
+            <NavSubItem to="/data-vault">
+              ■ Data Integration - Data Vault 2.0
+            </NavSubItem>
           </NavGroupContent>
         </NavGroup>
 

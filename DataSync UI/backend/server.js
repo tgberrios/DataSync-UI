@@ -11971,6 +11971,437 @@ app.delete(
   }
 );
 
+app.get("/api/data-vault", async (req, res) => {
+  try {
+    const page = validatePage(req.query.page, 1);
+    const limit = validateLimit(req.query.limit, 1, 100);
+    const offset = (page - 1) * limit;
+    const source_db_engine = validateEnum(
+      req.query.source_db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", ""],
+      ""
+    );
+    const target_db_engine = validateEnum(
+      req.query.target_db_engine,
+      ["PostgreSQL", "Snowflake", "BigQuery", "Redshift", ""],
+      ""
+    );
+    const active =
+      req.query.active !== undefined
+        ? validateBoolean(req.query.active)
+        : undefined;
+    const search = sanitizeSearch(req.query.search, 100);
+
+    let whereConditions = [];
+    let queryParams = [];
+    let paramIndex = 1;
+
+    if (source_db_engine) {
+      whereConditions.push(`source_db_engine = $${paramIndex++}`);
+      queryParams.push(source_db_engine);
+    }
+
+    if (target_db_engine) {
+      whereConditions.push(`target_db_engine = $${paramIndex++}`);
+      queryParams.push(target_db_engine);
+    }
+
+    if (active !== undefined) {
+      whereConditions.push(`active = $${paramIndex++}`);
+      queryParams.push(active);
+    }
+
+    if (search) {
+      whereConditions.push(
+        `(vault_name ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`
+      );
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    const whereClause =
+      whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total FROM metadata.data_vault_catalog ${whereClause}`,
+      queryParams
+    );
+    const total = parseInt(countResult.rows[0].total, 10);
+
+    const result = await pool.query(
+      `SELECT * FROM metadata.data_vault_catalog ${whereClause} ORDER BY vault_name LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      [...queryParams, limit, offset]
+    );
+
+    res.json({
+      data: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching data vaults:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error fetching data vaults",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.get("/api/data-vault/:vaultName", async (req, res) => {
+  try {
+    const vaultName = validateIdentifier(req.params.vaultName);
+    if (!vaultName) {
+      return res.status(400).json({ error: "Invalid vault name" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM metadata.data_vault_catalog WHERE vault_name = $1",
+      [vaultName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Vault not found" });
+    }
+
+    const vault = result.rows[0];
+    vault.hubs = vault.hubs || [];
+    vault.links = vault.links || [];
+    vault.satellites = vault.satellites || [];
+    vault.point_in_time_tables = vault.point_in_time_tables || [];
+    vault.bridge_tables = vault.bridge_tables || [];
+
+    res.json(vault);
+  } catch (err) {
+    console.error("Error fetching data vault:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error fetching data vault",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+app.post(
+  "/api/data-vault",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const vault_name = validateIdentifier(req.body.vault_name);
+      const description = sanitizeSearch(req.body.description, 500);
+      const source_db_engine = validateEnum(
+        req.body.source_db_engine,
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        null
+      );
+      const source_connection_string = sanitizeSearch(
+        req.body.source_connection_string,
+        500
+      );
+      const target_db_engine = validateEnum(
+        req.body.target_db_engine,
+        ["PostgreSQL", "Snowflake", "BigQuery", "Redshift"],
+        null
+      );
+      const target_connection_string = sanitizeSearch(
+        req.body.target_connection_string,
+        500
+      );
+      const target_schema = validateIdentifier(req.body.target_schema);
+      const schedule_cron = sanitizeSearch(req.body.schedule_cron, 100);
+      const active = validateBoolean(req.body.active, true);
+      const enabled = validateBoolean(req.body.enabled, true);
+      const hubs = req.body.hubs || [];
+      const links = req.body.links || [];
+      const satellites = req.body.satellites || [];
+      const point_in_time_tables = req.body.point_in_time_tables || [];
+      const bridge_tables = req.body.bridge_tables || [];
+      const metadata = req.body.metadata || {};
+
+      if (!vault_name) {
+        return res.status(400).json({ error: "vault_name is required" });
+      }
+      if (!source_db_engine) {
+        return res.status(400).json({ error: "Invalid source_db_engine" });
+      }
+      if (!target_db_engine) {
+        return res.status(400).json({ error: "Invalid target_db_engine" });
+      }
+      if (!target_schema) {
+        return res.status(400).json({ error: "target_schema is required" });
+      }
+
+      const checkResult = await pool.query(
+        `SELECT vault_name FROM metadata.data_vault_catalog WHERE vault_name = $1`,
+        [vault_name]
+      );
+
+      if (checkResult.rows.length > 0) {
+        return res.status(409).json({
+          error: "Vault with this name already exists",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.data_vault_catalog 
+       (vault_name, description, source_db_engine, source_connection_string,
+        target_db_engine, target_connection_string, target_schema, hubs, links, satellites,
+        point_in_time_tables, bridge_tables, schedule_cron, active, enabled, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14, $15, $16::jsonb)
+       RETURNING *`,
+        [
+          vault_name,
+          description || null,
+          source_db_engine,
+          source_connection_string,
+          target_db_engine,
+          target_connection_string,
+          target_schema.toLowerCase(),
+          JSON.stringify(hubs),
+          JSON.stringify(links),
+          JSON.stringify(satellites),
+          JSON.stringify(point_in_time_tables),
+          JSON.stringify(bridge_tables),
+          schedule_cron || null,
+          active,
+          enabled,
+          JSON.stringify(metadata),
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating data vault:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error creating data vault",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/data-vault/:vaultName",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const vaultName = validateIdentifier(req.params.vaultName);
+      if (!vaultName) {
+        return res.status(400).json({ error: "Invalid vault name" });
+      }
+
+      const description = sanitizeSearch(req.body.description, 500);
+      const source_db_engine = validateEnum(
+        req.body.source_db_engine,
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        null
+      );
+      const source_connection_string = sanitizeSearch(
+        req.body.source_connection_string,
+        500
+      );
+      const target_db_engine = validateEnum(
+        req.body.target_db_engine,
+        ["PostgreSQL", "Snowflake", "BigQuery", "Redshift"],
+        null
+      );
+      const target_connection_string = sanitizeSearch(
+        req.body.target_connection_string,
+        500
+      );
+      const target_schema = validateIdentifier(req.body.target_schema);
+      const schedule_cron = sanitizeSearch(req.body.schedule_cron, 100);
+      const active = validateBoolean(req.body.active, true);
+      const enabled = validateBoolean(req.body.enabled, true);
+      const hubs = req.body.hubs || [];
+      const links = req.body.links || [];
+      const satellites = req.body.satellites || [];
+      const point_in_time_tables = req.body.point_in_time_tables || [];
+      const bridge_tables = req.body.bridge_tables || [];
+      const metadata = req.body.metadata || {};
+
+      if (!source_db_engine) {
+        return res.status(400).json({ error: "Invalid source_db_engine" });
+      }
+      if (!target_db_engine) {
+        return res.status(400).json({ error: "Invalid target_db_engine" });
+      }
+      if (!target_schema) {
+        return res.status(400).json({ error: "target_schema is required" });
+      }
+
+      const result = await pool.query(
+        `UPDATE metadata.data_vault_catalog 
+       SET description = $1, source_db_engine = $2, source_connection_string = $3,
+           target_db_engine = $4, target_connection_string = $5, target_schema = $6,
+           hubs = $7::jsonb, links = $8::jsonb, satellites = $9::jsonb,
+           point_in_time_tables = $10::jsonb, bridge_tables = $11::jsonb,
+           schedule_cron = $12, active = $13, enabled = $14, metadata = $15::jsonb, updated_at = NOW()
+       WHERE vault_name = $16
+       RETURNING *`,
+        [
+          description || null,
+          source_db_engine,
+          source_connection_string,
+          target_db_engine,
+          target_connection_string,
+          target_schema.toLowerCase(),
+          JSON.stringify(hubs),
+          JSON.stringify(links),
+          JSON.stringify(satellites),
+          JSON.stringify(point_in_time_tables),
+          JSON.stringify(bridge_tables),
+          schedule_cron || null,
+          active,
+          enabled,
+          JSON.stringify(metadata),
+          vaultName,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Vault not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating data vault:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error updating data vault",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.delete(
+  "/api/data-vault/:vaultName",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const vaultName = validateIdentifier(req.params.vaultName);
+      if (!vaultName) {
+        return res.status(400).json({ error: "Invalid vault name" });
+      }
+
+      const result = await pool.query(
+        "DELETE FROM metadata.data_vault_catalog WHERE vault_name = $1 RETURNING *",
+        [vaultName]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Vault not found" });
+      }
+
+      res.json({ message: "Vault deleted successfully", vault: result.rows[0] });
+    } catch (err) {
+      console.error("Error deleting data vault:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error deleting data vault",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/data-vault/:vaultName/build",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const vaultName = validateIdentifier(req.params.vaultName);
+      if (!vaultName) {
+        return res.status(400).json({ error: "Invalid vault name" });
+      }
+
+      const result = await pool.query(
+        "SELECT vault_name, metadata FROM metadata.data_vault_catalog WHERE vault_name = $1",
+        [vaultName]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Vault not found" });
+      }
+
+      const vault = result.rows[0];
+      const metadata = vault.metadata || {};
+      metadata.build_now = true;
+      metadata.build_timestamp = new Date().toISOString();
+
+      await pool.query(
+        "UPDATE metadata.data_vault_catalog SET metadata = $1::jsonb WHERE vault_name = $2",
+        [JSON.stringify(metadata), vaultName]
+      );
+
+      res.json({
+        message: "Build triggered successfully",
+        vault_name: vaultName,
+        build_timestamp: metadata.build_timestamp,
+      });
+    } catch (err) {
+      console.error("Error triggering vault build:", err);
+      res.status(500).json({
+        error: sanitizeError(
+          err,
+          "Error triggering vault build",
+          process.env.NODE_ENV === "production"
+        ),
+      });
+    }
+  }
+);
+
+app.get("/api/data-vault/:vaultName/history", async (req, res) => {
+  try {
+    const vaultName = validateIdentifier(req.params.vaultName);
+    if (!vaultName) {
+      return res.status(400).json({ error: "Invalid vault name" });
+    }
+
+    const limit = validateLimit(req.query.limit, 1, 100, 50);
+
+    const result = await pool.query(
+      `SELECT * FROM metadata.process_log
+       WHERE process_type = 'DATA_VAULT' AND process_name = $1
+       ORDER BY start_time DESC
+       LIMIT $2`,
+      [vaultName, limit]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching vault build history:", err);
+    res.status(500).json({
+      error: sanitizeError(
+        err,
+        "Error fetching vault build history",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
 app.get("/api/csv-catalog", async (req, res) => {
   try {
     const page = validatePage(req.query.page, 1);

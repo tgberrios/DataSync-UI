@@ -3650,6 +3650,247 @@ export const dataWarehouseApi = {
   },
 };
 
+export interface HubTable {
+  hub_name: string;
+  target_schema: string;
+  target_table: string;
+  source_query: string;
+  business_keys: string[];
+  hub_key_column: string;
+  load_date_column: string;
+  record_source_column: string;
+  index_columns: string[];
+}
+
+export interface LinkTable {
+  link_name: string;
+  target_schema: string;
+  target_table: string;
+  source_query: string;
+  hub_references: string[];
+  link_key_column: string;
+  load_date_column: string;
+  record_source_column: string;
+  index_columns: string[];
+}
+
+export interface SatelliteTable {
+  satellite_name: string;
+  target_schema: string;
+  target_table: string;
+  parent_hub_name: string;
+  parent_link_name: string;
+  source_query: string;
+  parent_key_column: string;
+  load_date_column: string;
+  load_end_date_column: string;
+  record_source_column: string;
+  descriptive_attributes: string[];
+  index_columns: string[];
+  is_historized: boolean;
+}
+
+export interface PointInTimeTable {
+  pit_name: string;
+  target_schema: string;
+  target_table: string;
+  hub_name: string;
+  satellite_names: string[];
+  snapshot_date_column: string;
+  index_columns: string[];
+}
+
+export interface BridgeTable {
+  bridge_name: string;
+  target_schema: string;
+  target_table: string;
+  hub_name: string;
+  link_names: string[];
+  snapshot_date_column: string;
+  index_columns: string[];
+}
+
+export interface DataVaultEntry {
+  id: number;
+  vault_name: string;
+  description: string | null;
+  source_db_engine: string;
+  source_connection_string: string;
+  target_db_engine: string;
+  target_connection_string: string;
+  target_schema: string;
+  hubs: HubTable[];
+  links: LinkTable[];
+  satellites: SatelliteTable[];
+  point_in_time_tables: PointInTimeTable[];
+  bridge_tables: BridgeTable[];
+  schedule_cron: string | null;
+  active: boolean;
+  enabled: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  last_build_time: string | null;
+  last_build_status: string | null;
+}
+
+export const dataVaultApi = {
+  getVaults: async (params: {
+    page?: number;
+    limit?: number;
+    source_db_engine?: string;
+    target_db_engine?: string;
+    active?: string;
+    search?: string;
+  }) => {
+    try {
+      const response = await api.get("/data-vault", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching data vaults:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getVault: async (vaultName: string) => {
+    try {
+      const response = await api.get(
+        `/data-vault/${encodeURIComponent(vaultName)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching vault ${vaultName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createVault: async (
+    vaultData: Omit<
+      DataVaultEntry,
+      | "id"
+      | "created_at"
+      | "updated_at"
+      | "last_build_time"
+      | "last_build_status"
+    >
+  ) => {
+    try {
+      const response = await api.post("/data-vault", vaultData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating vault:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateVault: async (
+    vaultName: string,
+    vaultData: Partial<DataVaultEntry>
+  ) => {
+    try {
+      const response = await api.put(
+        `/data-vault/${encodeURIComponent(vaultName)}`,
+        vaultData
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating vault ${vaultName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteVault: async (vaultName: string) => {
+    try {
+      const response = await api.delete(
+        `/data-vault/${encodeURIComponent(vaultName)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting vault ${vaultName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  buildVault: async (vaultName: string) => {
+    try {
+      const response = await api.post(
+        `/data-vault/${encodeURIComponent(vaultName)}/build`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error building vault ${vaultName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getBuildHistory: async (vaultName: string, limit: number = 50) => {
+    try {
+      const response = await api.get(
+        `/data-vault/${encodeURIComponent(vaultName)}/history`,
+        {
+          params: { limit },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error fetching vault build history for ${vaultName}:`,
+        error
+      );
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+};
+
 export interface SchemaMigrationEntry {
   id: number;
   migration_name: string;
