@@ -57,6 +57,12 @@ const WorkflowDAGBuilder: React.FC<WorkflowDAGBuilderProps> = ({
       position_x: 100,
       position_y: 100,
       metadata: {},
+      priority: 0,
+      condition_type: 'ALWAYS',
+      condition_expression: '',
+      parent_condition_task_name: '',
+      loop_type: null,
+      loop_config: {},
     };
     setEditingTask(newTask);
     setShowTaskModal(true);
@@ -144,6 +150,18 @@ const WorkflowDAGBuilder: React.FC<WorkflowDAGBuilderProps> = ({
       case 'DATA_VAULT': return 'DV';
       default: return taskType;
     }
+  };
+
+  const getConditionLabel = (task: WorkflowTask) => {
+    if (task.condition_type === 'IF') return 'IF';
+    if (task.condition_type === 'ELSE_IF') return 'ELSE IF';
+    if (task.condition_type === 'ELSE') return 'ELSE';
+    return '';
+  };
+
+  const getPriorityLabel = (task: WorkflowTask) => {
+    if (task.priority && task.priority > 0) return `P${task.priority}`;
+    return '';
   };
 
   return (
@@ -285,6 +303,34 @@ const WorkflowDAGBuilder: React.FC<WorkflowDAGBuilderProps> = ({
                 }}>
                   {node.task.task_reference || 'No reference'}
                 </div>
+                {(getConditionLabel(node.task) || getPriorityLabel(node.task)) && (
+                  <div style={{
+                    marginTop: 4,
+                    fontSize: 8,
+                    color: asciiColors.accent,
+                    display: 'flex',
+                    gap: 4,
+                  }}>
+                    {getConditionLabel(node.task) && (
+                      <span style={{
+                        padding: '1px 4px',
+                        backgroundColor: asciiColors.accentLight,
+                        borderRadius: 2,
+                      }}>
+                        {getConditionLabel(node.task)}
+                      </span>
+                    )}
+                    {getPriorityLabel(node.task) && (
+                      <span style={{
+                        padding: '1px 4px',
+                        backgroundColor: asciiColors.warning,
+                        borderRadius: 2,
+                      }}>
+                        {getPriorityLabel(node.task)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div style={{
                   marginTop: 6,
                   fontSize: 9,
@@ -451,6 +497,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
               <option value="SYNC">Sync</option>
               <option value="API_CALL">API Call</option>
               <option value="SCRIPT">Script</option>
+              <option value="SUB_WORKFLOW">Sub-Workflow</option>
             </select>
           </div>
 

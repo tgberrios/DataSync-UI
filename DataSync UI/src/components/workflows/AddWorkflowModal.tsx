@@ -40,24 +40,27 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
   const [availableCustomJobs, setAvailableCustomJobs] = useState<Array<{ job_name: string }>>([]);
   const [availableWarehouses, setAvailableWarehouses] = useState<Array<{ warehouse_name: string }>>([]);
   const [availableVaults, setAvailableVaults] = useState<Array<{ vault_name: string }>>([]);
+  const [availableWorkflows, setAvailableWorkflows] = useState<Array<{ workflow_name: string }>>([]);
 
   useEffect(() => {
     const loadReferences = async () => {
       try {
-        const [jobsRes, warehousesRes, vaultsRes] = await Promise.all([
+        const [jobsRes, warehousesRes, vaultsRes, workflowsRes] = await Promise.all([
           customJobsApi.getJobs({ page: 1, limit: 1000 }),
           dataWarehouseApi.getWarehouses({ page: 1, limit: 1000 }),
           dataVaultApi.getVaults({ page: 1, limit: 1000 }),
+          workflowApi.getWorkflows({ page: 1, limit: 1000 }),
         ]);
         setAvailableCustomJobs(jobsRes.data || []);
         setAvailableWarehouses(warehousesRes.data || []);
         setAvailableVaults(vaultsRes.data || []);
+        setAvailableWorkflows(workflowsRes.data?.filter((w: any) => w.workflow_name !== workflow?.workflow_name) || []);
       } catch (err) {
         console.error('Error loading references:', err);
       }
     };
     loadReferences();
-  }, []);
+  }, [workflow]);
 
   const handleSave = useCallback(async () => {
     if (!formData.workflow_name.trim()) {

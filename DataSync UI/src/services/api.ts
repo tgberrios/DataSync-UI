@@ -5245,7 +5245,7 @@ export interface WorkflowTask {
   id?: number;
   workflow_name: string;
   task_name: string;
-  task_type: "CUSTOM_JOB" | "DATA_WAREHOUSE" | "DATA_VAULT" | "SYNC" | "API_CALL" | "SCRIPT";
+  task_type: "CUSTOM_JOB" | "DATA_WAREHOUSE" | "DATA_VAULT" | "SYNC" | "API_CALL" | "SCRIPT" | "SUB_WORKFLOW";
   task_reference: string;
   description?: string;
   task_config?: Record<string, unknown>;
@@ -5256,6 +5256,12 @@ export interface WorkflowTask {
   position_x?: number;
   position_y?: number;
   metadata?: Record<string, unknown>;
+  priority?: number;
+  condition_type?: "ALWAYS" | "IF" | "ELSE" | "ELSE_IF";
+  condition_expression?: string;
+  parent_condition_task_name?: string;
+  loop_type?: "FOR" | "WHILE" | "FOREACH" | null;
+  loop_config?: Record<string, unknown>;
 }
 
 export interface WorkflowDependency {
