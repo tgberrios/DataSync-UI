@@ -34,11 +34,27 @@ export interface AggregateConfig {
   alias?: string;
 }
 
+export type TransformationType =
+  | "sorter"
+  | "expression"
+  | "data_cleansing"
+  | "rank"
+  | "sequence_generator"
+  | "window_functions"
+  | "normalizer"
+  | "json_parser"
+  | "geolocation"
+  | "data_validation"
+  | "deduplication"
+  | "basic";
+
 export interface TransformConfig {
   target_column: string;
   expression: string;
   columns?: string[];
   separator?: string;
+  transformationType?: TransformationType;
+  config?: any;
 }
 
 export interface SourceNodeData {
