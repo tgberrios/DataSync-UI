@@ -7,6 +7,7 @@ import { useTableFilters } from '../../hooks/useTableFilters';
 import { dataWarehouseApi, type DataWarehouseEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import DataWarehouseTreeView from './DataWarehouseTreeView';
 import AddDataWarehouseModal from './AddDataWarehouseModal';
 import CleanupLayersModal from './CleanupLayersModal';
@@ -25,7 +26,7 @@ const DataWarehouse = () => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [allWarehouses, setAllWarehouses] = useState<DataWarehouseEntry[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<DataWarehouseEntry | null>(null);
   const [selectedWarehouse, setSelectedWarehouse] = useState<DataWarehouseEntry | null>(null);
@@ -35,6 +36,10 @@ const DataWarehouse = () => {
 
   const fetchAllWarehouses = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -52,6 +57,11 @@ const DataWarehouse = () => {
       if (filters.enabled) params.enabled = filters.enabled;
 
       const response = await dataWarehouseApi.getWarehouses(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllWarehouses(response.warehouses || []);
       }
@@ -172,6 +182,10 @@ const DataWarehouse = () => {
     if (filters.enabled && String(wh.enabled) !== filters.enabled) return false;
     return true;
   });
+
+  if (loadingTree && allWarehouses.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>

@@ -1202,6 +1202,10 @@ export const logsApi = {
       search?: string;
       startDate?: string;
       endDate?: string;
+      autoCleanup?: boolean;
+      deleteDebug?: boolean;
+      deleteDuplicates?: boolean;
+      deleteOlderThan?: number;
     } = {}
   ) => {
     try {

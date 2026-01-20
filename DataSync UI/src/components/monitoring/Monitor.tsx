@@ -4,6 +4,7 @@ import { extractApiError } from '../../utils/errorHandler';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 
 /**
@@ -90,49 +91,7 @@ const Monitor = () => {
   }, []);
 
   if (loading && queries.length === 0) {
-    return (
-      <div style={{
-        width: "100%",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "Consolas",
-        fontSize: 12,
-        color: asciiColors.foreground,
-        backgroundColor: asciiColors.background,
-        gap: 12
-      }}>
-        <div style={{
-          fontSize: 24,
-          animation: "spin 1s linear infinite"
-        }}>
-          {ascii.blockFull}
-        </div>
-        <div style={{
-          display: "flex",
-          gap: 4,
-          alignItems: "center"
-        }}>
-          <span>Loading queries</span>
-          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
-            {ascii.dot.repeat(3)}
-          </span>
-        </div>
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-          @keyframes dots {
-            0%, 20% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
-          }
-        `}</style>
-      </div>
-    );
+    return <SkeletonLoader variant="table" />;
   }
 
   const getStateColor = (state: string) => {

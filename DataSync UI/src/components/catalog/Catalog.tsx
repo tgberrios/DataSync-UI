@@ -10,6 +10,7 @@ import { catalogApi } from "../../services/api";
 import type { CatalogEntry } from "../../services/api";
 import { extractApiError } from "../../utils/errorHandler";
 import { sanitizeSearch } from "../../utils/validation";
+import SkeletonLoader from "../shared/SkeletonLoader";
 
 
 /**
@@ -37,7 +38,7 @@ const Catalog = () => {
   const [selectedEntry, setSelectedEntry] = useState<CatalogEntry | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [allEntries, setAllEntries] = useState<CatalogEntry[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [tableStructure, setTableStructure] = useState<any>(null);
   const [loadingStructure, setLoadingStructure] = useState(false);
   const [showCatalogPlaybook, setShowCatalogPlaybook] = useState(false);
@@ -67,6 +68,10 @@ const Catalog = () => {
 
   const fetchAllEntries = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -83,6 +88,11 @@ const Catalog = () => {
       };
       
       const response = await catalogApi.getCatalogEntries(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllEntries(response.data || []);
       }
@@ -305,6 +315,9 @@ const Catalog = () => {
     return () => clearInterval(interval);
   }, [fetchAllEntries]);
 
+  if (loadingTree && allEntries.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>

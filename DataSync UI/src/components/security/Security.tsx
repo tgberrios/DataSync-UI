@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import styled from 'styled-components';
 import { securityApi } from '../../services/api';
-import { Container, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import { Container, ErrorMessage } from '../shared/BaseComponents';
 import { extractApiError } from '../../utils/errorHandler';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const getBadgeColor = (type: string) => {
   switch (type) {
@@ -107,6 +108,8 @@ const Security = () => {
   const [activeUsers, setActiveUsers] = useState<any[]>([]);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [showSecurityPlaybook, setShowSecurityPlaybook] = useState(false);
+  const [postgresData, setPostgresData] = useState<any>(null);
+  const [otherDatabases, setOtherDatabases] = useState<any>({});
 
   /**
    * Alterna la expansión de un usuario
@@ -129,14 +132,23 @@ const Security = () => {
   const fetchSecurityData = useCallback(async () => {
     if (!isMountedRef.current) return;
     
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
       const response = await securityApi.getSecurityData();
       
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
-        setSecurityData(response.summary);
-        setActiveUsers(response.activeUsers || []);
+        setSecurityData(response.summary || response.postgres?.summary || response);
+        setActiveUsers(response.activeUsers || response.postgres?.activeUsers || []);
+        setPostgresData(response.postgres || null);
+        setOtherDatabases(response.otherDatabases || {});
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -165,6 +177,10 @@ const Security = () => {
     return ((securityData.connections.current / securityData.connections.max) * 100).toFixed(1);
   }, [securityData.connections]);
 
+  if (loading && (!securityData || Object.keys(securityData).length === 0)) {
+    return <SkeletonLoader variant="table" />;
+  }
+
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
       <h1 style={{
@@ -178,8 +194,6 @@ const Security = () => {
         <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
         SECURITY & COMPLIANCE MONITOR
       </h1>
-
-      {loading && <LoadingOverlay>Loading security data...</LoadingOverlay>}
       {error && (
         <div style={{ marginBottom: 20 }}>
           <AsciiPanel title="ERROR">
@@ -577,6 +591,65 @@ const Security = () => {
               </AsciiPanel>
             </div>
           </AsciiPanel>
+
+          {Object.keys(otherDatabases).length > 0 && (
+            <AsciiPanel title="OTHER DATABASES SECURITY">
+              <div style={{ marginTop: 8 }}>
+                {Object.entries(otherDatabases).map(([dbEngine, connections]: [string, any]) => (
+                  <div key={dbEngine} style={{ marginBottom: 16, padding: 12, border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                      {ascii.blockFull} {dbEngine}
+                    </div>
+                    {Array.isArray(connections) && connections.map((conn: any, idx: number) => (
+                      <div key={idx} style={{ marginBottom: 12, padding: 8, background: asciiColors.backgroundSoft, borderRadius: 2 }}>
+                        <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>
+                          Connection: {conn.connection || 'N/A'}
+                        </div>
+                        {conn.security && !conn.security.error ? (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 8 }}>
+                            <div>
+                              <div style={{ fontSize: 10, color: asciiColors.muted }}>Users</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.foreground }}>
+                                {conn.security.users?.length || 0}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, color: asciiColors.muted }}>Active Connections</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.foreground }}>
+                                {conn.security.activeConnections || 0}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, color: asciiColors.muted }}>Total Grants</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.foreground }}>
+                                {conn.security.permissions?.total_grants || 0}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, color: asciiColors.muted }}>Schemas</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.foreground }}>
+                                {conn.security.permissions?.schemas_with_access || 0}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, color: asciiColors.muted }}>Tables</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.foreground }}>
+                                {conn.security.permissions?.tables_with_access || 0}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 11, color: asciiColors.danger }}>
+                            {conn.security?.error || 'Unable to retrieve security information'}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </AsciiPanel>
+          )}
 
           <AsciiPanel title="ACTIVE USERS">
             <div style={{ marginTop: 8, overflowX: 'auto' }}>

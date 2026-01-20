@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import { dataEncryptionApi, type EncryptionPolicy, type EncryptionKey } from '../../services/api';
 import { Container, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import { extractApiError } from '../../utils/errorHandler';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
@@ -81,6 +82,9 @@ const DataEncryption = () => {
   const fetchPolicies = useCallback(async () => {
     if (!isMountedRef.current) return;
     
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -90,6 +94,11 @@ const DataEncryption = () => {
       if (filters.active !== '') params.active = filters.active === 'true';
 
       const response = await dataEncryptionApi.getAll(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setPolicies(response.policies || []);
         setTotal(response.total || 0);
@@ -234,9 +243,12 @@ const DataEncryption = () => {
     }
   }, [newKey, fetchKeys]);
 
+  if (loading && policies.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
+
   return (
     <Container>
-      <LoadingOverlay loading={loading} />
       {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
 
       <div style={{ marginBottom: 20 }}>

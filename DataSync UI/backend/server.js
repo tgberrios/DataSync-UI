@@ -17,11 +17,8 @@ function loadConfig() {
     const configData = fs.readFileSync(configPath, "utf8");
     const config = JSON.parse(configData);
 
-    console.log("Configuration loaded from:", configPath);
     return config;
   } catch (error) {
-    console.error("Error loading config file:", error.message);
-    console.log("Using default configuration");
 
     // Default configuration fallback - use environment variables if available
     return {
@@ -129,7 +126,6 @@ pool.connect((err, client, done) => {
   if (err) {
     console.error("Error connecting to the database:", err);
   } else {
-    console.log("Successfully connected to PostgreSQL");
     done();
   }
 });
@@ -193,42 +189,40 @@ import {
 import bcrypt from "bcryptjs";
 import { generalLimiter, authLimiter } from "./server-utils/rateLimiter.js";
 
-initializeUsersTable().catch((err) => {
-  console.error("Failed to initialize users table:", err);
-});
+let usersTableReady = false;
+
+(async () => {
+  try {
+    await initializeUsersTable();
+    usersTableReady = true;
+  } catch (err) {
+    usersTableReady = false;
+  }
+})();
 
 app.use(generalLimiter);
 
 const publicPaths = ["/api/auth/login", "/api/health"];
 app.use((req, res, next) => {
-  if (req.path && req.path.startsWith("/api/catalog/")) {
-    console.log("🌐 [GLOBAL AUTH MIDDLEWARE] Intercepting:", req.method, req.path);
-  }
   if (!req.path.startsWith("/api")) {
     return next();
   }
   const requestPath = req.path || (req.url ? req.url.split("?")[0] : "");
   if (publicPaths.includes(requestPath)) {
-    if (req.path && req.path.startsWith("/api/catalog/")) {
-      console.log("✅ [GLOBAL AUTH MIDDLEWARE] Public path, skipping auth");
-    }
     return next();
-  }
-  if (req.path && req.path.startsWith("/api/catalog/")) {
-    console.log("🔐 [GLOBAL AUTH MIDDLEWARE] Calling requireAuth for:", req.method, req.path);
   }
   requireAuth(req, res, next);
 });
 
-app.use((req, res, next) => {
-  if (req.path && req.path.startsWith("/api/catalog/")) {
-    console.log(`[ROUTE DEBUG] ${req.method} ${req.path} - Query:`, req.query, "Body:", req.body);
-  }
-  next();
-});
-
 app.post("/api/auth/login", authLimiter, async (req, res) => {
   try {
+    if (!usersTableReady) {
+      console.error("Users table not ready, initialization may have failed");
+      return res.status(503).json({
+        error: "Server is initializing. Please try again in a moment.",
+      });
+    }
+
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -237,10 +231,27 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
       });
     }
 
-    const result = await authenticateUser(username, password);
+    let result;
+    try {
+      result = await authenticateUser(username, password);
+    } catch (authError) {
+      console.error("Authentication error:", authError);
+      console.error("Auth error details:", {
+        message: authError.message,
+        code: authError.code,
+        stack: authError.stack
+      });
+      return res.status(500).json({
+        error: process.env.NODE_ENV === "production" 
+          ? "Authentication failed" 
+          : authError.message
+      });
+    }
 
-    if (!result.success) {
-      return res.status(401).json({ error: result.error });
+    if (!result || !result.success) {
+      return res.status(401).json({ 
+        error: result?.error || "Invalid credentials" 
+      });
     }
 
     res.json({
@@ -591,18 +602,11 @@ app.get("/api/health", (req, res) => {
 });
 
 // Resetear CDC (last_change_id a 0) - DEBE IR ANTES DE /api/catalog
-console.log("🔵 [ROUTE REGISTRATION] Registering POST /api/catalog/reset-cdc");
 app.post(
   "/api/catalog/reset-cdc",
   requireAuth,
   requireRole("admin", "user"),
   async (req, res) => {
-    console.log("🟢 [RESET-CDC HANDLER] Request received:", {
-      method: req.method,
-      path: req.path,
-      body: req.body,
-      user: req.user ? { role: req.user.role } : null
-    });
     const schema_name = validateIdentifier(req.body.schema_name);
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
@@ -611,17 +615,13 @@ app.post(
       null
     );
 
-    console.log("🔍 [RESET-CDC] Validated parameters:", { schema_name, table_name, db_engine });
-
     if (!schema_name || !table_name || !db_engine) {
-      console.log("❌ [RESET-CDC] Missing required parameters");
       return res.status(400).json({
         error: "schema_name, table_name, and db_engine are required",
       });
     }
 
     try {
-      console.log("🔍 [RESET-CDC] Executing UPDATE query...");
       const result = await pool.query(
         `UPDATE metadata.catalog 
          SET sync_metadata = COALESCE(sync_metadata, '{}'::jsonb) || 
@@ -631,25 +631,18 @@ app.post(
         [schema_name, table_name, db_engine]
       );
 
-      console.log("🔍 [RESET-CDC] UPDATE query result:", result.rows.length, "rows affected");
-
       if (result.rows.length === 0) {
-        console.log("❌ [RESET-CDC] Catalog entry not found, returning 404");
         return res.status(404).json({
           error: "Catalog entry not found",
         });
       }
 
-      console.log("✅ [RESET-CDC] Successfully reset CDC, sending response...");
       res.json({
         success: true,
         message: `CDC reset for ${schema_name}.${table_name} (${db_engine})`,
         entry: result.rows[0],
       });
-      console.log("✅ [RESET-CDC] Response sent successfully");
     } catch (err) {
-      console.error("❌ [RESET-CDC] Database error:", err);
-      console.error("❌ [RESET-CDC] Error stack:", err.stack);
       const safeError = sanitizeError(
         err,
         "Error resetting CDC",
@@ -659,26 +652,15 @@ app.post(
     }
   }
 );
-console.log("✅ [ROUTE REGISTRATION] POST /api/catalog/reset-cdc registered successfully");
-
 // Obtener historial de ejecuciones de una tabla del catalog - DEBE IR ANTES DE /api/catalog
-console.log("🔵 [ROUTE REGISTRATION] Registering GET /api/catalog/execution-history");
 app.get("/api/catalog/execution-history", requireAuth, async (req, res) => {
-  console.log("🟢 [EXECUTION-HISTORY HANDLER] Request received:", {
-    method: req.method,
-    path: req.path,
-    query: req.query
-  });
   try {
     const schema_name = req.query.schema_name;
     const table_name = req.query.table_name;
     const db_engine = req.query.db_engine;
     const limit = validateLimit(req.query.limit, 1, 100, 50);
 
-    console.log("🔍 [EXECUTION-HISTORY] Validating parameters:", { schema_name, table_name, db_engine, limit });
-
     if (!schema_name || !table_name || !db_engine) {
-      console.log("❌ [EXECUTION-HISTORY] Missing required parameters");
       return res.status(400).json({
         error: "schema_name, table_name, and db_engine are required",
       });
@@ -795,9 +777,6 @@ app.get("/api/catalog/execution-history", requireAuth, async (req, res) => {
 
     const groupedSessions = groupSyncSessions(result.rows);
 
-    console.log("🔍 [EXECUTION-HISTORY] Query result:", result.rows.length, "rows found");
-    console.log("🔍 [EXECUTION-HISTORY] Grouped into", groupedSessions.length, "sessions");
-
     res.json(groupedSessions);
   } catch (err) {
     console.error("Error fetching execution history:", err);
@@ -809,10 +788,7 @@ app.get("/api/catalog/execution-history", requireAuth, async (req, res) => {
     res.status(500).json({ error: safeError });
   }
 });
-console.log("✅ [ROUTE REGISTRATION] GET /api/catalog/execution-history registered successfully");
-
 // Obtener estructura de tabla (source y target) - DEBE IR ANTES DE /api/catalog
-console.log("🔵 [ROUTE REGISTRATION] Registering GET /api/catalog/table-structure");
 app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
   console.log("🟢 [TABLE-STRUCTURE HANDLER] Request received:", {
     method: req.method,
@@ -824,16 +800,11 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
     const table_name = req.query.table_name;
     const db_engine = req.query.db_engine;
 
-    console.log("🔍 [TABLE-STRUCTURE] Validating parameters:", { schema_name, table_name, db_engine });
-
     if (!schema_name || !table_name || !db_engine) {
-      console.log("❌ [TABLE-STRUCTURE] Missing required parameters");
       return res.status(400).json({
         error: "schema_name, table_name, and db_engine are required",
       });
     }
-
-    console.log("🔍 [TABLE-STRUCTURE] Querying catalog for:", { schema_name, table_name, db_engine });
 
     const catalogResult = await pool.query(
       `SELECT connection_string, schema_name, table_name, db_engine, status
@@ -842,10 +813,7 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
       [schema_name, table_name, db_engine]
     );
 
-    console.log("🔍 [TABLE-STRUCTURE] Catalog query result:", catalogResult.rows.length, "rows found");
-
     if (catalogResult.rows.length === 0) {
-      console.log("❌ [TABLE-STRUCTURE] Table not found in catalog, returning 404");
       return res.status(404).json({ error: "Table not found in catalog" });
     }
 
@@ -908,7 +876,6 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
           indexes: indexResult.rows.map(r => r.indexname)
         };
       } catch (err) {
-        console.log("⚠️ [TABLE-STRUCTURE] Error getting constraints:", err.message);
         return { pks: [], fks: [], indexes: [] };
       }
     };
@@ -963,7 +930,6 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
           );
           sourceStats.rowCount = countRows[0]?.cnt || 0;
         } catch (err) {
-          console.log("⚠️ [TABLE-STRUCTURE] Could not get row count:", err.message);
         }
 
         await connection.end();
@@ -1078,7 +1044,6 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
           `);
           sourceStats.rowCount = countResult.recordset[0]?.cnt || 0;
         } catch (err) {
-          console.log("⚠️ [TABLE-STRUCTURE] Could not get row count:", err.message);
         }
 
         await pool.close();
@@ -1179,7 +1144,6 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
             sourceStats.tableSize = statsResult.rows[0].size || '0 bytes';
           }
         } catch (err) {
-          console.log("⚠️ [TABLE-STRUCTURE] Could not get stats:", err.message);
         }
 
         await client.end();
@@ -1239,13 +1203,10 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
         targetStats.tableSize = targetStatsResult.rows[0].size || '0 bytes';
       }
     } catch (err) {
-      console.log("⚠️ [TABLE-STRUCTURE] Could not get target stats:", err.message);
     }
 
     await targetClient.end();
 
-    console.log("✅ [TABLE-STRUCTURE] Successfully fetched columns. Source:", sourceColumns.length, "Target:", targetColumns.length);
-    console.log("📤 [TABLE-STRUCTURE] Sending response...");
     res.json({
       source: {
         columns: sourceColumns,
@@ -1270,10 +1231,7 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
         status: catalogEntry.status
       }
     });
-    console.log("✅ [TABLE-STRUCTURE] Response sent successfully");
   } catch (err) {
-    console.error("❌ [TABLE-STRUCTURE] Error fetching table structure:", err);
-    console.error("❌ [TABLE-STRUCTURE] Error stack:", err.stack);
     const safeError = sanitizeError(
       err,
       "Error al obtener estructura de tabla",
@@ -1282,16 +1240,8 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
     res.status(500).json({ error: safeError });
   }
 });
-console.log("✅ [ROUTE REGISTRATION] GET /api/catalog/table-structure registered successfully");
-
 // Obtener catálogo con paginación, filtros y búsqueda
-console.log("🔵 [ROUTE REGISTRATION] Registering GET /api/catalog (general route)");
 app.get("/api/catalog", requireAuth, async (req, res) => {
-  console.log("🟢 [CATALOG HANDLER] Request received:", {
-    method: req.method,
-    path: req.path,
-    query: req.query
-  });
   try {
     const page = validatePage(req.query.page, 1);
     const limit = validateLimit(req.query.limit, 1, 100);
@@ -2016,6 +1966,31 @@ app.get("/api/dashboard/stats", async (req, res) => {
       `SELECT COUNT(*) as total FROM metadata.catalog`
     );
 
+    // All sync types from process_log
+    const allSyncTypes = await pool.query(`
+      SELECT 
+        process_type,
+        COUNT(*) as total_count,
+        COUNT(*) FILTER (WHERE status = 'SUCCESS') as success_count,
+        COUNT(*) FILTER (WHERE status = 'ERROR') as error_count,
+        COUNT(*) FILTER (WHERE status = 'IN_PROGRESS') as in_progress_count,
+        COUNT(*) FILTER (WHERE start_time > NOW() - INTERVAL '24 hours') as last_24h,
+        MAX(start_time) as last_execution
+      FROM metadata.process_log
+      WHERE process_type IN ('API_SYNC', 'CSV_SYNC', 'GOOGLE_SHEETS_SYNC', 'DATA_VAULT', 'DATA_WAREHOUSE', 'WORKFLOW', 'CUSTOM_JOB')
+      GROUP BY process_type
+    `);
+
+    const processLogStats = {
+      apiSync: allSyncTypes.rows.find(r => r.process_type === 'API_SYNC') || { total_count: 0, success_count: 0, error_count: 0, in_progress_count: 0, last_24h: 0, last_execution: null },
+      csvSync: allSyncTypes.rows.find(r => r.process_type === 'CSV_SYNC') || { total_count: 0, success_count: 0, error_count: 0, in_progress_count: 0, last_24h: 0, last_execution: null },
+      googleSheetsSync: allSyncTypes.rows.find(r => r.process_type === 'GOOGLE_SHEETS_SYNC') || { total_count: 0, success_count: 0, error_count: 0, in_progress_count: 0, last_24h: 0, last_execution: null },
+      dataVault: allSyncTypes.rows.find(r => r.process_type === 'DATA_VAULT') || { total_count: 0, success_count: 0, error_count: 0, in_progress_count: 0, last_24h: 0, last_execution: null },
+      dataWarehouse: allSyncTypes.rows.find(r => r.process_type === 'DATA_WAREHOUSE') || { total_count: 0, success_count: 0, error_count: 0, in_progress_count: 0, last_24h: 0, last_execution: null },
+      workflow: allSyncTypes.rows.find(r => r.process_type === 'WORKFLOW') || { total_count: 0, success_count: 0, error_count: 0, in_progress_count: 0, last_24h: 0, last_execution: null },
+      customJob: allSyncTypes.rows.find(r => r.process_type === 'CUSTOM_JOB') || { total_count: 0, success_count: 0, error_count: 0, in_progress_count: 0, last_24h: 0, last_execution: null },
+    };
+
     // Construir el objeto de respuesta
     const listeningChanges = parseInt(
       syncStatus.rows[0]?.listening_changes || 0
@@ -2448,6 +2423,65 @@ app.get("/api/dashboard/stats", async (req, res) => {
              parseInt(sourcesSummary.rows[0]?.csv_sources || 0) +
              parseInt(sourcesSummary.rows[0]?.sheets_sources || 0) +
              parseInt(sourcesSummary.rows[0]?.warehouse_sources || 0),
+    };
+
+    stats.allSyncTypes = {
+      apiSync: {
+        total: parseInt(processLogStats.apiSync.total_count || 0),
+        success: parseInt(processLogStats.apiSync.success_count || 0),
+        errors: parseInt(processLogStats.apiSync.error_count || 0),
+        inProgress: parseInt(processLogStats.apiSync.in_progress_count || 0),
+        last24h: parseInt(processLogStats.apiSync.last_24h || 0),
+        lastExecution: processLogStats.apiSync.last_execution || null,
+      },
+      csvSync: {
+        total: parseInt(processLogStats.csvSync.total_count || 0),
+        success: parseInt(processLogStats.csvSync.success_count || 0),
+        errors: parseInt(processLogStats.csvSync.error_count || 0),
+        inProgress: parseInt(processLogStats.csvSync.in_progress_count || 0),
+        last24h: parseInt(processLogStats.csvSync.last_24h || 0),
+        lastExecution: processLogStats.csvSync.last_execution || null,
+      },
+      googleSheetsSync: {
+        total: parseInt(processLogStats.googleSheetsSync.total_count || 0),
+        success: parseInt(processLogStats.googleSheetsSync.success_count || 0),
+        errors: parseInt(processLogStats.googleSheetsSync.error_count || 0),
+        inProgress: parseInt(processLogStats.googleSheetsSync.in_progress_count || 0),
+        last24h: parseInt(processLogStats.googleSheetsSync.last_24h || 0),
+        lastExecution: processLogStats.googleSheetsSync.last_execution || null,
+      },
+      dataVault: {
+        total: parseInt(processLogStats.dataVault.total_count || 0),
+        success: parseInt(processLogStats.dataVault.success_count || 0),
+        errors: parseInt(processLogStats.dataVault.error_count || 0),
+        inProgress: parseInt(processLogStats.dataVault.in_progress_count || 0),
+        last24h: parseInt(processLogStats.dataVault.last_24h || 0),
+        lastExecution: processLogStats.dataVault.last_execution || null,
+      },
+      dataWarehouse: {
+        total: parseInt(processLogStats.dataWarehouse.total_count || 0),
+        success: parseInt(processLogStats.dataWarehouse.success_count || 0),
+        errors: parseInt(processLogStats.dataWarehouse.error_count || 0),
+        inProgress: parseInt(processLogStats.dataWarehouse.in_progress_count || 0),
+        last24h: parseInt(processLogStats.dataWarehouse.last_24h || 0),
+        lastExecution: processLogStats.dataWarehouse.last_execution || null,
+      },
+      workflow: {
+        total: parseInt(processLogStats.workflow.total_count || 0),
+        success: parseInt(processLogStats.workflow.success_count || 0),
+        errors: parseInt(processLogStats.workflow.error_count || 0),
+        inProgress: parseInt(processLogStats.workflow.in_progress_count || 0),
+        last24h: parseInt(processLogStats.workflow.last_24h || 0),
+        lastExecution: processLogStats.workflow.last_execution || null,
+      },
+      customJob: {
+        total: parseInt(processLogStats.customJob.total_count || 0),
+        success: parseInt(processLogStats.customJob.success_count || 0),
+        errors: parseInt(processLogStats.customJob.error_count || 0),
+        inProgress: parseInt(processLogStats.customJob.in_progress_count || 0),
+        last24h: parseInt(processLogStats.customJob.last_24h || 0),
+        lastExecution: processLogStats.customJob.last_execution || null,
+      },
     };
 
     res.json(stats);
@@ -3398,6 +3432,57 @@ app.get("/api/config/batch", async (req, res) => {
 // Endpoint para leer logs desde DB (metadata.logs)
 app.get("/api/logs", async (req, res) => {
   try {
+    const autoCleanup = req.query.autoCleanup === "true" || process.env.NODE_ENV === "production";
+    const deleteDebug = req.query.deleteDebug === "true" || (process.env.NODE_ENV === "production" && req.query.deleteDebug !== "false");
+    const deleteDuplicates = req.query.deleteDuplicates === "true";
+    const deleteOlderThan = req.query.deleteOlderThan;
+
+    if (autoCleanup || deleteDebug || deleteDuplicates || deleteOlderThan) {
+      let deleteWhere = [];
+      let deleteParams = [];
+      let paramCount = 1;
+
+      if (deleteDebug) {
+        deleteWhere.push(`level = 'DEBUG'`);
+      }
+
+      if (deleteOlderThan) {
+        const days = parseInt(deleteOlderThan);
+        if (!isNaN(days) && days > 0) {
+          deleteWhere.push(`ts < NOW() - INTERVAL '${days} days'`);
+        }
+      }
+
+      if (deleteDuplicates) {
+        const duplicateQuery = `
+          DELETE FROM metadata.logs
+          WHERE id IN (
+            SELECT id FROM (
+              SELECT id,
+                     ROW_NUMBER() OVER (
+                       PARTITION BY level, category, function, message 
+                       ORDER BY ts DESC
+                     ) as rn
+              FROM metadata.logs
+            ) t
+            WHERE t.rn > 1
+          )
+        `;
+        try {
+          const dupResult = await pool.query(duplicateQuery);
+        } catch (err) {
+        }
+      }
+
+      if (deleteWhere.length > 0) {
+        const deleteQuery = `DELETE FROM metadata.logs WHERE ${deleteWhere.join(" AND ")}`;
+        try {
+          const deleteResult = await pool.query(deleteQuery, deleteParams);
+        } catch (err) {
+        }
+      }
+    }
+
     const lines = validateLimit(req.query.lines, 1, 1000);
     const level = validateEnum(
       req.query.level,
@@ -3430,14 +3515,17 @@ app.get("/api/logs", async (req, res) => {
       params.push(level);
       where.push(`level = $${params.length}`);
     }
+    
     if (category && category !== "ALL") {
       params.push(category);
       where.push(`category = $${params.length}`);
     }
+    
     if (func && func !== "ALL") {
       params.push(func);
       where.push(`function = $${params.length}`);
     }
+    
     if (search && search.trim() !== "") {
       params.push(`%${search}%`);
       params.push(`%${search}%`);
@@ -3447,10 +3535,12 @@ app.get("/api/logs", async (req, res) => {
         })`
       );
     }
+    
     if (startDate) {
       params.push(startDate);
       where.push(`ts >= $${params.length}`);
     }
+    
     if (endDate) {
       params.push(endDate);
       where.push(`ts <= $${params.length}`);
@@ -3466,6 +3556,7 @@ app.get("/api/logs", async (req, res) => {
       ORDER BY ts DESC
       LIMIT $${params.length + 1}
     `;
+    
     const result = await pool.query(query, [...params, limit]);
 
     const logs = result.rows.map((r) => {
@@ -3801,17 +3892,63 @@ app.get("/api/logs/stats", async (req, res) => {
 // Endpoint para limpiar logs
 app.delete("/api/logs", requireAuth, requireRole("admin"), async (req, res) => {
   try {
-    await pool.query("TRUNCATE TABLE metadata.logs");
+    const daysToKeep = parseInt(req.query.daysToKeep) || 30;
+    const deleteAll = req.query.deleteAll === "true";
+
+    let result;
+    if (deleteAll) {
+      await pool.query("TRUNCATE TABLE metadata.logs");
+      result = { deleted: "all", message: "All logs deleted" };
+    } else {
+      const deleteResult = await pool.query(
+        `DELETE FROM metadata.logs WHERE ts < NOW() - INTERVAL '${daysToKeep} days'`
+      );
+      result = {
+        deleted: deleteResult.rowCount,
+        message: `Logs older than ${daysToKeep} days deleted`,
+        daysToKeep,
+      };
+    }
+
     res.json({
       success: true,
-      message: "Logs table truncated",
+      ...result,
       clearedAt: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("Error truncating logs:", err);
+    console.error("Error cleaning logs:", err);
     const safeError = sanitizeError(
       err,
-      "Error al truncar logs",
+      "Error al limpiar logs",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/logs/rotate", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const daysToKeep = parseInt(req.body.daysToKeep) || 30;
+    const minLevel = req.body.minLevel || "INFO";
+
+    const deleteResult = await pool.query(
+      `DELETE FROM metadata.logs 
+       WHERE ts < NOW() - INTERVAL '${daysToKeep} days' 
+       OR (level = 'DEBUG' AND ts < NOW() - INTERVAL '7 days')
+       OR (level = 'INFO' AND category = 'SYSTEM' AND ts < NOW() - INTERVAL '14 days')`
+    );
+
+    res.json({
+      success: true,
+      deleted: deleteResult.rowCount,
+      message: `Log rotation completed. Deleted ${deleteResult.rowCount} old log entries.`,
+      rotatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Error rotating logs:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al rotar logs",
       process.env.NODE_ENV === "production"
     );
     res.status(500).json({ error: safeError });
@@ -3960,10 +4097,250 @@ app.get("/api/dashboard/currently-processing", async (req, res) => {
 });
 
 // Endpoint para obtener datos de seguridad
+async function getMariaDBSecurity(connectionString) {
+  try {
+    const mysql = await import("mysql2/promise");
+    const conn = await mysql.default.createConnection(connectionString);
+    
+    const [users] = await conn.execute(`
+      SELECT 
+        User as username,
+        Host as host,
+        CASE 
+          WHEN Super_priv = 'Y' THEN 'SUPERUSER'
+          WHEN Create_db_priv = 'Y' THEN 'CREATEDB'
+          WHEN Create_user_priv = 'Y' THEN 'CREATEROLE'
+          WHEN Select_priv = 'Y' THEN 'SELECT'
+          ELSE 'OTHER'
+        END as role_type,
+        CASE 
+          WHEN account_locked = 'N' THEN 'ACTIVE'
+          ELSE 'INACTIVE'
+        END as status
+      FROM mysql.user
+      LIMIT 50
+    `);
+    
+    const [processList] = await conn.execute(`SHOW PROCESSLIST`);
+    
+    const [grants] = await conn.execute(`
+      SELECT 
+        COUNT(*) as total_grants,
+        COUNT(DISTINCT table_schema) as schemas_with_access,
+        COUNT(DISTINCT table_name) as tables_with_access
+      FROM information_schema.table_privileges
+      WHERE table_schema NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys')
+    `);
+    
+    await conn.end();
+    
+    return {
+      users: users || [],
+      activeConnections: processList?.length || 0,
+      permissions: grants?.[0] || { total_grants: 0, schemas_with_access: 0, tables_with_access: 0 },
+    };
+  } catch (err) {
+    console.error("Error getting MariaDB security:", err);
+    return { users: [], activeConnections: 0, permissions: { total_grants: 0, schemas_with_access: 0, tables_with_access: 0 }, error: err.message };
+  }
+}
+
+async function getMSSQLSecurity(connectionString) {
+  try {
+    const sql = await import("mssql");
+    
+    let config = {};
+    
+    if (connectionString.includes("DRIVER=") || connectionString.includes("SERVER=")) {
+      const params = {};
+      connectionString.split(";").forEach((part) => {
+        const [key, ...valueParts] = part.split("=");
+        if (key && valueParts.length > 0) {
+          const value = valueParts.join("=").trim();
+          const keyUpper = key.trim().toUpperCase();
+          if (keyUpper === "SERVER") {
+            if (value.includes(",")) {
+              const [server, port] = value.split(",").map(s => s.trim());
+              params.server = server;
+              params.port = parseInt(port) || 1433;
+            } else {
+              params.server = value;
+            }
+          } else if (keyUpper === "DATABASE" || keyUpper === "INITIAL CATALOG") {
+            params.database = value;
+          } else if (keyUpper === "UID" || keyUpper === "USER ID" || keyUpper === "USER") {
+            params.user = value;
+          } else if (keyUpper === "PWD" || keyUpper === "PASSWORD") {
+            params.password = value;
+          } else if (keyUpper === "PORT") {
+            params.port = parseInt(value);
+          } else if (keyUpper === "TRUSTSERVERCERTIFICATE" || keyUpper === "TRUST SERVER CERTIFICATE") {
+            params.trustServerCertificate = value.toLowerCase() === "yes" || value === "true";
+          } else if (keyUpper === "ENCRYPT") {
+            params.encrypt = value.toLowerCase() === "yes" || value === "true";
+          }
+        }
+      });
+      
+      if (!params.server) {
+        throw new Error("SERVER not found in connection string");
+      }
+      
+      config = {
+        server: params.server,
+        database: params.database || "master",
+        user: params.user,
+        password: params.password,
+        port: params.port || 1433,
+        options: {
+          encrypt: params.encrypt !== false,
+          trustServerCertificate: params.trustServerCertificate !== false,
+        },
+      };
+    } else {
+      config = {
+        connectionString: connectionString,
+        options: { encrypt: true, trustServerCertificate: true },
+      };
+    }
+    
+    const pool = await sql.default.connect(config);
+    
+    const usersResult = await pool.request().query(`
+      SELECT 
+        name as username,
+        CASE 
+          WHEN is_srvrolemember('sysadmin', name) = 1 THEN 'SUPERUSER'
+          WHEN is_srvrolemember('dbcreator', name) = 1 THEN 'CREATEDB'
+          WHEN is_srvrolemember('securityadmin', name) = 1 THEN 'CREATEROLE'
+          ELSE 'OTHER'
+        END as role_type,
+        CASE 
+          WHEN is_disabled = 0 THEN 'ACTIVE'
+          ELSE 'INACTIVE'
+        END as status
+      FROM sys.server_principals
+      WHERE type IN ('S', 'U')
+      ORDER BY name
+    `);
+    
+    const connectionsResult = await pool.request().query(`
+      SELECT COUNT(*) as current_connections
+      FROM sys.dm_exec_sessions
+      WHERE is_user_process = 1
+    `);
+    
+    const permissionsResult = await pool.request().query(`
+      SELECT 
+        COUNT(*) as total_grants,
+        COUNT(DISTINCT OBJECT_SCHEMA_NAME(major_id)) as schemas_with_access,
+        COUNT(DISTINCT OBJECT_NAME(major_id)) as tables_with_access
+      FROM sys.database_permissions
+      WHERE class = 1
+    `);
+    
+    await pool.close();
+    
+    return {
+      users: usersResult.recordset || [],
+      activeConnections: connectionsResult.recordset[0]?.current_connections || 0,
+      permissions: permissionsResult.recordset[0] || { total_grants: 0, schemas_with_access: 0, tables_with_access: 0 },
+    };
+  } catch (err) {
+    console.error("Error getting MSSQL security:", err);
+    return { users: [], activeConnections: 0, permissions: { total_grants: 0, schemas_with_access: 0, tables_with_access: 0 }, error: err.message };
+  }
+}
+
+async function getOracleSecurity(connectionString) {
+  try {
+    const oracledb = await import("oracledb");
+    const conn = await oracledb.default.getConnection(connectionString);
+    
+    const usersResult = await conn.execute(`
+      SELECT 
+        username,
+        CASE 
+          WHEN account_status = 'OPEN' THEN 'ACTIVE'
+          ELSE 'INACTIVE'
+        END as status,
+        CASE 
+          WHEN dba_role = 'YES' THEN 'SUPERUSER'
+          ELSE 'OTHER'
+        END as role_type
+      FROM dba_users
+      WHERE username NOT IN ('SYS', 'SYSTEM')
+      ORDER BY username
+      FETCH FIRST 50 ROWS ONLY
+    `);
+    
+    const connectionsResult = await conn.execute(`
+      SELECT COUNT(*) as current_connections
+      FROM v$session
+      WHERE username IS NOT NULL
+    `);
+    
+    const permissionsResult = await conn.execute(`
+      SELECT 
+        COUNT(*) as total_grants,
+        COUNT(DISTINCT owner) as schemas_with_access,
+        COUNT(DISTINCT table_name) as tables_with_access
+      FROM dba_tab_privs
+      WHERE owner NOT IN ('SYS', 'SYSTEM')
+    `);
+    
+    await conn.close();
+    
+    return {
+      users: usersResult.rows?.map(r => ({ username: r[0], status: r[1], role_type: r[2] })) || [],
+      activeConnections: connectionsResult.rows?.[0]?.[0] || 0,
+      permissions: permissionsResult.rows?.[0] ? { total_grants: permissionsResult.rows[0][0], schemas_with_access: permissionsResult.rows[0][1], tables_with_access: permissionsResult.rows[0][2] } : { total_grants: 0, schemas_with_access: 0, tables_with_access: 0 },
+    };
+  } catch (err) {
+    console.error("Error getting Oracle security:", err);
+    return { users: [], activeConnections: 0, permissions: { total_grants: 0, schemas_with_access: 0, tables_with_access: 0 }, error: err.message };
+  }
+}
+
+async function getMongoDBSecurity(connectionString) {
+  try {
+    const { MongoClient } = await import("mongodb");
+    const client = new MongoClient(connectionString);
+    await client.connect();
+    const adminDb = client.db().admin();
+    
+    const usersResult = await adminDb.command({ usersInfo: 1 });
+    const users = usersResult.users?.map(u => ({
+      username: u.user,
+      role_type: u.roles?.map(r => r.role).join(', ') || 'OTHER',
+      status: 'ACTIVE',
+    })) || [];
+    
+    const serverStatus = await adminDb.command({ serverStatus: 1 });
+    const activeConnections = serverStatus.connections?.current || 0;
+    
+    await client.close();
+    
+    return {
+      users: users.slice(0, 50),
+      activeConnections: activeConnections,
+      permissions: { total_grants: users.length, schemas_with_access: 0, tables_with_access: 0 },
+    };
+  } catch (err) {
+    console.error("Error getting MongoDB security:", err);
+    return { users: [], activeConnections: 0, permissions: { total_grants: 0, schemas_with_access: 0, tables_with_access: 0 }, error: err.message };
+  }
+}
+
 app.get("/api/security/data", async (req, res) => {
   try {
+    const postgresSecurity = {
+      users: { total: 0, active: 0, superusers: 0, withLogin: 0 },
+      connections: { current: 0, max: 0, idle: 0, active: 0 },
+      permissions: { totalGrants: 0, schemasWithAccess: 0, tablesWithAccess: 0 },
+      activeUsers: [],
+    };
 
-    // 1. USER MANAGEMENT
     const users = await pool.query(`
       SELECT 
         COUNT(*) as total_users,
@@ -3978,7 +4355,6 @@ app.get("/api/security/data", async (req, res) => {
       WHERE usename IS NOT NULL
     `);
 
-    // 2. CONNECTION STATUS
     const connections = await pool.query(`
       SELECT 
         COUNT(*) as current_connections,
@@ -3988,7 +4364,6 @@ app.get("/api/security/data", async (req, res) => {
       FROM pg_stat_activity
     `);
 
-    // 3. ACTIVE USERS
     const activeUsers = await pool.query(`
       SELECT 
         sa.usename as username,
@@ -4029,7 +4404,6 @@ app.get("/api/security/data", async (req, res) => {
       LIMIT 50
     `);
 
-    // 4. PERMISSIONS OVERVIEW
     const permissionsOverview = await pool.query(`
       SELECT 
         COUNT(*) as total_grants,
@@ -4039,31 +4413,75 @@ app.get("/api/security/data", async (req, res) => {
       WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
     `);
 
+    postgresSecurity.users = {
+      total: parseInt(users.rows[0]?.total_users || 0),
+      active: parseInt(activeUsersCount.rows[0]?.active_users || 0),
+      superusers: parseInt(users.rows[0]?.superusers || 0),
+      withLogin: parseInt(users.rows[0]?.users_with_login || 0),
+    };
+    postgresSecurity.connections = {
+      current: parseInt(connections.rows[0]?.current_connections || 0),
+      max: parseInt(connections.rows[0]?.max_connections || 0),
+      idle: parseInt(connections.rows[0]?.idle_connections || 0),
+      active: parseInt(connections.rows[0]?.active_connections || 0),
+    };
+    postgresSecurity.permissions = {
+      totalGrants: parseInt(permissionsOverview.rows[0]?.total_grants || 0),
+      schemasWithAccess: parseInt(
+        permissionsOverview.rows[0]?.schemas_with_access || 0
+      ),
+      tablesWithAccess: parseInt(
+        permissionsOverview.rows[0]?.tables_with_access || 0
+      ),
+    };
+    postgresSecurity.activeUsers = activeUsers.rows;
+
+    const otherDatabases = {};
+    const uniqueConnections = await pool.query(`
+      SELECT DISTINCT db_engine, connection_string
+      FROM metadata.catalog
+      WHERE db_engine IN ('MariaDB', 'MSSQL', 'Oracle', 'MongoDB')
+        AND connection_string IS NOT NULL
+      LIMIT 10
+    `);
+
+    for (const row of uniqueConnections.rows) {
+      const { db_engine, connection_string } = row;
+      if (!otherDatabases[db_engine]) {
+        otherDatabases[db_engine] = [];
+      }
+      
+      let securityData = null;
+      try {
+        if (db_engine === 'MariaDB') {
+          securityData = await getMariaDBSecurity(connection_string);
+        } else if (db_engine === 'MSSQL') {
+          securityData = await getMSSQLSecurity(connection_string);
+        } else if (db_engine === 'Oracle') {
+          securityData = await getOracleSecurity(connection_string);
+        } else if (db_engine === 'MongoDB') {
+          securityData = await getMongoDBSecurity(connection_string);
+        }
+      } catch (err) {
+        console.error(`Error getting security for ${db_engine}:`, err);
+        securityData = { error: err.message };
+      }
+      
+      otherDatabases[db_engine].push({
+        connection: connection_string.substring(0, 50) + '...',
+        security: securityData,
+      });
+    }
+
     const securityData = {
+      postgres: postgresSecurity,
+      otherDatabases: otherDatabases,
       summary: {
-        users: {
-          total: parseInt(users.rows[0]?.total_users || 0),
-          active: parseInt(activeUsersCount.rows[0]?.active_users || 0),
-          superusers: parseInt(users.rows[0]?.superusers || 0),
-          withLogin: parseInt(users.rows[0]?.users_with_login || 0),
-        },
-        connections: {
-          current: parseInt(connections.rows[0]?.current_connections || 0),
-          max: parseInt(connections.rows[0]?.max_connections || 0),
-          idle: parseInt(connections.rows[0]?.idle_connections || 0),
-          active: parseInt(connections.rows[0]?.active_connections || 0),
-        },
-        permissions: {
-          totalGrants: parseInt(permissionsOverview.rows[0]?.total_grants || 0),
-          schemasWithAccess: parseInt(
-            permissionsOverview.rows[0]?.schemas_with_access || 0
-          ),
-          tablesWithAccess: parseInt(
-            permissionsOverview.rows[0]?.tables_with_access || 0
-          ),
-        },
+        users: postgresSecurity.users,
+        connections: postgresSecurity.connections,
+        permissions: postgresSecurity.permissions,
       },
-      activeUsers: activeUsers.rows,
+      activeUsers: postgresSecurity.activeUsers,
     };
 
     res.json(securityData);
@@ -17581,7 +17999,6 @@ app.post(
   }
 );
 
-console.log("✅ [ROUTE REGISTRATION] Registering data masking routes");
 
 app.get(
   "/api/data-masking/policies",
@@ -18450,9 +18867,6 @@ app.get(
   }
 );
 
-console.log("✅ [ROUTE REGISTRATION] Data masking routes registered successfully");
-
-console.log("✅ [ROUTE REGISTRATION] Registering data encryption routes");
 
 app.get(
   "/api/data-encryption/policies",
@@ -18855,9 +19269,6 @@ app.post(
   }
 );
 
-console.log("✅ [ROUTE REGISTRATION] Data encryption routes registered successfully");
-
-console.log("✅ [ROUTE REGISTRATION] Registering RLS routes");
 
 app.get(
   "/api/rls/policies",
@@ -19269,9 +19680,6 @@ app.get(
   }
 );
 
-console.log("✅ [ROUTE REGISTRATION] RLS routes registered successfully");
-
-console.log("✅ [ROUTE REGISTRATION] Registering audit log routes");
 
 app.get(
   "/api/audit/logs",
@@ -19478,7 +19886,6 @@ app.get(
   }
 );
 
-console.log("✅ [ROUTE REGISTRATION] Audit log routes registered successfully");
 
 app.get("/api/workflows", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
   try {
@@ -20143,7 +20550,6 @@ app.put("/api/workflows/:workflowName/toggle-enabled", requireAuth, requireRole(
   }
 });
 
-console.log("✅ [ROUTE REGISTRATION] Workflow routes registered successfully");
 
 app.get("/api/dbt/models", requireAuth, requireRole("admin", "user", "viewer"), async (req, res) => {
   try {
@@ -20582,7 +20988,6 @@ app.get("/api/dbt/models/:modelName/compile", requireAuth, requireRole("admin", 
   }
 });
 
-console.log("✅ [ROUTE REGISTRATION] DBT routes registered successfully");
 
 // Export app for testing
 export default app;
@@ -20591,10 +20996,5 @@ export default app;
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    console.log("📋 [SERVER STARTUP] Catalog routes should be registered:");
-    console.log("   - POST /api/catalog/reset-cdc");
-    console.log("   - GET /api/catalog/execution-history");
-    console.log("   - GET /api/catalog/table-structure");
-    console.log("   - GET /api/catalog (general route)");
   });
 }

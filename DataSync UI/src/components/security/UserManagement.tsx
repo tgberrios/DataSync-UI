@@ -13,7 +13,6 @@ import {
   Pagination,
   PageButton,
   ErrorMessage,
-  LoadingOverlay,
   Input,
   Button,
   ActiveBadge,
@@ -41,6 +40,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import UserManagementTreeView from './UserManagementTreeView';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const HeaderContent = styled.div`
   display: flex;
@@ -158,6 +158,10 @@ const UserManagement = () => {
 
   const fetchUsers = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -172,6 +176,11 @@ const UserManagement = () => {
       if (filters.active !== '') params.active = filters.active;
       
       const response = await authApi.getUsers(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setData(response.data || []);
         setPagination(response.pagination || {
@@ -332,6 +341,10 @@ const UserManagement = () => {
       setError(extractApiError(err));
     }
   }, [passwordUserId, newPassword, confirmPassword, handleClosePasswordModal]);
+
+  if (loading && data.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   return (
     <div style={{

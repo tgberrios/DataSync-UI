@@ -7,6 +7,7 @@ import { useTableFilters } from '../../hooks/useTableFilters';
 import { workflowApi, type WorkflowEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import WorkflowTreeView from './WorkflowTreeView';
 import AddWorkflowModal from './AddWorkflowModal';
 import WorkflowMonitor from './WorkflowMonitor';
@@ -22,7 +23,7 @@ const Workflows = () => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [allWorkflows, setAllWorkflows] = useState<WorkflowEntry[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<WorkflowEntry | null>(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowEntry | null>(null);
@@ -31,6 +32,10 @@ const Workflows = () => {
 
   const fetchAllWorkflows = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -45,6 +50,11 @@ const Workflows = () => {
       if (filters.enabled) params.enabled = filters.enabled;
 
       const response = await workflowApi.getWorkflows(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllWorkflows(response.data || []);
       }
@@ -158,6 +168,10 @@ const Workflows = () => {
     if (filters.enabled && String(workflow.enabled) !== filters.enabled) return false;
     return true;
   });
+
+  if (loadingTree && allWorkflows.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>

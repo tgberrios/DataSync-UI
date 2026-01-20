@@ -12,6 +12,7 @@ import { googleSheetsCatalogApi } from '../../services/api';
 import type { GoogleSheetsCatalogEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const GoogleSheetsCatalog = () => {
   const { setPage } = usePagination(1, 20);
@@ -27,7 +28,7 @@ const GoogleSheetsCatalog = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [duplicateData, setDuplicateData] = useState<GoogleSheetsCatalogEntry | null>(null);
   const [allEntries, setAllEntries] = useState<GoogleSheetsCatalogEntry[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [selectedSheet, setSelectedSheet] = useState<GoogleSheetsCatalogEntry | null>(null);
   const [executionHistory, setExecutionHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -38,6 +39,10 @@ const GoogleSheetsCatalog = () => {
 
   const fetchAllEntries = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -53,6 +58,11 @@ const GoogleSheetsCatalog = () => {
       if (filters.active) params.active = filters.active;
       
       const response = await googleSheetsCatalogApi.getSheets(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllEntries(response.data || []);
       }
@@ -168,32 +178,7 @@ const GoogleSheetsCatalog = () => {
   }, []);
 
   if (loadingTree && allEntries.length === 0) {
-    return (
-      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-        <h1 style={{
-          fontSize: 14,
-          fontWeight: 600,
-          margin: "0 0 20px 0",
-          color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
-        }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          GOOGLE SHEETS CATALOG
-        </h1>
-        <AsciiPanel title="LOADING">
-          <div style={{
-            padding: "40px",
-            textAlign: "center",
-            fontSize: 12,
-            fontFamily: "Consolas",
-            color: asciiColors.muted
-          }}>
-            {ascii.blockFull} Loading Google Sheets Catalog...
-          </div>
-        </AsciiPanel>
-      </div>
-    );
+    return <SkeletonLoader variant="table" />;
   }
 
   return (

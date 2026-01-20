@@ -2,13 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import Layout from "./components/shared/Layout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import { Container, Header } from "./components/shared/BaseComponents";
-
-const LoadingFallback = () => (
-  <Container>
-    <Header>Loading...</Header>
-  </Container>
-);
+import RouteTransition from "./components/shared/RouteTransition";
 
 const Dashboard = lazy(() => import("./components/dashboard/Dashboard"));
 const Catalog = lazy(() => import("./components/catalog/Catalog"));
@@ -60,16 +54,18 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={
-          <Suspense fallback={<LoadingFallback />}>
-            <Login />
-          </Suspense>
+          <RouteTransition minDelay={750}>
+            <Suspense fallback={null}>
+              <Login />
+            </Suspense>
+          </RouteTransition>
         } />
-        <Route path="/" element={<Layout />}>
+          <Route path="/" element={<Layout />}>
           <Route
             index
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Dashboard />
                 </Suspense>
               </ProtectedRoute>
@@ -79,7 +75,7 @@ function App() {
             path="catalog"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Catalog />
                 </Suspense>
               </ProtectedRoute>
@@ -89,7 +85,7 @@ function App() {
             path="column-catalog"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <ColumnCatalog />
                 </Suspense>
               </ProtectedRoute>
@@ -99,7 +95,7 @@ function App() {
             path="catalog-locks"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <CatalogLocks />
                 </Suspense>
               </ProtectedRoute>
@@ -109,7 +105,7 @@ function App() {
             path="data-lineage-mariadb"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataLineageMariaDB />
                 </Suspense>
               </ProtectedRoute>
@@ -119,7 +115,7 @@ function App() {
             path="data-lineage-mssql"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataLineageMSSQL />
                 </Suspense>
               </ProtectedRoute>
@@ -129,7 +125,7 @@ function App() {
             path="data-lineage-mongodb"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataLineageMongoDB />
                 </Suspense>
               </ProtectedRoute>
@@ -139,7 +135,7 @@ function App() {
             path="data-lineage-oracle"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataLineageOracle />
                 </Suspense>
               </ProtectedRoute>
@@ -149,7 +145,7 @@ function App() {
             path="governance-catalog-mariadb"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <GovernanceCatalogMariaDB />
                 </Suspense>
               </ProtectedRoute>
@@ -159,7 +155,7 @@ function App() {
             path="governance-catalog-mssql"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <GovernanceCatalogMSSQL />
                 </Suspense>
               </ProtectedRoute>
@@ -169,7 +165,7 @@ function App() {
             path="governance-catalog-mongodb"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <GovernanceCatalogMongoDB />
                 </Suspense>
               </ProtectedRoute>
@@ -179,7 +175,7 @@ function App() {
             path="governance-catalog-oracle"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <GovernanceCatalogOracle />
                 </Suspense>
               </ProtectedRoute>
@@ -189,7 +185,7 @@ function App() {
             path="api-catalog"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <APICatalog />
                 </Suspense>
               </ProtectedRoute>
@@ -199,7 +195,7 @@ function App() {
             path="custom-jobs"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <CustomJobs />
                 </Suspense>
               </ProtectedRoute>
@@ -209,7 +205,7 @@ function App() {
             path="data-warehouse"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataWarehouse />
                 </Suspense>
               </ProtectedRoute>
@@ -219,7 +215,7 @@ function App() {
             path="data-vault"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataVault />
                 </Suspense>
               </ProtectedRoute>
@@ -229,7 +225,7 @@ function App() {
             path="workflows"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Workflows />
                 </Suspense>
               </ProtectedRoute>
@@ -239,7 +235,7 @@ function App() {
             path="dbt-models"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DBTModels />
                 </Suspense>
               </ProtectedRoute>
@@ -249,7 +245,7 @@ function App() {
             path="csv-catalog"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <CSVCatalog />
                 </Suspense>
               </ProtectedRoute>
@@ -259,7 +255,7 @@ function App() {
             path="google-sheets-catalog"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <GoogleSheetsCatalog />
                 </Suspense>
               </ProtectedRoute>
@@ -269,7 +265,7 @@ function App() {
             path="monitor"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <UnifiedMonitor />
                 </Suspense>
               </ProtectedRoute>
@@ -279,7 +275,7 @@ function App() {
             path="query-performance"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <UnifiedMonitor />
                 </Suspense>
               </ProtectedRoute>
@@ -289,7 +285,7 @@ function App() {
             path="maintenance"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Maintenance />
                 </Suspense>
               </ProtectedRoute>
@@ -299,7 +295,7 @@ function App() {
             path="live-changes"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <UnifiedMonitor />
                 </Suspense>
               </ProtectedRoute>
@@ -309,7 +305,7 @@ function App() {
             path="quality"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Quality />
                 </Suspense>
               </ProtectedRoute>
@@ -319,7 +315,7 @@ function App() {
             path="governance"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Governance />
                 </Suspense>
               </ProtectedRoute>
@@ -329,7 +325,7 @@ function App() {
             path="security"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Security />
                 </Suspense>
               </ProtectedRoute>
@@ -339,7 +335,7 @@ function App() {
             path="logs"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <LogsViewer />
                 </Suspense>
               </ProtectedRoute>
@@ -349,7 +345,7 @@ function App() {
             path="config"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Config />
                 </Suspense>
               </ProtectedRoute>
@@ -359,7 +355,7 @@ function App() {
             path="user-management"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <UserManagement />
                 </Suspense>
               </ProtectedRoute>
@@ -369,7 +365,7 @@ function App() {
             path="webhooks"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <Webhooks />
                 </Suspense>
               </ProtectedRoute>
@@ -379,7 +375,7 @@ function App() {
             path="schema-migrations"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <SchemaMigrations />
                 </Suspense>
               </ProtectedRoute>
@@ -389,7 +385,7 @@ function App() {
             path="backups"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <BackupManager />
                 </Suspense>
               </ProtectedRoute>
@@ -399,7 +395,7 @@ function App() {
             path="data-masking"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataMasking />
                 </Suspense>
               </ProtectedRoute>
@@ -409,7 +405,7 @@ function App() {
             path="data-encryption"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <DataEncryption />
                 </Suspense>
               </ProtectedRoute>
@@ -419,7 +415,7 @@ function App() {
             path="row-level-security"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <RowLevelSecurity />
                 </Suspense>
               </ProtectedRoute>
@@ -429,7 +425,7 @@ function App() {
             path="audit-trail"
             element={
               <ProtectedRoute>
-                <Suspense fallback={<LoadingFallback />}>
+                <Suspense fallback={null}>
                   <AuditTrail />
                 </Suspense>
               </ProtectedRoute>

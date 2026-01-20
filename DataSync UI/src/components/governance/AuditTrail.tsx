@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import { auditApi, type AuditLogEntry } from '../../services/api';
 import { Container, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import { extractApiError } from '../../utils/errorHandler';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
@@ -96,6 +97,9 @@ const AuditTrail = () => {
   const fetchLogs = useCallback(async () => {
     if (!isMountedRef.current) return;
     
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -108,6 +112,11 @@ const AuditTrail = () => {
       if (filters.end_date) params.end_date = filters.end_date;
 
       const response = await auditApi.getLogs(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setLogs(response.logs || []);
         setTotal(response.total || 0);
@@ -157,9 +166,12 @@ const AuditTrail = () => {
     }
   }, [complianceType, filters.start_date, filters.end_date]);
 
+  if (loading && logs.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
+
   return (
     <Container>
-      <LoadingOverlay loading={loading} />
       {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
 
       {stats && (

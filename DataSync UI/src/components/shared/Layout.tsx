@@ -3,6 +3,7 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { authApi, getCurrentUser } from '../../services/api';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import RouteTransition from './RouteTransition';
 
 const LayoutContainer = styled.div`
   display: flex;
@@ -409,7 +410,9 @@ const Layout = () => {
         </UserInfo>
       </Sidebar>
       <MainContent>
-        <Outlet />
+        <RouteTransition minDelay={750}>
+          <Outlet />
+        </RouteTransition>
       </MainContent>
     </LayoutContainer>
   );

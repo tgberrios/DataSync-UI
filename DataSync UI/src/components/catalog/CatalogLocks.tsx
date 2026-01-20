@@ -15,6 +15,7 @@ import { theme } from '../../theme/theme';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const fadeIn = keyframes`
   from {
@@ -110,6 +111,10 @@ const CatalogLocks = () => {
 
   const fetchData = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -118,6 +123,11 @@ const CatalogLocks = () => {
         catalogLocksApi.getLocks(),
         catalogLocksApi.getMetrics()
       ]);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setLocks(locksData || []);
         setMetrics(metricsData || {});
@@ -258,49 +268,7 @@ const CatalogLocks = () => {
   }, [locks, getLockStatus, formatDate, formatTimeRemaining]);
 
   if (loading && locks.length === 0) {
-    return (
-      <div style={{
-        width: "100%",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "Consolas",
-        fontSize: 12,
-        color: asciiColors.foreground,
-        backgroundColor: asciiColors.background,
-        gap: 12
-      }}>
-        <div style={{
-          fontSize: 24,
-          animation: "spin 1s linear infinite"
-        }}>
-          {ascii.blockFull}
-        </div>
-        <div style={{
-          display: "flex",
-          gap: 4,
-          alignItems: "center"
-        }}>
-          <span>Loading catalog locks</span>
-          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
-            {ascii.dot.repeat(3)}
-          </span>
-        </div>
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-          @keyframes dots {
-            0%, 20% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
-          }
-        `}</style>
-      </div>
-    );
+    return <SkeletonLoader variant="table" />;
   }
 
   const expiredLocks = locks.filter(lock => {

@@ -13,6 +13,7 @@ import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import DataLineageMariaDBTreeView from './DataLineageMariaDBTreeView';
 import LineageCharts from './LineageCharts';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const fadeIn = keyframes`
   from {
@@ -62,7 +63,7 @@ const DataLineageMariaDB = () => {
   const [servers, setServers] = useState<string[]>([]);
   const [databases, setDatabases] = useState<string[]>([]);
   const [allEdges, setAllEdges] = useState<any[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [showLineagePlaybook, setShowLineagePlaybook] = useState(false);
   const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const isMountedRef = useRef(true);
@@ -84,6 +85,10 @@ const DataLineageMariaDB = () => {
 
   const fetchAllEdges = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -97,6 +102,11 @@ const DataLineageMariaDB = () => {
         relationship_type: filters.relationship_type as string,
         search: sanitizedSearch
       });
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllEdges(lineageData.data || []);
       }
@@ -207,22 +217,7 @@ const DataLineageMariaDB = () => {
   }, [allEdges, formatConfidence]);
 
   if (loadingTree && allEdges.length === 0) {
-    return (
-      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-        <h1 style={{
-          fontSize: 14,
-          fontWeight: 600,
-          margin: "0 0 20px 0",
-          color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
-        }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          DATA LINEAGE - MARIADB
-        </h1>
-        <LoadingOverlay>Loading data lineage...</LoadingOverlay>
-      </div>
-    );
+    return <SkeletonLoader variant="table" />;
   }
 
   return (

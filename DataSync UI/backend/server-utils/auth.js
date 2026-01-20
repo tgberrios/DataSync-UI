@@ -45,13 +45,43 @@ async function initializeUsersTable() {
         username VARCHAR(100) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role VARCHAR(50) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user', 'viewer')),
+        role VARCHAR(50) NOT NULL DEFAULT 'user',
         active BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
         last_login TIMESTAMP
       )
     `);
+    
+    try {
+      const constraintExists = await pool.query(`
+        SELECT constraint_name 
+        FROM information_schema.table_constraints 
+        WHERE table_schema = 'metadata' 
+          AND table_name = 'users' 
+          AND constraint_name = 'users_role_check'
+      `);
+      
+      if (constraintExists.rows.length > 0) {
+        await pool.query(`
+          ALTER TABLE metadata.users 
+          DROP CONSTRAINT users_role_check;
+        `);
+      }
+    } catch (err) {
+      console.error("Error checking/dropping constraint:", err);
+    }
+    
+    try {
+      await pool.query(`
+        ALTER TABLE metadata.users 
+        ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'user', 'viewer', 'analytics', 'reporting'));
+      `);
+    } catch (err) {
+      if (err.code !== '42710') {
+        console.error("Error adding constraint:", err);
+      }
+    }
 
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_users_username ON metadata.users(username);
@@ -74,16 +104,12 @@ async function initializeUsersTable() {
            VALUES ($1, $2, $3, $4, $5)`,
           ["ADMIN", "admin@datasync.local", passwordHash, "admin", true]
         );
-        console.log("Default admin user created: ADMIN / " + defaultPassword);
       } catch (insertError) {
         if (insertError.code === '23505') {
-          console.log("Admin user already exists, skipping creation");
         } else {
           throw insertError;
         }
       }
-    } else {
-      console.log("Admin user already exists, skipping creation");
     }
   } catch (error) {
     console.error("Error initializing users table:", error);
@@ -124,14 +150,23 @@ async function authenticateUser(username, password) {
       [username]
     );
 
-    if (result.rows.length === 0) {
+    if (!result || !result.rows || result.rows.length === 0) {
       return { success: false, error: "Invalid credentials" };
     }
 
     const user = result.rows[0];
 
+    if (!user) {
+      return { success: false, error: "Invalid credentials" };
+    }
+
     if (!user.active) {
       return { success: false, error: "User account is inactive" };
+    }
+
+    if (!user.password_hash) {
+      console.error("User has no password hash:", user.username);
+      return { success: false, error: "Invalid credentials" };
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
@@ -140,10 +175,14 @@ async function authenticateUser(username, password) {
       return { success: false, error: "Invalid credentials" };
     }
 
-    await pool.query(
-      "UPDATE metadata.users SET last_login = NOW() WHERE id = $1",
-      [user.id]
-    );
+    try {
+      await pool.query(
+        "UPDATE metadata.users SET last_login = NOW() WHERE id = $1",
+        [user.id]
+      );
+    } catch (updateError) {
+      console.error("Error updating last_login:", updateError);
+    }
 
     const token = jwt.sign(
       {
@@ -167,6 +206,7 @@ async function authenticateUser(username, password) {
     };
   } catch (error) {
     console.error("Error authenticating user:", error);
+    console.error("Error stack:", error.stack);
     return { success: false, error: "Authentication failed" };
   }
 }
@@ -181,15 +221,9 @@ function verifyToken(token) {
 }
 
 function requireAuth(req, res, next) {
-  if (req.path && req.path.startsWith("/api/catalog/")) {
-    console.log("🔐 [REQUIRE-AUTH] Checking auth for:", req.method, req.path);
-  }
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    if (req.path && req.path.startsWith("/api/catalog/")) {
-      console.log("❌ [REQUIRE-AUTH] No auth header found");
-    }
     return res.status(401).json({ error: "Authentication required" });
   }
 
@@ -197,48 +231,30 @@ function requireAuth(req, res, next) {
   const verification = verifyToken(token);
 
   if (!verification.success) {
-    if (req.path && req.path.startsWith("/api/catalog/")) {
-      console.log("❌ [REQUIRE-AUTH] Token verification failed:", verification.error);
-    }
     return res.status(401).json({ error: verification.error });
   }
 
   req.user = verification.user;
-  if (req.path && req.path.startsWith("/api/catalog/")) {
-    console.log("✅ [REQUIRE-AUTH] Auth successful, user role:", req.user.role);
-  }
   next();
 }
 
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
-    if (req.path && req.path.startsWith("/api/catalog/")) {
-      console.log("🔐 [REQUIRE-ROLE] Checking role for:", req.method, req.path, "Allowed roles:", allowedRoles);
-    }
     if (!req.user) {
-      if (req.path && req.path.startsWith("/api/catalog/")) {
-        console.log("❌ [REQUIRE-ROLE] No user found");
-      }
       return res.status(401).json({ error: "Authentication required" });
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      if (req.path && req.path.startsWith("/api/catalog/")) {
-        console.log("❌ [REQUIRE-ROLE] Insufficient permissions. User role:", req.user.role, "Required:", allowedRoles);
-      }
       return res.status(403).json({ error: "Insufficient permissions" });
     }
 
-    if (req.path && req.path.startsWith("/api/catalog/")) {
-      console.log("✅ [REQUIRE-ROLE] Role check passed");
-    }
     next();
   };
 }
 
 async function createUser(username, email, password, role = "user") {
   try {
-    if (!["admin", "user", "viewer"].includes(role)) {
+    if (!["admin", "user", "viewer", "analytics", "reporting"].includes(role)) {
       return { success: false, error: "Invalid role" };
     }
 

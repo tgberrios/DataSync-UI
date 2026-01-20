@@ -14,6 +14,7 @@ import { theme } from '../../theme/theme';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const Section = styled.div`
   margin-bottom: ${theme.spacing.xxl};
@@ -291,6 +292,10 @@ const LogsViewer = () => {
   const [functionsList, setFunctionsList] = useState<string[]>(['ALL']);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [autoCleanup, setAutoCleanup] = useState(process.env.NODE_ENV === 'production');
+  const [deleteDebug, setDeleteDebug] = useState(process.env.NODE_ENV === 'production');
+  const [deleteDuplicates, setDeleteDuplicates] = useState(false);
+  const [deleteOlderThan, setDeleteOlderThan] = useState<number | undefined>(undefined);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -311,6 +316,10 @@ const LogsViewer = () => {
   const fetchLogs = useCallback(async () => {
     if (!isMountedRef.current) return;
     const isInitialLoad = isInitialLoadRef.current;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setIsRefreshing(true);
       setError(null);
@@ -327,10 +336,20 @@ const LogsViewer = () => {
           function: func,
           search: sanitizedSearch,
           startDate,
-          endDate
+          endDate,
+          autoCleanup: autoCleanup || undefined,
+          deleteDebug: deleteDebug || undefined,
+          deleteDuplicates: deleteDuplicates || undefined,
+          deleteOlderThan: deleteOlderThan || undefined
         }),
         logsApi.getLogInfo()
       ]);
+      
+      if (isInitialLoad) {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, minLoadingTime - elapsed);
+        await new Promise(resolve => setTimeout(resolve, remaining));
+      }
       
       if (isMountedRef.current) {
         setAllLogs(logsData.logs || []);
@@ -355,7 +374,7 @@ const LogsViewer = () => {
         setIsRefreshing(false);
       }
     }
-  }, [lines, level, category, func, search, startDate, endDate, currentPage]);
+  }, [lines, level, category, func, search, startDate, endDate, currentPage, autoCleanup, deleteDebug, deleteDuplicates, deleteOlderThan]);
 
   useEffect(() => {
     const loadFilters = async () => {
@@ -570,49 +589,7 @@ const LogsViewer = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div style={{
-        width: "100%",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "Consolas",
-        fontSize: 12,
-        color: asciiColors.foreground,
-        backgroundColor: asciiColors.background,
-        gap: 12
-      }}>
-        <div style={{
-          fontSize: 24,
-          animation: "spin 1s linear infinite"
-        }}>
-          {ascii.blockFull}
-        </div>
-        <div style={{
-          display: "flex",
-          gap: 4,
-          alignItems: "center"
-        }}>
-          <span>Loading logs</span>
-          <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
-            {ascii.dot.repeat(3)}
-          </span>
-        </div>
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-          @keyframes dots {
-            0%, 20% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
-          }
-        `}</style>
-      </div>
-    );
+    return <SkeletonLoader variant="table" />;
   }
 
   if (error && logs.length === 0) {
@@ -802,6 +779,52 @@ const LogsViewer = () => {
                 {refreshCountdown}s
               </div>
             </ControlGroup>
+          )}
+
+          <ControlGroup>
+            <Label>Auto Cleanup:</Label>
+            <AsciiButton
+              label={autoCleanup ? 'ON' : 'OFF'}
+              onClick={() => setAutoCleanup(!autoCleanup)}
+              variant={autoCleanup ? 'primary' : 'ghost'}
+            />
+          </ControlGroup>
+
+          {autoCleanup && (
+            <>
+              <ControlGroup>
+                <Label>Delete DEBUG:</Label>
+                <AsciiButton
+                  label={deleteDebug ? 'YES' : 'NO'}
+                  onClick={() => setDeleteDebug(!deleteDebug)}
+                  variant={deleteDebug ? 'primary' : 'ghost'}
+                />
+              </ControlGroup>
+
+              <ControlGroup>
+                <Label>Delete Duplicates:</Label>
+                <AsciiButton
+                  label={deleteDuplicates ? 'YES' : 'NO'}
+                  onClick={() => setDeleteDuplicates(!deleteDuplicates)}
+                  variant={deleteDuplicates ? 'primary' : 'ghost'}
+                />
+              </ControlGroup>
+
+              <ControlGroup>
+                <Label>Delete Older (days):</Label>
+                <Input
+                  type="number"
+                  value={deleteOlderThan || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDeleteOlderThan(val ? parseInt(val) : undefined);
+                  }}
+                  placeholder="Optional"
+                  min="1"
+                  style={{ width: '100px' }}
+                />
+              </ControlGroup>
+            </>
           )}
           
           <AsciiButton 

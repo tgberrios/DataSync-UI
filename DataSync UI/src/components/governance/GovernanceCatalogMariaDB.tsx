@@ -17,6 +17,7 @@ import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceCatalogMariaDBTreeView from './GovernanceCatalogMariaDBTreeView';
 import GovernanceCatalogCharts from './GovernanceCatalogCharts';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const fadeIn = keyframes`
   from {
@@ -82,7 +83,7 @@ const GovernanceCatalogMariaDB = () => {
   const [servers, setServers] = useState<string[]>([]);
   const [databases, setDatabases] = useState<string[]>([]);
   const [allItems, setAllItems] = useState<any[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
   const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -90,6 +91,10 @@ const GovernanceCatalogMariaDB = () => {
 
   const fetchData = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -107,6 +112,11 @@ const GovernanceCatalogMariaDB = () => {
         governanceCatalogApi.getMariaDBMetrics(),
         governanceCatalogApi.getMariaDBServers()
       ]);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setItems(itemsData.data || []);
         setPagination(itemsData.pagination || {
@@ -139,6 +149,10 @@ const GovernanceCatalogMariaDB = () => {
 
   const fetchAllItems = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -152,6 +166,11 @@ const GovernanceCatalogMariaDB = () => {
         access_frequency: filters.access_frequency as string,
         search: sanitizedSearch
       });
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllItems(itemsData.data || []);
         setPagination(itemsData.pagination || {
@@ -344,22 +363,7 @@ const GovernanceCatalogMariaDB = () => {
   }, [sortedItems, formatNumber]);
 
   if (loadingTree && allItems.length === 0) {
-    return (
-      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-        <h1 style={{
-          fontSize: 14,
-          fontWeight: 600,
-          margin: "0 0 20px 0",
-          color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
-        }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          GOVERNANCE CATALOG - MARIADB
-        </h1>
-        <LoadingOverlay>Loading governance catalog...</LoadingOverlay>
-      </div>
-    );
+    return <SkeletonLoader variant="table" />;
   }
 
   return (

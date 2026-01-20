@@ -5,6 +5,7 @@ import AlertRules from './AlertRules';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import { extractApiError } from '../../utils/errorHandler';
 
 interface Webhook {
@@ -35,6 +36,10 @@ const Webhooks = () => {
 
   const fetchWebhooks = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setError(null);
       const response = await fetch('/api/webhooks', {
@@ -48,6 +53,11 @@ const Webhooks = () => {
       }
       
       const data = await response.json();
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         const normalizedData = data.map((webhook: any) => ({
           ...webhook,

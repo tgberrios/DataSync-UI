@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { schemaMigrationsApi } from '../../services/api';
@@ -45,6 +46,10 @@ const SchemaMigrations = () => {
 
   const fetchAllMigrations = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -61,6 +66,10 @@ const SchemaMigrations = () => {
       
       const response = await schemaMigrationsApi.getAll(params);
       const migrationsArray = response.migrations || [];
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
       
       if (isMountedRef.current) {
         setAllMigrations(migrationsArray);
@@ -141,6 +150,10 @@ const SchemaMigrations = () => {
       }
     }
   }, [fetchAllMigrations, selectedMigration]);
+
+  if (loadingTree && allMigrations.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   return (
     <div style={{ padding: '20px', minHeight: '100vh', background: asciiColors.background }}>

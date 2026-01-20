@@ -5,6 +5,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { dbtApi, type DBTModel } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import DBTModelEditor from './DBTModelEditor';
 import DBTTestRunner from './DBTTestRunner';
 
@@ -13,7 +14,7 @@ const DBTModels = () => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [models, setModels] = useState<DBTModel[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<DBTModel | null>(null);
   const [selectedModel, setSelectedModel] = useState<DBTModel | null>(null);
@@ -23,10 +24,19 @@ const DBTModels = () => {
 
   const fetchModels = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
       const allModels = await dbtApi.getModels();
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         let filtered = allModels;
         if (search) {
@@ -135,6 +145,10 @@ const DBTModels = () => {
       default: return asciiColors.white;
     }
   };
+
+  if (loading && models.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   if (viewMode === 'tests' && selectedModel) {
     return (

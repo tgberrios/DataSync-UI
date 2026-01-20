@@ -9,6 +9,8 @@ import { extractApiError } from "../../utils/errorHandler";
 import { AsciiPanel } from "../../ui/layout/AsciiPanel";
 import { AsciiButton } from "../../ui/controls/AsciiButton";
 import { asciiColors, ascii } from "../../ui/theme/asciiTheme";
+import SkeletonLoader from "../shared/SkeletonLoader";
+import { SkeletonPage } from "../shared/Skeleton";
 
 const globalStyles = `
   @keyframes fadeInUp {
@@ -394,7 +396,6 @@ const MetricRow: React.FC<{
           borderRadius: 2,
           fontSize: 10,
           color: asciiColors.foreground,
-          whiteSpace: "nowrap",
           zIndex: 1000,
           fontFamily: "Consolas, 'Source Code Pro', monospace",
           boxShadow: `0 2px 8px ${asciiColors.border}40`,
@@ -460,6 +461,7 @@ const formatUptime = (seconds: number): string => {
   if (minutes > 0) return `${minutes}m ${secs}s`;
   return `${secs}s`;
 };
+
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -774,42 +776,9 @@ const Dashboard = () => {
     }
   }, [processingPage, isProcessingExpanded, fetchCurrentlyProcessing]);
 
+
   if (loading) {
-    return (
-      <>
-        <div style={{
-          width: "100%",
-          height: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "Consolas, 'Source Code Pro', monospace",
-          fontSize: 12,
-          color: asciiColors.foreground,
-          backgroundColor: asciiColors.background,
-          gap: 12
-        }}>
-          <div style={{
-            fontSize: 24,
-            animation: "spin 1s linear infinite"
-          }}>
-            {ascii.blockFull}
-          </div>
-          <div style={{
-            display: "flex",
-            gap: 4,
-            alignItems: "center"
-          }}>
-            <span>Loading</span>
-            <span style={{ animation: "dots 1.5s steps(4, end) infinite" }}>
-              {ascii.dot.repeat(3)}
-            </span>
-          </div>
-        </div>
-        <style>{globalStyles}</style>
-      </>
-    );
+    return <SkeletonLoader variant="dashboard" />;
   }
 
   if (error) {
@@ -839,13 +808,28 @@ const Dashboard = () => {
   }
 
   return (
-    <div style={{ 
+    <div className="dashboard-content" style={{ 
       padding: "24px", 
       fontFamily: "Consolas", 
       fontSize: 12,
       maxWidth: "1400px",
       margin: "0 auto"
     }}>
+      <style>{`
+        @keyframes contentFadeIn {
+          0% {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .dashboard-content {
+          animation: contentFadeIn 0.6s ease-out forwards;
+        }
+      `}</style>
       <div style={{
         marginBottom: 24
       }}>

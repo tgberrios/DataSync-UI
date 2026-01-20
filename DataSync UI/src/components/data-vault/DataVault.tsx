@@ -7,6 +7,7 @@ import { useTableFilters } from '../../hooks/useTableFilters';
 import { dataVaultApi, type DataVaultEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import DataVaultTreeView from './DataVaultTreeView';
 import AddDataVaultModal from './AddDataVaultModal';
 
@@ -22,7 +23,7 @@ const DataVault = () => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [allVaults, setAllVaults] = useState<DataVaultEntry[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVault, setEditingVault] = useState<DataVaultEntry | null>(null);
   const [selectedVault, setSelectedVault] = useState<DataVaultEntry | null>(null);
@@ -30,6 +31,10 @@ const DataVault = () => {
 
   const fetchAllVaults = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -45,6 +50,11 @@ const DataVault = () => {
       if (filters.active) params.active = filters.active;
 
       const response = await dataVaultApi.getVaults(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllVaults(response.data || []);
       }
@@ -137,6 +147,10 @@ const DataVault = () => {
     if (filters.active && String(v.active) !== filters.active) return false;
     return true;
   });
+
+  if (loadingTree && allVaults.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>

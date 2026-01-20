@@ -13,6 +13,7 @@ import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import QualityTreeView from './QualityTreeView';
 import QualityCharts from './QualityCharts';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const getStatusColor = (status?: string) => {
   if (!status) return asciiColors.muted;
@@ -74,6 +75,9 @@ const Quality = () => {
     abortControllerRef.current = new AbortController();
     fetchingRef.current = true;
     
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       if (isInitialLoad) {
         setError(null);
@@ -102,6 +106,12 @@ const Quality = () => {
         setQualityData(Array.isArray(data) ? data : []);
         isInitialLoadRef.current = false;
         setError(null);
+        
+        if (isInitialLoad) {
+          const elapsed = Date.now() - startTime;
+          const remaining = Math.max(0, minLoadingTime - elapsed);
+          await new Promise(resolve => setTimeout(resolve, remaining));
+        }
       }
     } catch (err: any) {
       if (isMountedRef.current && !abortControllerRef.current?.signal.aborted) {
@@ -167,9 +177,12 @@ const Quality = () => {
     setSelectedItem((prev: any) => prev?.id === item.id ? null : item);
   }, []);
 
+  if (loading && qualityData.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
+
   return (
     <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      {loading && <LoadingOverlay>Loading quality metrics...</LoadingOverlay>}
 
       <div style={{
         display: "flex",

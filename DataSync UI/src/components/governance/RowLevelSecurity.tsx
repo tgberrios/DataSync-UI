@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import { rlsApi, type RLSPolicy } from '../../services/api';
 import { Container, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import { extractApiError } from '../../utils/errorHandler';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
@@ -79,6 +80,9 @@ const RowLevelSecurity = () => {
   const fetchPolicies = useCallback(async () => {
     if (!isMountedRef.current) return;
     
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -88,6 +92,11 @@ const RowLevelSecurity = () => {
       if (filters.active !== '') params.active = filters.active === 'true';
 
       const response = await rlsApi.getAll(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setPolicies(response.policies || []);
         setTotal(response.total || 0);
@@ -171,9 +180,12 @@ const RowLevelSecurity = () => {
     ALL: "user_id = current_setting('app.user_id')::integer",
   };
 
+  if (loading && policies.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
+
   return (
     <Container>
-      <LoadingOverlay loading={loading} />
       {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
 
       <div style={{ marginBottom: 20 }}>

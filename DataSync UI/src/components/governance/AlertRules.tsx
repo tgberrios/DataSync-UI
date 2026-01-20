@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import { extractApiError } from '../../utils/errorHandler';
 import { AlertRuleModal } from './AlertRuleModal';
 
@@ -47,6 +48,10 @@ const AlertRules = () => {
 
   const fetchRules = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setError(null);
       const params = new URLSearchParams({
@@ -68,6 +73,11 @@ const AlertRules = () => {
       }
       
       const data = await response.json();
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setRules(data.rules || []);
         setTotalPages(data.pagination?.totalPages || 1);
@@ -226,16 +236,8 @@ const AlertRules = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-        <AsciiPanel title="LOADING">
-          <div style={{ padding: "40px", textAlign: "center", color: asciiColors.muted }}>
-            {ascii.blockFull} Loading alert rules...
-          </div>
-        </AsciiPanel>
-      </div>
-    );
+  if (loading && rules.length === 0) {
+    return <SkeletonLoader variant="table" />;
   }
 
   return (

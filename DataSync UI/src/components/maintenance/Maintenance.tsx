@@ -13,6 +13,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import MaintenanceTreeView from './MaintenanceTreeView';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 
 /**
@@ -37,6 +38,10 @@ const Maintenance = () => {
 
   const fetchData = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -54,6 +59,11 @@ const Maintenance = () => {
         }),
         maintenanceApi.getMetrics()
       ]);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setMaintenanceItems(itemsData.data || []);
         setMetrics(metricsData || {});
@@ -127,22 +137,7 @@ const Maintenance = () => {
   };
 
   if (loading && maintenanceItems.length === 0) {
-    return (
-      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-        <h1 style={{
-          fontSize: 14,
-          fontWeight: 600,
-          margin: "0 0 20px 0",
-          color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
-        }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          MAINTENANCE
-        </h1>
-        <LoadingOverlay>Loading maintenance data...</LoadingOverlay>
-      </div>
-    );
+    return <SkeletonLoader variant="list" panels={6} />;
   }
 
   return (

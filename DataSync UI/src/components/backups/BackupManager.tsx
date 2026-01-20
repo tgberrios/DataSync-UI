@@ -3,6 +3,7 @@ import { backupsApi, type BackupEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import SkeletonLoader from '../shared/SkeletonLoader';
 
 const BackupManager = () => {
   const [backups, setBackups] = useState<BackupEntry[]>([]);
@@ -73,6 +74,9 @@ const BackupManager = () => {
   }, [backupForm.db_engine]);
 
   const fetchBackups = useCallback(async () => {
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoading(true);
       setError(null);
@@ -81,6 +85,11 @@ const BackupManager = () => {
       if (filters.status) params.status = filters.status;
 
       const response = await backupsApi.getAll(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       setBackups(response.backups || []);
       setTotal(response.total || 0);
     } catch (err) {
@@ -229,6 +238,10 @@ const BackupManager = () => {
         return asciiColors.foreground;
     }
   };
+
+  if (loading && backups.length === 0) {
+    return <SkeletonLoader variant="table" />;
+  }
 
   return (
     <div style={{

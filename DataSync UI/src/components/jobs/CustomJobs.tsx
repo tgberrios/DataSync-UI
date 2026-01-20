@@ -8,6 +8,7 @@ import { customJobsApi } from '../../services/api';
 import type { CustomJobEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
+import SkeletonLoader from '../shared/SkeletonLoader';
 import CustomJobsTreeView from './CustomJobsTreeView';
 import { EnrichedMappingGraph } from '../shared/EnrichedMappingGraph';
 import { SQLEditor } from './SQLEditor';
@@ -38,7 +39,7 @@ const CustomJobs = () => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [allJobs, setAllJobs] = useState<CustomJobEntry[]>([]);
-  const [loadingTree, setLoadingTree] = useState(false);
+  const [loadingTree, setLoadingTree] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<CustomJobEntry | null>(null);
   const [duplicateData, setDuplicateData] = useState<CustomJobEntry | null>(null);
@@ -89,6 +90,10 @@ const CustomJobs = () => {
 
   const fetchAllJobs = useCallback(async () => {
     if (!isMountedRef.current) return;
+    
+    const startTime = Date.now();
+    const minLoadingTime = 300;
+    
     try {
       setLoadingTree(true);
       setError(null);
@@ -105,6 +110,11 @@ const CustomJobs = () => {
       if (filters.enabled) params.enabled = filters.enabled;
       
       const response = await customJobsApi.getJobs(params);
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, minLoadingTime - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+      
       if (isMountedRef.current) {
         setAllJobs(response.data || []);
       }
@@ -121,7 +131,7 @@ const CustomJobs = () => {
     filters.source_db_engine, 
     filters.target_db_engine, 
     filters.active, 
-    filters.enabled,
+    filters.enabled, 
     search
   ]);
 
@@ -575,32 +585,7 @@ const CustomJobs = () => {
 
 
   if (loadingTree && allJobs.length === 0) {
-    return (
-      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-        <h1 style={{
-          fontSize: 14,
-          fontWeight: 600,
-          margin: "0 0 20px 0",
-          color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
-        }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          PIPELINE ORCHESTRATION
-        </h1>
-        <AsciiPanel title="LOADING">
-          <div style={{
-            padding: "40px",
-            textAlign: "center",
-            fontSize: 12,
-            fontFamily: "Consolas",
-            color: asciiColors.muted
-          }}>
-            {ascii.blockFull} Loading Pipeline Orchestration...
-          </div>
-        </AsciiPanel>
-      </div>
-    );
+    return <SkeletonLoader variant="table" />;
   }
 
   return (
