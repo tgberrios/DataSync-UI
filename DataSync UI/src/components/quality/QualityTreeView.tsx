@@ -98,11 +98,11 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   margin: 2px 0;
   font-family: Consolas;
   font-size: 12px;
+  background: transparent;
   
   ${props => {
     if (props.$nodeType === 'schema') {
       return `
-        background: ${asciiColors.accentLight};
         border-left: 3px solid ${asciiColors.accent};
         font-weight: 600;
       `;
@@ -113,12 +113,7 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   }}
   
   &:hover {
-    background: ${props => {
-      if (props.$nodeType === 'schema') {
-        return asciiColors.accentLight;
-      }
-      return asciiColors.backgroundSoft;
-    }};
+    background: ${asciiColors.backgroundSoft};
     transform: translateX(2px);
   }
 `;
@@ -198,7 +193,7 @@ const ObjectDetailsRow = styled.div<{ $level: number }>`
   padding-left: ${props => props.$level * 24 + 36}px;
   margin: 2px 0;
   border-radius: 2px;
-  background: ${asciiColors.background};
+  background: transparent;
   border: 1px solid ${asciiColors.border};
   transition: all 0.2s ease;
   cursor: pointer;

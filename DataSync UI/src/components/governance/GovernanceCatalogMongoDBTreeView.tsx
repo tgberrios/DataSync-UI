@@ -73,16 +73,17 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   font-family: Consolas;
   font-size: 12px;
   
+  background: transparent;
+  
   ${props => {
     if (props.$nodeType === 'schema') {
       return `
-        background: ${asciiColors.accentLight};
-        border: 1px solid ${asciiColors.border};
+        border: 1px solid transparent;
         border-left: 3px solid ${asciiColors.accent};
         font-weight: 600;
         
         &:hover {
-          background: ${asciiColors.accentLight};
+          background: ${asciiColors.backgroundSoft};
           border-color: ${asciiColors.accent};
           transform: translateX(4px);
         }

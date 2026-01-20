@@ -245,18 +245,18 @@ const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntry
             transition: 'all 0.2s ease',
             position: 'relative',
             margin: '2px 0',
-            background: asciiColors.backgroundSoft,
+            background: 'transparent',
             borderLeft: `2px solid ${asciiColors.border}`,
             fontFamily: "Consolas",
             fontSize: 12
           }}
           onClick={() => toggleTable(schemaName, table.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.background;
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = 'translateX(2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+            e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
@@ -340,18 +340,18 @@ const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntry
             transition: 'all 0.2s ease',
             position: 'relative',
             margin: '2px 0',
-            background: `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`,
+            background: 'transparent',
             borderLeft: `3px solid ${asciiColors.accent}`,
             fontFamily: "Consolas",
             fontSize: 12
           }}
           onClick={() => toggleSchema(schema.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}25 0%, ${asciiColors.accent}15 100%)`;
+            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}20 0%, ${asciiColors.accent}12 100%)`;
             e.currentTarget.style.transform = 'translateX(2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`;
+            e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >

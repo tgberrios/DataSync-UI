@@ -104,7 +104,7 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                 alignItems: 'center',
                 padding: '10px 14px',
                 cursor: 'pointer',
-                backgroundColor: isExpanded ? asciiColors.backgroundSoft : 'transparent',
+                backgroundColor: 'transparent',
                 borderRadius: 2,
                 userSelect: 'none',
                 transition: 'all 0.2s',
@@ -113,16 +113,12 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
               }}
               onClick={() => toggleSchema(schema.name)}
               onMouseEnter={(e) => {
-                if (!isExpanded) {
-                  e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                  e.currentTarget.style.borderColor = asciiColors.border;
-                }
+                e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                e.currentTarget.style.borderColor = asciiColors.border;
               }}
               onMouseLeave={(e) => {
-                if (!isExpanded) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.borderColor = 'transparent';
-                }
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = isExpanded ? asciiColors.border : 'transparent';
               }}
             >
               <span style={{ 
@@ -151,7 +147,7 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                 color: asciiColors.muted,
                 fontFamily: 'Consolas',
                 padding: '4px 8px',
-                backgroundColor: isExpanded ? asciiColors.accent + '20' : asciiColors.background,
+                backgroundColor: isExpanded ? asciiColors.accent + '20' : 'transparent',
                 borderRadius: 2,
                 fontWeight: 500,
                 transition: 'all 0.2s',
@@ -182,7 +178,7 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                       cursor: 'pointer',
                       borderRadius: 2,
                       border: `1px solid ${asciiColors.border}`,
-                      backgroundColor: asciiColors.background,
+                      backgroundColor: 'transparent',
                       transition: 'all 0.2s',
                       position: 'relative'
                     }}
@@ -193,7 +189,7 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                       e.currentTarget.style.boxShadow = `0 2px 8px ${asciiColors.accent}20`;
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = asciiColors.background;
+                      e.currentTarget.style.backgroundColor = 'transparent';
                       e.currentTarget.style.borderColor = asciiColors.border;
                       e.currentTarget.style.transform = 'translateX(0)';
                       e.currentTarget.style.boxShadow = 'none';
@@ -228,7 +224,7 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                           borderRadius: 2,
                           backgroundColor: warehouse.target_layer === 'GOLD' ? asciiColors.success + '20' :
                                          warehouse.target_layer === 'SILVER' ? asciiColors.accent + '20' :
-                                         asciiColors.backgroundSoft,
+                                         'transparent',
                           color: warehouse.target_layer === 'GOLD' ? asciiColors.success :
                                  warehouse.target_layer === 'SILVER' ? asciiColors.accent :
                                  asciiColors.muted,

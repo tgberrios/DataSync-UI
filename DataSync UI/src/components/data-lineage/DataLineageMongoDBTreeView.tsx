@@ -198,7 +198,7 @@ const DataLineageMongoDBTreeView: React.FC<TreeViewProps> = ({ edges, onEdgeClic
             margin: '2px 0',
             fontFamily: 'Consolas',
             fontSize: 12,
-            backgroundColor: asciiColors.background,
+            backgroundColor: 'transparent',
             border: '1px solid transparent'
           }}
           onClick={() => {
@@ -211,7 +211,7 @@ const DataLineageMongoDBTreeView: React.FC<TreeViewProps> = ({ edges, onEdgeClic
             e.currentTarget.style.borderColor = asciiColors.accent;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.background;
+            e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
             e.currentTarget.style.borderColor = 'transparent';
           }}
@@ -379,19 +379,20 @@ const DataLineageMongoDBTreeView: React.FC<TreeViewProps> = ({ edges, onEdgeClic
             margin: '2px 0',
             fontFamily: 'Consolas',
             fontSize: 12,
-            backgroundColor: asciiColors.accentLight,
-            border: `1px solid ${asciiColors.border}`,
+            backgroundColor: 'transparent',
+            border: `1px solid transparent`,
             borderLeft: `3px solid ${asciiColors.accent}`
           }}
           onClick={() => toggleSource(sourceKey)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.accentLight;
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = 'translateX(4px)';
             e.currentTarget.style.borderColor = asciiColors.accent;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.accentLight;
+            e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
+            e.currentTarget.style.borderColor = 'transparent';
           }}
         >
           {renderTreeLine(level, isLast)}

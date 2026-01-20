@@ -141,18 +141,18 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
             transition: 'all 0.2s ease',
             position: 'relative',
             margin: '2px 0',
-            background: `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`,
+            background: 'transparent',
             borderLeft: `3px solid ${asciiColors.accent}`,
             fontFamily: "Consolas",
             fontSize: 12
           }}
           onClick={() => toggleSchema(schema.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}25 0%, ${asciiColors.accent}15 100%)`;
+            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}20 0%, ${asciiColors.accent}12 100%)`;
             e.currentTarget.style.transform = 'translateX(2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`;
+            e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
@@ -229,18 +229,18 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
             transition: 'all 0.2s ease',
             position: 'relative',
             margin: '2px 0',
-            background: asciiColors.backgroundSoft,
+            background: 'transparent',
             borderLeft: `2px solid ${asciiColors.border}`,
             fontFamily: "Consolas",
             fontSize: 12
           }}
           onClick={() => toggleTable(schemaName, table.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.background;
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = 'translateX(2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+            e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
@@ -307,7 +307,7 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
           paddingLeft: `${level * 24 + 36}px`,
           margin: '2px 0',
           borderRadius: 2,
-          background: asciiColors.background,
+          background: 'transparent',
           border: `1px solid ${asciiColors.border}`,
           transition: 'all 0.2s ease',
           cursor: 'pointer',
@@ -324,7 +324,7 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
           e.currentTarget.style.transform = 'translateX(4px)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = asciiColors.background;
+          e.currentTarget.style.background = 'transparent';
           e.currentTarget.style.borderColor = asciiColors.border;
           e.currentTarget.style.transform = 'translateX(0)';
         }}

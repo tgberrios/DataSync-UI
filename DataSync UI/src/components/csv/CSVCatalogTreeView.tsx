@@ -257,18 +257,18 @@ const CSVCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
             transition: 'all 0.2s ease',
             position: 'relative',
             margin: '2px 0',
-            background: asciiColors.backgroundSoft,
+            background: 'transparent',
             borderLeft: `2px solid ${asciiColors.border}`,
             fontFamily: "Consolas",
             fontSize: 13
           }}
           onClick={() => toggleTable(schemaName, table.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.background;
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = 'translateX(2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+            e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
@@ -351,9 +351,7 @@ const CSVCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
             transition: 'all 0.2s ease',
             position: 'relative',
             margin: '2px 0',
-            background: isExpanded 
-              ? `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`
-              : asciiColors.background,
+            background: 'transparent',
             borderLeft: `3px solid ${asciiColors.accent}`,
             fontFamily: "Consolas",
             fontSize: 14
@@ -364,9 +362,7 @@ const CSVCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
             e.currentTarget.style.transform = 'translateX(2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = isExpanded 
-              ? `linear-gradient(135deg, ${asciiColors.accentSoft}15 0%, ${asciiColors.accent}08 100%)`
-              : asciiColors.background;
+            e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
