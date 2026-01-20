@@ -3,6 +3,7 @@ import { backupsApi, type BackupEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 import SkeletonLoader from '../shared/SkeletonLoader';
 
 const BackupManager = () => {
@@ -771,47 +772,24 @@ const BackupManager = () => {
               </div>
 
               <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: asciiColors.foreground,
-                  marginBottom: 6,
-                  fontFamily: 'Consolas',
-                  textTransform: 'uppercase'
-                }}>
-                  {ascii.v} CONNECTION STRING *
-                </label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <textarea
-                    value={backupForm.connection_string}
-                    onChange={(e) => {
-                      setBackupForm(prev => ({ ...prev, connection_string: e.target.value }));
-                      setConnectionTested(false);
-                      setAvailableDatabases([]);
-                    }}
-                    rows={3}
-                    style={{
-                      flex: 1,
-                      padding: '6px 10px',
-                      border: `1px solid ${asciiColors.border}`,
-                      borderRadius: 2,
-                      fontSize: 12,
-                      fontFamily: 'Consolas',
-                      backgroundColor: asciiColors.background,
-                      color: asciiColors.foreground,
-                      outline: 'none',
-                      resize: 'vertical'
-                    }}
-                  />
-                  <AsciiButton
-                    label={testingConnection ? "Testing..." : "Test"}
-                    onClick={handleTestConnection}
-                    variant="ghost"
-                    disabled={testingConnection || !backupForm.connection_string}
-                  />
-                </div>
-                {connectionTested && (
+                <ConnectionStringSelector
+                  value={backupForm.connection_string}
+                  onChange={(val) => {
+                    setBackupForm(prev => ({ ...prev, connection_string: val }));
+                    setConnectionTested(false);
+                    setAvailableDatabases([]);
+                  }}
+                  dbEngine={backupForm.db_engine}
+                  label="Connection String"
+                  required
+                  onTestConnection={handleTestConnection}
+                  isTesting={testingConnection}
+                  testResult={connectionTested ? {
+                    success: true,
+                    message: `Connection successful! Found ${availableDatabases.length} database(s)`
+                  } : null}
+                />
+                {connectionTested && availableDatabases.length > 0 && (
                   <div style={{
                     marginTop: 8,
                     padding: 8,

@@ -7,6 +7,7 @@ import {
   Label,
   Select,
 } from '../shared/BaseComponents';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 import { theme } from '../../theme/theme';
 import { apiCatalogApi } from '../../services/api';
 
@@ -1348,34 +1349,20 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
             </FormGroup>
           )}
 
-          <FormGroup>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <Label style={{ marginBottom: 0 }}>Target Connection String *</Label>
-              <Button
-                type="button"
-                $variant="secondary"
-                onClick={handleTestConnection}
-                disabled={isTestingConnection || !formData.target_db_engine || !formData.target_connection_string.trim()}
-                style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
-              >
-                {isTestingConnection ? 'Testing...' : 'Test Connection'}
-              </Button>
-            </div>
-            <Textarea
-              value={formData.target_connection_string}
-              onChange={(e) => {
-                setFormData(prev => ({ ...prev, target_connection_string: e.target.value }));
-                setConnectionTestResult(null);
-              }}
-              placeholder={connectionExample || "Enter connection string..."}
-            />
-            {connectionTestResult && (
-              <ConnectionTestResult $success={connectionTestResult.success}>
-                {connectionTestResult.success ? '✓ ' : '✗ '}
-                {connectionTestResult.message}
-              </ConnectionTestResult>
-            )}
-          </FormGroup>
+          <ConnectionStringSelector
+            value={formData.target_connection_string}
+            onChange={(val) => {
+              setFormData(prev => ({ ...prev, target_connection_string: val }));
+              setConnectionTestResult(null);
+            }}
+            dbEngine={formData.target_db_engine}
+            label="Target Connection String"
+            required
+            onTestConnection={handleTestConnection}
+            isTesting={isTestingConnection}
+            testResult={connectionTestResult}
+            placeholder={connectionExample || "Enter connection string..."}
+          />
 
           <TwoColumnGrid>
             <FormGroup>

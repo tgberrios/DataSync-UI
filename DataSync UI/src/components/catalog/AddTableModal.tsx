@@ -7,6 +7,7 @@ import {
   Label,
   Select,
 } from '../shared/BaseComponents';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 import type { CatalogEntry } from '../../services/api';
 import { theme } from '../../theme/theme';
 
@@ -499,46 +500,32 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
             </>
           )}
 
-          <FormGroup>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <Label style={{ marginBottom: 0 }}>Connection String *</Label>
-              <Button
-                type="button"
-                $variant="secondary"
-                onClick={handleTestConnection}
-                disabled={isTestingConnection || !formData.db_engine || !formData.connection_string.trim()}
-                style={{ padding: '6px 12px', fontSize: '0.85em', minWidth: 'auto' }}
-              >
-                {isTestingConnection ? 'Testing...' : 'Test Connection'}
-              </Button>
-            </div>
-            <Textarea
-              value={formData.connection_string}
-              onChange={(e) => {
-                setFormData(prev => ({ 
-                  ...prev, 
-                  connection_string: e.target.value,
-                  schema_name: '',
-                  table_name: ''
-                }));
-                setConnectionTestResult(null);
-                setSchemas([]);
-                setTables([]);
-              }}
-              placeholder={connectionExample || "Enter connection string..."}
-            />
-            {connectionTestResult && (
-              <ConnectionTestResult $success={connectionTestResult.success}>
-                {connectionTestResult.success ? '✓ ' : '✗ '}
-                {connectionTestResult.message}
-                {connectionTestResult.success && connectionTestResult.cluster_name && (
-                  <div style={{ marginTop: '4px', fontSize: '0.85em' }}>
-                    Cluster name detected: {connectionTestResult.cluster_name}
-                  </div>
-                )}
-              </ConnectionTestResult>
-            )}
-          </FormGroup>
+          <ConnectionStringSelector
+            value={formData.connection_string}
+            onChange={(val) => {
+              setFormData(prev => ({ 
+                ...prev, 
+                connection_string: val,
+                schema_name: '',
+                table_name: ''
+              }));
+              setConnectionTestResult(null);
+              setSchemas([]);
+              setTables([]);
+            }}
+            dbEngine={formData.db_engine}
+            label="Connection String"
+            required
+            onTestConnection={handleTestConnection}
+            isTesting={isTestingConnection}
+            testResult={connectionTestResult ? {
+              success: connectionTestResult.success,
+              message: connectionTestResult.success && connectionTestResult.cluster_name
+                ? `${connectionTestResult.message} Cluster name detected: ${connectionTestResult.cluster_name}`
+                : connectionTestResult.message
+            } : null}
+            placeholder={connectionExample || "Enter connection string..."}
+          />
 
           {connectionTestResult?.success && (
             <>

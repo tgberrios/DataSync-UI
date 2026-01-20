@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 import { dataVaultApi, type DataVaultEntry, type HubTable, type LinkTable, type SatelliteTable, type PointInTimeTable, type BridgeTable } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 
@@ -398,48 +399,22 @@ const AddDataVaultModal: React.FC<AddDataVaultModalProps> = ({ onClose, onSave, 
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: 4, color: asciiColors.foreground, fontWeight: 600 }}>
-                Source Connection String *
-              </label>
-              <textarea
+              <ConnectionStringSelector
                 value={formData.source_connection_string}
-                onChange={(e) => setFormData(prev => ({ ...prev, source_connection_string: e.target.value }))}
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  fontSize: 12,
-                  fontFamily: 'Consolas',
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground,
-                  outline: 'none',
-                  resize: 'vertical'
-                }}
+                onChange={(val) => setFormData(prev => ({ ...prev, source_connection_string: val }))}
+                dbEngine={formData.source_db_engine}
+                label="Source Connection String"
+                required
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: 4, color: asciiColors.foreground, fontWeight: 600 }}>
-                Target Connection String *
-              </label>
-              <textarea
+              <ConnectionStringSelector
                 value={formData.target_connection_string}
-                onChange={(e) => setFormData(prev => ({ ...prev, target_connection_string: e.target.value }))}
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  fontSize: 12,
-                  fontFamily: 'Consolas',
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground,
-                  outline: 'none',
-                  resize: 'vertical'
-                }}
+                onChange={(val) => setFormData(prev => ({ ...prev, target_connection_string: val }))}
+                dbEngine={formData.target_db_engine}
+                label="Target Connection String"
+                required
               />
             </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { customJobsApi } from '../../services/api';
@@ -1589,40 +1590,13 @@ const CustomJobs = () => {
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <label style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: asciiColors.foreground,
-                  marginBottom: 6,
-                  fontFamily: "Consolas",
-                  textTransform: "uppercase"
-                }}>
-                  {ascii.v} TARGET CONNECTION STRING *
-                </label>
-                <textarea
+                <ConnectionStringSelector
                   value={jobForm.target_connection_string}
-                  onChange={(e) => setJobForm(prev => ({ ...prev, target_connection_string: e.target.value }))}
+                  onChange={(val) => setJobForm(prev => ({ ...prev, target_connection_string: val }))}
+                  dbEngine={jobForm.target_db_engine}
+                  label="Target Connection String"
+                  required
                   placeholder={connectionStringExamples[jobForm.target_db_engine] || "host=localhost port=5432 dbname=..."}
-                  rows={3}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: `1px solid ${asciiColors.border}`,
-                    borderRadius: 2,
-                    fontSize: 12,
-                    fontFamily: "Consolas",
-                    backgroundColor: asciiColors.background,
-                    color: asciiColors.foreground,
-                    outline: "none",
-                    resize: "vertical"
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = asciiColors.accent;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = asciiColors.border;
-                  }}
                 />
                 {jobForm.target_db_engine && connectionStringExamples[jobForm.target_db_engine] && (
                   <div style={{

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { theme } from '../../../theme/theme';
 import { FormGroup, Label, Select, Input } from '../../shared/BaseComponents';
+import { ConnectionStringSelector } from '../../shared/ConnectionStringSelector';
 
 const PanelSection = styled.div`
   margin-bottom: ${theme.spacing.lg};
@@ -124,17 +125,16 @@ const TargetPanel: React.FC<TargetPanelProps> = ({
           </Select>
         </FormGroup>
 
-        <FormGroup>
-          <Label>Target Connection String</Label>
-          <Input
-            value={targetConfig.connection_string}
-            onChange={(e) => onTargetConfigChange({
-              ...targetConfig,
-              connection_string: e.target.value
-            })}
-            placeholder="postgresql://user:pass@host:port/db"
-          />
-        </FormGroup>
+        <ConnectionStringSelector
+          value={targetConfig.connection_string}
+          onChange={(val) => onTargetConfigChange({
+            ...targetConfig,
+            connection_string: val
+          })}
+          dbEngine={targetConfig.db_engine || 'PostgreSQL'}
+          label="Target Connection String"
+          placeholder="postgresql://user:pass@host:port/db"
+        />
 
         <FormGroup>
           <Label>Target Schema</Label>

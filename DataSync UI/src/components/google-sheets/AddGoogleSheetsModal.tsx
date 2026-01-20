@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 
 
 interface AddGoogleSheetsModalProps {
@@ -1002,29 +1003,12 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: asciiColors.foreground,
-                  fontFamily: "Consolas",
-                  textTransform: "uppercase"
-                }}>
-                  {ascii.v} TARGET CONNECTION STRING *
-                </label>
-                <AsciiButton
-                  label={isTestingConnection ? 'Testing...' : 'Test Connection'}
-                  onClick={handleTestConnection}
-                  variant="ghost"
-                  disabled={isTestingConnection || !formData.target_db_engine || !formData.target_connection_string.trim()}
-                />
-              </div>
-              <textarea
+              <ConnectionStringSelector
                 value={formData.target_connection_string}
-                onChange={(e) => {
+                onChange={(val) => {
                   setFormData(prev => ({
                     ...prev,
-                    target_connection_string: e.target.value,
+                    target_connection_string: val,
                     target_schema: '',
                     target_table: ''
                   }));
@@ -1032,26 +1016,13 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                   setSchemas([]);
                   setTables([]);
                 }}
+                dbEngine={formData.target_db_engine}
+                label="Target Connection String"
+                required
+                onTestConnection={handleTestConnection}
+                isTesting={isTestingConnection}
+                testResult={connectionTestResult}
                 placeholder={connectionExample || "Enter connection string..."}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: `1px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  fontSize: 12,
-                  fontFamily: "Consolas",
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground,
-                  minHeight: 100,
-                  resize: "vertical",
-                  outline: "none"
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = asciiColors.accent;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = asciiColors.border;
-                }}
               />
               {connectionExample && (
                 <div style={{

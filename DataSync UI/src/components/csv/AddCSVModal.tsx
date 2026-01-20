@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 import { csvCatalogApi } from '../../services/api';
 
 
@@ -1046,29 +1047,12 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <label style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontFamily: "Consolas",
-                      textTransform: "uppercase"
-                    }}>
-                      TARGET CONNECTION STRING *
-                    </label>
-                    <AsciiButton
-                      label={isTestingConnection ? 'Testing...' : 'Test Connection'}
-                      onClick={handleTestConnection}
-                      variant="ghost"
-                      disabled={isTestingConnection || !formData.target_db_engine || !formData.target_connection_string.trim()}
-                    />
-                  </div>
-                  <textarea
+                  <ConnectionStringSelector
                     value={formData.target_connection_string}
-                    onChange={(e) => {
+                    onChange={(val) => {
                       setFormData(prev => ({ 
                         ...prev, 
-                        target_connection_string: e.target.value,
+                        target_connection_string: val,
                         target_schema: '',
                         target_table: ''
                       }));
@@ -1076,26 +1060,13 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
                       setSchemas([]);
                       setTables([]);
                     }}
+                    dbEngine={formData.target_db_engine}
+                    label="Target Connection String"
+                    required
+                    onTestConnection={handleTestConnection}
+                    isTesting={isTestingConnection}
+                    testResult={connectionTestResult}
                     placeholder={connectionExample || "Enter connection string..."}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: `1px solid ${asciiColors.border}`,
-                      borderRadius: 2,
-                      fontSize: 12,
-                      fontFamily: "Consolas",
-                      backgroundColor: asciiColors.background,
-                      color: asciiColors.foreground,
-                      outline: "none",
-                      minHeight: 100,
-                      resize: "vertical"
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = asciiColors.accent;
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = asciiColors.border;
-                    }}
                   />
                   {connectionExample && (
                     <div style={{
@@ -1111,21 +1082,6 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
                       wordBreak: "break-all"
                     }}>
                       Example: {connectionExample}
-                    </div>
-                  )}
-                  {connectionTestResult && (
-                    <div style={{
-                      marginTop: 8,
-                      padding: "8px 12px",
-                      borderRadius: 2,
-                      fontSize: 12,
-                      fontFamily: "Consolas",
-                      backgroundColor: connectionTestResult.success ? asciiColors.success : asciiColors.danger,
-                      color: asciiColors.background,
-                      border: `1px solid ${connectionTestResult.success ? asciiColors.success : asciiColors.danger}`
-                    }}>
-                      {connectionTestResult.success ? '✓ ' : '✗ '}
-                      {connectionTestResult.message}
                     </div>
                   )}
                 </div>

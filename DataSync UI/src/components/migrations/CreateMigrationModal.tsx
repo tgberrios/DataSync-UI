@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
 import { schemaMigrationsApi, backupsApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 
@@ -363,74 +364,25 @@ const CreateMigrationModal = ({ onClose, onSuccess }: CreateMigrationModalProps)
 
                 return (
                   <div key={env} style={{ marginBottom: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <label style={{
-                        display: 'block',
-                        fontSize: 11,
-                        color: asciiColors.muted,
-                        fontFamily: 'Consolas'
-                      }}>
-                        {env.charAt(0).toUpperCase() + env.slice(1)} Connection {isRequired && '*'}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleTestConnection(env)}
-                        disabled={isTesting || !connectionString || connectionString.trim() === ''}
-                        style={{
-                          padding: '6px 12px',
-                          border: `1px solid ${asciiColors.accent}`,
-                          borderRadius: 2,
-                          background: asciiColors.accent,
-                          color: asciiColors.background,
-                          cursor: (isTesting || !connectionString || connectionString.trim() === '') ? 'not-allowed' : 'pointer',
-                          fontSize: 11,
-                          fontFamily: 'Consolas',
-                          fontWeight: 600,
-                          opacity: (isTesting || !connectionString || connectionString.trim() === '') ? 0.5 : 1
-                        }}
-                      >
-                        {isTesting ? 'TESTING...' : 'TEST'}
-                      </button>
-                    </div>
-                    <input
-                      type="text"
+                    <ConnectionStringSelector
                       value={connectionString}
-                      onChange={(e) => {
+                      onChange={(val) => {
                         setFormData(prev => ({
                           ...prev,
                           environment_connections: {
                             ...prev.environment_connections,
-                            [env]: e.target.value
+                            [env]: val
                           }
                         }));
                         setConnectionTestResults(prev => ({ ...prev, [env]: undefined as any }));
                       }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        border: `1px solid ${isRequired && (!connectionString || connectionString.trim() === '') ? asciiColors.danger : asciiColors.border}`,
-                        borderRadius: 2,
-                        background: asciiColors.backgroundSoft,
-                        color: asciiColors.foreground,
-                        fontFamily: 'Consolas',
-                        fontSize: 12
-                      }}
+                      dbEngine={formData.db_engine}
+                      label={`${env.charAt(0).toUpperCase() + env.slice(1)} Connection`}
+                      required={isRequired}
+                      onTestConnection={() => handleTestConnection(env)}
+                      isTesting={isTesting}
+                      testResult={testResult || null}
                     />
-                    {testResult && (
-                      <div style={{
-                        marginTop: 8,
-                        padding: 8,
-                        background: testResult.success ? (asciiColors.success + '20') : (asciiColors.danger + '20'),
-                        border: `1px solid ${testResult.success ? asciiColors.success : asciiColors.danger}`,
-                        borderRadius: 2,
-                        color: testResult.success ? asciiColors.success : asciiColors.danger,
-                        fontSize: 11,
-                        fontFamily: 'Consolas'
-                      }}>
-                        {testResult.success ? '✓ ' : '✗ '}
-                        {testResult.message}
-                      </div>
-                    )}
                   </div>
                 );
               })}

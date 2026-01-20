@@ -601,6 +601,47 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+app.get("/api/connections", requireAuth, async (req, res) => {
+  try {
+    const { db_engine } = req.query;
+    
+    let query = `
+      SELECT db_engine, connection_string, connection_string_masked
+      FROM metadata.available_connections
+    `;
+    
+    const params = [];
+    if (db_engine) {
+      query += ' WHERE db_engine = $1';
+      params.push(db_engine);
+    }
+    
+    query += ' ORDER BY db_engine, connection_string';
+    
+    const result = await pool.query(query, params);
+    
+    res.json({
+      success: true,
+      connections: result.rows.map(row => ({
+        db_engine: row.db_engine,
+        connection_string: row.connection_string,
+        connection_string_masked: row.connection_string_masked
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching connections:', error);
+    const safeError = sanitizeError(
+      error,
+      "Failed to fetch connections",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({
+      success: false,
+      error: safeError
+    });
+  }
+});
+
 // Resetear CDC (last_change_id a 0) - DEBE IR ANTES DE /api/catalog
 app.post(
   "/api/catalog/reset-cdc",
@@ -16819,6 +16860,8 @@ if (!fs.existsSync(backupsDir)) {
   fs.mkdirSync(backupsDir, { recursive: true });
 }
 
+const DataSyncPath = path.join(process.cwd(), "..", "DataSync", "DataSync");
+
 function matchesCronField(field, currentValue) {
   if (field === "*") {
     return true;
@@ -16874,29 +16917,6 @@ function matchesCronField(field, currentValue) {
   }
 }
 
-function shouldRunCron(cronSchedule) {
-  const now = new Date();
-  const parts = cronSchedule.trim().split(/\s+/);
-  if (parts.length !== 5) {
-    return false;
-  }
-
-  const [minute, hour, day, month, dow] = parts;
-  const currentMinute = now.getUTCMinutes();
-  const currentHour = now.getUTCHours();
-  const currentDay = now.getUTCDate();
-  const currentMonth = now.getUTCMonth() + 1;
-  const currentDow = now.getUTCDay();
-
-  return (
-    matchesCronField(minute, currentMinute) &&
-    matchesCronField(hour, currentHour) &&
-    matchesCronField(day, currentDay) &&
-    matchesCronField(month, currentMonth) &&
-    matchesCronField(dow, currentDow)
-  );
-}
-
 function calculateNextRunTime(cronSchedule) {
   const now = new Date();
   let nextRun = new Date(now);
@@ -16939,409 +16959,6 @@ function calculateNextRunTime(cronSchedule) {
   return null;
 }
 
-async function executeScheduledBackup(backup) {
-  try {
-    const historyRecord = await pool.query(
-      `INSERT INTO metadata.backup_history 
-       (backup_id, backup_name, status, started_at, triggered_by)
-       VALUES ($1, $2, $3, NOW(), $4)
-       RETURNING id`,
-      [backup.backup_id, backup.backup_name, "in_progress", "scheduled"]
-    );
-
-    const historyId = historyRecord.rows[0].id;
-
-    await pool.query(
-      `UPDATE metadata.backups 
-       SET last_run_at = NOW(), run_count = run_count + 1
-       WHERE backup_id = $1`,
-      [backup.backup_id]
-    );
-
-    const connInfo = parseConnectionString(
-      backup.connection_string,
-      backup.db_engine
-    );
-    if (!connInfo) {
-      throw new Error("Failed to parse connection string");
-    }
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileExtension =
-      backup.db_engine === "PostgreSQL"
-        ? "dump"
-        : backup.db_engine === "MariaDB"
-        ? "sql"
-        : backup.db_engine === "MongoDB"
-        ? "gz"
-        : "dmp";
-    const fileName = `${backup.backup_name}_${timestamp}.${fileExtension}`;
-    const filePath = path.join(backupsDir, fileName);
-
-    let resultPath;
-    if (backup.db_engine === "PostgreSQL") {
-      resultPath = await createPostgreSQLBackup(
-        connInfo,
-        backup.database_name,
-        backup.backup_type,
-        filePath
-      );
-    } else if (backup.db_engine === "MariaDB") {
-      resultPath = await createMariaDBBackup(
-        connInfo,
-        backup.database_name,
-        backup.backup_type,
-        filePath
-      );
-    } else if (backup.db_engine === "MongoDB") {
-      resultPath = await createMongoDBBackup(
-        connInfo,
-        backup.database_name,
-        backup.backup_type,
-        filePath
-      );
-    } else if (backup.db_engine === "Oracle") {
-      resultPath = await createOracleBackup(
-        connInfo,
-        backup.database_name,
-        backup.backup_type,
-        filePath
-      );
-    }
-
-    const stats = await fs.promises.stat(resultPath);
-    const fileSize = stats.size || 0;
-    const completedAt = new Date();
-    const startedAt = historyRecord.rows[0].started_at ? new Date(historyRecord.rows[0].started_at) : completedAt;
-    const durationSeconds = Math.max(0, Math.floor((completedAt - startedAt) / 1000));
-    
-    if (isNaN(fileSize) || fileSize < 0) {
-      throw new Error(`Invalid file size: ${fileSize}`);
-    }
-    if (isNaN(durationSeconds) || durationSeconds < 0) {
-      throw new Error(`Invalid duration: ${durationSeconds}`);
-    }
-
-    await pool.query(
-      `UPDATE metadata.backups 
-       SET status = 'completed', file_size = $1, completed_at = NOW()
-       WHERE backup_id = $2`,
-      [fileSize, backup.backup_id]
-    );
-
-    await pool.query(
-      `UPDATE metadata.backup_history 
-       SET status = 'completed', completed_at = NOW(), 
-           duration_seconds = $1, file_path = $2, file_size = $3
-       WHERE id = $4`,
-      [durationSeconds, resultPath, fileSize, historyId]
-    );
-
-    const nextRun = calculateNextRunTime(backup.cron_schedule);
-    if (nextRun) {
-      await pool.query(
-        `UPDATE metadata.backups 
-         SET next_run_at = $1
-         WHERE backup_id = $2`,
-        [nextRun, backup.backup_id]
-      );
-    }
-
-    console.log(
-      `Scheduled backup ${backup.backup_name} completed successfully`
-    );
-  } catch (err) {
-    console.error(
-      `Error executing scheduled backup ${backup.backup_name}:`,
-      err
-    );
-    await pool.query(
-      `UPDATE metadata.backup_history 
-       SET status = 'failed', completed_at = NOW(), error_message = $1
-       WHERE backup_id = $2 AND status = 'in_progress'
-       ORDER BY started_at DESC LIMIT 1`,
-      [err.message, backup.backup_id]
-    );
-  }
-}
-
-if (process.env.NODE_ENV !== "test") {
-  setInterval(async () => {
-    try {
-      const scheduledBackups = await pool.query(
-        `SELECT * FROM metadata.backups 
-         WHERE is_scheduled = true 
-         AND cron_schedule IS NOT NULL 
-         AND cron_schedule != ''
-         AND (next_run_at IS NULL OR next_run_at <= NOW())`
-      );
-
-      for (const backup of scheduledBackups.rows) {
-        if (shouldRunCron(backup.cron_schedule)) {
-          console.log(`Executing scheduled backup: ${backup.backup_name}`);
-          executeScheduledBackup(backup).catch((err) => {
-            console.error(
-              `Error in scheduled backup execution: ${backup.backup_name}`,
-              err
-            );
-          });
-        } else {
-          const nextRun = calculateNextRunTime(backup.cron_schedule);
-          if (nextRun) {
-            await pool.query(
-              `UPDATE metadata.backups 
-               SET next_run_at = $1
-               WHERE backup_id = $2`,
-              [nextRun, backup.backup_id]
-            );
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Error in backup scheduler:", err);
-    }
-  }, 60000);
-}
-
-function parseConnectionString(connectionString, dbEngine) {
-  if (dbEngine === "PostgreSQL") {
-    const url = new URL(
-      connectionString.replace(/^postgresql:\/\//, "http://")
-    );
-    const port = parseInt(url.port) || 5432;
-    return {
-      host: url.hostname,
-      port: isNaN(port) ? 5432 : port,
-      database: url.pathname.slice(1),
-      user: url.username,
-      password: url.password,
-    };
-  } else if (dbEngine === "MariaDB") {
-    const params = {};
-    connectionString.split(";").forEach((param) => {
-      const [key, value] = param.split("=");
-      if (key && value) params[key.trim().toLowerCase()] = value.trim();
-    });
-    const port = parseInt(params.port) || 3306;
-    return {
-      host: params.host || params.server || "localhost",
-      port: isNaN(port) ? 3306 : port,
-      database: params.database || params.database || "",
-      user: params.user || params.uid || "",
-      password: params.password || params.pwd || "",
-    };
-  } else if (dbEngine === "MongoDB") {
-    const url = new URL(connectionString);
-    const port = parseInt(url.port) || 27017;
-    return {
-      host: url.hostname,
-      port: isNaN(port) ? 27017 : port,
-      database: url.pathname.slice(1),
-      user: url.username,
-      password: url.password,
-    };
-  } else if (dbEngine === "Oracle") {
-    const params = {};
-    connectionString.split(";").forEach((param) => {
-      const [key, value] = param.split("=");
-      if (key && value) params[key.trim().toLowerCase()] = value.trim();
-    });
-    const port = parseInt(params.port) || 1521;
-    return {
-      host: params.host || "localhost",
-      port: isNaN(port) ? 1521 : port,
-      database: params.servicename || params.sid || "",
-      user: params.user || "",
-      password: params.password || "",
-    };
-  }
-  return null;
-}
-
-async function createPostgreSQLBackup(
-  connInfo,
-  databaseName,
-  backupType,
-  outputPath
-) {
-  return new Promise((resolve, reject) => {
-    const args = [];
-    if (backupType === "structure") {
-      args.push("--schema-only");
-    } else if (backupType === "data") {
-      args.push("--data-only");
-    }
-    args.push("-h", connInfo.host);
-    args.push("-p", connInfo.port.toString());
-    args.push("-U", connInfo.user);
-    args.push("-d", databaseName);
-    args.push("-f", outputPath);
-    args.push("-F", "c");
-
-    const env = { ...process.env, PGPASSWORD: connInfo.password };
-    const pgDump = spawn("pg_dump", args, { env });
-
-    let errorOutput = "";
-    pgDump.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-    });
-
-    pgDump.on("close", (code) => {
-      if (code === 0) {
-        resolve(outputPath);
-      } else {
-        reject(new Error(`pg_dump failed: ${errorOutput}`));
-      }
-    });
-
-    pgDump.on("error", (err) => {
-      reject(new Error(`Failed to start pg_dump: ${err.message}`));
-    });
-  });
-}
-
-async function createMariaDBBackup(
-  connInfo,
-  databaseName,
-  backupType,
-  outputPath
-) {
-  return new Promise((resolve, reject) => {
-    const args = [];
-    if (backupType === "structure") {
-      args.push("--no-data");
-    } else if (backupType === "data") {
-      args.push("--no-create-info");
-    }
-    args.push("-h", connInfo.host);
-    args.push("-P", connInfo.port.toString());
-    args.push("-u", connInfo.user);
-    if (connInfo.password) {
-      args.push(`-p${connInfo.password}`);
-    }
-    args.push(databaseName);
-
-    const mysqldump = spawn("mysqldump", args);
-
-    const writeStream = fs.createWriteStream(outputPath);
-    mysqldump.stdout.pipe(writeStream);
-
-    let errorOutput = "";
-    mysqldump.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-    });
-
-    mysqldump.on("close", (code) => {
-      writeStream.end();
-      if (code === 0) {
-        resolve(outputPath);
-      } else {
-        reject(new Error(`mysqldump failed: ${errorOutput}`));
-      }
-    });
-
-    mysqldump.on("error", (err) => {
-      reject(new Error(`Failed to start mysqldump: ${err.message}`));
-    });
-  });
-}
-
-async function createMongoDBBackup(
-  connInfo,
-  databaseName,
-  backupType,
-  outputPath
-) {
-  return new Promise((resolve, reject) => {
-    const args = [];
-    if (backupType === "structure") {
-      args.push("--gzip");
-    }
-    args.push("--host", `${connInfo.host}:${connInfo.port}`);
-    if (connInfo.user) {
-      args.push("--username", connInfo.user);
-    }
-    if (connInfo.password) {
-      args.push("--password", connInfo.password);
-    }
-    args.push("--db", databaseName);
-    args.push("--out", path.dirname(outputPath));
-
-    const mongodump = spawn("mongodump", args);
-
-    let errorOutput = "";
-    mongodump.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-    });
-
-    mongodump.on("close", (code) => {
-      if (code === 0) {
-        const finalPath = path.join(path.dirname(outputPath), databaseName);
-        if (fs.existsSync(finalPath)) {
-          if (backupType === "structure") {
-            resolve(finalPath);
-          } else {
-            resolve(finalPath);
-          }
-        } else {
-          resolve(finalPath);
-        }
-      } else {
-        reject(new Error(`mongodump failed: ${errorOutput}`));
-      }
-    });
-
-    mongodump.on("error", (err) => {
-      reject(new Error(`Failed to start mongodump: ${err.message}`));
-    });
-  });
-}
-
-async function createOracleBackup(
-  connInfo,
-  databaseName,
-  backupType,
-  outputPath
-) {
-  return new Promise((resolve, reject) => {
-    const args = [];
-    if (backupType === "structure") {
-      args.push("SCHEMAS=" + connInfo.user);
-      args.push("CONTENT=METADATA_ONLY");
-    } else if (backupType === "data") {
-      args.push("SCHEMAS=" + connInfo.user);
-      args.push("CONTENT=DATA_ONLY");
-    } else {
-      args.push("SCHEMAS=" + connInfo.user);
-    }
-    args.push("DIRECTORY=DATA_PUMP_DIR");
-    args.push("DUMPFILE=" + path.basename(outputPath));
-    args.push("LOGFILE=" + path.basename(outputPath).replace(".dmp", ".log"));
-
-    const expdpCommand = `expdp ${connInfo.user}/${connInfo.password}@${
-      connInfo.host
-    }:${connInfo.port}/${databaseName} ${args.join(" ")}`;
-
-    const expdp = spawn("bash", ["-c", expdpCommand]);
-
-    let errorOutput = "";
-    expdp.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-    });
-
-    expdp.on("close", (code) => {
-      if (code === 0) {
-        resolve(outputPath);
-      } else {
-        reject(new Error(`expdp failed: ${errorOutput}`));
-      }
-    });
-
-    expdp.on("error", (err) => {
-      reject(new Error(`Failed to start expdp: ${err.message}`));
-    });
-  });
-}
 
 app.post(
   "/api/backups/create",
@@ -17435,48 +17052,55 @@ app.post(
             [backupId, backup_name, "in_progress", "manual"]
           );
 
-          const connInfo = parseConnectionString(connection_string, db_engine);
-          if (!connInfo) {
-            throw new Error("Failed to parse connection string");
+          const backupConfig = {
+            backup_name: backup_name,
+            db_engine: db_engine,
+            connection_string: connection_string,
+            database_name: database_name,
+            backup_type: backup_type,
+            file_path: filePath
+          };
+
+          const configPath = path.join(process.cwd(), "backups", `backup_config_${backupId}.json`);
+          await fs.promises.writeFile(configPath, JSON.stringify(backupConfig, null, 2));
+
+          const backupProcess = spawn(DataSyncPath, ["backup", "create", configPath]);
+
+          let stdout = "";
+          let stderr = "";
+
+          backupProcess.stdout.on("data", (data) => {
+            stdout += data.toString();
+          });
+
+          backupProcess.stderr.on("data", (data) => {
+            stderr += data.toString();
+          });
+
+          const exitCode = await new Promise((resolve) => {
+            backupProcess.on("close", resolve);
+          });
+
+          try {
+            await fs.promises.unlink(configPath);
+          } catch (unlinkErr) {
+            console.warn("Failed to delete temp config file:", unlinkErr);
           }
 
-          let resultPath;
-          if (db_engine === "PostgreSQL") {
-            resultPath = await createPostgreSQLBackup(
-              connInfo,
-              database_name,
-              backup_type,
-              filePath
-            );
-          } else if (db_engine === "MariaDB") {
-            resultPath = await createMariaDBBackup(
-              connInfo,
-              database_name,
-              backup_type,
-              filePath
-            );
-          } else if (db_engine === "MongoDB") {
-            resultPath = await createMongoDBBackup(
-              connInfo,
-              database_name,
-              backup_type,
-              filePath
-            );
-          } else if (db_engine === "Oracle") {
-            resultPath = await createOracleBackup(
-              connInfo,
-              database_name,
-              backup_type,
-              filePath
-            );
+          if (exitCode !== 0) {
+            throw new Error(`Backup process failed: ${stderr || stdout}`);
           }
 
-          const stats = await fs.promises.stat(resultPath);
-          const fileSize = stats.size || 0;
-          const completedAt = new Date();
-          const startedAt = historyRecord.rows[0].started_at ? new Date(historyRecord.rows[0].started_at) : completedAt;
-          const durationSeconds = Math.max(0, Math.floor((completedAt - startedAt) / 1000));
+          const result = JSON.parse(stdout);
           
+          if (!result.success) {
+            throw new Error(result.error_message || "Backup failed");
+          }
+
+          const resultPath = result.file_path || filePath;
+          const fileSize = result.file_size || 0;
+          const durationSeconds = result.duration_seconds || 0;
+
           if (isNaN(fileSize) || fileSize < 0) {
             throw new Error(`Invalid file size: ${fileSize}`);
           }
