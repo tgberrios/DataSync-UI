@@ -159,7 +159,7 @@ const ObjectDetailsRow = styled.div<{ $level?: number }>`
   padding-left: ${props => (props.$level || 0) * 24 + 36}px;
   margin: 2px 0;
   border-radius: 2px;
-  background: ${asciiColors.background};
+  background: transparent;
   border: 1px solid ${asciiColors.border};
   transition: all 0.2s ease;
   cursor: pointer;

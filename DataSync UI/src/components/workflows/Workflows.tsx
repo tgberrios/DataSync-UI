@@ -11,6 +11,9 @@ import SkeletonLoader from '../shared/SkeletonLoader';
 import WorkflowTreeView from './WorkflowTreeView';
 import AddWorkflowModal from './AddWorkflowModal';
 import WorkflowMonitor from './WorkflowMonitor';
+import BackfillModal from './BackfillModal';
+import VersionHistoryModal from './VersionHistoryModal';
+import TaskQueuePanel from './TaskQueuePanel';
 
 const Workflows = () => {
   const { setPage } = usePagination(1, 20);
@@ -28,6 +31,9 @@ const Workflows = () => {
   const [editingWorkflow, setEditingWorkflow] = useState<WorkflowEntry | null>(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'monitor'>('list');
+  const [isBackfillModalOpen, setIsBackfillModalOpen] = useState(false);
+  const [isVersionHistoryModalOpen, setIsVersionHistoryModalOpen] = useState(false);
+  const [isTaskQueuePanelOpen, setIsTaskQueuePanelOpen] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllWorkflows = useCallback(async () => {
@@ -196,6 +202,11 @@ const Workflows = () => {
           <AsciiButton
             label={viewMode === 'list' ? '📊 Monitor' : '📋 List'}
             onClick={() => setViewMode(viewMode === 'list' ? 'monitor' : 'list')}
+            variant="ghost"
+          />
+          <AsciiButton
+            label="Task Queue"
+            onClick={() => setIsTaskQueuePanelOpen(true)}
             variant="ghost"
           />
         </div>
@@ -407,7 +418,7 @@ const Workflows = () => {
                         {selectedWorkflow.dependencies?.length || 0}
                       </span>
                     </div>
-                    <div style={{ marginTop: 24, display: "flex", gap: 8 }}>
+                    <div style={{ marginTop: 24, display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <AsciiButton
                         label="Edit"
                         onClick={() => handleOpenModal(selectedWorkflow)}
@@ -417,6 +428,16 @@ const Workflows = () => {
                         label="Execute"
                         onClick={() => handleExecute(selectedWorkflow.workflow_name)}
                         variant="primary"
+                      />
+                      <AsciiButton
+                        label="Backfill"
+                        onClick={() => setIsBackfillModalOpen(true)}
+                        variant="primary"
+                      />
+                      <AsciiButton
+                        label="Version History"
+                        onClick={() => setIsVersionHistoryModalOpen(true)}
+                        variant="ghost"
                       />
                       <AsciiButton
                         label={selectedWorkflow.active ? "Deactivate" : "Activate"}
@@ -444,6 +465,28 @@ const Workflows = () => {
           workflow={editingWorkflow}
           onClose={handleCloseModal}
           onSave={handleSave}
+        />
+      )}
+
+      {isBackfillModalOpen && selectedWorkflow && (
+        <BackfillModal
+          workflowName={selectedWorkflow.workflow_name}
+          onClose={() => setIsBackfillModalOpen(false)}
+          onSuccess={fetchAllWorkflows}
+        />
+      )}
+
+      {isVersionHistoryModalOpen && selectedWorkflow && (
+        <VersionHistoryModal
+          workflowName={selectedWorkflow.workflow_name}
+          onClose={() => setIsVersionHistoryModalOpen(false)}
+          onVersionRestored={fetchAllWorkflows}
+        />
+      )}
+
+      {isTaskQueuePanelOpen && (
+        <TaskQueuePanel
+          onClose={() => setIsTaskQueuePanelOpen(false)}
         />
       )}
     </div>

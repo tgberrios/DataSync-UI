@@ -29,6 +29,12 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
       max_execution_time_seconds: 3600,
       alert_on_sla_breach: true,
     },
+    rollback_config: workflow?.rollback_config || {
+      enabled: false,
+      on_failure: true,
+      on_timeout: false,
+      max_rollback_depth: 10,
+    },
     metadata: workflow?.metadata || {},
   });
 
@@ -36,7 +42,20 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
   const [dependencies, setDependencies] = useState<WorkflowDependency[]>(workflow?.dependencies || []);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'basic' | 'dag'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'dag' | 'events' | 'data-driven'>('basic');
+  const [eventTrigger, setEventTrigger] = useState({
+    event_type: 'FILE_ARRIVAL' as 'FILE_ARRIVAL' | 'API_CALL' | 'DATABASE_CHANGE' | 'SCHEDULE' | 'MANUAL',
+    event_config: '{}',
+    active: true,
+  });
+  const [dataDrivenSchedule, setDataDrivenSchedule] = useState({
+    query: '',
+    connection_string: '',
+    condition_field: '',
+    condition_value: '',
+    check_interval_seconds: 30,
+    active: false,
+  });
   const [availableCustomJobs, setAvailableCustomJobs] = useState<Array<{ job_name: string }>>([]);
   const [availableWarehouses, setAvailableWarehouses] = useState<Array<{ warehouse_name: string }>>([]);
   const [availableVaults, setAvailableVaults] = useState<Array<{ vault_name: string }>>([]);
@@ -122,7 +141,7 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: `1px solid ${asciiColors.border}`, paddingBottom: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: `1px solid ${asciiColors.border}`, paddingBottom: 8, flexWrap: 'wrap' }}>
           <AsciiButton
             label="Basic Info"
             onClick={() => setActiveTab('basic')}
@@ -132,6 +151,16 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
             label="DAG Builder"
             onClick={() => setActiveTab('dag')}
             variant={activeTab === 'dag' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
+            label="Event Triggers"
+            onClick={() => setActiveTab('events')}
+            variant={activeTab === 'events' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton
+            label="Data-Driven"
+            onClick={() => setActiveTab('data-driven')}
+            variant={activeTab === 'data-driven' ? 'primary' : 'ghost'}
           />
         </div>
 
@@ -358,6 +387,78 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
                 </label>
               </div>
             </div>
+
+            <div style={{ borderTop: `1px solid ${asciiColors.border}`, paddingTop: 16 }}>
+              <h3 style={{ fontSize: 13, marginBottom: 12, color: asciiColors.accent }}>Rollback Configuration</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.rollback_config.enabled}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      rollback_config: { ...formData.rollback_config, enabled: e.target.checked }
+                    })}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ color: asciiColors.foreground }}>Enable Rollback</span>
+                </label>
+                {formData.rollback_config.enabled && (
+                  <>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.rollback_config.on_failure}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          rollback_config: { ...formData.rollback_config, on_failure: e.target.checked }
+                        })}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span style={{ color: asciiColors.foreground }}>Rollback on Failure</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.rollback_config.on_timeout}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          rollback_config: { ...formData.rollback_config, on_timeout: e.target.checked }
+                        })}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span style={{ color: asciiColors.foreground }}>Rollback on Timeout</span>
+                    </label>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: 6, fontSize: 11, color: asciiColors.muted }}>
+                        Max Rollback Depth
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.rollback_config.max_rollback_depth}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          rollback_config: { ...formData.rollback_config, max_rollback_depth: parseInt(e.target.value) || 10 }
+                        })}
+                        min={1}
+                        max={100}
+                        style={{
+                          width: 100,
+                          padding: '6px 10px',
+                          border: `1px solid ${asciiColors.border}`,
+                          borderRadius: 2,
+                          fontSize: 12,
+                          fontFamily: 'Consolas',
+                          backgroundColor: asciiColors.background,
+                          color: asciiColors.foreground,
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -370,6 +471,214 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
             availableWarehouses={availableWarehouses}
             availableVaults={availableVaults}
           />
+        )}
+
+        {activeTab === 'events' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, color: asciiColors.foreground, fontWeight: 600 }}>
+                Event Type
+              </label>
+              <select
+                value={eventTrigger.event_type}
+                onChange={(e) => setEventTrigger({ ...eventTrigger, event_type: e.target.value as any })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: 'Consolas',
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="FILE_ARRIVAL">File Arrival</option>
+                <option value="API_CALL">API Call</option>
+                <option value="DATABASE_CHANGE">Database Change</option>
+                <option value="SCHEDULE">Schedule</option>
+                <option value="MANUAL">Manual</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, color: asciiColors.foreground, fontWeight: 600 }}>
+                Event Config (JSON)
+              </label>
+              <textarea
+                value={eventTrigger.event_config}
+                onChange={(e) => setEventTrigger({ ...eventTrigger, event_config: e.target.value })}
+                rows={6}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: 'Consolas',
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+                placeholder='{"file_path": "/path/to/file"}'
+              />
+              <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: 4 }}>
+                JSON configuration for the event trigger
+              </div>
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={eventTrigger.active}
+                onChange={(e) => setEventTrigger({ ...eventTrigger, active: e.target.checked })}
+                style={{ cursor: 'pointer' }}
+              />
+              <span style={{ color: asciiColors.foreground }}>Active</span>
+            </label>
+
+            <div style={{ padding: 12, backgroundColor: asciiColors.warning + '20', borderRadius: 2, fontSize: 11, color: asciiColors.warning }}>
+              Note: Event triggers need to be registered separately after saving the workflow.
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'data-driven' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, color: asciiColors.foreground, fontWeight: 600 }}>
+                SQL Query
+              </label>
+              <textarea
+                value={dataDrivenSchedule.query}
+                onChange={(e) => setDataDrivenSchedule({ ...dataDrivenSchedule, query: e.target.value })}
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: 'Consolas',
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+                placeholder="SELECT * FROM table WHERE condition = 'value'"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, color: asciiColors.foreground, fontWeight: 600 }}>
+                Connection String
+              </label>
+              <input
+                type="text"
+                value={dataDrivenSchedule.connection_string}
+                onChange={(e) => setDataDrivenSchedule({ ...dataDrivenSchedule, connection_string: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: 'Consolas',
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: 'none',
+                }}
+                placeholder="postgresql://user:pass@host:port/db"
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: 6, color: asciiColors.foreground, fontWeight: 600 }}>
+                  Condition Field
+                </label>
+                <input
+                  type="text"
+                  value={dataDrivenSchedule.condition_field}
+                  onChange={(e) => setDataDrivenSchedule({ ...dataDrivenSchedule, condition_field: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: 'Consolas',
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: 'none',
+                  }}
+                  placeholder="status"
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: 6, color: asciiColors.foreground, fontWeight: 600 }}>
+                  Condition Value
+                </label>
+                <input
+                  type="text"
+                  value={dataDrivenSchedule.condition_value}
+                  onChange={(e) => setDataDrivenSchedule({ ...dataDrivenSchedule, condition_value: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: `1px solid ${asciiColors.border}`,
+                    borderRadius: 2,
+                    fontSize: 12,
+                    fontFamily: 'Consolas',
+                    backgroundColor: asciiColors.background,
+                    color: asciiColors.foreground,
+                    outline: 'none',
+                  }}
+                  placeholder="ready"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, color: asciiColors.foreground, fontWeight: 600 }}>
+                Check Interval (seconds)
+              </label>
+              <input
+                type="number"
+                value={dataDrivenSchedule.check_interval_seconds}
+                onChange={(e) => setDataDrivenSchedule({ ...dataDrivenSchedule, check_interval_seconds: parseInt(e.target.value) || 30 })}
+                min={1}
+                style={{
+                  width: 150,
+                  padding: '8px 12px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  fontFamily: 'Consolas',
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={dataDrivenSchedule.active}
+                onChange={(e) => setDataDrivenSchedule({ ...dataDrivenSchedule, active: e.target.checked })}
+                style={{ cursor: 'pointer' }}
+              />
+              <span style={{ color: asciiColors.foreground }}>Active</span>
+            </label>
+
+            <div style={{ padding: 12, backgroundColor: asciiColors.warning + '20', borderRadius: 2, fontSize: 11, color: asciiColors.warning }}>
+              Note: Data-driven schedules need to be registered separately after saving the workflow.
+            </div>
+          </div>
         )}
 
         <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: `1px solid ${asciiColors.border}`, paddingTop: 16 }}>

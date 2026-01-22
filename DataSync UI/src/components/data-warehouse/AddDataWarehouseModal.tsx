@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
-import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
+import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSelector';
 import { dataWarehouseApi, customJobsApi, type DataWarehouseEntry, type DimensionTable, type FactTable } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 
@@ -933,58 +933,19 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <label style={{
-                      display: 'block',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontFamily: 'Consolas',
-                      textTransform: 'uppercase',
-                    }}>
-                      Source Connection String *
-                    </label>
-                    <AsciiButton
-                      label={isTestingSourceConnection ? 'Testing...' : 'Test Connection'}
-                      onClick={handleTestSourceConnection}
-                      variant="ghost"
-                      disabled={isTestingSourceConnection || !formData.source_db_engine || !formData.source_connection_string.trim()}
-                    />
-                  </div>
-                  {sourceConnectionTestResult && (
-                    <div style={{
-                      padding: '8px 12px',
-                      marginBottom: 8,
-                      backgroundColor: sourceConnectionTestResult.success ? asciiColors.success + '20' : asciiColors.danger + '20',
-                      border: `1px solid ${sourceConnectionTestResult.success ? asciiColors.success : asciiColors.danger}`,
-                      borderRadius: 2,
-                      color: sourceConnectionTestResult.success ? asciiColors.success : asciiColors.danger,
-                      fontSize: 11,
-                      fontFamily: 'Consolas',
-                    }}>
-                      {sourceConnectionTestResult.success ? '[OK] ' : '[ERR] '}
-                      {sourceConnectionTestResult.message}
-                    </div>
-                  )}
-                  <textarea
+                  <AsciiConnectionStringSelector
                     value={formData.source_connection_string}
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, source_connection_string: e.target.value }));
+                    onChange={(val) => {
+                      setFormData(prev => ({ ...prev, source_connection_string: val }));
                       setSourceConnectionTestResult(null);
                     }}
-                    rows={2}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: `1px solid ${asciiColors.border}`,
-                      borderRadius: 2,
-                      fontSize: 12,
-                      fontFamily: 'Consolas',
-                      backgroundColor: asciiColors.background,
-                      color: asciiColors.foreground,
-                      outline: 'none',
-                      resize: 'vertical',
-                    }}
+                    dbEngine={formData.source_db_engine}
+                    label="Source Connection String"
+                    required
+                    onTestConnection={handleTestSourceConnection}
+                    isTesting={isTestingSourceConnection}
+                    testResult={sourceConnectionTestResult}
+                    placeholder={connectionStringExamples[formData.source_db_engine] || "Enter connection string..."}
                   />
                 </div>
 
@@ -1044,7 +1005,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       {connectionStringHelp[formData.target_db_engine]}
                     </div>
                   )}
-                  <ConnectionStringSelector
+                  <AsciiConnectionStringSelector
                     value={formData.target_connection_string}
                     onChange={(val) => {
                       setFormData(prev => ({ ...prev, target_connection_string: val }));

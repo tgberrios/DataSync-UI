@@ -98,10 +98,11 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   position: relative;
   margin: 2px 0;
   
+  background: transparent;
+  
   ${props => {
     if (props.$nodeType === 'category') {
       return `
-        background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
         border-left: 3px solid ${theme.colors.primary.main};
         font-weight: 600;
       `;
@@ -201,7 +202,7 @@ const ConfigItemRow = styled.div<{ $level: number; $isSelected?: boolean }>`
   padding-left: ${props => props.$level * 24 + 36}px;
   margin: 2px 0;
   border-radius: ${theme.borderRadius.md};
-  background: ${props => props.$isSelected ? theme.colors.primary.light + '15' : theme.colors.background.main};
+  background: ${props => props.$isSelected ? theme.colors.primary.light + '15' : 'transparent'};
   border: 1px solid ${theme.colors.border.light};
   transition: all ${theme.transitions.normal};
   cursor: pointer;

@@ -7,7 +7,8 @@ import RouteTransition from './RouteTransition';
 
 const LayoutContainer = styled.div`
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 `;
 
 const Sidebar = styled.div`
@@ -17,17 +18,39 @@ const Sidebar = styled.div`
   padding: 16px 0;
   border-right: 2px solid ${asciiColors.border};
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   font-family: "Consolas, 'Source Code Pro', monospace";
   font-size: 12px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  
+  &::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+  
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 `;
 
 const MainContent = styled.div`
   flex: 1;
   background-color: white;
   overflow-y: auto;
+  overflow-x: hidden;
   animation: fadeIn 0.15s ease-out;
+  height: 100vh;
+  
+  &::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+  
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 `;
 
 const NavItem = styled(NavLink)`

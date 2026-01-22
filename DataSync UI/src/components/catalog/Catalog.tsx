@@ -42,6 +42,8 @@ const Catalog = () => {
   const [tableStructure, setTableStructure] = useState<any>(null);
   const [loadingStructure, setLoadingStructure] = useState(false);
   const [showCatalogPlaybook, setShowCatalogPlaybook] = useState(false);
+  const [showActivateModal, setShowActivateModal] = useState(false);
+  const [selectedSchemaForActivate, setSelectedSchemaForActivate] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
   /**
@@ -229,6 +231,53 @@ const Catalog = () => {
       }
     },
     [fetchAllEntries]
+  );
+
+  /**
+   * Maneja la activación de todas las tablas de un schema
+   *
+   * @param {string} schemaName - Nombre del schema a activar
+   * @returns {Promise<void>}
+   */
+  const handleActivateSchema = useCallback(
+    async (schemaName: string) => {
+      if (!schemaName || schemaName === "") return;
+      
+      setSelectedSchemaForActivate(schemaName);
+      setShowActivateModal(true);
+    },
+    []
+  );
+
+  /**
+   * Confirma y ejecuta la activación del schema
+   *
+   * @returns {Promise<void>}
+   */
+  const confirmActivateSchema = useCallback(
+    async () => {
+      if (!selectedSchemaForActivate) return;
+
+      try {
+        setLoadingTree(true);
+        setShowActivateModal(false);
+        const result = await catalogApi.activateSchema(selectedSchemaForActivate);
+        await fetchAllEntries();
+        alert(
+          `Schema "${selectedSchemaForActivate}" activated successfully.\n${result.affectedRows} tables affected.\nAll tables set to active = TRUE and status = 'FULL_LOAD'.`
+        );
+      } catch (err) {
+        setError(extractApiError(err));
+      } finally {
+        setLoadingTree(false);
+        setSelectedSchemaForActivate(null);
+        const select = document.querySelector(
+          'select[data-activate-schema-action]'
+        ) as HTMLSelectElement;
+        if (select) select.value = "";
+      }
+    },
+    [selectedSchemaForActivate, fetchAllEntries]
   );
 
   const handleTableClick = useCallback(async (entry: CatalogEntry) => {
@@ -552,6 +601,37 @@ const Catalog = () => {
               </option>
             ))}
           </select>
+
+          <select
+            defaultValue=""
+            data-activate-schema-action
+            onChange={(e) => handleActivateSchema(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${asciiColors.success}`,
+              borderRadius: 2,
+              fontSize: 12,
+              fontFamily: "Consolas",
+              backgroundColor: asciiColors.success + "20",
+              color: asciiColors.success,
+              cursor: "pointer",
+              outline: "none",
+              fontWeight: 600
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.success;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.success;
+            }}
+          >
+            <option value="">Activate Schema</option>
+            {availableSchemas.map((schema) => (
+              <option key={schema} value={schema}>
+                Activate {schema}
+              </option>
+            ))}
+          </select>
         </div>
       </AsciiPanel>
 
@@ -622,6 +702,102 @@ const Catalog = () => {
           onClose={() => setShowAddModal(false)}
           onSave={handleAdd}
         />
+      )}
+
+      {showActivateModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => {
+          setShowActivateModal(false);
+          setSelectedSchemaForActivate(null);
+        }}
+        >
+          <div style={{
+            background: asciiColors.background,
+            border: `2px solid ${asciiColors.success}`,
+            borderRadius: 4,
+            padding: 24,
+            maxWidth: 500,
+            width: '90%',
+            fontFamily: 'Consolas',
+            fontSize: 12
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: asciiColors.success,
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}>
+              {ascii.blockFull} ACTIVATE SCHEMA
+            </div>
+            <div style={{
+              color: asciiColors.foreground,
+              marginBottom: 20,
+              lineHeight: 1.6
+            }}>
+              Are you sure you want to activate ALL tables in schema <strong style={{ color: asciiColors.accent }}>"{selectedSchemaForActivate}"</strong>?
+            </div>
+            <div style={{
+              background: asciiColors.backgroundSoft,
+              padding: 12,
+              borderRadius: 2,
+              marginBottom: 20,
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              <div style={{ color: asciiColors.foreground, marginBottom: 8, fontWeight: 600 }}>
+                This will:
+              </div>
+              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                <div style={{ marginBottom: 4 }}>• Set <strong>active = TRUE</strong> for all tables</div>
+                <div style={{ marginBottom: 4 }}>• Set <strong>status = 'FULL_LOAD'</strong> for all tables</div>
+                <div>• Trigger full synchronization for all tables in the schema</div>
+              </div>
+            </div>
+            <div style={{
+              display: 'flex',
+              gap: 12,
+              justifyContent: 'flex-end'
+            }}>
+              <AsciiButton
+                label="Cancel"
+                onClick={() => {
+                  setShowActivateModal(false);
+                  setSelectedSchemaForActivate(null);
+                  const select = document.querySelector(
+                    'select[data-activate-schema-action]'
+                  ) as HTMLSelectElement;
+                  if (select) select.value = "";
+                }}
+                variant="ghost"
+              />
+              <AsciiButton
+                label="Activate Schema"
+                onClick={confirmActivateSchema}
+                variant="primary"
+                style={{
+                  backgroundColor: asciiColors.success,
+                  borderColor: asciiColors.success,
+                  color: '#ffffff'
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {showCatalogPlaybook && (

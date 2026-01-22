@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
-import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
+import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSelector';
 import { dataVaultApi, type DataVaultEntry, type HubTable, type LinkTable, type SatelliteTable, type PointInTimeTable, type BridgeTable } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 
@@ -399,7 +399,7 @@ const AddDataVaultModal: React.FC<AddDataVaultModalProps> = ({ onClose, onSave, 
             </div>
 
             <div>
-              <ConnectionStringSelector
+              <AsciiConnectionStringSelector
                 value={formData.source_connection_string}
                 onChange={(val) => setFormData(prev => ({ ...prev, source_connection_string: val }))}
                 dbEngine={formData.source_db_engine}
@@ -409,7 +409,7 @@ const AddDataVaultModal: React.FC<AddDataVaultModalProps> = ({ onClose, onSave, 
             </div>
 
             <div>
-              <ConnectionStringSelector
+              <AsciiConnectionStringSelector
                 value={formData.target_connection_string}
                 onChange={(val) => setFormData(prev => ({ ...prev, target_connection_string: val }))}
                 dbEngine={formData.target_db_engine}

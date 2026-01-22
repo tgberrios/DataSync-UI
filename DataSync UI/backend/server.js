@@ -860,6 +860,13 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
 
     const catalogEntry = catalogResult.rows[0];
     const sourceConnectionString = catalogEntry.connection_string;
+    
+    if (!sourceConnectionString || sourceConnectionString.trim() === '') {
+      return res.status(400).json({ 
+        error: "Connection string is missing or empty for this catalog entry" 
+      });
+    }
+    
     const targetSchema = schema_name.toLowerCase();
     const targetTable = table_name.toLowerCase();
 
@@ -924,7 +931,34 @@ app.get("/api/catalog/table-structure", requireAuth, async (req, res) => {
     switch (db_engine) {
       case "MariaDB": {
         const mysql = (await import("mysql2/promise")).default;
-        const connection = await mysql.createConnection(sourceConnectionString);
+        let connection;
+        
+        try {
+          if (typeof sourceConnectionString === 'string' && 
+              (sourceConnectionString.startsWith('mysql://') || 
+               sourceConnectionString.startsWith('mariadb://'))) {
+            connection = await mysql.createConnection(sourceConnectionString);
+          } else if (typeof sourceConnectionString === 'string') {
+            const config = {};
+            const parts = sourceConnectionString.split(';');
+            for (const part of parts) {
+              const [key, value] = part.split('=').map(s => s.trim());
+              if (key && value) {
+                const keyLower = key.toLowerCase();
+                if (keyLower === 'host' || keyLower === 'hostname') config.host = value;
+                else if (keyLower === 'port') config.port = parseInt(value) || 3306;
+                else if (keyLower === 'user' || keyLower === 'username' || keyLower === 'uid') config.user = value;
+                else if (keyLower === 'password' || keyLower === 'pwd') config.password = value;
+                else if (keyLower === 'database' || keyLower === 'db' || keyLower === 'initial catalog') config.database = value;
+              }
+            }
+            connection = await mysql.createConnection(config);
+          } else {
+            connection = await mysql.createConnection(sourceConnectionString);
+          }
+        } catch (connError) {
+          throw new Error(`Failed to connect to MariaDB: ${connError.message}`);
+        }
         const [rows] = await connection.execute(
           `
           SELECT 
@@ -1618,6 +1652,120 @@ app.post(
   }
 );
 
+// Actualizar una entrada del catálogo
+app.put("/api/catalog", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const schema_name = validateIdentifier(req.body.schema_name);
+    const table_name = validateIdentifier(req.body.table_name);
+    const db_engine = validateEnum(
+      req.body.db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      null
+    );
+    const connection_string = req.body.connection_string;
+    const status = validateEnum(
+      req.body.status,
+      [
+        "FULL_LOAD",
+        "PENDING",
+        "IN_PROGRESS",
+        "LISTENING_CHANGES",
+        "NO_DATA",
+        "ERROR",
+        "SKIP",
+      ],
+      null
+    );
+    const active = req.body.active !== undefined ? validateBoolean(req.body.active) : null;
+    const cluster_name = req.body.cluster_name;
+    const pk_strategy = validateEnum(
+      req.body.pk_strategy,
+      ["CDC", "PK", "OFFSET"],
+      null
+    );
+
+    if (!schema_name || !table_name || !db_engine) {
+      return res.status(400).json({
+        error: "schema_name, table_name, and db_engine are required",
+      });
+    }
+
+    const checkResult = await pool.query(
+      `SELECT * FROM metadata.catalog 
+       WHERE schema_name = $1 AND table_name = $2 AND db_engine = $3`,
+      [schema_name, table_name, db_engine]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        error: "Catalog entry not found",
+      });
+    }
+
+    const updateFields = [];
+    const updateValues = [];
+    let paramCount = 0;
+
+    if (connection_string !== undefined) {
+      paramCount++;
+      updateFields.push(`connection_string = $${paramCount}`);
+      updateValues.push(connection_string);
+    }
+    if (status !== null) {
+      paramCount++;
+      updateFields.push(`status = $${paramCount}`);
+      updateValues.push(status);
+    }
+    if (active !== null) {
+      paramCount++;
+      updateFields.push(`active = $${paramCount}`);
+      updateValues.push(active);
+    }
+    if (cluster_name !== undefined) {
+      paramCount++;
+      updateFields.push(`cluster_name = $${paramCount}`);
+      updateValues.push(cluster_name);
+    }
+    if (pk_strategy !== null) {
+      paramCount++;
+      updateFields.push(`pk_strategy = $${paramCount}`);
+      updateValues.push(pk_strategy);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        error: "No fields to update",
+      });
+    }
+
+    updateFields.push(`updated_at = NOW()`);
+    paramCount++;
+    updateValues.push(schema_name);
+    paramCount++;
+    updateValues.push(table_name);
+    paramCount++;
+    updateValues.push(db_engine);
+
+    const updateQuery = `
+      UPDATE metadata.catalog 
+      SET ${updateFields.join(', ')}
+      WHERE schema_name = $${paramCount - 2} AND table_name = $${paramCount - 1} AND db_engine = $${paramCount}
+      RETURNING *
+    `;
+
+    const result = await pool.query(updateQuery, updateValues);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Database error:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error updating catalog entry",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 // Obtener todos los schemas únicos
 app.get("/api/catalog/schemas", requireAuth, async (req, res) => {
   try {
@@ -1689,6 +1837,43 @@ app.get("/api/catalog/strategies", requireAuth, async (req, res) => {
     res.status(500).json({ error: safeError });
   }
 });
+
+// Activar schema completo
+app.patch(
+  "/api/catalog/activate-schema",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    const schema_name = validateIdentifier(req.body.schema_name);
+
+    if (!schema_name) {
+      return res.status(400).json({ error: "Invalid schema_name" });
+    }
+
+    try {
+      const result = await pool.query(
+        `UPDATE metadata.catalog 
+       SET active = TRUE, status = 'FULL_LOAD', updated_at = NOW()
+       WHERE schema_name = $1
+       RETURNING *`,
+        [schema_name]
+      );
+      res.json({
+        message: `Schema ${schema_name} activated successfully`,
+        affectedRows: result.rows.length,
+        rows: result.rows,
+      });
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error activating schema",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
 
 // Marcar tabla como SKIP
 app.patch(
@@ -10625,17 +10810,22 @@ app.post("/api/custom-jobs/preview-query", requireAuth, async (req, res) => {
 
         let config;
         if (
-          connection_string.includes("mysql://") ||
-          connection_string.includes("mariadb://")
+          connection_string &&
+          (connection_string.includes("mysql://") ||
+          connection_string.includes("mariadb://"))
         ) {
-          const url = new URL(connection_string);
-          config = {
-            host: url.hostname,
-            port: parseInt(url.port) || 3306,
-            user: url.username,
-            password: url.password,
-            database: url.pathname.slice(1),
-          };
+          try {
+              const url = new URL(connection_string);
+            config = {
+              host: url.hostname,
+              port: parseInt(url.port) || 3306,
+              user: url.username,
+              password: url.password,
+              database: url.pathname.slice(1),
+            };
+          } catch (urlError) {
+            throw new Error(`Invalid connection string URL format: ${urlError.message}`);
+          }
         } else {
           config = {};
           const parts = connection_string.split(";");
@@ -11413,17 +11603,22 @@ app.get("/api/custom-jobs/:jobName/table-structure", async (req, res) => {
 
         let config;
         if (
-          target_connection_string.includes("mysql://") ||
-          target_connection_string.includes("mariadb://")
+          target_connection_string &&
+          (target_connection_string.includes("mysql://") ||
+          target_connection_string.includes("mariadb://"))
         ) {
-          const url = new URL(target_connection_string);
-          config = {
-            host: url.hostname,
-            port: parseInt(url.port) || 3306,
-            user: url.username,
-            password: url.password,
-            database: url.pathname.slice(1),
-          };
+          try {
+              const url = new URL(target_connection_string);
+            config = {
+              host: url.hostname,
+              port: parseInt(url.port) || 3306,
+              user: url.username,
+              password: url.password,
+              database: url.pathname.slice(1),
+            };
+          } catch (urlError) {
+            throw new Error(`Invalid target connection string URL format: ${urlError.message}`);
+          }
         } else {
           config = {};
           const parts = target_connection_string.split(";");

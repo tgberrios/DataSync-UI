@@ -136,18 +136,14 @@ const SchemaMigrationsTreeView = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 12,
-                    background: isExpanded ? asciiColors.backgroundSoft : 'transparent',
+                    background: 'transparent',
                     transition: 'background 0.2s'
                   }}
                   onMouseEnter={(e) => {
-                    if (!isExpanded) {
-                      e.currentTarget.style.background = asciiColors.backgroundSoft;
-                    }
+                    e.currentTarget.style.background = asciiColors.backgroundSoft;
                   }}
                   onMouseLeave={(e) => {
-                    if (!isExpanded) {
-                      e.currentTarget.style.background = 'transparent';
-                    }
+                    e.currentTarget.style.background = 'transparent';
                   }}
                 >
                   <span style={{

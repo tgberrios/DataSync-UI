@@ -142,10 +142,37 @@ const WorkflowMonitor: React.FC<WorkflowMonitorProps> = ({ workflows }) => {
                       <span>Tasks: {execution.completed_tasks}/{execution.total_tasks}</span>
                       <span>Failed: {execution.failed_tasks}</span>
                       <span>Trigger: {execution.trigger_type}</span>
+                      {execution.rollback_status && (
+                        <span style={{ color: execution.rollback_status === 'COMPLETED' ? asciiColors.success : execution.rollback_status === 'FAILED' ? asciiColors.danger : asciiColors.warning }}>
+                          Rollback: {execution.rollback_status}
+                        </span>
+                      )}
                     </div>
                     {execution.error_message && (
                       <div style={{ marginTop: 8, padding: 8, backgroundColor: asciiColors.danger + '20', borderRadius: 2, fontSize: 11, color: asciiColors.danger }}>
                         {execution.error_message}
+                      </div>
+                    )}
+                    {execution.rollback_status && execution.rollback_status !== 'PENDING' && (
+                      <div style={{ marginTop: 8, padding: 8, backgroundColor: asciiColors.warning + '20', borderRadius: 2, fontSize: 11 }}>
+                        <div style={{ color: asciiColors.foreground, marginBottom: 4 }}>
+                          <strong>Rollback Status:</strong> {execution.rollback_status}
+                        </div>
+                        {execution.rollback_started_at && (
+                          <div style={{ color: asciiColors.muted, fontSize: 10 }}>
+                            Started: {new Date(execution.rollback_started_at).toLocaleString()}
+                          </div>
+                        )}
+                        {execution.rollback_completed_at && (
+                          <div style={{ color: asciiColors.muted, fontSize: 10 }}>
+                            Completed: {new Date(execution.rollback_completed_at).toLocaleString()}
+                          </div>
+                        )}
+                        {execution.rollback_error_message && (
+                          <div style={{ marginTop: 4, color: asciiColors.danger, fontSize: 10 }}>
+                            Error: {execution.rollback_error_message}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

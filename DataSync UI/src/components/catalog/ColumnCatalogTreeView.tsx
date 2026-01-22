@@ -94,17 +94,17 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   font-family: Consolas;
   font-size: 12px;
   
+  background: transparent;
+  
   ${props => {
     if (props.$nodeType === 'schema') {
       return `
-        background: ${asciiColors.accentLight};
         border-left: 3px solid ${asciiColors.accent};
         font-weight: 600;
       `;
     }
     if (props.$nodeType === 'table') {
       return `
-        background: ${asciiColors.backgroundSoft};
         border-left: 2px solid ${asciiColors.border};
       `;
     }
@@ -117,6 +117,9 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
     background: ${props => {
       if (props.$nodeType === 'schema') {
         return asciiColors.accentLight;
+      }
+      if (props.$nodeType === 'table') {
+        return asciiColors.backgroundSoft;
       }
       return asciiColors.backgroundSoft;
     }};

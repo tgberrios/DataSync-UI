@@ -3,7 +3,7 @@ import { backupsApi, type BackupEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
-import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
+import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSelector';
 import SkeletonLoader from '../shared/SkeletonLoader';
 
 const BackupManager = () => {
@@ -772,7 +772,7 @@ const BackupManager = () => {
               </div>
 
               <div>
-                <ConnectionStringSelector
+                <AsciiConnectionStringSelector
                   value={backupForm.connection_string}
                   onChange={(val) => {
                     setBackupForm(prev => ({ ...prev, connection_string: val }));

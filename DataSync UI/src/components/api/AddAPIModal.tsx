@@ -7,7 +7,7 @@ import {
   Label,
   Select,
 } from '../shared/BaseComponents';
-import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
+import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSelector';
 import { theme } from '../../theme/theme';
 import { apiCatalogApi } from '../../services/api';
 
@@ -1349,7 +1349,7 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
             </FormGroup>
           )}
 
-          <ConnectionStringSelector
+          <AsciiConnectionStringSelector
             value={formData.target_connection_string}
             onChange={(val) => {
               setFormData(prev => ({ ...prev, target_connection_string: val }));

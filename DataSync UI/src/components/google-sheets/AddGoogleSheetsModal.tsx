@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
-import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
+import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSelector';
 
 
 interface AddGoogleSheetsModalProps {
@@ -250,6 +250,44 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
     }
   }, [formData.spreadsheet_id, formData.api_key, formData.access_token, formData.range, handleAnalyzeSheet]);
 
+  // Handler para obtener schemas
+  const handleDiscoverSchemas = useCallback(async () => {
+    if (!formData.target_db_engine || !formData.target_connection_string.trim()) {
+      return;
+    }
+
+    setIsLoadingSchemas(true);
+    setSchemas([]);
+    setTables([]);
+    setFormData(prev => ({ ...prev, target_schema: '', target_table: '' }));
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/discover-schemas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          db_engine: formData.target_db_engine,
+          connection_string: formData.target_connection_string.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.schemas) {
+          setSchemas(data.schemas);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error discovering schemas:', err);
+    } finally {
+      setIsLoadingSchemas(false);
+    }
+  }, [formData.target_db_engine, formData.target_connection_string]);
+
   // Handler para test de conexión
   const handleTestConnection = useCallback(async () => {
     if (!formData.target_db_engine || !formData.target_connection_string || !formData.target_connection_string.trim()) {
@@ -295,44 +333,6 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
       setIsTestingConnection(false);
     }
   }, [formData.target_db_engine, formData.target_connection_string, handleDiscoverSchemas]);
-
-  // Handler para obtener schemas
-  const handleDiscoverSchemas = useCallback(async () => {
-    if (!formData.target_db_engine || !formData.target_connection_string.trim()) {
-      return;
-    }
-
-    setIsLoadingSchemas(true);
-    setSchemas([]);
-    setTables([]);
-    setFormData(prev => ({ ...prev, target_schema: '', target_table: '' }));
-
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('/api/discover-schemas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-        body: JSON.stringify({
-          db_engine: formData.target_db_engine,
-          connection_string: formData.target_connection_string.trim(),
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.schemas) {
-          setSchemas(data.schemas);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error discovering schemas:', err);
-    } finally {
-      setIsLoadingSchemas(false);
-    }
-  }, [formData.target_db_engine, formData.target_connection_string]);
 
   // Handler para cambiar schema y obtener tables
   const handleSchemaChange = useCallback(async (schema: string) => {
@@ -1003,7 +1003,7 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <ConnectionStringSelector
+              <AsciiConnectionStringSelector
                 value={formData.target_connection_string}
                 onChange={(val) => {
                   setFormData(prev => ({

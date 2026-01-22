@@ -99,10 +99,11 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   font-family: "Consolas";
   font-size: 12px;
   
+  background: transparent;
+  
   ${props => {
     if (props.$nodeType === 'role') {
       return `
-        background: ${asciiColors.backgroundSoft};
         border-left: 2px solid ${asciiColors.accent};
         font-weight: 600;
       `;

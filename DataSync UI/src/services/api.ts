@@ -1056,6 +1056,22 @@ export const catalogApi = {
     }
   },
 
+  // Activar schema completo
+  activateSchema: async (schema_name: string) => {
+    try {
+      const s = schema_name.toLowerCase();
+      const response = await api.patch<{
+        message: string;
+        affectedRows: number;
+        rows: CatalogEntry[];
+      }>("/catalog/activate-schema", { schema_name: s });
+      return response.data;
+    } catch (error) {
+      console.error("Error activating schema:", error);
+      throw error;
+    }
+  },
+
   // Obtener historial de ejecuciones de una tabla
   getExecutionHistory: async (
     schema_name: string,
@@ -5289,6 +5305,12 @@ export interface WorkflowEntry {
     max_execution_time_seconds: number;
     alert_on_sla_breach: boolean;
   };
+  rollback_config?: {
+    enabled: boolean;
+    on_failure: boolean;
+    on_timeout: boolean;
+    max_rollback_depth: number;
+  };
   metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -5312,6 +5334,10 @@ export interface WorkflowExecution {
   failed_tasks: number;
   skipped_tasks: number;
   error_message?: string;
+  rollback_status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
+  rollback_started_at?: string;
+  rollback_completed_at?: string;
+  rollback_error_message?: string;
   metadata?: Record<string, unknown>;
   created_at: string;
   tasks?: TaskExecution[];
@@ -5522,6 +5548,152 @@ export const workflowApi = {
       return response.data;
     } catch (error) {
       console.error(`Error toggling enabled status for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  executeBackfill: async (workflowName: string, config: {
+    start_date: string;
+    end_date: string;
+    date_field?: string;
+    interval: 'daily' | 'weekly' | 'monthly';
+    parallel: boolean;
+    max_parallel_jobs: number;
+  }) => {
+    try {
+      const response = await api.post(`/workflows/${encodeURIComponent(workflowName)}/backfill`, config);
+      return response.data;
+    } catch (error) {
+      console.error(`Error executing backfill for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getVersions: async (workflowName: string) => {
+    try {
+      const response = await api.get(`/workflows/${encodeURIComponent(workflowName)}/versions`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching versions for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createVersion: async (workflowName: string, description: string) => {
+    try {
+      const response = await api.post(`/workflows/${encodeURIComponent(workflowName)}/versions`, {
+        description,
+        created_by: 'user',
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Error creating version for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  restoreVersion: async (workflowName: string, version: number) => {
+    try {
+      const response = await api.post(`/workflows/${encodeURIComponent(workflowName)}/versions/${version}/restore`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error restoring version ${version} for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteVersion: async (workflowName: string, version: number) => {
+    try {
+      const response = await api.delete(`/workflows/${encodeURIComponent(workflowName)}/versions/${version}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting version ${version} for ${workflowName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTaskQueueSize: async () => {
+    try {
+      const response = await api.get('/workflows/task-queue/size');
+      return response.data.size || 0;
+    } catch (error) {
+      console.error('Error fetching task queue size:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTaskQueueWorkerPoolSize: async () => {
+    try {
+      const response = await api.get('/workflows/task-queue/worker-pool-size');
+      return response.data.size || 4;
+    } catch (error) {
+      console.error('Error fetching worker pool size:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  setTaskQueueWorkerPoolSize: async (size: number) => {
+    try {
+      const response = await api.put('/workflows/task-queue/worker-pool-size', { size });
+      return response.data;
+    } catch (error) {
+      console.error('Error setting worker pool size:', error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||

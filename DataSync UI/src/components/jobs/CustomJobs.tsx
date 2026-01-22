@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
-import { ConnectionStringSelector } from '../shared/ConnectionStringSelector';
+import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSelector';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { customJobsApi } from '../../services/api';
@@ -1098,115 +1098,24 @@ const CustomJobs = () => {
 
               {jobForm.source_db_engine !== 'Python' && editorMode === 'sql' && (
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <label style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: asciiColors.foreground,
-                      fontFamily: "Consolas",
-                      textTransform: "uppercase"
-                    }}>
-                      {ascii.v} SOURCE CONNECTION STRING
-                      {isDataLake && (
-                        <span style={{ marginLeft: 8, fontSize: 11, color: asciiColors.muted, fontFamily: "Consolas" }}>
-                          (DataLake - Auto-filled)
-                        </span>
-                      )}
-                    </label>
-                    <AsciiButton
-                      label={isTestingConnection ? 'Testing...' : 'Test Connection'}
-                      onClick={handleTestConnection}
-                      variant="ghost"
-                      disabled={
-                        isTestingConnection || 
-                        !jobForm.source_db_engine || 
-                        (!isDataLake && !jobForm.source_connection_string.trim()) ||
-                        (isDataLake && !datalakeConnection)
+                  <AsciiConnectionStringSelector
+                    value={jobForm.source_connection_string}
+                    onChange={(val) => {
+                      setJobForm(prev => ({ ...prev, source_connection_string: val }));
+                      setConnectionTestResult(null);
+                      setConnectionTested(false);
+                      if (isDataLake && val !== datalakeConnection) {
+                        setIsDataLake(false);
                       }
-                    />
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      value={jobForm.source_connection_string}
-                      onChange={(e) => {
-                        setJobForm(prev => ({ ...prev, source_connection_string: e.target.value }));
-                        setConnectionTestResult(null);
-                        setConnectionTested(false);
-                        if (isDataLake && e.target.value !== datalakeConnection) {
-                          setIsDataLake(false);
-                        }
-                      }}
-                      placeholder={isDataLake ? "DataLake connection (auto-filled)" : "host=localhost port=5432 dbname=..."}
-                      readOnly={isDataLake}
-                      style={{
-                        width: "100%",
-                        padding: "6px 10px",
-                        paddingRight: isDataLake ? '80px' : '10px',
-                        border: `1px solid ${asciiColors.border}`,
-                        borderRadius: 2,
-                        fontSize: 12,
-                        fontFamily: "Consolas",
-                        backgroundColor: isDataLake ? asciiColors.backgroundSoft : asciiColors.background,
-                        color: asciiColors.foreground,
-                        outline: "none",
-                        cursor: isDataLake ? "not-allowed" : "text"
-                      }}
-                      onFocus={(e) => {
-                        if (!isDataLake) {
-                          e.currentTarget.style.borderColor = asciiColors.accent;
-                        }
-                      }}
-                      onBlur={(e) => {
-                        e.currentTarget.style.borderColor = asciiColors.border;
-                      }}
-                    />
-                    {isDataLake && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsDataLake(false);
-                          setJobForm(prev => ({ ...prev, source_connection_string: '' }));
-                        }}
-                        style={{
-                          position: 'absolute',
-                          right: '4px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          padding: '4px 8px',
-                          fontSize: 11,
-                          border: `1px solid ${asciiColors.border}`,
-                          borderRadius: 2,
-                          fontFamily: "Consolas",
-                          backgroundColor: asciiColors.background,
-                          color: asciiColors.foreground,
-                          cursor: "pointer",
-                          outline: "none"
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = asciiColors.background;
-                        }}
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                  {connectionTestResult && (
-                    <div style={{
-                      marginTop: 8,
-                      padding: "8px 12px",
-                      borderRadius: 2,
-                      fontSize: 12,
-                      fontFamily: "Consolas",
-                      backgroundColor: connectionTestResult.success ? asciiColors.success : asciiColors.danger,
-                      color: asciiColors.background
-                    }}>
-                      {connectionTestResult.success ? '✓ ' : '✗ '}
-                      {connectionTestResult.message}
-                    </div>
-                  )}
+                    }}
+                    dbEngine={jobForm.source_db_engine}
+                    label={`Source Connection String${isDataLake ? ' (DataLake - Auto-filled)' : ''}`}
+                    required
+                    onTestConnection={handleTestConnection}
+                    isTesting={isTestingConnection}
+                    testResult={connectionTestResult}
+                    placeholder={isDataLake ? "DataLake connection (auto-filled)" : "host=localhost port=5432 dbname=..."}
+                  />
                   {connectionTested && (
                     <div style={{
                       marginTop: 8,
@@ -1590,7 +1499,7 @@ const CustomJobs = () => {
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <ConnectionStringSelector
+                <AsciiConnectionStringSelector
                   value={jobForm.target_connection_string}
                   onChange={(val) => setJobForm(prev => ({ ...prev, target_connection_string: val }))}
                   dbEngine={jobForm.target_db_engine}
