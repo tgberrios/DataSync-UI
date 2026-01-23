@@ -33,9 +33,10 @@ const DBTTestRunner = ({ model, onBack }: DBTTestRunnerProps) => {
   const fetchTestResults = useCallback(async () => {
     try {
       const results = await dbtApi.getTestResults(model.model_name);
-      setTestResults(results);
+      setTestResults(results || []);
     } catch (err) {
       console.error('Error fetching test results:', err);
+      setTestResults([]);
     }
   }, [model.model_name]);
 
@@ -49,16 +50,23 @@ const DBTTestRunner = ({ model, onBack }: DBTTestRunnerProps) => {
       setRunning(true);
       setError(null);
       const result = await dbtApi.runTests(model.model_name);
-      if (result.success) {
+      if (result && result.success && result.results) {
         setTestResults(result.results);
+      } else {
+        setTimeout(() => {
+          fetchTestResults();
+        }, 2000);
       }
       fetchTests();
     } catch (err) {
       setError(extractApiError(err));
+      setTimeout(() => {
+        fetchTestResults();
+      }, 2000);
     } finally {
       setRunning(false);
     }
-  }, [model.model_name, fetchTests]);
+  }, [model.model_name, fetchTests, fetchTestResults]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -80,7 +88,7 @@ const DBTTestRunner = ({ model, onBack }: DBTTestRunnerProps) => {
     }
   };
 
-  const latestResults = testResults.slice(0, tests.length);
+  const latestResults = (testResults || []).slice(0, tests.length);
 
   return (
     <div style={{ padding: '20px' }}>

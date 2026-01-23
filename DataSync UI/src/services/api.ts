@@ -6049,6 +6049,23 @@ export const dbtApi = {
     }
   },
 
+  getAllTests: async (): Promise<DBTTest[]> => {
+    try {
+      const response = await api.get("/dbt/tests");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching all tests:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
   getTests: async (modelName: string): Promise<DBTTest[]> => {
     try {
       const response = await api.get(`/dbt/models/${encodeURIComponent(modelName)}/tests`);
@@ -6072,6 +6089,26 @@ export const dbtApi = {
       return response.data;
     } catch (error) {
       console.error(`Error running tests for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getAllTestResults: async (modelName?: string, runId?: string): Promise<DBTTestResult[]> => {
+    try {
+      const params: any = {};
+      if (modelName) params.model_name = modelName;
+      if (runId) params.run_id = runId;
+      const response = await api.get("/dbt/test-results", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching all test results:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||
@@ -6153,4 +6190,216 @@ export const dbtApi = {
       throw error;
     }
   },
+
+  updateMacro: async (macroName: string, macro: Partial<DBTMacro>): Promise<DBTMacro> => {
+    try {
+      const response = await api.put(`/dbt/macros/${encodeURIComponent(macroName)}`, macro);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating dbt macro ${macroName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteMacro: async (macroName: string): Promise<void> => {
+    try {
+      await api.delete(`/dbt/macros/${encodeURIComponent(macroName)}`);
+    } catch (error) {
+      console.error(`Error deleting dbt macro ${macroName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createTest: async (modelName: string, test: Omit<DBTTest, 'model_name'>): Promise<DBTTest> => {
+    try {
+      const response = await api.post(`/dbt/models/${encodeURIComponent(modelName)}/tests`, {
+        ...test,
+        model_name: modelName,
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Error creating test for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateTest: async (modelName: string, testName: string, test: Partial<DBTTest>): Promise<DBTTest> => {
+    try {
+      const response = await api.put(
+        `/dbt/models/${encodeURIComponent(modelName)}/tests/${encodeURIComponent(testName)}`,
+        test
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating test ${testName} for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteTest: async (modelName: string, testName: string): Promise<void> => {
+    try {
+      await api.delete(
+        `/dbt/models/${encodeURIComponent(modelName)}/tests/${encodeURIComponent(testName)}`
+      );
+    } catch (error) {
+      console.error(`Error deleting test ${testName} for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  testQuery: async (modelName: string, testData: {
+    test_sql: string;
+    test_type?: string;
+    column_name?: string;
+    test_config?: any;
+  }): Promise<{ success: boolean; failure_count: number; status: string; message: string; result?: any[]; error?: string }> => {
+    try {
+      const response = await api.post(
+        `/dbt/models/${encodeURIComponent(modelName)}/tests/test-query`,
+        testData
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error testing query for ${modelName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        return {
+          success: false,
+          failure_count: 0,
+          status: 'error',
+          message: error.response.data.error || error.message,
+          error: error.response.data.error || error.message
+        };
+      }
+      throw error;
+    }
+  },
+
+  getSources: async (): Promise<DBTSource[]> => {
+    try {
+      const response = await api.get("/dbt/sources");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching dbt sources:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  createOrUpdateSource: async (source: DBTSource): Promise<DBTSource> => {
+    try {
+      const response = await api.post("/dbt/sources", source);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating/updating dbt source:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateSource: async (
+    sourceName: string,
+    schemaName: string,
+    tableName: string,
+    source: Partial<DBTSource>
+  ): Promise<DBTSource> => {
+    try {
+      const response = await api.put(
+        `/dbt/sources/${encodeURIComponent(sourceName)}/${encodeURIComponent(schemaName)}/${encodeURIComponent(tableName)}`,
+        source
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating dbt source ${sourceName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteSource: async (sourceName: string, schemaName: string, tableName: string): Promise<void> => {
+    try {
+      await api.delete(
+        `/dbt/sources/${encodeURIComponent(sourceName)}/${encodeURIComponent(schemaName)}/${encodeURIComponent(tableName)}`
+      );
+    } catch (error) {
+      console.error(`Error deleting dbt source ${sourceName}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
+
+export interface DBTSource {
+  id?: number;
+  source_name: string;
+  source_type: string;
+  database_name?: string;
+  schema_name: string;
+  table_name: string;
+  connection_string?: string;
+  description?: string;
+  columns?: any[];
+  freshness_config?: any;
+  metadata?: any;
+  active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}

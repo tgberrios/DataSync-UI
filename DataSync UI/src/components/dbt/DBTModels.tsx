@@ -8,6 +8,7 @@ import { sanitizeSearch } from '../../utils/validation';
 import SkeletonLoader from '../shared/SkeletonLoader';
 import DBTModelEditor from './DBTModelEditor';
 import DBTTestRunner from './DBTTestRunner';
+import DBTTestsView from './DBTTestsView';
 
 const DBTModels = () => {
   const [searchInput, setSearchInput] = useState('');
@@ -18,7 +19,7 @@ const DBTModels = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<DBTModel | null>(null);
   const [selectedModel, setSelectedModel] = useState<DBTModel | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'tests'>('list');
+  const [activeTab, setActiveTab] = useState<'models' | 'tests'>('models');
   const [showDBTPlaybook, setShowDBTPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
@@ -110,7 +111,7 @@ const DBTModels = () => {
 
   const handleViewTests = useCallback((model: DBTModel) => {
     setSelectedModel(model);
-    setViewMode('tests');
+    setActiveTab('tests');
   }, []);
 
   const getStatusColor = (status?: string) => {
@@ -137,18 +138,6 @@ const DBTModels = () => {
     return <SkeletonLoader variant="table" />;
   }
 
-  if (viewMode === 'tests' && selectedModel) {
-    return (
-      <DBTTestRunner
-        model={selectedModel}
-        onBack={() => {
-          setViewMode('list');
-          setSelectedModel(null);
-        }}
-      />
-    );
-  }
-
   return (
     <div style={{ padding: '20px' }}>
       <AsciiPanel>
@@ -159,6 +148,11 @@ const DBTModels = () => {
               <AsciiButton 
                 label="DBT Playbook" 
                 onClick={() => setShowDBTPlaybook(true)} 
+                variant="ghost"
+              />
+              <AsciiButton 
+                label="Macros" 
+                onClick={() => window.location.href = '/dbt-macros'}
                 variant="ghost"
               />
               <AsciiButton 
@@ -195,9 +189,38 @@ const DBTModels = () => {
               {error}
             </div>
           )}
+
+          <div style={{ 
+            display: 'flex', 
+            gap: 8, 
+            marginBottom: 16, 
+            borderBottom: `1px solid ${asciiColors.border}`, 
+            paddingBottom: 8 
+          }}>
+            <AsciiButton
+              label="Models"
+              onClick={() => setActiveTab('models')}
+              variant={activeTab === 'models' ? 'primary' : 'ghost'}
+            />
+            <AsciiButton
+              label="Tests"
+              onClick={() => setActiveTab('tests')}
+              variant={activeTab === 'tests' ? 'primary' : 'ghost'}
+            />
+          </div>
         </div>
 
-        {loading ? (
+        {activeTab === 'tests' ? (
+          <DBTTestsView 
+            selectedModel={selectedModel}
+            onModelSelect={(model) => {
+              setSelectedModel(model);
+              if (model) {
+                setActiveTab('models');
+              }
+            }}
+          />
+        ) : loading ? (
           <div style={{ color: asciiColors.gray, textAlign: 'center', padding: '20px' }}>
             Loading models...
           </div>
@@ -262,10 +285,11 @@ const DBTModels = () => {
                   </div>
                   <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
                     <AsciiButton
-                      label="Tests"
+                      label="View Tests"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleViewTests(model);
+                        setSelectedModel(model);
+                        setActiveTab('tests');
                       }}
                       variant="ghost"
                     />

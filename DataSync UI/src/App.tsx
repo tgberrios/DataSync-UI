@@ -37,6 +37,8 @@ const DataWarehouse = lazy(() => import("./components/data-warehouse/DataWarehou
 const DataVault = lazy(() => import("./components/data-vault/DataVault"));
 const Workflows = lazy(() => import("./components/workflows/Workflows"));
 const DBTModels = lazy(() => import("./components/dbt/DBTModels"));
+const DBTMacros = lazy(() => import("./components/dbt/DBTMacros"));
+const DBTSources = lazy(() => import("./components/dbt/DBTSources"));
 const CSVCatalog = lazy(() => import("./components/csv/CSVCatalog"));
 const GoogleSheetsCatalog = lazy(() => import("./components/google-sheets/GoogleSheetsCatalog"));
 const UserManagement = lazy(() => import("./components/security/UserManagement"));
@@ -237,6 +239,26 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={null}>
                   <DBTModels />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dbt-macros"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <DBTMacros />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dbt-sources"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <DBTSources />
                 </Suspense>
               </ProtectedRoute>
             }
