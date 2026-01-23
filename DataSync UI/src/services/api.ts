@@ -1286,7 +1286,7 @@ export const logsApi = {
 
   clearLogs: async () => {
     try {
-      const response = await api.delete("/logs");
+      const response = await api.delete("/logs?deleteAll=true");
       return response.data;
     } catch (error) {
       console.error("Error clearing logs:", error);

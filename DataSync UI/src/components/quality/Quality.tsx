@@ -18,18 +18,18 @@ import SkeletonLoader from '../shared/SkeletonLoader';
 const getStatusColor = (status?: string) => {
   if (!status) return asciiColors.muted;
   switch (status) {
-    case 'PASSED': return asciiColors.success;
-    case 'WARNING': return asciiColors.warning;
-    case 'FAILED': return asciiColors.danger;
+    case 'PASSED': return asciiColors.accent;
+    case 'WARNING': return asciiColors.muted;
+    case 'FAILED': return asciiColors.foreground;
     default: return asciiColors.muted;
   }
 };
 
 const getScoreColor = (score: number) => {
-  if (score >= 90) return asciiColors.success;
-  if (score >= 70) return asciiColors.success;
-  if (score >= 50) return asciiColors.warning;
-  return asciiColors.danger;
+  if (score >= 90) return asciiColors.accent;
+  if (score >= 70) return asciiColors.accent;
+  if (score >= 50) return asciiColors.muted;
+  return asciiColors.foreground;
 };
 
 const Quality = () => {
@@ -182,26 +182,27 @@ const Quality = () => {
   }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-
+    <Container>
       <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "20px"
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
       }}>
         <h1 style={{
           fontSize: 14,
           fontWeight: 600,
           margin: 0,
           color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
         }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
           DATA QUALITY MONITOR
         </h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           {refreshing && (
             <span style={{ 
               fontSize: 11, 
@@ -231,13 +232,15 @@ const Quality = () => {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: theme.spacing.md }}>
         <AsciiPanel title="ERROR">
           <div style={{
-            padding: "12px",
-            color: asciiColors.danger,
+            padding: theme.spacing.sm,
+            color: asciiColors.foreground,
             fontSize: 12,
-            fontFamily: "Consolas"
+            fontFamily: 'Consolas',
+            backgroundColor: asciiColors.backgroundSoft,
+            borderRadius: 2
           }}>
             {error}
           </div>
@@ -246,20 +249,32 @@ const Quality = () => {
       )}
 
       <AsciiPanel title="FILTERS">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
           <select 
             value={filters.engine as string}
             onChange={(e) => {
               setFilter('engine', e.target.value);
             }}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Engines</option>
@@ -276,13 +291,25 @@ const Quality = () => {
               setFilter('status', e.target.value);
             }}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Status</option>
@@ -324,61 +351,71 @@ const Quality = () => {
           }}
           onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="DATA QUALITY PLAYBOOK">
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+              <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} OVERVIEW
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Data Quality monitoring validates tables by collecting comprehensive quality metrics including data types, null counts, 
                     duplicates, and constraint violations. The system automatically calculates a quality score (0-100) and determines 
                     validation status (PASSED, WARNING, FAILED) based on the collected metrics.
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} QUALITY CHECKS
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} DATA TYPE VALIDATION
                       </div>
-                        <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                           Checks if actual data types match expected types from information_schema. Uses PostgreSQL system catalogs 
                           (pg_attribute, pg_class, pg_type) to verify type consistency. For large tables (&gt;1M rows), uses 5% TABLESAMPLE 
                           for performance. Updates invalid_type_count and type_mismatch_details JSON with column-level issues.
                         </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} NULL COUNT CHECK
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Efficiently counts NULL values across all columns using FILTER clauses in a single query (instead of N+1 queries). 
                         Processes columns in batches of 50 for tables with many columns. Updates total_rows and null_count metrics.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} DUPLICATE DETECTION
                       </div>
-                        <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                           Detects duplicate rows by comparing total row count with distinct ctid count. For large tables (&gt;1M rows), 
                           uses 10% TABLESAMPLE and adjusts the count by multiplying by 10. Updates duplicate_count metric.
                         </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} CONSTRAINT VALIDATION
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Checks foreign key constraints for violations by identifying orphaned rows (rows with foreign key values that 
                         don't exist in referenced tables). Queries information_schema.referential_constraints to find all foreign keys, 
                         then validates each one. Updates referential_integrity_errors and integrity_check_details JSON with violation details.
@@ -387,109 +424,109 @@ const Quality = () => {
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} QUALITY SCORE CALCULATION
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         Score Formula (0-100)
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Starts at 100.0 and applies weighted deductions:
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 32, fontSize: 11, marginTop: 4 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.lg, fontSize: 11, marginTop: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         • Null percentage: -20 points (proportional to total rows)<br/>
                         • Duplicate percentage: -20 points (proportional to total rows)<br/>
                         • Invalid type count: -30 points (proportional to total rows)<br/>
                         • Referential integrity errors: -30 points (proportional to total rows)
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11, marginTop: 8 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, marginTop: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         Final score is clamped between 0.0 and 100.0. Higher scores indicate better data quality.
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} VALIDATION STATUS
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success, fontWeight: 600 }}>PASSED</span>
-                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Quality score &gt;= 90.0 - Excellent data quality</span>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>PASSED</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: theme.spacing.sm, fontFamily: 'Consolas' }}>Quality score &gt;= 90.0 - Excellent data quality</span>
                     </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.warning, fontWeight: 600 }}>WARNING</span>
-                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Quality score &gt;= 70.0 and &lt; 90.0 - Acceptable but needs attention</span>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <span style={{ color: asciiColors.muted, fontWeight: 600, fontFamily: 'Consolas' }}>WARNING</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: theme.spacing.sm, fontFamily: 'Consolas' }}>Quality score &gt;= 70.0 and &lt; 90.0 - Acceptable but needs attention</span>
                     </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.danger, fontWeight: 600 }}>FAILED</span>
-                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Quality score &lt; 70.0 - Poor data quality, requires immediate action</span>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <span style={{ color: asciiColors.foreground, fontWeight: 600, fontFamily: 'Consolas' }}>FAILED</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: theme.spacing.sm, fontFamily: 'Consolas' }}>Quality score &lt; 70.0 - Poor data quality, requires immediate action</span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} METRICS EXPLAINED
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         Total Rows
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Total number of rows in the table. Used as denominator for calculating percentages in quality score.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         Null Count
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Total number of NULL values across all columns. High null counts indicate data completeness issues.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         Duplicate Count
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Number of duplicate rows detected. Duplicates can cause data integrity and analysis issues.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         Invalid Type Count
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Number of columns with type mismatches. Type_mismatch_details JSON contains column-level information.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         Referential Integrity Errors
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Number of foreign key constraint violations (orphaned rows). Integrity_check_details JSON contains constraint-level details.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         Check Duration (ms)
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Time taken to complete the quality check in milliseconds. Includes all validation steps.
                       </div>
                     </div>
@@ -497,23 +534,23 @@ const Quality = () => {
                 </div>
 
                 <div style={{ 
-                  marginTop: 16, 
-                  padding: 12, 
+                  marginTop: theme.spacing.md, 
+                  padding: theme.spacing.sm, 
                   background: asciiColors.backgroundSoft, 
                   borderRadius: 2,
                   border: `1px solid ${asciiColors.border}`
                 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                     {ascii.blockSemi} Note
                   </div>
-                    <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    <div style={{ fontSize: 11, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
                       Quality checks use sampling for large tables (&gt;1M rows) to improve performance. The system stores metrics in 
                       metadata.data_quality table and retrieves the latest check for each schema/table/engine combination using 
                       DISTINCT ON with ORDER BY check_timestamp DESC.
                     </div>
                 </div>
 
-                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                <div style={{ marginTop: theme.spacing.md, textAlign: 'right' }}>
                   <AsciiButton
                     label="Close"
                     onClick={() => setShowQualityPlaybook(false)}
@@ -527,7 +564,7 @@ const Quality = () => {
       )}
 
       {activeView === 'list' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedItem ? '1fr 400px' : '1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: selectedItem ? '1fr 400px' : '1fr', gap: theme.spacing.md }}>
           <QualityTreeView 
             items={qualityData} 
             onItemClick={handleItemClick}
@@ -537,30 +574,40 @@ const Quality = () => {
             <AsciiPanel title="QUALITY DETAILS">
               <div style={{ 
                 position: 'sticky', 
-                top: 8, 
+                top: theme.spacing.sm, 
                 maxHeight: 'calc(100vh - 200px)', 
                 overflowY: 'auto',
                 fontFamily: 'Consolas',
                 fontSize: 12
               }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+                <style>{`
+                  div[style*="overflowY"]::-webkit-scrollbar {
+                    width: 0px;
+                    display: none;
+                  }
+                  div[style*="overflowY"] {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                  }
+                `}</style>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing.sm }}>
                   <div>
-                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Schema:</div>
-                    <div style={{ color: asciiColors.foreground }}>{selectedItem.schema_name || 'N/A'}</div>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Schema:</div>
+                    <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{selectedItem.schema_name || 'N/A'}</div>
                   </div>
                   <div>
-                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Table:</div>
-                    <div style={{ color: asciiColors.foreground }}>{selectedItem.table_name || 'N/A'}</div>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Table:</div>
+                    <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{selectedItem.table_name || 'N/A'}</div>
                   </div>
                   <div>
-                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Total Rows:</div>
-                    <div style={{ color: asciiColors.foreground }}>{formatNumber(selectedItem.total_rows || 0)}</div>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Total Rows:</div>
+                    <div style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatNumber(selectedItem.total_rows || 0)}</div>
                   </div>
                   <div>
-                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Status:</div>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Status:</div>
                     <div>
                       <span style={{
-                        padding: '2px 8px',
+                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                         borderRadius: 2,
                         fontSize: 11,
                         fontFamily: 'Consolas',
@@ -573,10 +620,10 @@ const Quality = () => {
                     </div>
                   </div>
                   <div>
-                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Quality Score:</div>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Quality Score:</div>
                     <div>
                       <span style={{
-                        padding: '2px 8px',
+                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                         borderRadius: 2,
                         fontSize: 11,
                         fontFamily: 'Consolas',
@@ -589,37 +636,37 @@ const Quality = () => {
                     </div>
                   </div>
                   <div>
-                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 4 }}>Last Check:</div>
-                    <div style={{ color: asciiColors.foreground, fontSize: 11 }}>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Last Check:</div>
+                    <div style={{ color: asciiColors.foreground, fontSize: 11, fontFamily: 'Consolas' }}>
                       {formatDate(selectedItem.check_timestamp)}
                     </div>
                   </div>
-                  <div style={{ borderTop: `1px solid ${asciiColors.border}`, paddingTop: 12, marginTop: 8 }}>
-                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: 8, fontWeight: 600 }}>Metrics:</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div style={{ borderTop: `1px solid ${asciiColors.border}`, paddingTop: theme.spacing.sm, marginTop: theme.spacing.sm }}>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, marginBottom: theme.spacing.sm, fontWeight: 600, fontFamily: 'Consolas' }}>Metrics:</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.sm }}>
                       <div>
-                        <div style={{ fontSize: 11, color: asciiColors.muted }}>Missing Values</div>
-                        <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{formatNumber(selectedItem.null_count || 0)}</div>
+                        <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>Missing Values</div>
+                        <div style={{ fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatNumber(selectedItem.null_count || 0)}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: asciiColors.muted }}>Duplicates</div>
-                        <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{formatNumber(selectedItem.duplicate_count || 0)}</div>
+                        <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>Duplicates</div>
+                        <div style={{ fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatNumber(selectedItem.duplicate_count || 0)}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: asciiColors.muted }}>Type Mismatches</div>
-                        <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{formatNumber(selectedItem.invalid_type_count || 0)}</div>
+                        <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>Type Mismatches</div>
+                        <div style={{ fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatNumber(selectedItem.invalid_type_count || 0)}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: asciiColors.muted }}>Range Violations</div>
-                        <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{formatNumber(selectedItem.out_of_range_count || 0)}</div>
+                        <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>Range Violations</div>
+                        <div style={{ fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatNumber(selectedItem.out_of_range_count || 0)}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: asciiColors.muted }}>Referential Issues</div>
-                        <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{formatNumber(selectedItem.referential_integrity_errors || 0)}</div>
+                        <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>Referential Issues</div>
+                        <div style={{ fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatNumber(selectedItem.referential_integrity_errors || 0)}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: asciiColors.muted }}>Constraint Issues</div>
-                        <div style={{ fontWeight: 600, color: asciiColors.foreground }}>{formatNumber(selectedItem.constraint_violation_count || 0)}</div>
+                        <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>Constraint Issues</div>
+                        <div style={{ fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>{formatNumber(selectedItem.constraint_violation_count || 0)}</div>
                       </div>
                     </div>
                   </div>
@@ -637,7 +684,7 @@ const Quality = () => {
           } : null}
         />
       )}
-    </div>
+    </Container>
   );
 };
 

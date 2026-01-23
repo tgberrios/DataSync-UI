@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import {
   Container,
   Header,
@@ -20,26 +20,21 @@ const Section = styled.div`
   margin-bottom: ${theme.spacing.xxl};
   padding: ${theme.spacing.lg};
   border: 1px solid ${asciiColors.border};
-  border-radius: 2px;
+  border-radius: 2;
   background-color: ${asciiColors.backgroundSoft};
-  transition: all ${theme.transitions.normal};
-  animation: slideUp 0.25s ease-out;
-  animation-fill-mode: both;
-  font-family: "Consolas";
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  font-family: 'Consolas';
   font-size: 12px;
-  
-  &:nth-child(1) { animation-delay: 0.05s; }
-  &:nth-child(2) { animation-delay: 0.1s; }
 `;
 
 const SectionTitle = styled.h2`
   margin: 0;
   margin-bottom: ${theme.spacing.md};
   font-size: 14px;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   color: ${asciiColors.accent};
   border-bottom: 1px solid ${asciiColors.border};
-  padding-bottom: 8px;
+  padding-bottom: ${theme.spacing.sm};
   font-weight: 600;
 `;
 
@@ -50,98 +45,129 @@ const Controls = styled.div`
   padding: ${theme.spacing.lg};
   background-color: ${asciiColors.background};
   border: 1px solid ${asciiColors.border};
-  border-radius: 2px;
+  border-radius: 2;
   flex-wrap: wrap;
   align-items: end;
-  animation: slideUp 0.25s ease-out;
-  animation-delay: 0.08s;
-  animation-fill-mode: both;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
 `;
 
 const ControlGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: ${theme.spacing.sm};
   min-width: 120px;
 `;
 
 const Label = styled.label`
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 600;
   color: ${asciiColors.foreground};
-  font-family: "Consolas";
+  font-family: 'Consolas';
 `;
 
 const Select = styled.select`
-  padding: 8px 12px;
+  padding: ${theme.spacing.sm} ${theme.spacing.md};
   border: 1px solid ${asciiColors.border};
-  border-radius: 2px;
+  border-radius: 2;
   background-color: ${asciiColors.background};
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
-  transition: all ${theme.transitions.normal};
+  transition: border-color 0.15s ease;
   cursor: pointer;
-
-  &:hover {
-    border-color: rgba(10, 25, 41, 0.3);
-  }
+  outline: none;
 
   &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary.main};
-    box-shadow: 0 0 0 3px rgba(10, 25, 41, 0.1);
+    border-color: ${asciiColors.accent};
+    outline: 2px solid ${asciiColors.accent};
+    outline-offset: 2px;
   }
 `;
 
 const Input = styled.input`
-  padding: 8px 12px;
-  border: 1px solid ${theme.colors.border.medium};
-  border-radius: ${theme.borderRadius.md};
-  font-family: ${theme.fonts.primary};
-  font-size: 1em;
+  padding: ${theme.spacing.sm} ${theme.spacing.md};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2;
+  font-family: 'Consolas';
+  font-size: 12px;
   width: 100px;
-  transition: all ${theme.transitions.normal};
-
-  &:hover {
-    border-color: rgba(10, 25, 41, 0.3);
-  }
+  transition: border-color 0.15s ease;
+  outline: none;
 
   &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary.main};
-    box-shadow: 0 0 0 3px rgba(10, 25, 41, 0.1);
-    transform: translateY(-1px);
+    border-color: ${asciiColors.accent};
+    outline: 2px solid ${asciiColors.accent};
+    outline-offset: 2px;
   }
 `;
 
 const LogsArea = styled.div<{ $isTransitioning?: boolean }>`
   flex: 1;
   border: 1px solid ${asciiColors.border};
-  border-radius: 2px;
+  border-radius: 2;
   background-color: ${asciiColors.background};
   color: ${asciiColors.foreground};
   overflow-y: auto;
   padding: ${theme.spacing.md};
   font-size: 11px;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   line-height: 1.6;
   max-height: 500px;
-  transition: all ${theme.transitions.normal};
-  animation: ${props => props.$isTransitioning ? 'pageTransition 0.2s ease-out' : 'none'};
+  transition: background-color 0.15s ease;
+  position: relative;
+  
+  &::-webkit-scrollbar {
+    width: 0px;
+    display: none;
+  }
+  
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  
+  /* Track scroll position to auto-scroll on new logs */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+  }
 `;
 
-const LogLine = styled.div<{ $level: string; $category: string }>`
+const logEntryFadeIn = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+    background-color: ${asciiColors.accent}44;
+    border-left-width: 4px;
+  }
+  30% {
+    opacity: 0.7;
+    background-color: ${asciiColors.backgroundSoft};
+  }
+  60% {
+    background-color: ${asciiColors.backgroundSoft};
+    border-left-width: 3px;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    background-color: transparent;
+    border-left-width: 2px;
+  }
+`;
+
+const LogLine = styled.div<{ $level: string; $category: string; $isNew?: boolean }>`
   margin-bottom: 2px;
-  padding: 4px 0;
-  border-left: 2px solid ${props => {
+  padding: ${theme.spacing.xs} 0;
+  border-left: ${props => props.$isNew ? '3px' : '2px'} solid ${props => {
     switch (props.$level) {
       case 'ERROR':
       case 'CRITICAL':
-        return asciiColors.danger;
+        return asciiColors.foreground;
       case 'WARNING':
-        return asciiColors.warning;
+        return asciiColors.muted;
       case 'INFO':
         return asciiColors.accent;
       case 'DEBUG':
@@ -150,37 +176,37 @@ const LogLine = styled.div<{ $level: string; $category: string }>`
         return asciiColors.muted;
     }
   }};
-  padding-left: 8px;
+  padding-left: ${theme.spacing.sm};
   position: relative;
-  transition: all 0.15s ease;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 11px;
-
-  &:hover {
-    background-color: ${asciiColors.backgroundSoft};
-    transform: translateX(2px);
-  }
+  ${props => props.$isNew ? `
+    animation: ${logEntryFadeIn} 1s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: opacity, transform, background-color;
+  ` : `
+    transition: background-color 0.15s ease;
+  `}
 `;
 
 const LogTimestamp = styled.span`
   color: ${asciiColors.muted};
-  margin-right: 10px;
+  margin-right: ${theme.spacing.sm};
   font-size: 11px;
-  font-family: "Consolas";
+  font-family: 'Consolas';
 `;
 
 const LogLevel = styled.span<{ $level: string }>`
-  font-weight: bold;
-  margin-right: 10px;
-  font-family: "Consolas";
+  font-weight: 600;
+  margin-right: ${theme.spacing.sm};
+  font-family: 'Consolas';
   font-size: 11px;
   color: ${props => {
     switch (props.$level) {
       case 'ERROR':
       case 'CRITICAL':
-        return asciiColors.danger;
+        return asciiColors.foreground;
       case 'WARNING':
-        return asciiColors.warning;
+        return asciiColors.muted;
       case 'INFO':
         return asciiColors.accent;
       case 'DEBUG':
@@ -193,26 +219,26 @@ const LogLevel = styled.span<{ $level: string }>`
 
 const LogFunction = styled.span`
   color: ${asciiColors.muted};
-  margin-right: 10px;
+  margin-right: ${theme.spacing.sm};
   font-size: 11px;
-  font-family: "Consolas";
+  font-family: 'Consolas';
 `;
 
 const LogCategory = styled.span<{ $category: string }>`
   color: ${asciiColors.muted};
-  margin-right: 10px;
+  margin-right: ${theme.spacing.sm};
   font-size: 11px;
   font-weight: 500;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   background-color: ${asciiColors.backgroundSoft};
-  padding: 2px 6px;
-  border-radius: 2px;
+  padding: ${theme.spacing.xs} ${theme.spacing.xs};
+  border-radius: 2;
   border: 1px solid ${asciiColors.border};
 `;
 
 const LogMessage = styled.span`
   color: ${asciiColors.foreground};
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 11px;
 `;
 
@@ -225,27 +251,27 @@ const Pagination = styled.div`
   padding: ${theme.spacing.md};
   background-color: ${asciiColors.backgroundSoft};
   border: 1px solid ${asciiColors.border};
-  border-radius: 2px;
-  font-family: "Consolas";
+  border-radius: 2;
+  font-family: 'Consolas';
   font-size: 12px;
 `;
 
 
 const PageInfo = styled.span`
   color: ${asciiColors.muted};
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 11px;
 `;
 
 const SuccessMessage = styled.div`
   margin-top: ${theme.spacing.md};
   padding: ${theme.spacing.sm} ${theme.spacing.md};
-  background-color: ${asciiColors.success}20;
-  border: 1px solid ${asciiColors.success};
-  border-radius: 2px;
-  color: ${asciiColors.success};
+  background-color: ${asciiColors.backgroundSoft};
+  border: 1px solid ${asciiColors.accent};
+  border-radius: 2;
+  color: ${asciiColors.accent};
   text-align: center;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
 `;
 
@@ -265,11 +291,11 @@ const ModalOverlay = styled.div`
 const ModalContent = styled.div`
   background: ${asciiColors.background};
   padding: ${theme.spacing.xxl};
-  border-radius: 2px;
+  border-radius: 2;
   border: 2px solid ${asciiColors.border};
   max-width: 500px;
   text-align: center;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
 `;
 
@@ -306,11 +332,14 @@ const LogsViewer = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [allLogs, setAllLogs] = useState<LogEntry[]>([]);
+  const [showLogsPlaybook, setShowLogsPlaybook] = useState(false);
+  const [newLogIds, setNewLogIds] = useState<Set<number>>(new Set());
   
   const logsEndRef = useRef<HTMLDivElement>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
-
+  const previousLogsRef = useRef<LogEntry[]>([]);
+  const wasAtBottomRef = useRef(true);
   const isInitialLoadRef = useRef(true);
   
   const fetchLogs = useCallback(async () => {
@@ -352,16 +381,52 @@ const LogsViewer = () => {
       }
       
       if (isMountedRef.current) {
-        setAllLogs(logsData.logs || []);
+        const newLogs = logsData.logs || [];
+        const previousLogs = previousLogsRef.current;
+        
+        // Detect new logs (logs that weren't in the previous fetch)
+        if (!isInitialLoad && previousLogs.length > 0) {
+          const previousIds = new Set(previousLogs.map(log => log.id).filter(Boolean));
+          const newIds = new Set(
+            newLogs
+              .filter(log => log.id && !previousIds.has(log.id))
+              .map(log => log.id!)
+          );
+          
+          if (newIds.size > 0) {
+            // Force a small delay to ensure React re-renders with the new state
+            requestAnimationFrame(() => {
+              if (isMountedRef.current) {
+                setNewLogIds(newIds);
+                // Clear the "new" flag after animation completes (1s animation + buffer)
+                setTimeout(() => {
+                  if (isMountedRef.current) {
+                    setNewLogIds(new Set());
+                  }
+                }, 1500);
+              }
+            });
+            
+            // Auto-scroll to bottom if user was at bottom
+            if (wasAtBottomRef.current && logsEndRef.current) {
+              setTimeout(() => {
+                logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }
+          }
+        }
+        
+        previousLogsRef.current = newLogs;
+        setAllLogs(newLogs);
         setLogInfo(infoData);
         
         const logsPerPage = 50;
-        const totalPages = Math.ceil((logsData.logs || []).length / logsPerPage);
+        const totalPages = Math.ceil(newLogs.length / logsPerPage);
         setTotalPages(totalPages);
         
         const startIndex = (currentPage - 1) * logsPerPage;
         const endIndex = startIndex + logsPerPage;
-        setLogs((logsData.logs || []).slice(startIndex, endIndex));
+        setLogs(newLogs.slice(startIndex, endIndex));
         isInitialLoadRef.current = false;
       }
     } catch (err) {
@@ -455,6 +520,39 @@ const LogsViewer = () => {
       setLogs(allLogs.slice(startIndex, endIndex));
     }
   }, [allLogs, currentPage]);
+
+  // Track if user is at bottom of scroll area for auto-scroll on new logs
+  useEffect(() => {
+    const logsArea = logsEndRef.current?.parentElement;
+    if (!logsArea) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = logsArea;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 10;
+      wasAtBottomRef.current = isAtBottom;
+    };
+
+    logsArea.addEventListener('scroll', handleScroll);
+    // Check initial position
+    handleScroll();
+    
+    return () => logsArea.removeEventListener('scroll', handleScroll);
+  }, [logs]);
+
+  // Track if user is at bottom of scroll area
+  useEffect(() => {
+    const logsArea = logsEndRef.current?.parentElement;
+    if (!logsArea) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = logsArea;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 10;
+      wasAtBottomRef.current = isAtBottom;
+    };
+
+    logsArea.addEventListener('scroll', handleScroll);
+    return () => logsArea.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -594,90 +692,585 @@ const LogsViewer = () => {
 
   if (error && logs.length === 0) {
     return (
+      <Container>
+        <div style={{
+          width: "100%",
+          minHeight: "100vh",
+          padding: theme.spacing.lg,
+          fontFamily: 'Consolas',
+          fontSize: 12,
+          color: asciiColors.foreground,
+          backgroundColor: asciiColors.background,
+          display: "flex",
+          flexDirection: "column",
+          gap: theme.spacing.lg
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: theme.spacing.lg,
+            paddingBottom: theme.spacing.md,
+            borderBottom: `2px solid ${asciiColors.accent}`
+          }}>
+            <h1 style={{
+              fontSize: 14,
+              fontWeight: 600,
+              margin: 0,
+              color: asciiColors.foreground,
+              textTransform: "uppercase",
+              fontFamily: 'Consolas'
+            }}>
+              <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+              LOGS
+            </h1>
+          </div>
+          <div style={{ marginBottom: theme.spacing.lg }}>
+            <AsciiPanel title="ERROR">
+              <div style={{
+                padding: theme.spacing.md,
+                color: asciiColors.foreground,
+                fontSize: 12,
+                fontFamily: 'Consolas',
+                background: asciiColors.backgroundSoft,
+                borderRadius: 2,
+                border: `2px solid ${asciiColors.foreground}`,
+                marginBottom: theme.spacing.sm
+              }}>
+                Error loading logs: {error}
+              </div>
+              <AsciiButton 
+                label="Retry"
+                onClick={fetchLogs}
+                variant="primary"
+              />
+            </AsciiPanel>
+          </div>
+        </div>
+      </Container>
+    );
+  }
+
+  return (
+    <Container>
       <div style={{
         width: "100%",
         minHeight: "100vh",
-        padding: "20px",
-        fontFamily: "Consolas",
+        padding: theme.spacing.lg,
+        fontFamily: 'Consolas',
         fontSize: 12,
         color: asciiColors.foreground,
         backgroundColor: asciiColors.background,
         display: "flex",
         flexDirection: "column",
-        gap: 20
+        gap: theme.spacing.lg
       }}>
-        <h1 style={{
-          fontSize: 14,
-          fontWeight: 600,
-          margin: "0 0 20px 0",
-          color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: theme.spacing.lg,
+          paddingBottom: theme.spacing.md,
+          borderBottom: `2px solid ${asciiColors.accent}`
         }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          LOGS
-        </h1>
-        <div style={{ marginBottom: 20 }}>
-          <AsciiPanel title="ERROR">
-            <div style={{
-              padding: "12px",
-              color: asciiColors.danger,
-              fontSize: 12,
-              fontFamily: "Consolas",
-              marginBottom: 12
-            }}>
-              Error loading logs: {error}
-            </div>
-            <AsciiButton 
-              label="Retry"
-              onClick={fetchLogs}
-              variant="primary"
-            />
-          </AsciiPanel>
+          <h1 style={{
+            fontSize: 14,
+            fontWeight: 600,
+            margin: 0,
+            color: asciiColors.foreground,
+            textTransform: "uppercase",
+            fontFamily: 'Consolas'
+          }}>
+            <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+            LOGS
+          </h1>
+          <AsciiButton
+            label="Logs Info"
+            onClick={() => setShowLogsPlaybook(true)}
+            variant="ghost"
+          />
         </div>
-      </div>
-    );
-  }
 
-  return (
-    <div style={{
-      width: "100%",
-      minHeight: "100vh",
-      padding: "20px",
-      fontFamily: "Consolas",
-      fontSize: 12,
-      color: asciiColors.foreground,
-      backgroundColor: asciiColors.background,
-      display: "flex",
-      flexDirection: "column",
-      gap: 20
-    }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
-      }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        LOGS
-      </h1>
-      
-      {error && (
-        <div style={{ marginBottom: 20 }}>
-          <AsciiPanel title="ERROR">
+        {showLogsPlaybook && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setShowLogsPlaybook(false)}
+          >
             <div style={{
-              padding: "12px",
-              color: asciiColors.danger,
-              fontSize: 12,
-              fontFamily: "Consolas"
-            }}>
-              {error}
+              width: '90%',
+              maxWidth: 1000,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              fontFamily: 'Consolas'
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="modal-scroll-container"
+            >
+              <AsciiPanel title="LOGS VIEWER PLAYBOOK">
+                <div style={{ 
+                  padding: theme.spacing.md, 
+                  fontFamily: 'Consolas', 
+                  fontSize: 12, 
+                  lineHeight: 1.6 
+                }}>
+                  <div style={{ marginBottom: theme.spacing.lg }}>
+                    <div style={{ 
+                      fontSize: 14, 
+                      fontWeight: 600, 
+                      color: asciiColors.accent, 
+                      marginBottom: theme.spacing.sm,
+                      fontFamily: 'Consolas'
+                    }}>
+                      {ascii.blockFull} OVERVIEW
+                    </div>
+                    <div style={{ 
+                      color: asciiColors.foreground, 
+                      marginLeft: theme.spacing.md, 
+                      fontFamily: 'Consolas' 
+                    }}>
+                      The Logs Viewer provides comprehensive access to application logs stored in the database. 
+                      Monitor system activity, debug issues, filter by level and category, search through entries, 
+                      and manage log retention. All logs are stored in the metadata.logs table and can be 
+                      exported, filtered, and cleared as needed.
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: theme.spacing.lg }}>
+                    <div style={{ 
+                      fontSize: 14, 
+                      fontWeight: 600, 
+                      color: asciiColors.accent, 
+                      marginBottom: theme.spacing.sm,
+                      fontFamily: 'Consolas'
+                    }}>
+                      {ascii.blockFull} LOG LEVELS
+                    </div>
+                    
+                    <div style={{ marginLeft: theme.spacing.md }}>
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          DEBUG
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Detailed diagnostic information for debugging purposes. Typically used during development 
+                          and troubleshooting. Can be filtered out in production environments.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.accent, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          INFO
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          General informational messages about application flow and operations. Used to track 
+                          normal application behavior and significant events.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.muted, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          WARNING
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Warning messages indicating potential issues that don't prevent the application from 
+                          functioning but should be reviewed. May indicate deprecated features or configuration issues.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          ERROR
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Error messages indicating failures in operations that prevent specific functionality 
+                          from working correctly. These require immediate attention.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          CRITICAL
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Critical errors that may cause the application to fail or become unstable. These 
+                          require immediate investigation and resolution.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: theme.spacing.lg }}>
+                    <div style={{ 
+                      fontSize: 14, 
+                      fontWeight: 600, 
+                      color: asciiColors.accent, 
+                      marginBottom: theme.spacing.sm,
+                      fontFamily: 'Consolas'
+                    }}>
+                      {ascii.blockFull} FILTERING & SEARCH
+                    </div>
+                    
+                    <div style={{ marginLeft: theme.spacing.md }}>
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Level Filter
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Filter logs by severity level (DEBUG, INFO, WARNING, ERROR, CRITICAL). Select "ALL" 
+                          to view all levels. Useful for focusing on specific types of issues.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Category Filter
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Filter logs by category (e.g., DATABASE, API, AUTH, SYNC). Categories are automatically 
+                          extracted from log entries. Select "ALL" to view all categories.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Function Filter
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Filter logs by function name. Useful for debugging specific functions or methods. 
+                          Select "ALL" to view logs from all functions.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Search
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Search for specific text within log messages. The search is case-sensitive and searches 
+                          through the entire log message content. Use this to find specific errors or events.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Date Range
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Filter logs by date range using Start Date and End Date. Useful for investigating 
+                          issues that occurred during specific time periods. Leave empty to include all dates.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: theme.spacing.lg }}>
+                    <div style={{ 
+                      fontSize: 14, 
+                      fontWeight: 600, 
+                      color: asciiColors.accent, 
+                      marginBottom: theme.spacing.sm,
+                      fontFamily: 'Consolas'
+                    }}>
+                      {ascii.blockFull} LOG MANAGEMENT
+                    </div>
+                    
+                    <div style={{ marginLeft: theme.spacing.md }}>
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Auto Refresh
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Automatically refresh logs every 5 seconds. Useful for monitoring real-time activity. 
+                          The countdown timer shows when the next refresh will occur. Disable to stop automatic updates.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Auto Cleanup
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Automatically clean up logs based on configured rules during fetch operations. Options include 
+                          deleting DEBUG logs, removing duplicates, and deleting logs older than a specified number of days.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Copy Logs
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Copy all filtered logs to clipboard with header information including total entries, 
+                          filters applied, file path, size, and last modified date. Useful for sharing logs 
+                          with support teams or for offline analysis.
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: theme.spacing.sm }}>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 600, 
+                          color: asciiColors.foreground, 
+                          marginBottom: theme.spacing.xs, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Clear Logs
+                        </div>
+                        <div style={{ 
+                          color: asciiColors.foreground, 
+                          marginLeft: theme.spacing.md, 
+                          fontSize: 11, 
+                          fontFamily: 'Consolas' 
+                        }}>
+                          Truncate the entire metadata.logs table, removing all log entries permanently. 
+                          This operation cannot be undone. Use with caution, especially in production environments. 
+                          A confirmation dialog will appear before clearing.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: theme.spacing.lg }}>
+                    <div style={{ 
+                      fontSize: 14, 
+                      fontWeight: 600, 
+                      color: asciiColors.accent, 
+                      marginBottom: theme.spacing.sm,
+                      fontFamily: 'Consolas'
+                    }}>
+                      {ascii.blockFull} PAGINATION
+                    </div>
+                    
+                    <div style={{ marginLeft: theme.spacing.md }}>
+                      <div style={{ 
+                        color: asciiColors.foreground, 
+                        fontSize: 11, 
+                        fontFamily: 'Consolas' 
+                      }}>
+                        Logs are paginated with 50 entries per page. Use the pagination controls to navigate 
+                        between pages. The "Go to Latest" button takes you to page 1 (most recent logs). 
+                        You can also jump to a specific page number using the "Go to" input field.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ 
+                    marginTop: theme.spacing.md, 
+                    padding: theme.spacing.sm, 
+                    background: asciiColors.backgroundSoft, 
+                    borderRadius: 2,
+                    border: `1px solid ${asciiColors.border}`
+                  }}>
+                    <div style={{ 
+                      fontSize: 11, 
+                      fontWeight: 600, 
+                      color: asciiColors.muted, 
+                      marginBottom: theme.spacing.xs,
+                      fontFamily: 'Consolas'
+                    }}>
+                      {ascii.blockSemi} Best Practices
+                    </div>
+                    <div style={{ 
+                      fontSize: 11, 
+                      color: asciiColors.foreground,
+                      fontFamily: 'Consolas'
+                    }}>
+                      • Use filters to narrow down logs when investigating specific issues<br/>
+                      • Enable auto-cleanup in production to manage log table size<br/>
+                      • Regularly review and clear old logs to maintain performance<br/>
+                      • Export logs before clearing for audit purposes<br/>
+                      • Monitor ERROR and CRITICAL levels regularly<br/>
+                      • Use date ranges to investigate time-specific issues<br/>
+                      • Keep DEBUG logs disabled in production for better performance
+                    </div>
+                  </div>
+
+                  <div style={{ 
+                    marginTop: theme.spacing.md, 
+                    textAlign: 'right' 
+                  }}>
+                    <AsciiButton
+                      label="Close"
+                      onClick={() => setShowLogsPlaybook(false)}
+                      variant="ghost"
+                    />
+                  </div>
+                </div>
+              </AsciiPanel>
             </div>
-          </AsciiPanel>
-        </div>
-      )}
+          </div>
+        )}
+        
+        {error && (
+          <div style={{ marginBottom: theme.spacing.lg }}>
+            <AsciiPanel title="ERROR">
+              <div style={{
+                padding: theme.spacing.md,
+                color: asciiColors.foreground,
+                fontSize: 12,
+                fontFamily: 'Consolas',
+                background: asciiColors.backgroundSoft,
+                borderRadius: 2,
+                border: `2px solid ${asciiColors.foreground}`
+              }}>
+                {error}
+              </div>
+            </AsciiPanel>
+          </div>
+        )}
       
       <AsciiPanel title="LOG CONTROLS">
         <Controls>
@@ -766,12 +1359,12 @@ const LogsViewer = () => {
             <ControlGroup>
               <Label>Next Refresh:</Label>
               <div style={{
-                padding: '8px 12px',
+                padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                 border: `1px solid ${asciiColors.border}`,
                 borderRadius: 2,
                 backgroundColor: asciiColors.background,
                 textAlign: 'center',
-                fontFamily: "Consolas",
+                fontFamily: 'Consolas',
                 fontSize: 12,
                 color: asciiColors.foreground,
                 minWidth: '60px'
@@ -870,10 +1463,10 @@ const LogsViewer = () => {
         {copySuccess && (
           <AsciiPanel title="SUCCESS">
             <div style={{ 
-              color: asciiColors.success, 
-              fontFamily: "Consolas", 
+              color: asciiColors.accent, 
+              fontFamily: 'Consolas', 
               fontSize: 12,
-              padding: "8px 0"
+              padding: `${theme.spacing.sm} 0`
             }}>
               {ascii.blockFull} Logs copied to clipboard successfully!
             </div>
@@ -881,19 +1474,27 @@ const LogsViewer = () => {
         )}
       </AsciiPanel>
 
-      <AsciiPanel title="LOG ENTRIES (DB)">
-        <LogsArea $isTransitioning={isPageTransitioning}>
-          {logs.map((log, index) => (
-            <LogLine key={log.id || index} $level={log.level} $category={log.category || 'SYSTEM'}>
-              <LogTimestamp>{log.timestamp ? formatDate(log.timestamp) : ''}</LogTimestamp>
-              <LogLevel $level={log.level}>[{(log.level || '').toUpperCase()}]</LogLevel>
-              {log.category && <LogCategory $category={log.category}>[{(log.category || '').toUpperCase()}]</LogCategory>}
-              {log.function && <LogFunction>[{log.function}]</LogFunction>}
-              <LogMessage>{log.message}</LogMessage>
-            </LogLine>
-          ))}
-          <div ref={logsEndRef} />
-        </LogsArea>
+        <AsciiPanel title="LOG ENTRIES (DB)">
+          <LogsArea $isTransitioning={isPageTransitioning}>
+            {logs.map((log, index) => {
+              const isNew = log.id ? newLogIds.has(log.id) : false;
+              return (
+                <LogLine 
+                  key={log.id || index} 
+                  $level={log.level} 
+                  $category={log.category || 'SYSTEM'}
+                  $isNew={isNew}
+                >
+                  <LogTimestamp>{log.timestamp ? formatDate(log.timestamp) : ''}</LogTimestamp>
+                  <LogLevel $level={log.level}>[{(log.level || '').toUpperCase()}]</LogLevel>
+                  {log.category && <LogCategory $category={log.category}>[{(log.category || '').toUpperCase()}]</LogCategory>}
+                  {log.function && <LogFunction>[{log.function}]</LogFunction>}
+                  <LogMessage>{log.message}</LogMessage>
+                </LogLine>
+              );
+            })}
+            <div ref={logsEndRef} />
+          </LogsArea>
         
         {totalPages > 1 && (
           <Pagination>
@@ -926,7 +1527,7 @@ const LogsViewer = () => {
             })}
             
             {totalPages > 20 && currentPage < totalPages - 9 && (
-              <PageInfo style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas" }}>
+              <PageInfo style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                 ...
               </PageInfo>
             )}
@@ -948,13 +1549,13 @@ const LogsViewer = () => {
               Page {currentPage} of {totalPages}
             </PageInfo>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: 11, color: asciiColors.muted, fontFamily: "Consolas" }}>Go to:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <span style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>Go to:</span>
               <Input
                 type="number"
                 min="1"
                 max={totalPages}
-                style={{ width: '60px', padding: '4px 8px', fontSize: 11, fontFamily: "Consolas" }}
+                style={{ width: '60px', padding: `${theme.spacing.xs} ${theme.spacing.sm}`, fontSize: 11, fontFamily: 'Consolas' }}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
                     const targetPage = parseInt((e.target as HTMLInputElement).value);
@@ -965,6 +1566,7 @@ const LogsViewer = () => {
                   }
                 }}
                 placeholder={currentPage.toString()}
+                aria-label="Go to page number"
               />
             </div>
           </Pagination>
@@ -980,33 +1582,38 @@ const LogsViewer = () => {
             border: `2px solid ${asciiColors.border}`,
             maxWidth: 500,
             textAlign: 'center',
-            fontFamily: "Consolas",
+            fontFamily: 'Consolas',
             fontSize: 12
           }}>
             <h3 style={{ 
               margin: 0,
-              marginBottom: 20, 
-              color: asciiColors.danger,
+              marginBottom: theme.spacing.lg, 
+              color: asciiColors.foreground,
               fontSize: 14,
-              fontFamily: "Consolas",
+              fontFamily: 'Consolas',
               fontWeight: 600
             }}>
               {ascii.blockFull} CLEAR LOGS CONFIRMATION
             </h3>
             <p style={{ 
-              marginBottom: 25, 
+              marginBottom: theme.spacing.lg, 
               lineHeight: 1.5,
               color: asciiColors.foreground,
-              fontFamily: "Consolas",
+              fontFamily: 'Consolas',
               fontSize: 12
             }}>
-              This action will TRUNCATE the database table:
+              This action will <strong>TRUNCATE</strong> the entire database table:
               <br />
-              {ascii.dot} metadata.logs (all log entries will be removed)
               <br />
-              <strong>This operation cannot be undone!</strong>
+              {ascii.blockFull} <strong>metadata.logs</strong>
+              <br />
+              <br />
+              All log entries will be permanently removed from the table.
+              <br />
+              <br />
+              <strong style={{ color: asciiColors.foreground }}>This operation cannot be undone!</strong>
             </p>
-            <div style={{ display: 'flex', gap: 15, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: theme.spacing.md, justifyContent: 'center' }}>
               <AsciiButton
                 label="Cancel"
                 onClick={() => setShowClearDialog(false)}
@@ -1022,8 +1629,20 @@ const LogsViewer = () => {
             </div>
           </ModalContent>
         </ModalOverlay>
-      )}
-    </div>
+        )}
+      </div>
+      <style>{`
+        .modal-scroll-container::-webkit-scrollbar {
+          width: 0px;
+          display: none;
+        }
+        
+        .modal-scroll-container {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+    </Container>
   );
 };
 

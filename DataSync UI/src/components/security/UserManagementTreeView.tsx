@@ -65,11 +65,7 @@ const TreeContainer = styled.div`
   &::-webkit-scrollbar-thumb {
     background: ${asciiColors.border};
     border-radius: 2px;
-    transition: background ${theme.transitions.normal};
-    
-    &:hover {
-      background: ${asciiColors.accent};
-    }
+    transition: background 0.15s ease;
   }
 `;
 
@@ -92,19 +88,24 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   padding: ${props => props.$level === 0 ? '12px 8px' : '10px 8px'};
   padding-left: ${props => props.$level * 24 + 8}px;
   border-radius: 2px;
-  transition: all ${theme.transitions.normal};
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
   position: relative;
   margin: 2px 0;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
   
-  background: transparent;
+  background: ${props => {
+    if (props.$isExpanded && props.$nodeType === 'role') {
+      return asciiColors.backgroundSoft;
+    }
+    return 'transparent';
+  }};
   
   ${props => {
     if (props.$nodeType === 'role') {
       return `
-        border-left: 2px solid ${asciiColors.accent};
+        border-left: 2px solid ${props.$isExpanded ? asciiColors.accent : asciiColors.border};
         font-weight: 600;
       `;
     }
@@ -112,16 +113,6 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
       border-left: 1px solid ${asciiColors.border};
     `;
   }}
-  
-  &:hover {
-    background: ${props => {
-      if (props.$nodeType === 'role') {
-        return asciiColors.accentLight;
-      }
-      return asciiColors.backgroundSoft;
-    }};
-    transform: translateX(2px);
-  }
 `;
 
 const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
@@ -136,16 +127,12 @@ const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
     ? asciiColors.accent
     : asciiColors.backgroundSoft
   };
-  color: ${props => props.$isExpanded ? "#ffffff" : asciiColors.accent};
+  color: ${props => props.$isExpanded ? asciiColors.background : asciiColors.accent};
   font-size: 12px;
   font-weight: bold;
-  font-family: "Consolas";
-  transition: all ${theme.transitions.normal};
+  font-family: 'Consolas';
+  transition: background-color 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
-  
-  &:hover {
-    transform: scale(1.1);
-  }
 `;
 
 const NodeLabel = styled.span<{ $isRole?: boolean }>`
@@ -162,23 +149,16 @@ const NodeLabel = styled.span<{ $isRole?: boolean }>`
 `;
 
 const CountBadge = styled.span`
-  padding: 4px 10px;
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
   border-radius: 2px;
   font-size: 11px;
   font-weight: 500;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   background: ${asciiColors.backgroundSoft};
   color: ${asciiColors.muted};
   border: 1px solid ${asciiColors.border};
   margin-left: auto;
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: ${asciiColors.accentLight};
-    border-color: ${asciiColors.accent};
-    color: ${asciiColors.accent};
-    transform: translateY(-1px);
-  }
+  transition: border-color 0.15s ease, color 0.15s ease;
 `;
 
 const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
@@ -199,19 +179,13 @@ const UserItemRow = styled.div<{ $level: number; $isSelected?: boolean; $isActiv
   padding-left: ${props => props.$level * 24 + 36}px;
   margin: 2px 0;
   border-radius: 2px;
-  background: ${props => props.$isSelected ? asciiColors.accentLight : asciiColors.background};
-  border-left: 2px solid ${props => props.$isActive ? asciiColors.success : asciiColors.border};
-  transition: all ${theme.transitions.normal};
+  background: ${props => props.$isSelected ? asciiColors.backgroundSoft : asciiColors.background};
+  border-left: ${props => props.$isActive ? '2px' : '1px'} solid ${props => props.$isActive ? asciiColors.accent : asciiColors.border};
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
   animation: ${fadeIn} 0.3s ease-out;
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
-  
-  &:hover {
-    background: ${asciiColors.backgroundSoft};
-    border-left-width: 3px;
-    transform: translateX(4px);
-  }
 `;
 
 const Badge = styled.span<{ $role?: string; $active?: boolean }>`
@@ -231,33 +205,33 @@ const Badge = styled.span<{ $role?: string; $active?: boolean }>`
       switch (props.$role) {
         case 'admin':
           return `
-            background: ${asciiColors.danger}20;
-            color: ${asciiColors.danger};
-            border-color: ${asciiColors.danger};
+            background: ${asciiColors.backgroundSoft};
+            color: ${asciiColors.accent};
+            border-color: ${asciiColors.accent};
           `;
         case 'user':
           return `
-            background: ${asciiColors.accent}20;
+            background: ${asciiColors.backgroundSoft};
             color: ${asciiColors.accent};
             border-color: ${asciiColors.accent};
           `;
         case 'viewer':
           return `
-            background: ${asciiColors.muted}20;
+            background: ${asciiColors.backgroundSoft};
             color: ${asciiColors.muted};
-            border-color: ${asciiColors.muted};
+            border-color: ${asciiColors.border};
           `;
         case 'analytics':
           return `
-            background: ${asciiColors.warning}20;
-            color: ${asciiColors.warning};
-            border-color: ${asciiColors.warning};
+            background: ${asciiColors.backgroundSoft};
+            color: ${asciiColors.accent};
+            border-color: ${asciiColors.accent};
           `;
         case 'reporting':
           return `
-            background: ${asciiColors.success}20;
-            color: ${asciiColors.success};
-            border-color: ${asciiColors.success};
+            background: ${asciiColors.backgroundSoft};
+            color: ${asciiColors.accent};
+            border-color: ${asciiColors.accent};
           `;
         default:
           return `
@@ -270,9 +244,9 @@ const Badge = styled.span<{ $role?: string; $active?: boolean }>`
     if (props.$active !== undefined) {
       return props.$active
         ? `
-            background: ${asciiColors.success}20;
-            color: ${asciiColors.success};
-            border-color: ${asciiColors.success};
+            background: ${asciiColors.backgroundSoft};
+            color: ${asciiColors.accent};
+            border-color: ${asciiColors.accent};
           `
         : `
             background: ${asciiColors.backgroundSoft};
@@ -286,10 +260,6 @@ const Badge = styled.span<{ $role?: string; $active?: boolean }>`
       border-color: ${asciiColors.border};
     `;
   }}
-  
-  &:hover {
-    transform: translateY(-1px);
-  }
 `;
 
 const EmptyState = styled.div`

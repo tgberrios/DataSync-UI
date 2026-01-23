@@ -16,35 +16,35 @@ const fadeIn = keyframes`
 `;
 
 const TreeContainer = styled.div`
-  font-family: Consolas;
+  font-family: 'Consolas';
   font-size: 12px;
   background: ${asciiColors.background};
   border: 1px solid ${asciiColors.border};
-  border-radius: 2px;
-  padding: 16px;
+  border-radius: 2;
+  padding: ${theme.spacing.md};
   max-height: 800px;
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
   
   &::-webkit-scrollbar {
-    width: 8px;
+    width: 0px;
+    display: none;
   }
   
   &::-webkit-scrollbar-track {
     background: ${asciiColors.backgroundSoft};
-    border-radius: 2px;
+    border-radius: 2;
   }
   
   &::-webkit-scrollbar-thumb {
     background: ${asciiColors.border};
-    border-radius: 2px;
-    transition: background 0.2s ease;
-    
-    &:hover {
-      background: ${asciiColors.accent};
-    }
+    border-radius: 2;
+    transition: background 0.15s ease;
   }
+  
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 `;
 
 const TreeNode = styled.div`
@@ -52,20 +52,16 @@ const TreeNode = styled.div`
   margin: 4px 0;
 `;
 
-const TreeContent = styled.div`
+const TreeContent = styled.div<{ $isExpanded?: boolean }>`
   display: flex;
   align-items: center;
-  padding: 8px;
-  border-radius: 2px;
-  transition: all 0.2s ease;
+  padding: ${theme.spacing.sm};
+  border-radius: 2;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
-  font-family: Consolas;
+  font-family: 'Consolas';
   font-size: 12px;
-  background: transparent;
-  
-  &:hover {
-    background: ${asciiColors.backgroundSoft};
-  }
+  background: ${props => props.$isExpanded ? asciiColors.backgroundSoft : 'transparent'};
 `;
 
 const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
@@ -74,94 +70,78 @@ const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 8px;
-  border-radius: 2px;
+  margin-right: ${theme.spacing.sm};
+  border-radius: 2;
   background: ${props => props.$isExpanded ? asciiColors.accent : asciiColors.backgroundSoft};
-  color: ${props => props.$isExpanded ? '#ffffff' : asciiColors.accent};
+  color: ${props => props.$isExpanded ? asciiColors.background : asciiColors.accent};
   font-size: 10px;
   font-weight: bold;
-  font-family: Consolas;
-  transition: all 0.2s ease;
+  font-family: 'Consolas';
+  transition: background-color 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
-  
-  &:hover {
-    transform: scale(1.1);
-  }
 `;
 
 const NodeLabel = styled.span`
   font-weight: 500;
-  font-family: Consolas;
+  font-family: 'Consolas';
   font-size: 13px;
   color: ${asciiColors.accent};
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: ${theme.spacing.sm};
 `;
 
 const CountBadge = styled.span`
   background: ${asciiColors.backgroundSoft};
   color: ${asciiColors.foreground};
-  padding: 2px 8px;
-  border-radius: 2px;
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+  border-radius: 2;
   font-size: 11px;
   font-weight: 500;
-  font-family: Consolas;
+  font-family: 'Consolas';
   border: 1px solid ${asciiColors.border};
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background: ${asciiColors.accentLight};
-    border-color: ${asciiColors.accent};
-    color: ${asciiColors.accent};
-    transform: translateY(-1px);
-  }
+  transition: border-color 0.15s ease, color 0.15s ease;
 `;
 
 const ExpandableContent = styled.div<{ $isExpanded: boolean }>`
   max-height: ${props => props.$isExpanded ? '10000px' : '0'};
   overflow: hidden;
   transition: max-height 0.3s ease-out;
-  margin-left: 28px;
+  margin-left: ${theme.spacing.lg};
 `;
 
-const TableDetailsRow = styled.div<{ $level?: number }>`
-  padding: 8px;
+const TableDetailsRow = styled.div<{ $level?: number; $isSelected?: boolean }>`
+  padding: ${theme.spacing.sm};
   padding-left: ${props => (props.$level || 0) * 24 + 36}px;
   margin: 2px 0;
-  border-radius: 2px;
-  background: transparent;
-  border: 1px solid ${asciiColors.border};
-  transition: all 0.2s ease;
+  border-radius: 2;
+  background: ${props => props.$isSelected ? asciiColors.backgroundSoft : 'transparent'};
+  border: 1px solid ${props => props.$isSelected ? asciiColors.accent : asciiColors.border};
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   cursor: pointer;
-  font-family: Consolas;
+  font-family: 'Consolas';
   font-size: 12px;
-  
-  &:hover {
-    background: ${asciiColors.backgroundSoft};
-    border-color: ${asciiColors.accent};
-    transform: translateX(4px);
-  }
 `;
 
 const EmptyStateIcon = styled.div`
   font-size: 3em;
   margin-bottom: ${theme.spacing.md};
   animation: ${fadeIn} 0.5s ease-out;
-  font-family: "Consolas, 'Source Code Pro', monospace";
+  font-family: 'Consolas';
   opacity: 0.5;
 `;
 
 const EmptyStateTitle = styled.div`
   font-size: 1.1em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-weight: 500;
+  font-family: 'Consolas';
+  font-weight: 600;
   margin-bottom: ${theme.spacing.sm};
 `;
 
 const EmptyStateText = styled.div`
   font-size: 0.9em;
+  font-family: 'Consolas';
   opacity: 0.7;
 `;
 
@@ -244,12 +224,12 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({ configs, onConfigClick 
 
     return (
       <TreeNode key={category.name}>
-        <TreeContent onClick={() => toggleCategory(category.name)}>
+        <TreeContent $isExpanded={isExpanded} onClick={() => toggleCategory(category.name)}>
           {renderTreeLine(level, isLast)}
           <ExpandIconContainer $isExpanded={isExpanded}>
             {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <span style={{ marginRight: '8px', color: asciiColors.accent, fontFamily: 'Consolas' }}>
+          <span style={{ marginRight: theme.spacing.sm, color: asciiColors.accent, fontFamily: 'Consolas' }}>
             {ascii.blockFull}
           </span>
           <NodeLabel>
@@ -276,21 +256,21 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({ configs, onConfigClick 
         onClick={() => onConfigClick?.(config)}
       >
         {renderTreeLine(level, isLast)}
-        <span style={{ marginRight: '8px', color: asciiColors.muted, fontFamily: 'Consolas' }}>
+        <span style={{ marginRight: theme.spacing.sm, color: asciiColors.muted, fontFamily: 'Consolas' }}>
           {ascii.blockFull}
         </span>
-        <span style={{ marginRight: '8px', fontWeight: 500, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
+        <span style={{ marginRight: theme.spacing.sm, fontWeight: 500, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
           {config.key}
         </span>
         <span style={{
-          padding: '2px 8px',
+          padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
           borderRadius: 2,
           fontSize: 11,
           fontFamily: 'Consolas',
           backgroundColor: asciiColors.backgroundSoft,
           color: asciiColors.muted,
           border: `1px solid ${asciiColors.border}`,
-          marginRight: 4
+          marginRight: theme.spacing.xs
         }}>
           {getValuePreview(config.value)}
         </span>
@@ -305,15 +285,15 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({ configs, onConfigClick 
     return (
       <TreeContainer>
         <div style={{ 
-          padding: '60px 40px', 
+          padding: `${theme.spacing.xl} ${theme.spacing.lg}`, 
           textAlign: 'center', 
           color: asciiColors.muted,
           fontFamily: 'Consolas'
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16, fontFamily: 'Consolas', opacity: 0.5 }}>
+          <div style={{ fontSize: 48, marginBottom: theme.spacing.md, fontFamily: 'Consolas', opacity: 0.5 }}>
             {ascii.blockFull}
           </div>
-          <div style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+          <div style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, marginBottom: theme.spacing.sm, color: asciiColors.foreground }}>
             No configuration available
           </div>
           <div style={{ fontSize: 12, fontFamily: 'Consolas', opacity: 0.7, color: asciiColors.muted }}>

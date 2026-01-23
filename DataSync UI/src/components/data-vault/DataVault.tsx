@@ -184,9 +184,10 @@ const DataVault = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: "Consolas",
+              border: `2px solid ${asciiColors.foreground}`
             }}>
               {error}
             </div>
@@ -418,7 +419,7 @@ const DataVault = () => {
                 <div style={{ marginBottom: 12 }}>
                   <strong style={{ color: asciiColors.accent }}>Status:</strong>{' '}
                   <span style={{
-                    color: selectedVault.active ? asciiColors.success : asciiColors.danger,
+                    color: selectedVault.active ? asciiColors.accent : asciiColors.foreground,
                     fontWeight: 600
                   }}>
                     {selectedVault.active ? 'ACTIVE' : 'INACTIVE'}
@@ -428,7 +429,7 @@ const DataVault = () => {
                       {' | '}
                       <strong style={{ color: asciiColors.accent }}>Last Build:</strong>{' '}
                       <span style={{
-                        color: selectedVault.last_build_status === 'SUCCESS' ? asciiColors.success : asciiColors.danger,
+                        color: selectedVault.last_build_status === 'SUCCESS' ? asciiColors.accent : asciiColors.foreground,
                         fontWeight: 600
                       }}>
                         {selectedVault.last_build_status}
@@ -536,7 +537,7 @@ const DataVault = () => {
                       </div>
                     </div>
                     <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>POINT-IN-TIME (PIT) TABLES</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>POINT-IN-TIME (PIT) TABLES</div>
                       <div style={{ fontSize: 11, lineHeight: 1.5 }}>
                         • <strong>Purpose:</strong> Provide efficient temporal snapshots for querying historical data at specific points in time<br/>
                         • <strong>Structure:</strong> hub_key, snapshot_date, satellite_load_dates[]<br/>
@@ -545,7 +546,7 @@ const DataVault = () => {
                       </div>
                     </div>
                     <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>BRIDGE TABLES</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>BRIDGE TABLES</div>
                       <div style={{ fontSize: 11, lineHeight: 1.5 }}>
                         • <strong>Purpose:</strong> Optimize queries by pre-joining hubs with multiple links<br/>
                         • <strong>Structure:</strong> hub_key, snapshot_date, link_keys[]<br/>
@@ -596,7 +597,7 @@ const DataVault = () => {
                     </div>
 
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>4. BUILD POINT-IN-TIME TABLES</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>4. BUILD POINT-IN-TIME TABLES</div>
                       <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Query all hub_keys from parent <code style={{ color: asciiColors.accent }}>hub_name</code></div>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> For each hub_key, query referenced <code style={{ color: asciiColors.accent }}>satellite_names</code> to get load_dates</div>
@@ -606,7 +607,7 @@ const DataVault = () => {
                     </div>
 
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>5. BUILD BRIDGE TABLES</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>5. BUILD BRIDGE TABLES</div>
                       <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Query all hub_keys from parent <code style={{ color: asciiColors.accent }}>hub_name</code></div>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> For each hub_key, query referenced <code style={{ color: asciiColors.accent }}>link_names</code> to get link_keys</div>
@@ -623,22 +624,22 @@ const DataVault = () => {
                   </div>
                   <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Parallel Loading:</strong> Hubs, Links, and Satellites can be loaded independently and in parallel
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Parallel Loading:</strong> Hubs, Links, and Satellites can be loaded independently and in parallel
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Historical Tracking:</strong> Satellites preserve complete history with load_date and load_end_date
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Historical Tracking:</strong> Satellites preserve complete history with load_date and load_end_date
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Schema Evolution:</strong> Add new satellites without modifying existing hubs or links
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Schema Evolution:</strong> Add new satellites without modifying existing hubs or links
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Audit Trail:</strong> Every row includes load_date and record_source for full traceability
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Audit Trail:</strong> Every row includes load_date and record_source for full traceability
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Hash Keys:</strong> Business keys are hashed to create surrogate keys (hub_key, link_key) for performance
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Hash Keys:</strong> Business keys are hashed to create surrogate keys (hub_key, link_key) for performance
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>No Updates:</strong> Hubs and Links are append-only; only Satellites can be updated (if not historized)
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>No Updates:</strong> Hubs and Links are append-only; only Satellites can be updated (if not historized)
                     </div>
                   </div>
                 </div>

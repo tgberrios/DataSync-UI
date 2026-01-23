@@ -13,10 +13,10 @@ const AuditTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   margin-top: ${theme.spacing.lg};
-  background: ${theme.colors.background.main};
-  box-shadow: ${theme.shadows.md};
-  border-radius: ${theme.borderRadius.md};
+  background: ${asciiColors.background};
+  border-radius: 2;
   overflow: hidden;
+  font-family: 'Consolas';
 `;
 
 const Th = styled.th`
@@ -24,8 +24,8 @@ const Th = styled.th`
   text-align: left;
   border-bottom: 2px solid ${asciiColors.border};
   background: ${asciiColors.backgroundSoft};
-  font-weight: bold;
-  font-family: "Consolas";
+  font-weight: 600;
+  font-family: 'Consolas';
   font-size: 13px;
   color: ${asciiColors.accent};
   position: sticky;
@@ -36,33 +36,23 @@ const Th = styled.th`
 const Td = styled.td`
   padding: ${theme.spacing.sm};
   border-bottom: 1px solid ${asciiColors.border};
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
-  transition: all ${theme.transitions.normal};
+  transition: background-color 0.15s ease;
   word-break: break-word;
   max-width: 300px;
 `;
 
 const TableRow = styled.tr`
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: linear-gradient(90deg, ${theme.colors.background.main} 0%, ${theme.colors.background.tertiary} 100%);
-    transform: scale(1.001);
-    box-shadow: ${theme.shadows.sm};
-    
-    ${Td} {
-      border-bottom-color: rgba(10, 25, 41, 0.1);
-    }
-  }
+  transition: background-color 0.15s ease;
 `;
 
 const getActionTypeColor = (actionType: string) => {
   switch (actionType.toUpperCase()) {
     case 'SELECT': return asciiColors.accent;
-    case 'INSERT': return asciiColors.success;
-    case 'UPDATE': return asciiColors.warning;
-    case 'DELETE': return asciiColors.danger;
+    case 'INSERT': return asciiColors.accent;
+    case 'UPDATE': return asciiColors.muted;
+    case 'DELETE': return asciiColors.foreground;
     default: return asciiColors.muted;
   }
 };
@@ -172,34 +162,70 @@ const AuditTrail = () => {
 
   return (
     <Container>
-      {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
+      }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+          AUDIT TRAIL
+        </h1>
+      </div>
+
+      {error && (
+        <div style={{ marginBottom: theme.spacing.md }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: theme.spacing.sm,
+              color: asciiColors.foreground,
+              fontSize: 12,
+              fontFamily: 'Consolas',
+              backgroundColor: asciiColors.backgroundSoft,
+              borderRadius: 2
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
+      )}
 
       {stats && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: theme.spacing.md }}>
           <AsciiPanel title="AUDIT STATISTICS (Last 30 Days)">
-            <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
+            <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: theme.spacing.md }}>
                 <div>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Total Events</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Total Events</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                     {stats.summary?.total_events || 0}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Unique Users</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Unique Users</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                     {stats.summary?.unique_users || 0}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Unique Tables</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Unique Tables</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                     {stats.summary?.unique_tables || 0}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Compliance Events</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.warning }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Compliance Events</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.muted, fontFamily: 'Consolas' }}>
                     {stats.summary?.compliance_events || 0}
                   </div>
                 </div>
@@ -209,10 +235,10 @@ const AuditTrail = () => {
         </div>
       )}
 
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: theme.spacing.md }}>
         <AsciiPanel title="AUDIT TRAIL">
-          <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
+            <div style={{ display: 'flex', gap: theme.spacing.sm, marginBottom: theme.spacing.md, flexWrap: 'wrap' }}>
               <AsciiButton
                 label={`${ascii.blockFull} Compliance Report`}
                 onClick={() => setShowComplianceModal(true)}
@@ -220,20 +246,31 @@ const AuditTrail = () => {
               />
             </div>
 
-            <div style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+            <div style={{ marginBottom: theme.spacing.md, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: theme.spacing.sm }}>
               <input
                 type="text"
                 placeholder="Schema name"
                 value={filters.schema_name}
                 onChange={(e) => setFilters(prev => ({ ...prev, schema_name: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
                   fontFamily: 'Consolas',
                   fontSize: 12,
                   borderRadius: 2,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               />
               <input
@@ -242,13 +279,24 @@ const AuditTrail = () => {
                 value={filters.table_name}
                 onChange={(e) => setFilters(prev => ({ ...prev, table_name: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
                   fontFamily: 'Consolas',
                   fontSize: 12,
                   borderRadius: 2,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               />
               <input
@@ -257,26 +305,49 @@ const AuditTrail = () => {
                 value={filters.username}
                 onChange={(e) => setFilters(prev => ({ ...prev, username: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
                   fontFamily: 'Consolas',
                   fontSize: 12,
                   borderRadius: 2,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               />
               <select
                 value={filters.action_type}
                 onChange={(e) => setFilters(prev => ({ ...prev, action_type: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
                   fontFamily: 'Consolas',
                   fontSize: 12,
                   borderRadius: 2,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease',
+                  cursor: 'pointer'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               >
                 <option value="">All Actions</option>
@@ -294,13 +365,24 @@ const AuditTrail = () => {
                 value={filters.start_date}
                 onChange={(e) => setFilters(prev => ({ ...prev, start_date: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
                   fontFamily: 'Consolas',
                   fontSize: 12,
                   borderRadius: 2,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               />
               <input
@@ -309,18 +391,29 @@ const AuditTrail = () => {
                 value={filters.end_date}
                 onChange={(e) => setFilters(prev => ({ ...prev, end_date: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
                   fontFamily: 'Consolas',
                   fontSize: 12,
                   borderRadius: 2,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               />
             </div>
 
-            <div style={{ marginBottom: 12, fontSize: 11, color: asciiColors.muted }}>
+            <div style={{ marginBottom: theme.spacing.sm, fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>
               Audit Logs ({total})
             </div>
 
@@ -370,11 +463,11 @@ const AuditTrail = () => {
                       <Td>{log.rows_affected || 0}</Td>
                       <Td>
                         {log.compliance_requirement ? (
-                          <span style={{ color: asciiColors.warning, fontSize: 11 }}>
+                          <span style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                             {log.compliance_requirement}
                           </span>
                         ) : (
-                          <span style={{ color: asciiColors.muted }}>-</span>
+                          <span style={{ color: asciiColors.muted, fontFamily: 'Consolas' }}>-</span>
                         )}
                       </Td>
                       <Td>
@@ -392,11 +485,11 @@ const AuditTrail = () => {
             </AuditTable>
 
             {total > limit && (
-              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 11, color: asciiColors.muted }}>
+              <div style={{ marginTop: theme.spacing.md, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>
                   Page {page} of {Math.ceil(total / limit)}
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: theme.spacing.sm }}>
                   <AsciiButton
                     label="◀ Previous"
                     onClick={() => setPage(prev => Math.max(1, prev - 1))}
@@ -449,32 +542,43 @@ const AuditTrail = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="AUDIT LOG DETAILS">
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Log ID</div>
-                  <div style={{ color: asciiColors.foreground, fontSize: 12 }}>{selectedLog.log_id}</div>
+              <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Log ID</div>
+                  <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{selectedLog.log_id}</div>
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Timestamp</div>
-                  <div style={{ color: asciiColors.foreground, fontSize: 12 }}>{formatDate(selectedLog.created_at)}</div>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Timestamp</div>
+                  <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatDate(selectedLog.created_at)}</div>
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>User</div>
-                  <div style={{ color: asciiColors.accent, fontSize: 12 }}>{selectedLog.username}</div>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>User</div>
+                  <div style={{ color: asciiColors.accent, fontSize: 12, fontFamily: 'Consolas' }}>{selectedLog.username}</div>
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Action Type</div>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Action Type</div>
                   <div style={{ 
                     color: getActionTypeColor(selectedLog.action_type),
                     fontSize: 12,
-                    fontWeight: 600
+                    fontWeight: 600,
+                    fontFamily: 'Consolas'
                   }}>{selectedLog.action_type}</div>
                 </div>
                 {selectedLog.schema_name && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Schema.Table.Column</div>
-                    <div style={{ color: asciiColors.foreground, fontSize: 12 }}>
+                  <div style={{ marginBottom: theme.spacing.md }}>
+                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Schema.Table.Column</div>
+                    <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
                       <code>
                         {selectedLog.schema_name}.{selectedLog.table_name}
                         {selectedLog.column_name && `.${selectedLog.column_name}`}
@@ -483,10 +587,10 @@ const AuditTrail = () => {
                   </div>
                 )}
                 {selectedLog.query_text && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Query Text</div>
+                  <div style={{ marginBottom: theme.spacing.md }}>
+                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Query Text</div>
                     <div style={{
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       backgroundColor: asciiColors.backgroundSoft,
                       borderRadius: 2,
                       border: `1px solid ${asciiColors.border}`,
@@ -503,10 +607,10 @@ const AuditTrail = () => {
                   </div>
                 )}
                 {selectedLog.old_values && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Old Values</div>
+                  <div style={{ marginBottom: theme.spacing.md }}>
+                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Old Values</div>
                     <div style={{
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       backgroundColor: asciiColors.backgroundSoft,
                       borderRadius: 2,
                       border: `1px solid ${asciiColors.border}`,
@@ -518,15 +622,25 @@ const AuditTrail = () => {
                       maxHeight: 200,
                       overflowY: 'auto'
                     }}>
+                      <style>{`
+                        div[style*="overflowY"]::-webkit-scrollbar {
+                          width: 0px;
+                          display: none;
+                        }
+                        div[style*="overflowY"] {
+                          -ms-overflow-style: none;
+                          scrollbar-width: none;
+                        }
+                      `}</style>
                       {JSON.stringify(selectedLog.old_values, null, 2)}
                     </div>
                   </div>
                 )}
                 {selectedLog.new_values && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>New Values</div>
+                  <div style={{ marginBottom: theme.spacing.md }}>
+                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>New Values</div>
                     <div style={{
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       backgroundColor: asciiColors.backgroundSoft,
                       borderRadius: 2,
                       border: `1px solid ${asciiColors.border}`,
@@ -542,19 +656,19 @@ const AuditTrail = () => {
                     </div>
                   </div>
                 )}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Rows Affected</div>
-                  <div style={{ color: asciiColors.foreground, fontSize: 12 }}>{selectedLog.rows_affected || 0}</div>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Rows Affected</div>
+                  <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{selectedLog.rows_affected || 0}</div>
                 </div>
                 {selectedLog.compliance_requirement && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Compliance Requirement</div>
-                    <div style={{ color: asciiColors.warning, fontSize: 12, fontWeight: 600 }}>
+                  <div style={{ marginBottom: theme.spacing.md }}>
+                    <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Compliance Requirement</div>
+                    <div style={{ color: asciiColors.muted, fontSize: 12, fontWeight: 600, fontFamily: 'Consolas' }}>
                       {selectedLog.compliance_requirement}
                     </div>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: theme.spacing.lg }}>
                   <AsciiButton
                     label="Close"
                     onClick={() => setSelectedLog(null)}
@@ -600,10 +714,20 @@ const AuditTrail = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="COMPLIANCE REPORT">
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+              <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Compliance Type *
                   </label>
                   <select
@@ -611,13 +735,25 @@ const AuditTrail = () => {
                     onChange={(e) => setComplianceType(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease',
+                      cursor: 'pointer'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   >
                     <option value="GDPR">GDPR</option>
@@ -627,7 +763,7 @@ const AuditTrail = () => {
                   </select>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
                   <AsciiButton
                     label="Generate Report"
                     onClick={handleGenerateComplianceReport}
@@ -636,49 +772,49 @@ const AuditTrail = () => {
 
                 {complianceReport && (
                   <div style={{
-                    marginTop: 20,
-                    padding: 16,
+                    marginTop: theme.spacing.lg,
+                    padding: theme.spacing.md,
                     backgroundColor: asciiColors.backgroundSoft,
                     borderRadius: 2,
                     border: `1px solid ${asciiColors.border}`
                   }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                       {ascii.blockFull} COMPLIANCE REPORT: {complianceType}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: theme.spacing.md }}>
                       <div>
-                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Total Events</div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent }}>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Total Events</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                           {complianceReport.total_events || 0}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Unique Users</div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent }}>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Unique Users</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                           {complianceReport.unique_users || 0}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Unique Tables</div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent }}>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Unique Tables</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                           {complianceReport.unique_tables || 0}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Sensitive Access</div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.warning }}>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Sensitive Access</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.muted, fontFamily: 'Consolas' }}>
                           {complianceReport.sensitive_access_count || 0}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Modifications</div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.danger }}>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Modifications</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
                           {complianceReport.modification_count || 0}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: 4 }}>Access Count</div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent }}>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Access Count</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
                           {complianceReport.access_count || 0}
                         </div>
                       </div>
@@ -686,7 +822,7 @@ const AuditTrail = () => {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: theme.spacing.lg }}>
                   <AsciiButton
                     label="Close"
                     onClick={() => {

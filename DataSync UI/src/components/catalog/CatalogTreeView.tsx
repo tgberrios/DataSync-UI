@@ -83,9 +83,9 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDel
     const isLast = Array.from(treeData.find(s => s.name === schemaName)?.tables.keys() || []).pop() === tableName;
 
     const getStatusColor = (status: string) => {
-      if (status === 'LISTENING_CHANGES') return asciiColors.success;
-      if (status === 'IN_PROGRESS') return asciiColors.warning;
-      if (status === 'ERROR') return asciiColors.danger;
+      if (status === 'LISTENING_CHANGES') return asciiColors.accent;
+      if (status === 'IN_PROGRESS') return asciiColors.muted;
+      if (status === 'ERROR') return asciiColors.foreground;
       return asciiColors.muted;
     };
 
@@ -137,6 +137,7 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDel
               padding: "2px 8px",
               border: `1px solid ${getStatusColor(entry.status)}`,
               borderRadius: 2,
+              backgroundColor: 'transparent',
               color: getStatusColor(entry.status),
               fontFamily: "Consolas",
               fontSize: 11
@@ -172,22 +173,22 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDel
                 }}
                 style={{
                   padding: "2px 8px",
-                  border: `1px solid ${asciiColors.danger}`,
+                  border: `1px solid ${asciiColors.border}`,
                   borderRadius: 2,
                   backgroundColor: "transparent",
-                  color: asciiColors.danger,
+                  color: asciiColors.foreground,
                   fontFamily: "Consolas",
                   fontSize: 11,
                   cursor: "pointer",
-                  transition: "all 0.2s ease"
+                  transition: "all 0.15s ease"
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = asciiColors.danger;
-                  e.currentTarget.style.color = "#ffffff";
+                  e.currentTarget.style.border = `2px solid ${asciiColors.foreground}`;
+                  e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
                 }}
                 onMouseLeave={(e) => {
+                  e.currentTarget.style.border = `1px solid ${asciiColors.border}`;
                   e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = asciiColors.danger;
                 }}
               >
                 Delete
@@ -212,7 +213,7 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDel
             paddingLeft: `${level * 24 + 8}px`,
             cursor: "pointer",
             borderLeft: `3px solid ${asciiColors.accent}`,
-            backgroundColor: isExpanded ? asciiColors.accentLight : asciiColors.background,
+            backgroundColor: isExpanded ? asciiColors.backgroundSoft : asciiColors.background,
             margin: "2px 0",
             transition: "all 0.2s ease",
             fontFamily: "Consolas",
@@ -221,11 +222,11 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDel
           }}
           onClick={() => toggleSchema(schema.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.accentLight;
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = "translateX(2px)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = isExpanded ? asciiColors.accentLight : asciiColors.background;
+            e.currentTarget.style.backgroundColor = isExpanded ? asciiColors.backgroundSoft : asciiColors.background;
             e.currentTarget.style.transform = "translateX(0)";
           }}
         >

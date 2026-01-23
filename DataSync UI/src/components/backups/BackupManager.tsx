@@ -5,6 +5,8 @@ import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSelector';
 import SkeletonLoader from '../shared/SkeletonLoader';
+import { Container } from '../shared/BaseComponents';
+import { theme } from '../../theme/theme';
 
 const BackupManager = () => {
   const [backups, setBackups] = useState<BackupEntry[]>([]);
@@ -228,11 +230,11 @@ const BackupManager = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return asciiColors.success;
+        return asciiColors.accent;
       case 'failed':
-        return asciiColors.danger;
+        return asciiColors.foreground;
       case 'in_progress':
-        return asciiColors.warning;
+        return asciiColors.muted;
       case 'pending':
         return asciiColors.muted;
       default:
@@ -245,30 +247,24 @@ const BackupManager = () => {
   }
 
   return (
-    <div style={{
-      padding: 24,
-      fontFamily: 'Consolas',
-      background: asciiColors.background,
-      minHeight: '100vh',
-      color: asciiColors.foreground
-    }}>
+    <Container>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 24,
-        paddingBottom: 16,
-        borderBottom: `2px solid ${asciiColors.border}`
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
       }}>
         <h1 style={{
-          fontSize: 18,
+          fontSize: 14,
           fontWeight: 600,
           margin: 0,
-          color: asciiColors.accent,
+          color: asciiColors.foreground,
           fontFamily: 'Consolas',
           textTransform: 'uppercase'
         }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
           BACKUP MANAGER
         </h1>
         <AsciiButton
@@ -280,12 +276,12 @@ const BackupManager = () => {
 
       {error && (
         <div style={{
-          padding: 12,
-          marginBottom: 16,
-          background: asciiColors.danger + '20',
-          border: `1px solid ${asciiColors.danger}`,
+          padding: theme.spacing.sm,
+          marginBottom: theme.spacing.md,
+          background: asciiColors.backgroundSoft,
+          border: `1px solid ${asciiColors.border}`,
           borderRadius: 2,
-          color: asciiColors.danger,
+          color: asciiColors.foreground,
           fontSize: 12,
           fontFamily: 'Consolas'
         }}>
@@ -295,8 +291,8 @@ const BackupManager = () => {
 
       <div style={{
         display: 'flex',
-        gap: 12,
-        marginBottom: 16
+        gap: theme.spacing.sm,
+        marginBottom: theme.spacing.md
       }}>
         <select
           value={filters.db_engine}
@@ -305,14 +301,25 @@ const BackupManager = () => {
             setPage(1);
           }}
           style={{
-            padding: '6px 12px',
+            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
             border: `1px solid ${asciiColors.border}`,
             borderRadius: 2,
-            background: asciiColors.backgroundSoft,
+            background: asciiColors.background,
             color: asciiColors.foreground,
             fontFamily: 'Consolas',
             fontSize: 12,
-            cursor: 'pointer'
+            cursor: 'pointer',
+            outline: 'none',
+            transition: 'border-color 0.15s ease'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = asciiColors.accent;
+            e.target.style.outline = `2px solid ${asciiColors.accent}`;
+            e.target.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = asciiColors.border;
+            e.target.style.outline = 'none';
           }}
         >
           <option value="">All Engines</option>
@@ -329,14 +336,25 @@ const BackupManager = () => {
             setPage(1);
           }}
           style={{
-            padding: '6px 12px',
+            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
             border: `1px solid ${asciiColors.border}`,
             borderRadius: 2,
-            background: asciiColors.backgroundSoft,
+            background: asciiColors.background,
             color: asciiColors.foreground,
             fontFamily: 'Consolas',
             fontSize: 12,
-            cursor: 'pointer'
+            cursor: 'pointer',
+            outline: 'none',
+            transition: 'border-color 0.15s ease'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = asciiColors.accent;
+            e.target.style.outline = `2px solid ${asciiColors.accent}`;
+            e.target.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = asciiColors.border;
+            e.target.style.outline = 'none';
           }}
         >
           <option value="">All Status</option>
@@ -374,7 +392,8 @@ const BackupManager = () => {
             borderRadius: 2,
             overflow: 'hidden',
             fontFamily: 'Consolas',
-            fontSize: 11
+            fontSize: 11,
+            background: asciiColors.background
           }}>
             <table style={{
               width: '100%',
@@ -385,16 +404,16 @@ const BackupManager = () => {
                   background: asciiColors.backgroundSoft,
                   borderBottom: `2px solid ${asciiColors.border}`
                 }}>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Name</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Engine</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Database</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Type</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Status</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Size</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Schedule</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Next Run</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Created</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Actions</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Name</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Engine</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Database</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Type</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Status</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Size</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Schedule</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Next Run</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Created</th>
+                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -403,41 +422,36 @@ const BackupManager = () => {
                     key={backup.backup_id}
                     style={{
                       borderBottom: `1px solid ${asciiColors.border}`,
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = asciiColors.backgroundSoft;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
+                      transition: 'background-color 0.15s ease'
                     }}
                     onClick={() => setSelectedBackup(backup)}
                   >
-                    <td style={{ padding: '12px', color: asciiColors.foreground }}>{backup.backup_name}</td>
-                    <td style={{ padding: '12px', color: asciiColors.foreground }}>{backup.db_engine}</td>
-                    <td style={{ padding: '12px', color: asciiColors.foreground }}>{backup.database_name}</td>
-                    <td style={{ padding: '12px', color: asciiColors.foreground, textTransform: 'uppercase' }}>{backup.backup_type}</td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{backup.backup_name}</td>
+                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{backup.db_engine}</td>
+                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{backup.database_name}</td>
+                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, textTransform: 'uppercase', fontFamily: 'Consolas', fontSize: 12 }}>{backup.backup_type}</td>
+                    <td style={{ padding: theme.spacing.sm }}>
                       <span style={{
-                        padding: '4px 8px',
+                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                         borderRadius: 2,
                         background: getStatusColor(backup.status) + '20',
                         color: getStatusColor(backup.status),
                         fontSize: 10,
                         fontWeight: 600,
-                        textTransform: 'uppercase'
+                        textTransform: 'uppercase',
+                        fontFamily: 'Consolas'
                       }}>
                         {backup.status}
                       </span>
                     </td>
-                    <td style={{ padding: '12px', color: asciiColors.foreground }}>{formatFileSize(backup.file_size)}</td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{formatFileSize(backup.file_size)}</td>
+                    <td style={{ padding: theme.spacing.sm }}>
                       {backup.is_scheduled ? (
                         <span style={{
-                          padding: '4px 8px',
+                          padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                           borderRadius: 2,
-                          background: asciiColors.success + '20',
-                          color: asciiColors.success,
+                          background: asciiColors.accent + '20',
+                          color: asciiColors.accent,
                           fontSize: 10,
                           fontWeight: 600,
                           fontFamily: 'Consolas'
@@ -446,7 +460,7 @@ const BackupManager = () => {
                         </span>
                       ) : (
                         <span style={{
-                          padding: '4px 8px',
+                          padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                           borderRadius: 2,
                           background: asciiColors.muted + '20',
                           color: asciiColors.muted,
@@ -457,21 +471,21 @@ const BackupManager = () => {
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '12px', color: asciiColors.muted, fontSize: 10 }}>
+                    <td style={{ padding: theme.spacing.sm, color: asciiColors.muted, fontSize: 10, fontFamily: 'Consolas' }}>
                       {backup.next_run_at ? new Date(backup.next_run_at).toLocaleString() : 'N/A'}
                     </td>
-                    <td style={{ padding: '12px', color: asciiColors.muted, fontSize: 10 }}>
+                    <td style={{ padding: theme.spacing.sm, color: asciiColors.muted, fontSize: 10, fontFamily: 'Consolas' }}>
                       {new Date(backup.created_at).toLocaleString()}
                     </td>
-                    <td style={{ padding: '12px' }}>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <td style={{ padding: theme.spacing.sm }}>
+                      <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleViewHistory(backup.backup_id);
                           }}
                           style={{
-                            padding: '4px 8px',
+                            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                             border: `1px solid ${asciiColors.accent}`,
                             borderRadius: 2,
                             background: asciiColors.accent,
@@ -491,10 +505,10 @@ const BackupManager = () => {
                               handleToggleSchedule(backup);
                             }}
                             style={{
-                              padding: '4px 8px',
-                              border: `1px solid ${backup.is_scheduled ? asciiColors.warning : asciiColors.success}`,
+                              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+                              border: `1px solid ${backup.is_scheduled ? asciiColors.muted : asciiColors.accent}`,
                               borderRadius: 2,
-                              background: backup.is_scheduled ? asciiColors.warning : asciiColors.success,
+                              background: backup.is_scheduled ? asciiColors.muted : asciiColors.accent,
                               color: asciiColors.background,
                               cursor: 'pointer',
                               fontSize: 10,
@@ -518,7 +532,7 @@ const BackupManager = () => {
                               }
                             }}
                             style={{
-                              padding: '4px 8px',
+                              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                               border: `1px solid ${asciiColors.accent}`,
                               borderRadius: 2,
                               background: asciiColors.accent,
@@ -538,10 +552,10 @@ const BackupManager = () => {
                             handleDeleteBackup(backup.backup_id);
                           }}
                           style={{
-                            padding: '4px 8px',
-                            border: `1px solid ${asciiColors.danger}`,
+                            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+                            border: `1px solid ${asciiColors.foreground}`,
                             borderRadius: 2,
-                            background: asciiColors.danger,
+                            background: asciiColors.foreground,
                             color: asciiColors.background,
                             cursor: 'pointer',
                             fontSize: 10,
@@ -563,19 +577,19 @@ const BackupManager = () => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginTop: 16,
-            paddingTop: 16,
+            marginTop: theme.spacing.md,
+            paddingTop: theme.spacing.md,
             borderTop: `1px solid ${asciiColors.border}`
           }}>
             <div style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
               Showing {((page - 1) * limit) + 1} - {Math.min(page * limit, total)} of {total}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: theme.spacing.sm }}>
               <button
                 onClick={() => setPage(prev => Math.max(1, prev - 1))}
                 disabled={page === 1}
                 style={{
-                  padding: '6px 12px',
+                  padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                   border: `1px solid ${asciiColors.border}`,
                   borderRadius: 2,
                   background: page === 1 ? asciiColors.backgroundSoft : asciiColors.background,
@@ -591,7 +605,7 @@ const BackupManager = () => {
                 onClick={() => setPage(prev => prev + 1)}
                 disabled={page * limit >= total}
                 style={{
-                  padding: '6px 12px',
+                  padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                   border: `1px solid ${asciiColors.border}`,
                   borderRadius: 2,
                   background: page * limit >= total ? asciiColors.backgroundSoft : asciiColors.background,
@@ -629,7 +643,7 @@ const BackupManager = () => {
               left: '50%',
               transform: 'translate(-50%, -50%)',
               background: asciiColors.background,
-              padding: 24,
+              padding: theme.spacing.lg,
               borderRadius: 2,
               border: `2px solid ${asciiColors.accent}`,
               zIndex: 1000,
@@ -641,12 +655,22 @@ const BackupManager = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: 20,
-              paddingBottom: 12,
+              marginBottom: theme.spacing.md,
+              paddingBottom: theme.spacing.sm,
               borderBottom: `2px solid ${asciiColors.border}`
             }}>
               <h2 style={{
@@ -681,14 +705,15 @@ const BackupManager = () => {
                       color: asciiColors.foreground,
                       fontSize: 20,
                       cursor: 'pointer',
-                      padding: '0 8px'
+                      padding: `0 ${theme.spacing.sm}`,
+                      fontFamily: 'Consolas'
                     }}
                   >
                     ×
                   </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
               {!backupForm.is_scheduled && (
                 <div>
                   <label style={{
@@ -696,7 +721,7 @@ const BackupManager = () => {
                     fontSize: 12,
                     fontWeight: 600,
                     color: asciiColors.foreground,
-                    marginBottom: 6,
+                    marginBottom: theme.spacing.xs,
                     fontFamily: 'Consolas',
                     textTransform: 'uppercase'
                   }}>
@@ -709,14 +734,24 @@ const BackupManager = () => {
                     placeholder="my_backup_2024"
                     style={{
                       width: '100%',
-                      padding: '6px 10px',
+                      padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                       border: `1px solid ${asciiColors.border}`,
                       borderRadius: 2,
                       fontSize: 12,
                       fontFamily: 'Consolas',
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
-                      outline: 'none'
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
@@ -724,7 +759,7 @@ const BackupManager = () => {
               
               {backupForm.is_scheduled && (
                 <div style={{
-                  padding: 12,
+                  padding: theme.spacing.sm,
                   background: asciiColors.backgroundSoft,
                   border: `1px solid ${asciiColors.accent}`,
                   borderRadius: 2,
@@ -742,7 +777,7 @@ const BackupManager = () => {
                   fontSize: 12,
                   fontWeight: 600,
                   color: asciiColors.foreground,
-                  marginBottom: 6,
+                  marginBottom: theme.spacing.xs,
                   fontFamily: 'Consolas',
                   textTransform: 'uppercase'
                 }}>
@@ -753,7 +788,7 @@ const BackupManager = () => {
                   onChange={(e) => setBackupForm(prev => ({ ...prev, db_engine: e.target.value }))}
                   style={{
                     width: '100%',
-                    padding: '6px 10px',
+                    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                     border: `1px solid ${asciiColors.border}`,
                     borderRadius: 2,
                     fontSize: 12,
@@ -761,7 +796,17 @@ const BackupManager = () => {
                     backgroundColor: asciiColors.background,
                     color: asciiColors.foreground,
                     cursor: 'pointer',
-                    outline: 'none'
+                    outline: 'none',
+                    transition: 'border-color 0.15s ease'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = asciiColors.accent;
+                    e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                    e.target.style.outlineOffset = '2px';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = asciiColors.border;
+                    e.target.style.outline = 'none';
                   }}
                 >
                   <option value="PostgreSQL">PostgreSQL</option>
@@ -791,13 +836,13 @@ const BackupManager = () => {
                 />
                 {connectionTested && availableDatabases.length > 0 && (
                   <div style={{
-                    marginTop: 8,
-                    padding: 8,
-                    background: asciiColors.success + '20',
-                    border: `1px solid ${asciiColors.success}`,
+                    marginTop: theme.spacing.sm,
+                    padding: theme.spacing.sm,
+                    background: asciiColors.accent + '20',
+                    border: `1px solid ${asciiColors.accent}`,
                     borderRadius: 2,
                     fontSize: 11,
-                    color: asciiColors.success,
+                    color: asciiColors.accent,
                     fontFamily: 'Consolas'
                   }}>
                     {ascii.blockSemi} Connection successful! Found {availableDatabases.length} database(s)
@@ -812,7 +857,7 @@ const BackupManager = () => {
                     fontSize: 12,
                     fontWeight: 600,
                     color: asciiColors.foreground,
-                    marginBottom: 6,
+                    marginBottom: theme.spacing.xs,
                     fontFamily: 'Consolas',
                     textTransform: 'uppercase'
                   }}>
@@ -823,15 +868,25 @@ const BackupManager = () => {
                     overflowY: 'auto',
                     border: `1px solid ${asciiColors.border}`,
                     borderRadius: 2,
-                    padding: 8,
+                    padding: theme.spacing.sm,
                     background: asciiColors.background
                   }}>
+                    <style>{`
+                      div[style*="overflowY"]::-webkit-scrollbar {
+                        width: 0px;
+                        display: none;
+                      }
+                      div[style*="overflowY"] {
+                        -ms-overflow-style: none;
+                        scrollbar-width: none;
+                      }
+                    `}</style>
                     {availableDatabases.map((db) => (
                       <div key={db} style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 8,
-                        padding: '4px 0',
+                        gap: theme.spacing.sm,
+                        padding: `${theme.spacing.xs} 0`,
                         fontFamily: 'Consolas',
                         fontSize: 12
                       }}>
@@ -865,7 +920,7 @@ const BackupManager = () => {
                     fontSize: 12,
                     fontWeight: 600,
                     color: asciiColors.foreground,
-                    marginBottom: 6,
+                    marginBottom: theme.spacing.xs,
                     fontFamily: 'Consolas',
                     textTransform: 'uppercase'
                   }}>
@@ -877,7 +932,7 @@ const BackupManager = () => {
                       onChange={(e) => setBackupForm(prev => ({ ...prev, database_name: e.target.value }))}
                       style={{
                         width: '100%',
-                        padding: '6px 10px',
+                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         fontSize: 12,
@@ -885,7 +940,17 @@ const BackupManager = () => {
                         backgroundColor: asciiColors.background,
                         color: asciiColors.foreground,
                         cursor: 'pointer',
-                        outline: 'none'
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     >
                       <option value="">Select a database</option>
@@ -901,14 +966,24 @@ const BackupManager = () => {
                       placeholder="mydatabase"
                       style={{
                         width: '100%',
-                        padding: '6px 10px',
+                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         fontSize: 12,
                         fontFamily: 'Consolas',
                         backgroundColor: asciiColors.background,
                         color: asciiColors.foreground,
-                        outline: 'none'
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                   )}
@@ -921,7 +996,7 @@ const BackupManager = () => {
                   fontSize: 12,
                   fontWeight: 600,
                   color: asciiColors.foreground,
-                  marginBottom: 6,
+                  marginBottom: theme.spacing.xs,
                   fontFamily: 'Consolas',
                   textTransform: 'uppercase'
                 }}>
@@ -932,7 +1007,7 @@ const BackupManager = () => {
                   onChange={(e) => setBackupForm(prev => ({ ...prev, backup_type: e.target.value as any }))}
                   style={{
                     width: '100%',
-                    padding: '6px 10px',
+                    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                     border: `1px solid ${asciiColors.border}`,
                     borderRadius: 2,
                     fontSize: 12,
@@ -940,7 +1015,17 @@ const BackupManager = () => {
                     backgroundColor: asciiColors.background,
                     color: asciiColors.foreground,
                     cursor: 'pointer',
-                    outline: 'none'
+                    outline: 'none',
+                    transition: 'border-color 0.15s ease'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = asciiColors.accent;
+                    e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                    e.target.style.outlineOffset = '2px';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = asciiColors.border;
+                    e.target.style.outline = 'none';
                   }}
                 >
                   <option value="full">Full (Structure + Data)</option>
@@ -951,7 +1036,7 @@ const BackupManager = () => {
               </div>
 
               <div style={{
-                padding: 12,
+                padding: theme.spacing.sm,
                 background: asciiColors.backgroundSoft,
                 border: `1px solid ${asciiColors.border}`,
                 borderRadius: 2
@@ -959,8 +1044,8 @@ const BackupManager = () => {
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 12,
-                  marginBottom: 12
+                  gap: theme.spacing.sm,
+                  marginBottom: theme.spacing.sm
                 }}>
                   <input
                     type="checkbox"
@@ -988,7 +1073,7 @@ const BackupManager = () => {
                       fontSize: 11,
                       fontWeight: 600,
                       color: asciiColors.muted,
-                      marginBottom: 6,
+                      marginBottom: theme.spacing.xs,
                       fontFamily: 'Consolas'
                     }}>
                       CRON SCHEDULE (minute hour day month dow)
@@ -1000,18 +1085,28 @@ const BackupManager = () => {
                       placeholder="0 2 * * *"
                       style={{
                         width: '100%',
-                        padding: '6px 10px',
+                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         fontSize: 12,
                         fontFamily: 'Consolas',
                         backgroundColor: asciiColors.background,
                         color: asciiColors.foreground,
-                        outline: 'none'
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                     <div style={{
-                      marginTop: 8,
+                      marginTop: theme.spacing.sm,
                       fontSize: 10,
                       color: asciiColors.muted,
                       fontFamily: 'Consolas',
@@ -1327,7 +1422,7 @@ const BackupManager = () => {
                         <td style={{ padding: '12px', color: asciiColors.muted, fontSize: 10, textTransform: 'uppercase' }}>
                           {history.triggered_by || 'manual'}
                         </td>
-                        <td style={{ padding: '12px', color: history.error_message ? asciiColors.danger : asciiColors.muted, fontSize: 10 }}>
+                        <td style={{ padding: theme.spacing.sm, color: history.error_message ? asciiColors.foreground : asciiColors.muted, fontSize: 10, fontFamily: 'Consolas' }}>
                           {history.error_message || '-'}
                         </td>
                       </tr>
@@ -1339,7 +1434,7 @@ const BackupManager = () => {
           </div>
         </>
       )}
-    </div>
+    </Container>
   );
 };
 

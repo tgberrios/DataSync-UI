@@ -37,13 +37,18 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
               fontSize: 14,
               fontFamily: "Consolas",
               color: asciiColors.foreground,
-              paddingLeft: 2,
+              padding: "8px 12px",
               margin: 0,
-              marginBottom: 2,
+              marginBottom: 0,
               fontWeight: 600,
               textTransform: "uppercase",
               letterSpacing: 0.5,
-              animation: animated ? "slideInLeft 0.3s ease-out" : "none"
+              animation: animated ? "slideInLeft 0.3s ease-out" : "none",
+              backgroundColor: asciiColors.backgroundSoft,
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0
             }}
           >
             <span style={{ 
@@ -59,6 +64,7 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
         <div
           style={{
             border: `1px solid ${asciiColors.border}`,
+            borderTop: title ? 'none' : `1px solid ${asciiColors.border}`,
             padding: 4,
             overflow: "visible",
             overflowY: "auto",
@@ -66,6 +72,8 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
             fontFamily: "Consolas",
             backgroundColor: asciiColors.background,
             borderRadius: 2,
+            borderTopLeftRadius: title ? 0 : 2,
+            borderTopRightRadius: title ? 0 : 2,
             transition: "border-color 0.3s ease, background-color 0.3s ease",
             minHeight: 0
           }}

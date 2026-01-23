@@ -435,7 +435,8 @@ const Catalog = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
+              border: `2px solid ${asciiColors.foreground}`,
               fontSize: 12,
               fontFamily: "Consolas"
             }}>
@@ -749,7 +750,7 @@ const Catalog = () => {
         >
           <div style={{
             background: asciiColors.background,
-            border: `2px solid ${asciiColors.success}`,
+            border: `2px solid ${asciiColors.accent}`,
             borderRadius: 4,
             padding: 24,
             maxWidth: 500,
@@ -762,7 +763,7 @@ const Catalog = () => {
             <div style={{
               fontSize: 14,
               fontWeight: 600,
-              color: asciiColors.success,
+              color: asciiColors.accent,
               marginBottom: 16,
               display: 'flex',
               alignItems: 'center',
@@ -815,8 +816,8 @@ const Catalog = () => {
                 onClick={confirmActivateSchema}
                 variant="primary"
                 style={{
-                  backgroundColor: asciiColors.success,
-                  borderColor: asciiColors.success,
+                  backgroundColor: asciiColors.accent,
+                  borderColor: asciiColors.accent,
                   color: '#ffffff'
                 }}
               />
@@ -892,19 +893,19 @@ const Catalog = () => {
                   </div>
                   <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.warning }}>{ascii.blockFull}</span> <strong>FULL_LOAD:</strong> Performing initial complete table synchronization
+                      <span style={{ color: asciiColors.muted }}>{ascii.blockFull}</span> <strong>FULL_LOAD:</strong> Performing initial complete table synchronization
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SYNC:</strong> Table is in normal synchronization mode
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>SYNC:</strong> Table is in normal synchronization mode
                     </div>
                     <div style={{ marginBottom: 8 }}>
                       <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>IN_PROGRESS:</strong> Synchronization operation currently running
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>LISTENING_CHANGES:</strong> Actively monitoring for CDC changes
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>LISTENING_CHANGES:</strong> Actively monitoring for CDC changes
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.warning }}>{ascii.blockFull}</span> <strong>RESET:</strong> Table synchronization is being reset
+                      <span style={{ color: asciiColors.muted }}>{ascii.blockFull}</span> <strong>RESET:</strong> Table synchronization is being reset
                     </div>
                   </div>
                 </div>

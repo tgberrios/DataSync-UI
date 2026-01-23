@@ -223,9 +223,10 @@ const Workflows = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: "Consolas",
+              border: `2px solid ${asciiColors.foreground}`
             }}>
               {error}
             </div>
@@ -383,13 +384,13 @@ const Workflows = () => {
                     <div style={{ marginBottom: 12 }}>
                       <strong style={{ color: asciiColors.accent }}>Status:</strong>{" "}
                       <span style={{
-                        color: selectedWorkflow.active ? asciiColors.success : asciiColors.danger
+                        color: selectedWorkflow.active ? asciiColors.accent : asciiColors.foreground
                       }}>
                         {selectedWorkflow.active ? "Active" : "Inactive"}
                       </span>
                       {" / "}
                       <span style={{
-                        color: selectedWorkflow.enabled ? asciiColors.success : asciiColors.danger
+                        color: selectedWorkflow.enabled ? asciiColors.accent : asciiColors.foreground
                       }}>
                         {selectedWorkflow.enabled ? "Enabled" : "Disabled"}
                       </span>
@@ -403,10 +404,10 @@ const Workflows = () => {
                         {" - "}
                         <span style={{
                           color: selectedWorkflow.last_execution_status === "SUCCESS"
-                            ? asciiColors.success
+                            ? asciiColors.accent
                             : selectedWorkflow.last_execution_status === "FAILED"
-                            ? asciiColors.danger
-                            : asciiColors.warning
+                            ? asciiColors.foreground
+                            : asciiColors.muted
                         }}>
                           {selectedWorkflow.last_execution_status || "Unknown"}
                         </span>
@@ -557,7 +558,7 @@ const Workflows = () => {
                       </div>
                     </div>
                     <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>RETRY & SLA</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>RETRY & SLA</div>
                       <div style={{ fontSize: 11, lineHeight: 1.5 }}>
                         • <strong>Retry Policy:</strong> max_retries, retry_delay_seconds, retry_backoff_multiplier<br/>
                         • <strong>SLA Config:</strong> max_execution_time_seconds, alert_on_sla_breach<br/>
@@ -604,7 +605,7 @@ const Workflows = () => {
                     </div>
 
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>4. WORKFLOW COMPLETION</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>4. WORKFLOW COMPLETION</div>
                       <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Continue until all tasks complete or workflow fails</div>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> On critical failure: Trigger rollback (if enabled)</div>
@@ -621,25 +622,25 @@ const Workflows = () => {
                   </div>
                   <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>DAG Execution:</strong> Automatic dependency resolution and parallel execution
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>DAG Execution:</strong> Automatic dependency resolution and parallel execution
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Retry Logic:</strong> Configurable retry policies with exponential backoff
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Retry Logic:</strong> Configurable retry policies with exponential backoff
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SLA Monitoring:</strong> Track execution time and alert on breaches
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>SLA Monitoring:</strong> Track execution time and alert on breaches
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Rollback:</strong> Automatic rollback on failure with configurable depth
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Rollback:</strong> Automatic rollback on failure with configurable depth
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Conditional Logic:</strong> IF/ELSE conditions based on task outputs
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Conditional Logic:</strong> IF/ELSE conditions based on task outputs
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Version History:</strong> Track workflow changes and restore previous versions
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Version History:</strong> Track workflow changes and restore previous versions
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Backfill:</strong> Re-run workflows for historical date ranges
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Backfill:</strong> Re-run workflows for historical date ranges
                     </div>
                   </div>
                 </div>

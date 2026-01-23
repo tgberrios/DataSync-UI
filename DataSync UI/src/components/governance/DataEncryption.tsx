@@ -13,10 +13,10 @@ const EncryptionTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   margin-top: ${theme.spacing.lg};
-  background: ${theme.colors.background.main};
-  box-shadow: ${theme.shadows.md};
-  border-radius: ${theme.borderRadius.md};
+  background: ${asciiColors.background};
+  border-radius: 2;
   overflow: hidden;
+  font-family: 'Consolas';
 `;
 
 const Th = styled.th`
@@ -24,8 +24,8 @@ const Th = styled.th`
   text-align: left;
   border-bottom: 2px solid ${asciiColors.border};
   background: ${asciiColors.backgroundSoft};
-  font-weight: bold;
-  font-family: "Consolas";
+  font-weight: 600;
+  font-family: 'Consolas';
   font-size: 13px;
   color: ${asciiColors.accent};
   position: sticky;
@@ -36,23 +36,13 @@ const Th = styled.th`
 const Td = styled.td`
   padding: ${theme.spacing.sm};
   border-bottom: 1px solid ${asciiColors.border};
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
-  transition: all ${theme.transitions.normal};
+  transition: background-color 0.15s ease;
 `;
 
 const TableRow = styled.tr`
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: linear-gradient(90deg, ${theme.colors.background.main} 0%, ${theme.colors.background.tertiary} 100%);
-    transform: scale(1.001);
-    box-shadow: ${theme.shadows.sm};
-    
-    ${Td} {
-      border-bottom-color: rgba(10, 25, 41, 0.1);
-    }
-  }
+  transition: background-color 0.15s ease;
 `;
 
 const formatDate = (date: string) => {
@@ -249,12 +239,48 @@ const DataEncryption = () => {
 
   return (
     <Container>
-      {error && <ErrorMessage message={error} onClose={() => setError(null)} />}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
+      }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+          DATA ENCRYPTION
+        </h1>
+      </div>
 
-      <div style={{ marginBottom: 20 }}>
+      {error && (
+        <div style={{ marginBottom: theme.spacing.md }}>
+          <AsciiPanel title="ERROR">
+            <div style={{
+              padding: theme.spacing.sm,
+              color: asciiColors.foreground,
+              fontSize: 12,
+              fontFamily: 'Consolas',
+              backgroundColor: asciiColors.backgroundSoft,
+              borderRadius: 2
+            }}>
+              {error}
+            </div>
+          </AsciiPanel>
+        </div>
+      )}
+
+      <div style={{ marginBottom: theme.spacing.md }}>
         <AsciiPanel title="DATA ENCRYPTION">
-          <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
+            <div style={{ display: 'flex', gap: theme.spacing.sm, marginBottom: theme.spacing.md, flexWrap: 'wrap' }}>
               <AsciiButton
                 label={`${ascii.blockFull} Create Encryption Policy`}
                 onClick={handleCreatePolicy}
@@ -266,14 +292,14 @@ const DataEncryption = () => {
               />
             </div>
 
-            <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ marginBottom: theme.spacing.md, display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
               <input
                 type="text"
                 placeholder="Schema name"
                 value={filters.schema_name}
                 onChange={(e) => setFilters(prev => ({ ...prev, schema_name: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
@@ -282,6 +308,17 @@ const DataEncryption = () => {
                   borderRadius: 2,
                   flex: 1,
                   minWidth: 150,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               />
               <input
@@ -290,7 +327,7 @@ const DataEncryption = () => {
                 value={filters.table_name}
                 onChange={(e) => setFilters(prev => ({ ...prev, table_name: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
@@ -299,13 +336,24 @@ const DataEncryption = () => {
                   borderRadius: 2,
                   flex: 1,
                   minWidth: 150,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               />
               <select
                 value={filters.active}
                 onChange={(e) => setFilters(prev => ({ ...prev, active: e.target.value }))}
                 style={{
-                  padding: '8px 12px',
+                  padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                   border: `1px solid ${asciiColors.border}`,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
@@ -313,6 +361,18 @@ const DataEncryption = () => {
                   fontSize: 12,
                   borderRadius: 2,
                   minWidth: 120,
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease',
+                  cursor: 'pointer'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               >
                 <option value="">All Status</option>
@@ -321,7 +381,7 @@ const DataEncryption = () => {
               </select>
             </div>
 
-            <div style={{ marginBottom: 12, fontSize: 11, color: asciiColors.muted }}>
+            <div style={{ marginBottom: theme.spacing.sm, fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>
               Encryption Policies ({total})
             </div>
 
@@ -359,15 +419,16 @@ const DataEncryption = () => {
                       </Td>
                       <Td>
                         <span style={{
-                          color: policy.active ? asciiColors.success : asciiColors.danger,
-                          fontWeight: 600
+                          color: policy.active ? asciiColors.accent : asciiColors.muted,
+                          fontWeight: 600,
+                          fontFamily: 'Consolas'
                         }}>
                           {policy.active ? 'ACTIVE' : 'INACTIVE'}
                         </span>
                       </Td>
                       <Td>{formatDate(policy.last_rotated_at || '')}</Td>
                       <Td>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
                           <AsciiButton
                             label="✎"
                             onClick={() => handleEditPolicy(policy)}
@@ -399,11 +460,11 @@ const DataEncryption = () => {
             </EncryptionTable>
 
             {total > limit && (
-              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 11, color: asciiColors.muted }}>
+              <div style={{ marginTop: theme.spacing.md, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>
                   Page {page} of {Math.ceil(total / limit)}
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: theme.spacing.sm }}>
                   <AsciiButton
                     label="◀ Previous"
                     onClick={() => setPage(prev => Math.max(1, prev - 1))}
@@ -456,10 +517,20 @@ const DataEncryption = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title={selectedPolicy.policy_id ? "EDIT ENCRYPTION POLICY" : "CREATE ENCRYPTION POLICY"}>
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+              <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Policy Name *
                   </label>
                   <input
@@ -468,19 +539,30 @@ const DataEncryption = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, policy_name: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Schema Name *
                   </label>
                   <input
@@ -489,19 +571,30 @@ const DataEncryption = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, schema_name: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Table Name *
                   </label>
                   <input
@@ -510,19 +603,30 @@ const DataEncryption = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, table_name: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Column Name *
                   </label>
                   <input
@@ -531,19 +635,30 @@ const DataEncryption = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, column_name: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Encryption Algorithm *
                   </label>
                   <select
@@ -551,13 +666,25 @@ const DataEncryption = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, encryption_algorithm: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease',
+                      cursor: 'pointer'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   >
                     <option value="AES128">AES128</option>
@@ -566,8 +693,8 @@ const DataEncryption = () => {
                   </select>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Key ID *
                   </label>
                   <select
@@ -575,13 +702,25 @@ const DataEncryption = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, key_id: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease',
+                      cursor: 'pointer'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   >
                     <option value="">Select Key</option>
@@ -591,8 +730,8 @@ const DataEncryption = () => {
                   </select>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                     Key Rotation Interval (days)
                   </label>
                   <input
@@ -601,30 +740,41 @@ const DataEncryption = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, key_rotation_interval_days: parseInt(e.target.value) || 90 } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       backgroundColor: asciiColors.background,
                       color: asciiColors.foreground,
                       fontFamily: 'Consolas',
                       fontSize: 12,
                       borderRadius: 2,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={selectedPolicy.active}
                       onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, active: e.target.checked } : null)}
                       style={{ cursor: 'pointer' }}
                     />
-                    <span style={{ color: asciiColors.foreground, fontSize: 12 }}>Active</span>
+                    <span style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>Active</span>
                   </label>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm, marginTop: theme.spacing.lg }}>
                   <AsciiButton
                     label="Cancel"
                     onClick={() => setIsModalOpen(false)}
@@ -674,14 +824,24 @@ const DataEncryption = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="ENCRYPTION KEYS">
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+              <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} CREATE NEW KEY
                   </div>
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                  <div style={{ marginBottom: theme.spacing.sm }}>
+                    <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                       Key ID *
                     </label>
                     <input
@@ -691,18 +851,29 @@ const DataEncryption = () => {
                       placeholder="e.g., key_2024_01"
                       style={{
                         width: '100%',
-                        padding: '8px 12px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         backgroundColor: asciiColors.background,
                         color: asciiColors.foreground,
                         fontFamily: 'Consolas',
                         fontSize: 12,
                         borderRadius: 2,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                   </div>
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                  <div style={{ marginBottom: theme.spacing.sm }}>
+                    <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                       Key Value *
                     </label>
                     <input
@@ -712,18 +883,29 @@ const DataEncryption = () => {
                       placeholder="Enter encryption key"
                       style={{
                         width: '100%',
-                        padding: '8px 12px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         backgroundColor: asciiColors.background,
                         color: asciiColors.foreground,
                         fontFamily: 'Consolas',
                         fontSize: 12,
                         borderRadius: 2,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                   </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: 'block', marginBottom: 4, color: asciiColors.muted, fontSize: 11 }}>
+                  <div style={{ marginBottom: theme.spacing.md }}>
+                    <label style={{ display: 'block', marginBottom: theme.spacing.xs, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                       Algorithm
                     </label>
                     <select
@@ -731,13 +913,25 @@ const DataEncryption = () => {
                       onChange={(e) => setNewKey(prev => ({ ...prev, algorithm: e.target.value }))}
                       style={{
                         width: '100%',
-                        padding: '8px 12px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         backgroundColor: asciiColors.background,
                         color: asciiColors.foreground,
                         fontFamily: 'Consolas',
                         fontSize: 12,
                         borderRadius: 2,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease',
+                        cursor: 'pointer'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     >
                       <option value="AES128">AES128</option>
@@ -751,12 +945,12 @@ const DataEncryption = () => {
                   />
                 </div>
 
-                <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${asciiColors.border}` }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginTop: theme.spacing.lg, paddingTop: theme.spacing.md, borderTop: `1px solid ${asciiColors.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} EXISTING KEYS
                   </div>
                   {keys.length === 0 ? (
-                    <div style={{ color: asciiColors.muted, fontSize: 11, padding: 12 }}>
+                    <div style={{ color: asciiColors.muted, fontSize: 11, padding: theme.spacing.sm, fontFamily: 'Consolas' }}>
                       No encryption keys found. Create one above.
                     </div>
                   ) : (
@@ -773,11 +967,11 @@ const DataEncryption = () => {
                       <tbody>
                         {keys.map(key => (
                           <TableRow key={key.key_id}>
-                            <Td><code style={{ color: asciiColors.accent }}>{key.key_id}</code></Td>
-                            <Td>{key.algorithm}</Td>
-                            <Td>{formatDate(key.created_at)}</Td>
-                            <Td>{formatDate(key.last_used_at || '')}</Td>
-                            <Td>{key.rotation_count}</Td>
+                            <Td><code style={{ color: asciiColors.accent, fontFamily: 'Consolas' }}>{key.key_id}</code></Td>
+                            <Td style={{ fontFamily: 'Consolas' }}>{key.algorithm}</Td>
+                            <Td style={{ fontFamily: 'Consolas' }}>{formatDate(key.created_at)}</Td>
+                            <Td style={{ fontFamily: 'Consolas' }}>{formatDate(key.last_used_at || '')}</Td>
+                            <Td style={{ fontFamily: 'Consolas' }}>{key.rotation_count}</Td>
                           </TableRow>
                         ))}
                       </tbody>
@@ -785,7 +979,7 @@ const DataEncryption = () => {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: theme.spacing.lg }}>
                   <AsciiButton
                     label="Close"
                     onClick={() => setShowKeyModal(false)}

@@ -1,126 +1,65 @@
 import React, { useState, useMemo } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { theme } from '../../theme/theme';
-
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideDown = keyframes`
-  from {
-    max-height: 0;
-    opacity: 0;
-  }
-  to {
-    max-height: 1000px;
-    opacity: 1;
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    max-height: 1000px;
-    opacity: 1;
-  }
-  to {
-    max-height: 0;
-    opacity: 0;
-  }
-`;
+import { asciiColors } from '../../ui/theme/asciiTheme';
 
 const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 0.95em;
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
+  font-family: 'Consolas';
+  font-size: 12px;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2;
+  padding: ${theme.spacing.md};
   max-height: 800px;
   overflow-y: auto;
   overflow-x: hidden;
-  box-shadow: ${theme.shadows.md};
   position: relative;
   
   &::-webkit-scrollbar {
-    width: 8px;
+    width: 0px;
+    display: none;
   }
   
-  &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    transition: background ${theme.transitions.normal};
-    
-    &:hover {
-      background: ${theme.colors.primary.main};
-    }
-  }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 `;
 
 const TreeNode = styled.div`
   user-select: none;
-  animation: ${fadeIn} 0.3s ease-out;
   margin-bottom: 2px;
 `;
 
 const TreeLine = styled.span<{ $isLast?: boolean }>`
-  color: ${theme.colors.border.medium};
-  margin-right: 6px;
-  font-family: "Consolas, 'Source Code Pro', monospace";
-  font-size: 0.9em;
-  transition: color ${theme.transitions.normal};
+  color: ${asciiColors.muted};
+  margin-right: ${theme.spacing.xs};
+  font-family: 'Consolas';
+  font-size: 11px;
 `;
 
 const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeType?: 'group' | 'lock' }>`
   display: flex;
   align-items: center;
-  padding: ${props => props.$level === 0 ? '12px 8px' : '10px 8px'};
-  padding-left: ${props => props.$level * 24 + 8}px;
+  padding: ${props => props.$level === 0 ? theme.spacing.sm : theme.spacing.xs} ${theme.spacing.sm};
+  padding-left: ${props => props.$level * 24 + parseInt(theme.spacing.sm)}px;
   cursor: pointer;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
+  border-radius: 2;
+  transition: background-color 0.15s ease;
   position: relative;
   margin: 2px 0;
   
   ${props => {
     if (props.$nodeType === 'group') {
       return `
-        background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
-        border-left: 3px solid ${theme.colors.primary.main};
+        background: ${props.$isExpanded ? asciiColors.backgroundSoft : asciiColors.background};
+        border-left: 3px solid ${asciiColors.accent};
         font-weight: 600;
       `;
     }
     return `
-      background: ${theme.colors.background.secondary};
-      border-left: 2px solid ${theme.colors.border.medium};
+      background: ${asciiColors.background};
+      border-left: 2px solid ${asciiColors.border};
     `;
   }}
-  
-  &:hover {
-    background: ${props => {
-      if (props.$nodeType === 'group') {
-        return `linear-gradient(135deg, ${theme.colors.primary.light}15 0%, ${theme.colors.primary.main}10 100%)`;
-      }
-      return theme.colors.background.secondary;
-    }};
-    transform: translateX(2px);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  &:active {
-    transform: translateX(1px) scale(0.99);
-  }
 `;
 
 const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
@@ -129,83 +68,87 @@ const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin-right: 8px;
-  border-radius: ${theme.borderRadius.sm};
+  margin-right: ${theme.spacing.sm};
+  border-radius: 2;
   background: ${props => props.$isExpanded 
-    ? `linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%)`
-    : theme.colors.background.secondary
+    ? asciiColors.accent
+    : asciiColors.backgroundSoft
   };
-  color: ${props => props.$isExpanded ? theme.colors.text.white : theme.colors.primary.main};
-  font-size: 0.7em;
+  color: ${props => props.$isExpanded ? asciiColors.background : asciiColors.accent};
+  font-size: 11px;
   font-weight: bold;
-  transition: all ${theme.transitions.normal};
+  transition: background-color 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
-  
-  &:hover {
-    transform: scale(1.1);
-    box-shadow: ${theme.shadows.sm};
-  }
+  font-family: 'Consolas';
   
   svg {
-    transition: transform ${theme.transitions.normal};
+    transition: transform 0.15s ease;
     transform: ${props => props.$isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'};
   }
 `;
 
 const NodeLabel = styled.span<{ $isGroup?: boolean }>`
   font-weight: ${props => props.$isGroup ? '700' : '600'};
-  font-size: ${props => props.$isGroup ? '1.05em' : '0.98em'};
+  font-size: ${props => props.$isGroup ? '13px' : '12px'};
   color: ${props => {
-    if (props.$isGroup) return theme.colors.primary.main;
-    return theme.colors.text.primary;
+    if (props.$isGroup) return asciiColors.accent;
+    return asciiColors.foreground;
   }};
-  margin-right: 12px;
-  transition: color ${theme.transitions.normal};
-  letter-spacing: ${props => props.$isGroup ? '0.3px' : '0'};
-  
-  ${props => props.$isGroup && `
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  `}
+  margin-right: ${theme.spacing.sm};
+  font-family: 'Consolas';
 `;
 
 const LockInfo = styled.div`
   display: inline-flex;
-  gap: 6px;
+  gap: ${theme.spacing.xs};
   align-items: center;
   margin-left: auto;
   flex-wrap: wrap;
-  font-size: 0.85em;
+  font-size: 11px;
+  font-family: 'Consolas';
 `;
 
-const CountBadge = styled.span`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
+const CountBadge = styled.span<{ $status?: 'active' | 'warning' | 'expired' | 'default' }>`
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+  border-radius: 2;
+  font-size: 11px;
   font-weight: 500;
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  color: ${theme.colors.text.secondary};
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    color: ${theme.colors.primary.main};
-    transform: translateY(-1px);
-  }
+  font-family: 'Consolas';
+  background: ${props => {
+    if (props.$status === 'expired') return asciiColors.backgroundSoft;
+    if (props.$status === 'warning') return asciiColors.backgroundSoft;
+    if (props.$status === 'active') return asciiColors.backgroundSoft;
+    return asciiColors.backgroundSoft;
+  }};
+  color: ${props => {
+    if (props.$status === 'expired') return asciiColors.foreground;
+    if (props.$status === 'warning') return asciiColors.muted;
+    if (props.$status === 'active') return asciiColors.accent;
+    return asciiColors.muted;
+  }};
+  border: 1px solid ${props => {
+    if (props.$status === 'expired') return asciiColors.border;
+    if (props.$status === 'warning') return asciiColors.border;
+    if (props.$status === 'active') return asciiColors.accent;
+    return asciiColors.border;
+  }};
+  transition: background-color 0.15s ease;
 `;
 
 const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
   overflow: hidden;
-  animation: ${props => props.$isExpanded ? slideDown : slideUp} 0.3s ease-out;
   padding-left: ${props => props.$level * 24 + 36}px;
+  transition: opacity 0.15s ease;
+  opacity: ${props => props.$isExpanded ? 1 : 0};
+  display: ${props => props.$isExpanded ? 'block' : 'none'};
 `;
 
 const EmptyState = styled.div`
-  padding: 60px 40px;
+  padding: ${theme.spacing.xxl} ${theme.spacing.xl};
   text-align: center;
-  color: ${theme.colors.text.secondary};
-  animation: ${fadeIn} 0.5s ease-out;
+  color: ${asciiColors.muted};
+  font-family: 'Consolas';
+  font-size: 12px;
   
   &::before {
     content: '█';
@@ -213,7 +156,7 @@ const EmptyState = styled.div`
     display: block;
     margin-bottom: ${theme.spacing.md};
     opacity: 0.5;
-    font-family: "Consolas, 'Source Code Pro', monospace";
+    font-family: 'Consolas';
   }
 `;
 
@@ -346,18 +289,11 @@ const CatalogLocksTreeView: React.FC<TreeViewProps> = ({ locks, onLockClick }) =
           <IconLock />
           <NodeLabel>{lock.lock_name}</NodeLabel>
           <LockInfo>
-            <CountBadge style={{
-              background: status.status === 'expired' ? theme.colors.status.error.bg : 
-                         status.status === 'warning' ? theme.colors.status.warning.bg : 
-                         theme.colors.status.success.bg,
-              color: status.status === 'expired' ? theme.colors.status.error.text : 
-                     status.status === 'warning' ? theme.colors.status.warning.text : 
-                     theme.colors.status.success.text
-            }}>
+            <CountBadge $status={status.status as 'active' | 'warning' | 'expired'}>
               {status.label}
             </CountBadge>
             {lock.acquired_by && (
-              <CountBadge>{lock.acquired_by}</CountBadge>
+              <CountBadge $status="default">{lock.acquired_by}</CountBadge>
             )}
           </LockInfo>
         </TreeContent>
@@ -393,7 +329,7 @@ const CatalogLocksTreeView: React.FC<TreeViewProps> = ({ locks, onLockClick }) =
           <IconGroup />
           <NodeLabel $isGroup>{group.name}</NodeLabel>
           <LockInfo>
-            <CountBadge>{group.locks.length} {group.locks.length === 1 ? 'lock' : 'locks'}</CountBadge>
+            <CountBadge $status="default">{group.locks.length} {group.locks.length === 1 ? 'lock' : 'locks'}</CountBadge>
           </LockInfo>
         </TreeContent>
         <ExpandableContent $isExpanded={isExpanded} $level={level}>
@@ -418,8 +354,8 @@ const CatalogLocksTreeView: React.FC<TreeViewProps> = ({ locks, onLockClick }) =
 
   return (
     <TreeContainer>
-      {treeData.map((group, index) => (
-        <div key={group.name} style={{ animationDelay: `${index * 0.05}s` }}>
+      {treeData.map((group) => (
+        <div key={group.name}>
           {renderGroup(group, 0)}
         </div>
       ))}

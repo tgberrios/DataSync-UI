@@ -16,6 +16,8 @@ import MigrationIntegrityDashboard from './MigrationIntegrityDashboard';
 import MigrationChainView from './MigrationChainView';
 import UnregisteredChangesDetector from './UnregisteredChangesDetector';
 import TestMigrationModal from './TestMigrationModal';
+import { Container } from '../shared/BaseComponents';
+import { theme } from '../../theme/theme';
 
 const SchemaMigrations = () => {
   const { setPage } = usePagination(1, 20);
@@ -156,182 +158,216 @@ const SchemaMigrations = () => {
   }
 
   return (
-    <div style={{ padding: '20px', minHeight: '100vh', background: asciiColors.background }}>
-      <AsciiPanel>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 20,
-          paddingBottom: 16,
-          borderBottom: `2px solid ${asciiColors.border}`
+    <Container>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
+      }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
         }}>
-          <div>
-            <h1 style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: asciiColors.accent,
-              margin: 0,
-              fontFamily: 'Consolas'
-            }}>
-              {ascii.blockFull} SCHEMA MIGRATIONS
-            </h1>
-            <p style={{
-              fontSize: 12,
-              color: asciiColors.muted,
-              margin: '4px 0 0 0',
-              fontFamily: 'Consolas'
-            }}>
-              Version control and deployment for database schemas
-            </p>
-          </div>
-          <AsciiButton 
-            label={`${ascii.blockSemi} CREATE MIGRATION`}
-            onClick={handleCreateMigration}
-          />
-        </div>
-
-        <div style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search migrations..."
-            style={{
-              flex: 1,
-              minWidth: 200,
-              padding: '8px 12px',
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.backgroundSoft,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 12
-            }}
-          />
-          <button
-            onClick={handleSearch}
-            style={{
-              minWidth: 100,
-              padding: '8px 12px',
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.accent,
-              color: asciiColors.background,
-              cursor: 'pointer',
-              fontSize: 12,
-              fontFamily: 'Consolas',
-              fontWeight: 600
-            }}
-          >
-            SEARCH
-          </button>
-
-          <select
-            value={filters.status as string}
-            onChange={(e) => {
-              setFilter('status', e.target.value);
-              setPage(1);
-            }}
-            style={{
-              padding: '8px 12px',
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.backgroundSoft,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 12,
-              cursor: 'pointer'
-            }}
-          >
-            <option value="">All Status</option>
-            <option value="PENDING">Pending</option>
-            <option value="APPLIED">Applied</option>
-            <option value="FAILED">Failed</option>
-            <option value="ROLLED_BACK">Rolled Back</option>
-          </select>
-
-          <select
-            value={filters.environment as string}
-            onChange={(e) => {
-              setFilter('environment', e.target.value);
-              setPage(1);
-            }}
-            style={{
-              padding: '8px 12px',
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.backgroundSoft,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 12,
-              cursor: 'pointer'
-            }}
-          >
-            <option value="">All Environments</option>
-            <option value="dev">Development</option>
-            <option value="staging">Staging</option>
-            <option value="qa">QA</option>
-            <option value="production">Production</option>
-          </select>
-
-          <select
-            value={filters.db_engine as string}
-            onChange={(e) => {
-              setFilter('db_engine', e.target.value);
-              setPage(1);
-            }}
-            style={{
-              padding: '8px 12px',
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.backgroundSoft,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 12,
-              cursor: 'pointer'
-            }}
-          >
-            <option value="">All DB Engines</option>
-            <option value="PostgreSQL">PostgreSQL</option>
-            <option value="MariaDB">MariaDB</option>
-            <option value="MSSQL">MSSQL</option>
-            <option value="Oracle">Oracle</option>
-            <option value="MongoDB">MongoDB</option>
-          </select>
-        </div>
-
-        {error && (
-          <div style={{
-            padding: 12,
-            marginBottom: 16,
-            background: asciiColors.danger + '20',
-            border: `1px solid ${asciiColors.danger}`,
-            borderRadius: 2,
-            color: asciiColors.danger,
-            fontSize: 12,
-            fontFamily: 'Consolas'
-          }}>
-            {ascii.blockFull} ERROR: {error}
-          </div>
-        )}
-
-        <SchemaMigrationsTreeView
-          migrations={allMigrations}
-          loading={loadingTree}
-          onViewMigration={handleViewMigration}
-          onApplyMigration={handleApplyMigration}
-          onRollbackMigration={handleRollbackMigration}
-          onTestMigration={handleTestMigration}
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+          SCHEMA MIGRATIONS
+        </h1>
+        <AsciiButton 
+          label={`${ascii.blockSemi} CREATE MIGRATION`}
+          onClick={handleCreateMigration}
         />
-      </AsciiPanel>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        gap: theme.spacing.sm,
+        marginBottom: theme.spacing.md,
+        flexWrap: 'wrap',
+        alignItems: 'center'
+      }}>
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+          placeholder="Search migrations..."
+          style={{
+            flex: 1,
+            minWidth: 200,
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            background: asciiColors.background,
+            color: asciiColors.foreground,
+            fontFamily: 'Consolas',
+            fontSize: 12,
+            outline: 'none',
+            transition: 'border-color 0.15s ease'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = asciiColors.accent;
+            e.target.style.outline = `2px solid ${asciiColors.accent}`;
+            e.target.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = asciiColors.border;
+            e.target.style.outline = 'none';
+          }}
+        />
+        <button
+          onClick={handleSearch}
+          style={{
+            minWidth: 100,
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            background: asciiColors.accent,
+            color: asciiColors.background,
+            cursor: 'pointer',
+            fontSize: 12,
+            fontFamily: 'Consolas',
+            fontWeight: 600
+          }}
+        >
+          SEARCH
+        </button>
+
+        <select
+          value={filters.status as string}
+          onChange={(e) => {
+            setFilter('status', e.target.value);
+            setPage(1);
+          }}
+          style={{
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            background: asciiColors.background,
+            color: asciiColors.foreground,
+            fontFamily: 'Consolas',
+            fontSize: 12,
+            cursor: 'pointer',
+            outline: 'none',
+            transition: 'border-color 0.15s ease'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = asciiColors.accent;
+            e.target.style.outline = `2px solid ${asciiColors.accent}`;
+            e.target.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = asciiColors.border;
+            e.target.style.outline = 'none';
+          }}
+        >
+          <option value="">All Status</option>
+          <option value="PENDING">Pending</option>
+          <option value="APPLIED">Applied</option>
+          <option value="FAILED">Failed</option>
+          <option value="ROLLED_BACK">Rolled Back</option>
+        </select>
+
+        <select
+          value={filters.environment as string}
+          onChange={(e) => {
+            setFilter('environment', e.target.value);
+            setPage(1);
+          }}
+          style={{
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            background: asciiColors.background,
+            color: asciiColors.foreground,
+            fontFamily: 'Consolas',
+            fontSize: 12,
+            cursor: 'pointer',
+            outline: 'none',
+            transition: 'border-color 0.15s ease'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = asciiColors.accent;
+            e.target.style.outline = `2px solid ${asciiColors.accent}`;
+            e.target.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = asciiColors.border;
+            e.target.style.outline = 'none';
+          }}
+        >
+          <option value="">All Environments</option>
+          <option value="dev">Development</option>
+          <option value="staging">Staging</option>
+          <option value="qa">QA</option>
+          <option value="production">Production</option>
+        </select>
+
+        <select
+          value={filters.db_engine as string}
+          onChange={(e) => {
+            setFilter('db_engine', e.target.value);
+            setPage(1);
+          }}
+          style={{
+            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            background: asciiColors.background,
+            color: asciiColors.foreground,
+            fontFamily: 'Consolas',
+            fontSize: 12,
+            cursor: 'pointer',
+            outline: 'none',
+            transition: 'border-color 0.15s ease'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = asciiColors.accent;
+            e.target.style.outline = `2px solid ${asciiColors.accent}`;
+            e.target.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = asciiColors.border;
+            e.target.style.outline = 'none';
+          }}
+        >
+          <option value="">All DB Engines</option>
+          <option value="PostgreSQL">PostgreSQL</option>
+          <option value="MariaDB">MariaDB</option>
+          <option value="MSSQL">MSSQL</option>
+          <option value="Oracle">Oracle</option>
+          <option value="MongoDB">MongoDB</option>
+        </select>
+      </div>
+
+      {error && (
+        <div style={{
+          padding: theme.spacing.sm,
+          marginBottom: theme.spacing.md,
+          background: asciiColors.backgroundSoft,
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          color: asciiColors.foreground,
+          fontSize: 12,
+          fontFamily: 'Consolas'
+        }}>
+          {ascii.blockFull} ERROR: {error}
+        </div>
+      )}
+
+      <SchemaMigrationsTreeView
+        migrations={allMigrations}
+        loading={loadingTree}
+        onViewMigration={handleViewMigration}
+        onApplyMigration={handleApplyMigration}
+        onRollbackMigration={handleRollbackMigration}
+        onTestMigration={handleTestMigration}
+      />
 
       {isCreateModalOpen && (
         <CreateMigrationModal
@@ -366,7 +402,7 @@ const SchemaMigrations = () => {
           }}
         />
       )}
-    </div>
+    </Container>
   );
 };
 

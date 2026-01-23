@@ -45,9 +45,9 @@ const getStatusColor = (status?: string) => {
   if (!status) return asciiColors.muted;
   switch (status) {
     case 'HEALTHY':
-    case 'EXCELLENT': return asciiColors.success;
-    case 'WARNING': return asciiColors.warning;
-    case 'CRITICAL': return asciiColors.danger;
+    case 'EXCELLENT': return asciiColors.accent;
+    case 'WARNING': return asciiColors.muted;
+    case 'CRITICAL': return asciiColors.foreground;
     default: return asciiColors.muted;
   }
 };
@@ -564,27 +564,38 @@ const GovernanceCatalogMongoDB = () => {
   }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+    <Container>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        GOVERNANCE CATALOG - MONGODB
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+          GOVERNANCE CATALOG - MONGODB
+        </h1>
+      </div>
       
       {error && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: theme.spacing.md }}>
           <AsciiPanel title="ERROR">
             <div style={{
-              padding: "12px",
-              color: asciiColors.danger,
+              padding: theme.spacing.sm,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: 'Consolas',
+              backgroundColor: asciiColors.backgroundSoft,
+              borderRadius: 2
             }}>
               {error}
             </div>
@@ -595,8 +606,8 @@ const GovernanceCatalogMongoDB = () => {
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: 12, 
-        marginBottom: 24 
+        gap: theme.spacing.md, 
+        marginBottom: theme.spacing.lg 
       }}>
         <AsciiPanel title="Total Collections">
           <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
@@ -636,18 +647,30 @@ const GovernanceCatalogMongoDB = () => {
       </div>
 
       <AsciiPanel title="FILTERS">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
           <select
             value={filters.server_name as string}
             onChange={(e) => handleFilterChange('server_name', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Servers</option>
@@ -661,14 +684,28 @@ const GovernanceCatalogMongoDB = () => {
             onChange={(e) => handleFilterChange('database_name', e.target.value)}
             disabled={!filters.server_name}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
               color: asciiColors.foreground,
-              opacity: !filters.server_name ? 0.5 : 1
+              opacity: !filters.server_name ? 0.5 : 1,
+              cursor: !filters.server_name ? 'not-allowed' : 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              if (filters.server_name) {
+                e.target.style.borderColor = asciiColors.accent;
+                e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                e.target.style.outlineOffset = '2px';
+              }
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Databases</option>
@@ -681,13 +718,25 @@ const GovernanceCatalogMongoDB = () => {
             value={filters.health_status as string}
             onChange={(e) => handleFilterChange('health_status', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Health Status</option>
@@ -701,13 +750,25 @@ const GovernanceCatalogMongoDB = () => {
             value={filters.access_frequency as string}
             onChange={(e) => handleFilterChange('access_frequency', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Access Frequency</option>
@@ -726,13 +787,24 @@ const GovernanceCatalogMongoDB = () => {
             style={{
               flex: 1,
               minWidth: '200px',
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           />
           
@@ -751,13 +823,13 @@ const GovernanceCatalogMongoDB = () => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        marginBottom: 24,
-        marginTop: 8,
+        marginBottom: theme.spacing.lg,
+        marginTop: theme.spacing.sm,
         fontFamily: 'Consolas',
         fontSize: 12,
-        gap: 32
+        gap: theme.spacing.lg
       }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           <label style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
             Items per page:
           </label>
@@ -768,14 +840,25 @@ const GovernanceCatalogMongoDB = () => {
               setPage(1);
             }}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
               color: asciiColors.foreground,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value={10}>10</option>
@@ -785,7 +868,7 @@ const GovernanceCatalogMongoDB = () => {
             <option value={200}>200</option>
           </select>
         </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           <AsciiButton
             label={activeView === 'list' ? 'Show Charts' : 'Show List'}
             onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
@@ -827,81 +910,91 @@ const GovernanceCatalogMongoDB = () => {
           }}
           onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="METRICS PLAYBOOK - MONGODB GOVERNANCE">
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+              <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} Total Collections
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Total number of collections cataloged across all MongoDB servers and databases in the governance system.
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} Total Size
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Combined storage size of all collections across all MongoDB databases. Includes data and index sizes.
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} Total Documents
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Total number of documents across all MongoDB collections in the governance catalog.
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 8 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} Healthy
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Collections with HEALTHY status, indicating optimal performance, proper indexing, and good access patterns.
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 8 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} Warning
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Collections with WARNING status, indicating potential issues such as missing indexes, 
                     suboptimal sharding, or performance concerns that should be monitored.
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+                <div style={{ marginBottom: theme.spacing.md }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} Critical
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Collections with CRITICAL status, indicating serious issues requiring immediate attention such as 
                     missing critical indexes, sharding problems, or severe performance degradation.
                   </div>
                 </div>
 
                 <div style={{ 
-                  marginTop: 16, 
-                  padding: 12, 
+                  marginTop: theme.spacing.md, 
+                  padding: theme.spacing.sm, 
                   background: asciiColors.backgroundSoft, 
                   borderRadius: 2,
                   border: `1px solid ${asciiColors.border}`
                 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                     {ascii.blockSemi} Note
                   </div>
-                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
                     These metrics are calculated in real-time from the data_governance_catalog_mongodb table and reflect 
                     the current state of your MongoDB governance catalog.
                   </div>
                 </div>
 
-                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                <div style={{ marginTop: theme.spacing.md, textAlign: 'right' }}>
                   <AsciiButton
                     label="Close"
                     onClick={() => setShowMetricsPlaybook(false)}
@@ -932,8 +1025,8 @@ const GovernanceCatalogMongoDB = () => {
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
-            gap: 16, 
-            marginTop: 16 
+            gap: theme.spacing.md, 
+            marginTop: theme.spacing.md 
           }}>
             <GovernanceCatalogMongoDBTreeView 
               items={allItems} 
@@ -943,17 +1036,27 @@ const GovernanceCatalogMongoDB = () => {
             {selectedItem && (
               <div style={{ 
                 position: 'sticky', 
-                top: 16, 
+                top: theme.spacing.md, 
                 maxHeight: 'calc(100vh - 200px)',
                 overflowY: 'auto'
               }}>
+                <style>{`
+                  div[style*="overflowY"]::-webkit-scrollbar {
+                    width: 0px;
+                    display: none;
+                  }
+                  div[style*="overflowY"] {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                  }
+                `}</style>
                 <AsciiPanel title="DETAILS">
                 <div style={{ 
                   display: 'flex', 
-                  gap: 4, 
-                  marginBottom: 16, 
+                  gap: theme.spacing.xs, 
+                  marginBottom: theme.spacing.md, 
                   borderBottom: `1px solid ${asciiColors.border}`, 
-                  paddingBottom: 8,
+                  paddingBottom: theme.spacing.sm,
                   flexWrap: 'wrap'
                 }}>
                   <AsciiButton
@@ -1010,7 +1113,7 @@ const GovernanceCatalogMongoDB = () => {
           )}
         </>
       ) : null}
-    </div>
+    </Container>
   );
 };
 

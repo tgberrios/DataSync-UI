@@ -12,6 +12,7 @@ import {
 import { Pie as PieChart } from 'react-chartjs-2';
 import { format } from 'date-fns';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { theme } from '../../theme/theme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 
 ChartJS.register(
@@ -85,18 +86,18 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
         {
           data: roleData,
           backgroundColor: [
-            asciiColors.danger + '80',
             asciiColors.accent + '80',
+            asciiColors.accent + '60',
             asciiColors.muted + '80',
-            asciiColors.warning + '80',
-            asciiColors.success + '80'
+            asciiColors.accent + '40',
+            asciiColors.accent + '50'
           ],
           borderColor: [
-            asciiColors.danger,
+            asciiColors.accent,
             asciiColors.accent,
             asciiColors.muted,
-            asciiColors.warning,
-            asciiColors.success
+            asciiColors.accent,
+            asciiColors.accent
           ],
           borderWidth: 2
         }
@@ -111,11 +112,11 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
         {
           data: [metrics.activeUsers, metrics.inactiveUsers],
           backgroundColor: [
-            asciiColors.success + '80',
+            asciiColors.accent + '80',
             asciiColors.muted + '80'
           ],
           borderColor: [
-            asciiColors.success,
+            asciiColors.accent,
             asciiColors.muted
           ],
           borderWidth: 2
@@ -176,12 +177,12 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: 12, 
-        marginBottom: 24 
+        gap: theme.spacing.sm, 
+        marginBottom: theme.spacing.lg 
       }}>
         <AsciiPanel title="Total Users">
           <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
@@ -189,7 +190,7 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
           </div>
         </AsciiPanel>
         <AsciiPanel title="Active Users">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.success }}>
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.accent }}>
             {metrics.activeUsers}
           </div>
         </AsciiPanel>
@@ -204,7 +205,7 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
           </div>
         </AsciiPanel>
         <AsciiPanel title="Never Logged In">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.warning }}>
+          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.muted }}>
             {metrics.usersNeverLoggedIn}
           </div>
         </AsciiPanel>
@@ -213,22 +214,22 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-        gap: 16 
+        gap: theme.spacing.md 
       }}>
         <AsciiPanel title="ROLE DISTRIBUTION">
-          <div style={{ height: '300px', padding: '16px' }}>
+          <div style={{ height: '300px', padding: theme.spacing.md }}>
             <PieChart data={roleDistributionData} options={chartOptions} />
           </div>
         </AsciiPanel>
 
         <AsciiPanel title="STATUS DISTRIBUTION">
-          <div style={{ height: '300px', padding: '16px' }}>
+          <div style={{ height: '300px', padding: theme.spacing.md }}>
             <PieChart data={statusDistributionData} options={chartOptions} />
           </div>
         </AsciiPanel>
 
         <AsciiPanel title="LOGIN STATUS">
-          <div style={{ height: '300px', padding: '16px' }}>
+          <div style={{ height: '300px', padding: theme.spacing.md }}>
             <PieChart data={loginStatusData} options={chartOptions} />
           </div>
         </AsciiPanel>
@@ -238,24 +239,24 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: 12,
-          padding: '16px'
+          gap: theme.spacing.sm,
+          padding: theme.spacing.md
         }}>
           {Object.entries(metrics.roleCounts).map(([role, count]) => {
             const getRoleColor = (r: string) => {
               switch (r) {
-                case 'admin': return asciiColors.danger;
+                case 'admin': return asciiColors.accent;
                 case 'user': return asciiColors.accent;
                 case 'viewer': return asciiColors.muted;
-                case 'analytics': return asciiColors.warning;
-                case 'reporting': return asciiColors.success;
+                case 'analytics': return asciiColors.accent;
+                case 'reporting': return asciiColors.accent;
                 default: return asciiColors.foreground;
               }
             };
 
             return (
               <div key={role} style={{
-                padding: '12px',
+                padding: theme.spacing.sm,
                 background: asciiColors.backgroundSoft,
                 borderRadius: 2,
                 border: `1px solid ${getRoleColor(role)}`,
@@ -389,11 +390,11 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
                 users.map((user, index) => {
                   const getRoleColor = (role: string) => {
                     switch (role) {
-                      case 'admin': return asciiColors.danger;
+                      case 'admin': return asciiColors.accent;
                       case 'user': return asciiColors.accent;
                       case 'viewer': return asciiColors.muted;
-                      case 'analytics': return asciiColors.warning;
-                      case 'reporting': return asciiColors.success;
+                      case 'analytics': return asciiColors.accent;
+                      case 'reporting': return asciiColors.accent;
                       default: return asciiColors.foreground;
                     }
                   };
@@ -456,9 +457,9 @@ const UserManagementCharts: React.FC<UserManagementChartsProps> = ({ users }) =>
                           fontSize: 10,
                           fontFamily: 'Consolas',
                           fontWeight: 600,
-                          backgroundColor: user.active ? asciiColors.success + '20' : asciiColors.muted + '20',
-                          color: user.active ? asciiColors.success : asciiColors.muted,
-                          border: `1px solid ${user.active ? asciiColors.success : asciiColors.muted}`,
+                          backgroundColor: asciiColors.backgroundSoft,
+                          color: user.active ? asciiColors.accent : asciiColors.muted,
+                          border: `1px solid ${user.active ? asciiColors.accent : asciiColors.border}`,
                           textTransform: 'uppercase'
                         }}>
                           {user.active ? 'Active' : 'Inactive'}

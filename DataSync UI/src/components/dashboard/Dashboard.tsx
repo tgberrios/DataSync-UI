@@ -12,97 +12,14 @@ import { asciiColors, ascii } from "../../ui/theme/asciiTheme";
 import SkeletonLoader from "../shared/SkeletonLoader";
 import { SkeletonPage } from "../shared/Skeleton";
 
-const globalStyles = `
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes slideInLeft {
-    from {
-      opacity: 0;
-      transform: translateX(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-  }
-  @keyframes progressGlow {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
-  }
-  @keyframes numberPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-  }
-  @keyframes shimmer {
-    to { left: 100%; }
-  }
-  @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  @keyframes dots {
-    0%, 20% { opacity: 0; }
-    50% { opacity: 1; }
-    100% { opacity: 0; }
-  }
-  @keyframes smoothUpdate {
-    0% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.7;
-    }
-    100% {
-      opacity: 1;
-    }
-  }
-  @keyframes dataPulse {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.05);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateX(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  * {
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-  }
-`;
+// Keyframes removed - using only CSS transitions (0.15s ease) per design rules
 
 const AsciiProgressBar: React.FC<{ progress: number }> = ({ progress }) => {
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<{ left?: string; right?: string; bottom?: string; top?: string; transform?: string }>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const [barWidth, setBarWidth] = useState(50);
   
   useEffect(() => {
@@ -134,6 +51,54 @@ const AsciiProgressBar: React.FC<{ progress: number }> = ({ progress }) => {
     return () => clearTimeout(timer);
   }, [progress]);
   
+  const updateTooltipPosition = useCallback(() => {
+    if (!containerRef.current || !tooltipRef.current) return;
+    
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const tooltipWidth = tooltipRect.width || 250;
+    const spacing = 8;
+    
+    const position: { left?: string; right?: string; bottom?: string; top?: string; transform?: string } = {};
+    
+    // Always show above for progress bar
+    position.bottom = "100%";
+    position.marginBottom = spacing;
+    
+    // Calculate horizontal position
+    const centerX = containerRect.left + containerRect.width / 2;
+    const leftEdge = centerX - tooltipWidth / 2;
+    const rightEdge = centerX + tooltipWidth / 2;
+    
+    if (leftEdge < 10) {
+      position.left = "0";
+      position.transform = "none";
+    } else if (rightEdge > viewportWidth - 10) {
+      position.right = "0";
+      position.transform = "none";
+    } else {
+      position.left = "50%";
+      position.transform = "translateX(-50%)";
+    }
+    
+    setTooltipPosition(position);
+  }, []);
+  
+  useEffect(() => {
+    if (showTooltip) {
+      const timer = setTimeout(updateTooltipPosition, 0);
+      const handleResize = () => updateTooltipPosition();
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('scroll', handleResize, true);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('scroll', handleResize, true);
+      };
+    }
+  }, [showTooltip, updateTooltipPosition]);
+  
   const filled = Math.round((animatedProgress / 100) * barWidth);
   const empty = barWidth - filled;
   
@@ -159,9 +124,8 @@ const AsciiProgressBar: React.FC<{ progress: number }> = ({ progress }) => {
         <span style={{ 
           color: asciiColors.accent,
           fontWeight: 600,
-          transition: "width 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
-          display: "inline-block",
-          animation: "progressGlow 2s ease-in-out infinite"
+          transition: "all 0.15s ease",
+          display: "inline-block"
         }}>
           {ascii.blockFull.repeat(filled)}
         </span>
@@ -175,8 +139,7 @@ const AsciiProgressBar: React.FC<{ progress: number }> = ({ progress }) => {
           marginLeft: 8,
           color: asciiColors.accent,
           fontWeight: 600,
-          transition: "all 0.3s ease",
-          animation: "numberPulse 0.5s ease-out"
+          transition: "all 0.15s ease"
         }}>
           {Math.round(animatedProgress)}%
         </span>
@@ -185,23 +148,25 @@ const AsciiProgressBar: React.FC<{ progress: number }> = ({ progress }) => {
         <span>{ascii.bl}{ascii.h.repeat(barWidth)}{ascii.br}</span>
       </div>
       {showTooltip && (
-        <div style={{
-          position: "absolute",
-          bottom: "100%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          marginBottom: 8,
-          padding: "8px 12px",
-          backgroundColor: asciiColors.background,
-          border: `1px solid ${asciiColors.border}`,
-          borderRadius: 2,
-          fontSize: 10,
-          color: asciiColors.foreground,
-          whiteSpace: "nowrap",
-          zIndex: 1000,
-          fontFamily: "Consolas, 'Source Code Pro', monospace",
-          boxShadow: `0 2px 8px ${asciiColors.border}40`
-        }}>
+        <div 
+          ref={tooltipRef}
+          style={{
+            position: "absolute",
+            ...tooltipPosition,
+            padding: "8px 12px",
+            backgroundColor: asciiColors.background,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            fontSize: 10,
+            color: asciiColors.foreground,
+            maxWidth: "250px",
+            whiteSpace: "normal",
+            zIndex: 10000,
+            fontFamily: "Consolas, 'Source Code Pro', monospace",
+            boxShadow: `0 2px 8px ${asciiColors.border}40`,
+            pointerEvents: "none"
+          }}
+        >
           <div style={{ color: asciiColors.accent, fontWeight: 600, marginBottom: 4 }}>
             {ascii.blockFull} DataLake Progress
           </div>
@@ -255,9 +220,9 @@ const AnimatedStat: React.FC<{
     }}
     >
       <span style={{ 
-        color, 
-        animation: pulse ? "pulse 2s ease-in-out infinite" : "none",
-        display: "inline-block"
+        color,
+        display: "inline-block",
+        transition: "opacity 0.15s ease"
       }}>
         {icon}
       </span>
@@ -343,9 +308,76 @@ const MetricRow: React.FC<{
   tooltip?: string;
 }> = ({ label, value, color, icon = ascii.blockFull, size = "normal", tooltip }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<{ left?: string; right?: string; bottom?: string; top?: string; transform?: string }>({});
+  const rowRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  
+  const updateTooltipPosition = useCallback(() => {
+    if (!rowRef.current || !tooltipRef.current) return;
+    
+    const rowRect = rowRef.current.getBoundingClientRect();
+    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const tooltipWidth = 300; // maxWidth
+    const tooltipHeight = tooltipRect.height || 100; // estimated
+    const spacing = 8;
+    
+    const position: { left?: string; right?: string; bottom?: string; top?: string; transform?: string } = {};
+    
+    // Check if there's space above, otherwise show below
+    const spaceAbove = rowRect.top;
+    const spaceBelow = viewportHeight - rowRect.bottom;
+    const showAbove = spaceAbove >= tooltipHeight + spacing || spaceAbove > spaceBelow;
+    
+    if (showAbove) {
+      position.bottom = "100%";
+      position.marginBottom = spacing;
+    } else {
+      position.top = "100%";
+      position.marginTop = spacing;
+    }
+    
+    // Calculate horizontal position
+    const centerX = rowRect.left + rowRect.width / 2;
+    const leftEdge = centerX - tooltipWidth / 2;
+    const rightEdge = centerX + tooltipWidth / 2;
+    
+    if (leftEdge < 10) {
+      // Too close to left edge, align to left
+      position.left = "0";
+      position.transform = "none";
+    } else if (rightEdge > viewportWidth - 10) {
+      // Too close to right edge, align to right
+      position.right = "0";
+      position.transform = "none";
+    } else {
+      // Center it
+      position.left = "50%";
+      position.transform = "translateX(-50%)";
+    }
+    
+    setTooltipPosition(position);
+  }, []);
+  
+  useEffect(() => {
+    if (showTooltip && tooltip) {
+      // Small delay to ensure tooltip is rendered before calculating position
+      const timer = setTimeout(updateTooltipPosition, 0);
+      const handleResize = () => updateTooltipPosition();
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('scroll', handleResize, true);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('scroll', handleResize, true);
+      };
+    }
+  }, [showTooltip, tooltip, updateTooltipPosition]);
   
   return (
     <div 
+      ref={rowRef}
       style={{
         display: "flex",
         justifyContent: "space-between",
@@ -363,8 +395,10 @@ const MetricRow: React.FC<{
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = color;
-        e.currentTarget.style.backgroundColor = `${color}15`;
-        if (tooltip) setShowTooltip(true);
+        e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+        if (tooltip) {
+          setShowTooltip(true);
+        }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = asciiColors.border;
@@ -384,25 +418,27 @@ const MetricRow: React.FC<{
         {typeof value === "number" ? value.toLocaleString() : value}
       </span>
       {showTooltip && tooltip && (
-        <div style={{
-          position: "absolute",
-          bottom: "100%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          marginBottom: 8,
-          padding: "8px 12px",
-          backgroundColor: asciiColors.background,
-          border: `1px solid ${asciiColors.border}`,
-          borderRadius: 2,
-          fontSize: 10,
-          color: asciiColors.foreground,
-          zIndex: 1000,
-          fontFamily: "Consolas, 'Source Code Pro', monospace",
-          boxShadow: `0 2px 8px ${asciiColors.border}40`,
-          maxWidth: "300px",
-          whiteSpace: "normal",
-          textAlign: "left"
-        }}>
+        <div 
+          ref={tooltipRef}
+          style={{
+            position: "absolute",
+            ...tooltipPosition,
+            padding: "8px 12px",
+            backgroundColor: asciiColors.background,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            fontSize: 10,
+            color: asciiColors.foreground,
+            zIndex: 10000,
+            fontFamily: "Consolas, 'Source Code Pro', monospace",
+            boxShadow: `0 2px 8px ${asciiColors.border}40`,
+            maxWidth: "300px",
+            minWidth: "200px",
+            whiteSpace: "normal",
+            textAlign: "left",
+            pointerEvents: "none"
+          }}
+        >
           <div style={{ color: asciiColors.accent, fontWeight: 600, marginBottom: 4 }}>
             {ascii.blockFull} {label}
           </div>
@@ -753,6 +789,7 @@ const Dashboard = () => {
     fetchCurrentlyProcessing(1);
     fetchMaskingData();
 
+    // Auto-refresh enabled for real-time monitoring (exception for Dashboard)
     const syncStatsInterval = setInterval(fetchSyncStats, 500);
     const systemResourcesInterval = setInterval(fetchSystemResources, 10000);
     const dbHealthInterval = setInterval(fetchDbHealth, 1000);
@@ -765,7 +802,7 @@ const Dashboard = () => {
       clearInterval(dbHealthInterval);
       clearInterval(maskingDataInterval);
     };
-  }, [fetchStats, fetchSyncStats, fetchSystemResources, fetchDbHealth, fetchMaskingData]);
+  }, [fetchStats, fetchSyncStats, fetchSystemResources, fetchDbHealth, fetchMaskingData, fetchCurrentlyProcessing]);
 
   useEffect(() => {
     if (isProcessingExpanded) {
@@ -794,7 +831,7 @@ const Dashboard = () => {
       }}>
         <AsciiPanel title="ERROR">
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: asciiColors.danger, fontWeight: 600 }}>
+            <span style={{ color: asciiColors.foreground, fontWeight: 600 }}>
               {ascii.blockFull} Error al cargar datos:
             </span>
           </div>
@@ -815,21 +852,6 @@ const Dashboard = () => {
       maxWidth: "1400px",
       margin: "0 auto"
     }}>
-      <style>{`
-        @keyframes contentFadeIn {
-          0% {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .dashboard-content {
-          animation: contentFadeIn 0.6s ease-out forwards;
-        }
-      `}</style>
       <div style={{
         marginBottom: 24
       }}>
@@ -873,25 +895,25 @@ const Dashboard = () => {
             <MetricRow
               label="Listening Changes"
               value={stats.syncStatus.listeningChanges || 0}
-              color={asciiColors.success}
+              color={asciiColors.accent}
               tooltip="Tables actively monitoring for changes using CDC (Change Data Capture). These tables are in real-time sync mode and listening to transaction logs."
             />
             <MetricRow
               label="Pending"
               value={stats.syncStatus.pending || 0}
-              color={stats.syncStatus.pending > 0 ? asciiColors.warning : asciiColors.muted}
+              color={stats.syncStatus.pending > 0 ? asciiColors.muted : asciiColors.muted}
               tooltip="Active tables that have not yet started synchronization. They are queued and waiting to begin the initial FULL_LOAD process."
             />
             <MetricRow
               label="In Progress"
               value={stats.syncStatus.inProgress || 0}
-              color={stats.syncStatus.inProgress > 0 ? asciiColors.warning : asciiColors.muted}
+              color={stats.syncStatus.inProgress > 0 ? asciiColors.muted : asciiColors.muted}
               tooltip="Tables currently being processed. This includes tables in FULL_LOAD (initial data transfer) or SYNC operations actively transferring data."
             />
             <MetricRow
               label="Errors"
               value={stats.syncStatus.errors || 0}
-              color={stats.syncStatus.errors > 0 ? asciiColors.danger : asciiColors.muted}
+              color={stats.syncStatus.errors > 0 ? asciiColors.foreground : asciiColors.muted}
               tooltip="Tables that encountered errors during synchronization. These require attention and may need manual intervention or configuration fixes."
             />
           </div>
@@ -929,23 +951,23 @@ const Dashboard = () => {
             <MetricRow
               label="CPU Usage"
               value={`${stats.systemResources.cpuUsage}%`}
-              color={parseFloat(stats.systemResources.cpuUsage) > 80 ? asciiColors.danger : parseFloat(stats.systemResources.cpuUsage) > 60 ? asciiColors.warning : asciiColors.success}
+              color={parseFloat(stats.systemResources.cpuUsage) > 80 ? asciiColors.foreground : parseFloat(stats.systemResources.cpuUsage) > 60 ? asciiColors.muted : asciiColors.accent}
             />
             <MetricRow
               label="Memory"
               value={`${stats.systemResources.memoryUsed} / ${stats.systemResources.memoryTotal} GB`}
-              color={parseFloat(stats.systemResources.memoryPercentage) > 80 ? asciiColors.danger : parseFloat(stats.systemResources.memoryPercentage) > 60 ? asciiColors.warning : asciiColors.success}
+              color={parseFloat(stats.systemResources.memoryPercentage) > 80 ? asciiColors.foreground : parseFloat(stats.systemResources.memoryPercentage) > 60 ? asciiColors.muted : asciiColors.accent}
             />
             <MetricRow
               label="Cache Hit Rate"
               value={`${stats.dbHealth.cacheHitRate}%`}
-              color={parseFloat(stats.dbHealth.cacheHitRate) > 90 ? asciiColors.success : parseFloat(stats.dbHealth.cacheHitRate) > 70 ? asciiColors.warning : asciiColors.danger}
+              color={parseFloat(stats.dbHealth.cacheHitRate) > 90 ? asciiColors.accent : parseFloat(stats.dbHealth.cacheHitRate) > 70 ? asciiColors.muted : asciiColors.foreground}
               tooltip="Percentage of index block reads served from PostgreSQL shared buffers cache vs disk. Higher values (90%+) indicate excellent cache performance and reduced I/O."
             />
             <MetricRow
               label="Query Efficiency"
               value={stats.dbHealth.queryEfficiencyScore.toFixed(1)}
-              color={stats.dbHealth.queryEfficiencyScore >= 80 ? asciiColors.success : stats.dbHealth.queryEfficiencyScore >= 60 ? asciiColors.warning : asciiColors.danger}
+              color={stats.dbHealth.queryEfficiencyScore >= 80 ? asciiColors.accent : stats.dbHealth.queryEfficiencyScore >= 60 ? asciiColors.muted : asciiColors.foreground}
               tooltip="Overall query performance score (0-100) based on execution time, cache hit ratio, and I/O efficiency. Scores above 80 indicate excellent query performance."
             />
           </div>
@@ -956,17 +978,17 @@ const Dashboard = () => {
             <MetricRow
               label="DB Status"
               value={stats.dbHealth.status}
-              color={stats.dbHealth.status === "Healthy" ? asciiColors.success : asciiColors.warning}
+              color={stats.dbHealth.status === "Healthy" ? asciiColors.accent : asciiColors.muted}
             />
             <MetricRow
               label="Long Running"
               value={stats.dbHealth.longRunningQueries}
-              color={stats.dbHealth.longRunningQueries > 0 ? asciiColors.warning : asciiColors.muted}
+              color={stats.dbHealth.longRunningQueries > 0 ? asciiColors.muted : asciiColors.muted}
             />
             <MetricRow
               label="Blocking"
               value={stats.dbHealth.blockingQueries}
-              color={stats.dbHealth.blockingQueries > 0 ? asciiColors.danger : asciiColors.muted}
+              color={stats.dbHealth.blockingQueries > 0 ? asciiColors.foreground : asciiColors.muted}
             />
             <MetricRow
               label="Queries (24h)"
@@ -1026,18 +1048,18 @@ const Dashboard = () => {
               <MetricRow
                 label="Active Queries"
                 value={stats.dbHealth.activeQueries}
-                color={stats.dbHealth.activeQueries > 10 ? asciiColors.warning : asciiColors.accent}
+                color={stats.dbHealth.activeQueries > 10 ? asciiColors.muted : asciiColors.accent}
               />
             <MetricRow
               label="Waiting Queries"
               value={stats.dbHealth.waitingQueries}
-              color={stats.dbHealth.waitingQueries > 0 ? asciiColors.danger : asciiColors.muted}
+              color={stats.dbHealth.waitingQueries > 0 ? asciiColors.foreground : asciiColors.muted}
               tooltip="Number of queries currently waiting for locks or resources. High values indicate potential blocking issues or resource contention that may impact performance."
             />
             <MetricRow
               label="Avg Query Duration"
               value={`${stats.dbHealth.avgQueryDuration.toFixed(2)}s`}
-              color={stats.dbHealth.avgQueryDuration > 1 ? asciiColors.warning : asciiColors.success}
+              color={stats.dbHealth.avgQueryDuration > 1 ? asciiColors.muted : asciiColors.accent}
               tooltip="Average execution time for currently active queries. Lower values indicate better query performance. Values above 1 second may indicate optimization opportunities."
             />
             </div>
@@ -1055,29 +1077,29 @@ const Dashboard = () => {
             <MetricRow
               label="Active Policies"
               value={stats.dataProtection.masking.activePolicies}
-              color={asciiColors.success}
+              color={asciiColors.accent}
             />
             <MetricRow
               label="Sensitive Columns"
               value={maskingMetrics.sensitiveColumns}
-              color={asciiColors.warning}
+              color={asciiColors.muted}
             />
             <MetricRow
               label="Coverage"
               value={`${maskingMetrics.coverage.toFixed(1)}%`}
-              color={maskingMetrics.coverage >= 90 ? asciiColors.success : maskingMetrics.coverage >= 50 ? asciiColors.warning : asciiColors.danger}
+              color={maskingMetrics.coverage >= 90 ? asciiColors.accent : maskingMetrics.coverage >= 50 ? asciiColors.muted : asciiColors.foreground}
               size="large"
             />
             <SectionHeader title="Alerts" subtitle="System alerts and monitoring rules" />
             <MetricRow
               label="Open Alerts"
               value={stats.dataProtection.alerts.open}
-              color={stats.dataProtection.alerts.critical > 0 ? asciiColors.danger : stats.dataProtection.alerts.open > 0 ? asciiColors.warning : asciiColors.muted}
+              color={stats.dataProtection.alerts.critical > 0 ? asciiColors.foreground : stats.dataProtection.alerts.open > 0 ? asciiColors.muted : asciiColors.muted}
             />
             <MetricRow
               label="Critical Alerts"
               value={stats.dataProtection.alerts.critical}
-              color={stats.dataProtection.alerts.critical > 0 ? asciiColors.danger : asciiColors.muted}
+              color={stats.dataProtection.alerts.critical > 0 ? asciiColors.foreground : asciiColors.muted}
             />
             <MetricRow
               label="Enabled Rules"
@@ -1100,17 +1122,17 @@ const Dashboard = () => {
                 <MetricRow
                   label="Completed"
                   value={stats.backups.completed}
-                  color={asciiColors.success}
+                  color={asciiColors.accent}
                 />
                 <MetricRow
                   label="Failed"
                   value={stats.backups.failed}
-                  color={stats.backups.failed > 0 ? asciiColors.danger : asciiColors.muted}
+                  color={stats.backups.failed > 0 ? asciiColors.foreground : asciiColors.muted}
                 />
                 <MetricRow
                   label="In Progress"
                   value={stats.backups.inProgress}
-                  color={stats.backups.inProgress > 0 ? asciiColors.warning : asciiColors.muted}
+                  color={stats.backups.inProgress > 0 ? asciiColors.muted : asciiColors.muted}
                 />
                 {stats.backups.nextBackup && (
                   <div style={{
@@ -1139,17 +1161,17 @@ const Dashboard = () => {
                 <MetricRow
                   label="Pending"
                   value={stats.migrations.pending}
-                  color={stats.migrations.pending > 0 ? asciiColors.warning : asciiColors.muted}
+                  color={stats.migrations.pending > 0 ? asciiColors.muted : asciiColors.muted}
                 />
                 <MetricRow
                   label="Applied"
                   value={stats.migrations.applied}
-                  color={asciiColors.success}
+                  color={asciiColors.accent}
                 />
                 <MetricRow
                   label="Failed"
                   value={stats.migrations.failed}
-                  color={stats.migrations.failed > 0 ? asciiColors.danger : asciiColors.muted}
+                  color={stats.migrations.failed > 0 ? asciiColors.foreground : asciiColors.muted}
                 />
               </>
             )}
@@ -1162,23 +1184,23 @@ const Dashboard = () => {
             <MetricRow
               label="Average Score"
               value={stats.dataQuality.avgScore.toFixed(1)}
-              color={stats.dataQuality.avgScore >= 90 ? asciiColors.success : stats.dataQuality.avgScore >= 70 ? asciiColors.warning : asciiColors.danger}
+              color={stats.dataQuality.avgScore >= 90 ? asciiColors.accent : stats.dataQuality.avgScore >= 70 ? asciiColors.muted : asciiColors.foreground}
               size="large"
             />
             <MetricRow
               label="Passed Checks"
               value={stats.dataQuality.passed}
-              color={asciiColors.success}
+              color={asciiColors.accent}
             />
             <MetricRow
               label="Failed Checks"
               value={stats.dataQuality.failed}
-              color={stats.dataQuality.failed > 0 ? asciiColors.danger : asciiColors.muted}
+              color={stats.dataQuality.failed > 0 ? asciiColors.foreground : asciiColors.muted}
             />
             <MetricRow
               label="Warning Checks"
               value={stats.dataQuality.warning}
-              color={stats.dataQuality.warning > 0 ? asciiColors.warning : asciiColors.muted}
+              color={stats.dataQuality.warning > 0 ? asciiColors.muted : asciiColors.muted}
             />
             {stats.governance && (
               <>
@@ -1191,17 +1213,17 @@ const Dashboard = () => {
                 <MetricRow
                   label="Healthy Tables"
                   value={stats.governance.healthyTables}
-                  color={asciiColors.success}
+                  color={asciiColors.accent}
                 />
                 <MetricRow
                   label="Warning Tables"
                   value={stats.governance.warningTables}
-                  color={stats.governance.warningTables > 0 ? asciiColors.warning : asciiColors.muted}
+                  color={stats.governance.warningTables > 0 ? asciiColors.muted : asciiColors.muted}
                 />
                 <MetricRow
                   label="Critical Tables"
                   value={stats.governance.criticalTables}
-                  color={stats.governance.criticalTables > 0 ? asciiColors.danger : asciiColors.muted}
+                  color={stats.governance.criticalTables > 0 ? asciiColors.foreground : asciiColors.muted}
                 />
               </>
             )}
@@ -1214,12 +1236,12 @@ const Dashboard = () => {
             <MetricRow
               label="Pending Tasks"
               value={stats.maintenance.pending}
-              color={stats.maintenance.pending > 0 ? asciiColors.warning : asciiColors.muted}
+              color={stats.maintenance.pending > 0 ? asciiColors.muted : asciiColors.muted}
             />
             <MetricRow
               label="Completed Today"
               value={stats.maintenance.completedToday}
-              color={asciiColors.success}
+              color={asciiColors.accent}
             />
             <MetricRow
               label="Space Reclaimed"
@@ -1229,23 +1251,23 @@ const Dashboard = () => {
             <MetricRow
               label="Performance Improvement"
               value={`${stats.maintenance.avgPerformanceImprovement.toFixed(1)}%`}
-              color={stats.maintenance.avgPerformanceImprovement > 0 ? asciiColors.success : asciiColors.muted}
+              color={stats.maintenance.avgPerformanceImprovement > 0 ? asciiColors.accent : asciiColors.muted}
             />
             <SectionHeader title="Query Performance" subtitle="Database query efficiency metrics" />
             <MetricRow
               label="Long Running Queries"
               value={stats.dbHealth.longRunningQueries}
-              color={stats.dbHealth.longRunningQueries > 0 ? asciiColors.warning : asciiColors.muted}
+              color={stats.dbHealth.longRunningQueries > 0 ? asciiColors.muted : asciiColors.muted}
             />
             <MetricRow
               label="Blocking Queries"
               value={stats.dbHealth.blockingQueries}
-              color={stats.dbHealth.blockingQueries > 0 ? asciiColors.danger : asciiColors.muted}
+              color={stats.dbHealth.blockingQueries > 0 ? asciiColors.foreground : asciiColors.muted}
             />
             <MetricRow
               label="Efficiency Score"
               value={stats.dbHealth.queryEfficiencyScore.toFixed(1)}
-              color={stats.dbHealth.queryEfficiencyScore >= 80 ? asciiColors.success : stats.dbHealth.queryEfficiencyScore >= 60 ? asciiColors.warning : asciiColors.danger}
+              color={stats.dbHealth.queryEfficiencyScore >= 80 ? asciiColors.accent : stats.dbHealth.queryEfficiencyScore >= 60 ? asciiColors.muted : asciiColors.foreground}
               size="large"
             />
             <MetricRow
@@ -1312,7 +1334,7 @@ const Dashboard = () => {
             onClick={() => setIsProcessingExpanded(!isProcessingExpanded)}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = asciiColors.accent;
-              e.currentTarget.style.backgroundColor = `${asciiColors.accent}15`;
+              e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.borderColor = asciiColors.border;
@@ -1375,14 +1397,12 @@ const Dashboard = () => {
                       padding: "12px 14px",
                       borderRadius: 2,
                       backgroundColor: asciiColors.backgroundSoft,
-                      transition: "all 0.3s ease",
-                      animation: "fadeInUp 0.4s ease-out",
-                      animationDelay: `${index * 0.05}s`,
+                      transition: "all 0.15s ease",
                       fontFamily: "Consolas, 'Source Code Pro', monospace"
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = asciiColors.accent;
-                      e.currentTarget.style.backgroundColor = `${asciiColors.accent}10`;
+                      e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.borderColor = asciiColors.border;
@@ -1539,7 +1559,7 @@ const Dashboard = () => {
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = asciiColors.accent;
-                e.currentTarget.style.backgroundColor = `${asciiColors.accent}10`;
+                e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = asciiColors.border;
@@ -1624,7 +1644,6 @@ const Dashboard = () => {
           </div>
         </AsciiPanel>
       </div>
-      <style>{globalStyles}</style>
     </div>
   );
 };

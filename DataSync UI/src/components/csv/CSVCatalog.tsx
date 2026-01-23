@@ -289,9 +289,10 @@ const CSVCatalog = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: "Consolas",
+              border: `2px solid ${asciiColors.foreground}`
             }}>
               {error}
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { theme } from '../../theme/theme';
 import { monitorApi, queryPerformanceApi, dashboardApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
@@ -9,107 +9,8 @@ import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import SkeletonLoader from '../shared/SkeletonLoader';
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const fadeInUp = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideDown = keyframes`
-  from {
-    max-height: 0;
-    opacity: 0;
-  }
-  to {
-    max-height: 1000px;
-    opacity: 1;
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    max-height: 1000px;
-    opacity: 1;
-  }
-  to {
-    max-height: 0;
-    opacity: 0;
-  }
-`;
-
-const smoothUpdate = keyframes`
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 1;
-  }
-`;
-
-const pulse = keyframes`
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-`;
-
-const GlobalStyles = styled.div`
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  @keyframes smoothUpdate {
-    0% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.7;
-    }
-    100% {
-      opacity: 1;
-    }
-  }
-  
-  @keyframes dataPulse {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.05);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-`;
+// Keyframes removed - using only CSS transitions (0.15s ease) per design rules
+const GlobalStyles = styled.div``;
 
 const MainLayout = styled.div`
   display: grid;
@@ -141,7 +42,7 @@ const TreePanel = styled.div`
     border-radius: ${theme.borderRadius.sm};
     
     &:hover {
-      background: ${theme.colors.primary.main};
+      background: ${asciiColors.accent};
     }
   }
 `;
@@ -168,7 +69,7 @@ const DetailsPanel = styled.div`
     border-radius: ${theme.borderRadius.sm};
     
     &:hover {
-      background: ${theme.colors.primary.main};
+      background: ${asciiColors.accent};
     }
   }
 `;
@@ -184,7 +85,7 @@ const TabContainer = styled.div`
 const Tab = styled.button<{ $active: boolean }>`
   padding: ${theme.spacing.sm} ${theme.spacing.md};
   border: none;
-  background: ${props => props.$active ? theme.colors.primary.main : 'transparent'};
+  background: ${props => props.$active ? asciiColors.accent : 'transparent'};
   color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.secondary};
   border-radius: ${theme.borderRadius.md} ${theme.borderRadius.md} 0 0;
   cursor: pointer;
@@ -192,7 +93,7 @@ const Tab = styled.button<{ $active: boolean }>`
   transition: all ${theme.transitions.normal};
   
   &:hover {
-    background: ${props => props.$active ? theme.colors.primary.dark : theme.colors.background.secondary};
+    background: ${props => props.$active ? asciiColors.accent : theme.colors.background.secondary};
     color: ${props => props.$active ? theme.colors.text.white : theme.colors.text.primary};
   }
 `;
@@ -205,33 +106,34 @@ const StatsContainer = styled.div`
 `;
 
 const StatCard = styled.div`
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.md};
-  padding: ${theme.spacing.md};
+  background: ${({ theme }) => theme.colors.background.main};
+  border: 1px solid ${({ theme }) => theme.colors.border.light};
+  border-radius: 2;
+  padding: 16px;
   text-align: center;
-  transition: all ${theme.transitions.normal};
+  transition: all 0.15s ease;
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.md};
-    border-color: ${theme.colors.primary.main};
+    border-color: ${({ theme }) => theme.colors.border.medium};
+    background: ${({ theme }) => theme.colors.background.secondary};
   }
 `;
 
 const StatValue = styled.div`
-  font-size: 2em;
-  font-weight: bold;
-  color: ${theme.colors.primary.main};
-  margin-bottom: ${theme.spacing.xs};
+  font-size: 24px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: 4px;
+  font-family: 'Consolas';
 `;
 
 const StatLabel = styled.div`
-  font-size: 0.85em;
-  color: ${theme.colors.text.secondary};
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.secondary};
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 500;
+  font-family: 'Consolas';
 `;
 
 const TreeContainer = styled.div`
@@ -241,7 +143,7 @@ const TreeContainer = styled.div`
 
 const TreeNode = styled.div`
   user-select: none;
-  animation: ${fadeIn} 0.3s ease-out;
+  transition: opacity 0.15s ease;
   margin-bottom: 2px;
 `;
 
@@ -251,39 +153,33 @@ const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeTyp
   padding: ${props => props.$level === 0 ? '12px 8px' : props.$level === 1 ? '10px 8px' : '8px 8px'};
   padding-left: ${props => props.$level * 24 + 8}px;
   cursor: pointer;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
+  border-radius: 2;
+  transition: all 0.15s ease;
   position: relative;
   margin: 2px 0;
   
   ${props => {
     if (props.$nodeType === 'database') {
       return `
-        background: linear-gradient(135deg, ${theme.colors.primary.light}08 0%, ${theme.colors.primary.main}05 100%);
-        border-left: 3px solid ${theme.colors.primary.main};
+        background: ${props.$isExpanded ? '#f8f9fa' : 'transparent'};
+        border-left: 3px solid #1e40af;
         font-weight: 600;
       `;
     }
     if (props.$nodeType === 'schema') {
       return `
-        background: ${theme.colors.background.secondary};
-        border-left: 2px solid ${theme.colors.border.medium};
+        background: transparent;
+        border-left: 2px solid #6b7280;
       `;
     }
     return `
-      border-left: 1px solid ${theme.colors.border.light};
+      border-left: 1px solid #6b7280;
     `;
   }}
   
   &:hover {
-    background: ${props => {
-      if (props.$nodeType === 'database') {
-        return `linear-gradient(135deg, ${theme.colors.primary.light}15 0%, ${theme.colors.primary.main}10 100%)`;
-      }
-      return theme.colors.background.secondary;
-    }};
+    background: #f8f9fa;
     transform: translateX(2px);
-    box-shadow: ${theme.shadows.sm};
   }
 `;
 
@@ -294,12 +190,9 @@ const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
   width: 20px;
   height: 20px;
   margin-right: 8px;
-  border-radius: ${theme.borderRadius.sm};
-  background: ${props => props.$isExpanded 
-    ? `linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%)`
-    : theme.colors.background.secondary
-  };
-  color: ${props => props.$isExpanded ? theme.colors.text.white : theme.colors.primary.main};
+  border-radius: 2;
+  background: transparent;
+  color: ${props => props.$isExpanded ? asciiColors.background : asciiColors.accent};
   font-size: 0.7em;
   font-weight: bold;
   transition: all ${theme.transitions.normal};
@@ -320,7 +213,7 @@ const NodeLabel = styled.span<{ $isDatabase?: boolean; $isSchema?: boolean }>`
   font-weight: ${props => props.$isDatabase ? '700' : props.$isSchema ? '600' : '500'};
   font-size: ${props => props.$isDatabase ? '1.05em' : props.$isSchema ? '0.98em' : '0.92em'};
   color: ${props => {
-    if (props.$isDatabase) return theme.colors.primary.main;
+    if (props.$isDatabase) return asciiColors.accent;
     if (props.$isSchema) return theme.colors.text.primary;
     return theme.colors.text.secondary;
   }};
@@ -344,32 +237,31 @@ const CountBadge = styled.span`
   transition: all ${theme.transitions.normal};
   
   &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    color: ${theme.colors.primary.main};
+    background: ${asciiColors.backgroundSoft};
+    border-color: ${asciiColors.accent};
+    color: ${asciiColors.accent};
     transform: translateY(-1px);
   }
 `;
 
 const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
   overflow: hidden;
-  animation: ${props => props.$isExpanded ? slideDown : slideUp} 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: all 0.15s ease;
   padding-left: ${props => props.$level * 24 + 36}px;
-  will-change: max-height, opacity;
 `;
 
 const QueryItem = styled.div<{ $selected: boolean }>`
   padding: 10px 8px;
   margin: 4px 0;
   border-radius: ${theme.borderRadius.md};
-  border-left: 2px solid ${props => props.$selected ? theme.colors.primary.main : theme.colors.border.light};
-  background: ${props => props.$selected ? theme.colors.primary.light + '15' : 'transparent'};
+  border-left: 2px solid ${props => props.$selected ? asciiColors.accent : theme.colors.border.light};
+  background: ${props => props.$selected ? asciiColors.backgroundSoft : 'transparent'};
   cursor: pointer;
   transition: all ${theme.transitions.normal};
   
   &:hover {
     background: ${theme.colors.background.secondary};
-    border-left-color: ${theme.colors.primary.main};
+    border-left-color: ${asciiColors.accent};
   }
 `;
 
@@ -496,7 +388,7 @@ const EmptyState = styled.div`
   padding: 60px 40px;
   text-align: center;
   color: ${theme.colors.text.secondary};
-  animation: ${fadeIn} 0.5s ease-out;
+  transition: opacity 0.15s ease;
   
   &::before {
     content: '📊';
@@ -511,7 +403,7 @@ const EmptyDetails = styled.div`
   padding: 60px 40px;
   text-align: center;
   color: ${theme.colors.text.secondary};
-  animation: ${fadeIn} 0.5s ease-out;
+  transition: opacity 0.15s ease;
   
   &::before {
     content: '👈';
@@ -532,8 +424,7 @@ const ChartContainer = styled.div`
   color: ${theme.colors.text.primary};
   overflow: visible;
   position: relative;
-  animation: ${fadeIn} 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
   
   &:hover {
     box-shadow: ${theme.shadows.lg};
@@ -811,7 +702,6 @@ const AsciiSparkline: React.FC<{
             zIndex: 1000,
             boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
             pointerEvents: "none",
-            animation: "fadeInUp 0.15s ease-out",
             transition: "opacity 0.15s ease, transform 0.15s ease"
           }}
         >
@@ -840,8 +730,7 @@ const RecentEventCard = styled.div`
   border: 1px solid ${theme.colors.border.light};
   border-radius: ${theme.borderRadius.md};
   padding: ${theme.spacing.md};
-  transition: all ${theme.transitions.normal};
-  animation: ${fadeIn} 0.3s ease-out;
+  transition: all 0.15s ease;
   
   &:hover {
     border-color: ${theme.colors.primary.main};
@@ -1160,6 +1049,7 @@ const UnifiedMonitor: React.FC = () => {
     
     loadData();
     
+    // Auto-refresh enabled for real-time monitoring (exception for UnifiedMonitor)
     const interval = setInterval(() => {
       if (isMountedRef.current) {
         fetchMonitorData();
@@ -1318,13 +1208,13 @@ const UnifiedMonitor: React.FC = () => {
     const getStatusColor = (status: string) => {
       const upperStatus = (status || '').toUpperCase();
       if (upperStatus.includes('ERROR') || upperStatus.includes('FAILED') || upperStatus === 'POOR') {
-        return asciiColors.danger;
+        return asciiColors.foreground;
       }
       if (upperStatus.includes('WARNING') || upperStatus === 'FAIR') {
-        return asciiColors.warning;
+        return asciiColors.muted;
       }
       if (upperStatus.includes('SUCCESS') || upperStatus === 'EXCELLENT' || upperStatus === 'GOOD') {
-        return asciiColors.success;
+        return asciiColors.accent;
       }
       return asciiColors.muted;
     };
@@ -1415,7 +1305,7 @@ const UnifiedMonitor: React.FC = () => {
           {isDbExpanded && (
             <div style={{
               paddingLeft: 24,
-              animation: "slideDown 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
+              transition: "all 0.15s ease"
             }}>
               {items.map((item: any, idx: number) => {
                 const isSelected = selectedItem === item;
@@ -1449,7 +1339,7 @@ const UnifiedMonitor: React.FC = () => {
                       marginBottom: 2,
                       cursor: "pointer",
                       borderLeft: `2px solid ${isSelected ? asciiColors.accent : asciiColors.border}`,
-                      backgroundColor: isSelected ? asciiColors.accentLight : "transparent",
+                      backgroundColor: isSelected ? asciiColors.backgroundSoft : "transparent",
                       transition: "all 0.2s ease",
                       gap: 8
                     }}
@@ -1546,7 +1436,7 @@ const UnifiedMonitor: React.FC = () => {
                             fontWeight: 500,
                             border: `1px solid ${getStatusColor(item.state)}`,
                             color: getStatusColor(item.state),
-                            backgroundColor: getStatusColor(item.state) + "20"
+                            backgroundColor: "transparent"
                           }}>
                             {item.state}
                           </span>
@@ -1557,21 +1447,21 @@ const UnifiedMonitor: React.FC = () => {
                             }}
                             style={{
                               padding: "4px 8px",
-                              border: `1px solid ${asciiColors.danger}`,
-                              backgroundColor: asciiColors.background,
-                              color: asciiColors.danger,
+                              border: `1px solid ${asciiColors.border}`,
+                              backgroundColor: "transparent",
+                              color: asciiColors.foreground,
                               cursor: "pointer",
                               fontSize: 10,
                               borderRadius: 2,
-                              transition: "all 0.2s ease"
+                              transition: "all 0.15s ease"
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = asciiColors.danger;
-                              e.currentTarget.style.color = "#ffffff";
+                              e.currentTarget.style.border = `2px solid ${asciiColors.foreground}`;
+                              e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = asciiColors.background;
-                              e.currentTarget.style.color = asciiColors.danger;
+                              e.currentTarget.style.border = `1px solid ${asciiColors.border}`;
+                              e.currentTarget.style.backgroundColor = "transparent";
                             }}
                           >
                             Kill
@@ -1584,9 +1474,9 @@ const UnifiedMonitor: React.FC = () => {
                           borderRadius: 2,
                           fontSize: 10,
                           fontWeight: 500,
-                          border: `1px solid ${getStatusColor(item.status)}`,
-                          color: getStatusColor(item.status),
-                          backgroundColor: getStatusColor(item.status) + "20"
+                  border: `1px solid ${getStatusColor(item.status)}`,
+                  color: getStatusColor(item.status),
+                  backgroundColor: "transparent"
                         }}>
                           {item.status}
                         </span>
@@ -1597,9 +1487,9 @@ const UnifiedMonitor: React.FC = () => {
                           borderRadius: 2,
                           fontSize: 10,
                           fontWeight: 500,
-                          border: `1px solid ${getStatusColor(item.performance_tier || 'N/A')}`,
-                          color: getStatusColor(item.performance_tier || 'N/A'),
-                          backgroundColor: getStatusColor(item.performance_tier || 'N/A') + "20"
+                  border: `1px solid ${getStatusColor(item.performance_tier || 'N/A')}`,
+                  color: getStatusColor(item.performance_tier || 'N/A'),
+                  backgroundColor: "transparent"
                         }}>
                           {item.performance_tier || 'N/A'}
                         </span>
@@ -1610,9 +1500,9 @@ const UnifiedMonitor: React.FC = () => {
                           borderRadius: 2,
                           fontSize: 10,
                           fontWeight: 500,
-                          border: `1px solid ${getStatusColor(item.status || 'PENDING')}`,
-                          color: getStatusColor(item.status || 'PENDING'),
-                          backgroundColor: getStatusColor(item.status || 'PENDING') + "20"
+                  border: `1px solid ${getStatusColor(item.status || 'PENDING')}`,
+                  color: getStatusColor(item.status || 'PENDING'),
+                  backgroundColor: "transparent"
                         }}>
                           {item.status || 'PENDING'}
                         </span>
@@ -1682,10 +1572,10 @@ const UnifiedMonitor: React.FC = () => {
                 const percentage = total > 0 ? (count / total) * 100 : 0;
                 const isLast = idx === arr.length - 1;
                 const tierColors: Record<string, string> = {
-                  EXCELLENT: asciiColors.success,
-                  GOOD: asciiColors.accent,
-                  FAIR: asciiColors.warning,
-                  POOR: asciiColors.danger,
+                  EXCELLENT: asciiColors.accent,
+                  GOOD: asciiColors.foreground,
+                  FAIR: asciiColors.muted,
+                  POOR: asciiColors.foreground,
                 };
                 return (
                   <div key={tier} style={{
@@ -1744,13 +1634,13 @@ const UnifiedMonitor: React.FC = () => {
                 <span style={{ color: asciiColors.muted, width: 20 }}>
                   {ascii.v}
                 </span>
-                <span style={{ color: asciiColors.danger, width: 12 }}>
+                <span style={{ color: asciiColors.foreground, width: 12 }}>
                   {ascii.blockFull}
                 </span>
                 <span style={{ flex: 1, color: asciiColors.foreground }}>
                   Blocking
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.danger, minWidth: '30px', textAlign: 'right' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.foreground, minWidth: '30px', textAlign: 'right' }}>
                   {blockingQueries}
                 </span>
                 </div>
@@ -1765,13 +1655,13 @@ const UnifiedMonitor: React.FC = () => {
                 <span style={{ color: asciiColors.muted, width: 20 }}>
                   {ascii.cornerBl}
                 </span>
-                <span style={{ color: asciiColors.success, width: 12 }}>
+                <span style={{ color: asciiColors.accent, width: 12 }}>
                   {ascii.blockFull}
                 </span>
                 <span style={{ flex: 1, color: asciiColors.foreground }}>
                   Non-Blocking
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.success, minWidth: '30px', textAlign: 'right' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
                   {nonBlockingQueries}
                 </span>
               </div>
@@ -1889,10 +1779,10 @@ const UnifiedMonitor: React.FC = () => {
                 .map(([state, count], idx, arr) => {
                   const isLast = idx === arr.length - 1;
                   const stateColors: Record<string, string> = {
-                    'active': asciiColors.success,
+                    'active': asciiColors.accent,
                     'idle': asciiColors.muted,
-                    'idle in transaction': asciiColors.warning,
-                    'idle in transaction (aborted)': asciiColors.danger,
+                    'idle in transaction': asciiColors.muted,
+                    'idle in transaction (aborted)': asciiColors.foreground,
                     'fastpath function call': asciiColors.accent,
                     'disabled': asciiColors.muted,
                   };
@@ -2024,11 +1914,11 @@ const UnifiedMonitor: React.FC = () => {
                 .map(([status, count], idx, arr) => {
                   const isLast = idx === arr.length - 1;
                   const statusColors: Record<string, string> = {
-                    'SUCCESS': asciiColors.success,
-                    'ERROR': asciiColors.danger,
-                    'PENDING': asciiColors.warning,
+                    'SUCCESS': asciiColors.accent,
+                    'ERROR': asciiColors.foreground,
+                    'PENDING': asciiColors.muted,
                     'IN_PROGRESS': asciiColors.accent,
-                    'LISTENING_CHANGES': asciiColors.success,
+                    'LISTENING_CHANGES': asciiColors.accent,
                   };
                   return (
                     <div key={status} style={{
@@ -2126,9 +2016,9 @@ const UnifiedMonitor: React.FC = () => {
                 .map(([status, count], idx, arr) => {
                   const isLast = idx === arr.length - 1;
                   const statusColors: Record<string, string> = {
-                    'SUCCESS': asciiColors.success,
-                    'FAILED': asciiColors.danger,
-                    'PENDING': asciiColors.warning,
+                    'SUCCESS': asciiColors.accent,
+                    'FAILED': asciiColors.foreground,
+                    'PENDING': asciiColors.muted,
                   };
                   return (
                     <div key={status} style={{
@@ -2307,13 +2197,13 @@ const UnifiedMonitor: React.FC = () => {
         const getStatusColor = (status: string) => {
           const upperStatus = (status || '').toUpperCase();
           if (upperStatus === 'SUCCESS') {
-            return asciiColors.success;
+            return asciiColors.accent;
           }
           if (upperStatus === 'ERROR' || upperStatus === 'FAILED') {
-            return asciiColors.danger;
+            return asciiColors.foreground;
           }
           if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
-            return asciiColors.warning;
+            return asciiColors.muted;
           }
           return asciiColors.muted;
         };
@@ -2371,7 +2261,7 @@ const UnifiedMonitor: React.FC = () => {
                     fontWeight: 500,
                     border: `1px solid ${getStatusColor(selectedItem.status || 'PENDING')}`,
                     color: getStatusColor(selectedItem.status || 'PENDING'),
-                    backgroundColor: getStatusColor(selectedItem.status || 'PENDING') + "20"
+                    backgroundColor: "transparent"
                   }}>
                     {selectedItem.status || 'PENDING'}
                   </span>
@@ -2447,13 +2337,13 @@ const UnifiedMonitor: React.FC = () => {
                 const getStatusColor = (status: string) => {
                   const upperStatus = (status || '').toUpperCase();
                   if (upperStatus === 'SUCCESS') {
-                    return asciiColors.success;
+                    return asciiColors.accent;
                   }
                   if (upperStatus === 'ERROR' || upperStatus === 'FAILED') {
-                    return asciiColors.danger;
+                    return asciiColors.foreground;
                   }
                   if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
-                    return asciiColors.warning;
+                    return asciiColors.muted;
                   }
                   return asciiColors.muted;
                 };
@@ -2492,9 +2382,9 @@ const UnifiedMonitor: React.FC = () => {
                         borderRadius: 2,
                         fontSize: 10,
                         fontWeight: 500,
-                        border: `1px solid ${getStatusColor(event.status)}`,
-                        color: getStatusColor(event.status),
-                        backgroundColor: getStatusColor(event.status) + "20"
+                    border: `1px solid ${getStatusColor(event.status)}`,
+                    color: getStatusColor(event.status),
+                    backgroundColor: "transparent"
                       }}>
                         {event.status}
                       </span>
@@ -2558,13 +2448,13 @@ const UnifiedMonitor: React.FC = () => {
       const getStatusColor = (status: string) => {
         const upperStatus = (status || '').toUpperCase();
         if (upperStatus === 'SUCCESS') {
-          return asciiColors.success;
+          return asciiColors.accent;
         }
         if (upperStatus === 'FAILED' || upperStatus === 'ERROR') {
-          return asciiColors.danger;
+          return asciiColors.foreground;
         }
         if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
-          return asciiColors.warning;
+          return asciiColors.muted;
         }
         return asciiColors.muted;
       };
@@ -2622,7 +2512,7 @@ const UnifiedMonitor: React.FC = () => {
                   fontWeight: 500,
                   border: `1px solid ${getStatusColor(selectedItem.status || 'PENDING')}`,
                   color: getStatusColor(selectedItem.status || 'PENDING'),
-                  backgroundColor: getStatusColor(selectedItem.status || 'PENDING') + "20"
+                  backgroundColor: "transparent"
                 }}>
                 {selectedItem.status || 'PENDING'}
                 </span>
@@ -2637,7 +2527,7 @@ const UnifiedMonitor: React.FC = () => {
                   fontWeight: 500,
                   border: `1px solid ${asciiColors.accent}`,
                   color: asciiColors.accent,
-                  backgroundColor: asciiColors.accent + "20"
+                  backgroundColor: "transparent"
                 }}>
                 {selectedItem.transfer_type || 'UNKNOWN'}
                 </span>
@@ -2764,7 +2654,7 @@ const UnifiedMonitor: React.FC = () => {
                   <span style={{ 
                     fontWeight: 500, 
                     marginLeft: 20,
-                    color: asciiColors.danger,
+                    color: asciiColors.foreground,
                     maxWidth: '60%',
                     textAlign: 'right',
                     wordBreak: 'break-word'
@@ -2800,13 +2690,13 @@ const UnifiedMonitor: React.FC = () => {
       const getStateColor = (state: string) => {
         const upperState = (state || '').toUpperCase();
         if (upperState.includes('ERROR') || upperState.includes('ABORTED')) {
-          return asciiColors.danger;
+          return asciiColors.foreground;
         }
         if (upperState.includes('IDLE IN TRANSACTION')) {
-          return asciiColors.warning;
+          return asciiColors.muted;
         }
         if (upperState === 'ACTIVE') {
-          return asciiColors.success;
+          return asciiColors.accent;
         }
         return asciiColors.muted;
       };
@@ -2847,7 +2737,7 @@ const UnifiedMonitor: React.FC = () => {
                   fontWeight: 500,
                   border: `1px solid ${getStateColor(selectedItem.state)}`,
                   color: getStateColor(selectedItem.state),
-                  backgroundColor: getStateColor(selectedItem.state) + "20"
+                  backgroundColor: "transparent"
                 }}>
                   {selectedItem.state}
                 </span>
@@ -2881,16 +2771,16 @@ const UnifiedMonitor: React.FC = () => {
       const getPerformanceTierColor = (tier: string) => {
         const upperTier = (tier || '').toUpperCase();
         if (upperTier === 'EXCELLENT') {
-          return asciiColors.success;
-        }
-        if (upperTier === 'GOOD') {
           return asciiColors.accent;
         }
+        if (upperTier === 'GOOD') {
+          return asciiColors.foreground;
+        }
         if (upperTier === 'FAIR') {
-          return asciiColors.warning;
+          return asciiColors.muted;
         }
         if (upperTier === 'POOR') {
-          return asciiColors.danger;
+          return asciiColors.foreground;
         }
         return asciiColors.muted;
       };
@@ -2944,7 +2834,7 @@ const UnifiedMonitor: React.FC = () => {
                   fontWeight: 500,
                   border: `1px solid ${getPerformanceTierColor(selectedItem.performance_tier || 'N/A')}`,
                   color: getPerformanceTierColor(selectedItem.performance_tier || 'N/A'),
-                  backgroundColor: getPerformanceTierColor(selectedItem.performance_tier || 'N/A') + "20"
+                  backgroundColor: "transparent"
                 }}>
                 {selectedItem.performance_tier || 'N/A'}
                 </span>
@@ -2986,7 +2876,7 @@ const UnifiedMonitor: React.FC = () => {
                 <span style={{ 
                   fontWeight: 500, 
                   marginLeft: 20,
-                  color: selectedItem.is_long_running ? asciiColors.warning : asciiColors.muted
+                  color: selectedItem.is_long_running ? asciiColors.muted : asciiColors.muted
                 }}>
                   {selectedItem.is_long_running ? 'Yes' : 'No'}
                 </span>
@@ -2996,7 +2886,7 @@ const UnifiedMonitor: React.FC = () => {
                 <span style={{ 
                   fontWeight: 500, 
                   marginLeft: 20,
-                  color: selectedItem.is_blocking ? asciiColors.danger : asciiColors.muted
+                  color: selectedItem.is_blocking ? asciiColors.foreground : asciiColors.muted
                 }}>
                   {selectedItem.is_blocking ? 'Yes' : 'No'}
                 </span>
@@ -3319,9 +3209,9 @@ const UnifiedMonitor: React.FC = () => {
                   borderRadius: 2,
                   fontSize: 10,
                   fontWeight: 500,
-                  border: `1px solid ${dbHealth.status === 'Healthy' ? asciiColors.success : asciiColors.muted}`,
-                  color: dbHealth.status === 'Healthy' ? asciiColors.success : asciiColors.muted,
-                  backgroundColor: (dbHealth.status === 'Healthy' ? asciiColors.success : asciiColors.muted) + "20"
+                  border: `1px solid ${dbHealth.status === 'Healthy' ? asciiColors.accent : asciiColors.muted}`,
+                  color: dbHealth.status === 'Healthy' ? asciiColors.accent : asciiColors.muted,
+                  backgroundColor: "transparent"
                 }}>
                   {dbHealth.status || 'Unknown'}
                 </span>
@@ -3447,7 +3337,7 @@ const UnifiedMonitor: React.FC = () => {
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
           marginBottom: 20,
-          animation: "fadeInUp 0.3s ease-out"
+          transition: "opacity 0.15s ease"
         }}>
           {renderStatCard(activeQueries.length, "Active Queries")}
           {renderStatCard(processingStats.total || 0, "Total Events")}
@@ -3462,7 +3352,7 @@ const UnifiedMonitor: React.FC = () => {
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
           marginBottom: 20,
-          animation: "fadeInUp 0.3s ease-out"
+          transition: "opacity 0.15s ease"
         }}>
           {renderStatCard(processingStats.total || 0, "Total Events")}
           {renderStatCard(processingStats.last24h || 0, "Last 24h")}
@@ -3478,7 +3368,7 @@ const UnifiedMonitor: React.FC = () => {
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
           marginBottom: 20,
-          animation: "fadeInUp 0.3s ease-out"
+          transition: "opacity 0.15s ease"
         }}>
           {renderStatCard(transferStats.total_transfers || 0, "Total Transfers")}
           {renderStatCard(transferStats.successful || 0, "Successful")}
@@ -3505,7 +3395,7 @@ const UnifiedMonitor: React.FC = () => {
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: 16,
           marginBottom: 20,
-          animation: "fadeInUp 0.3s ease-out"
+          transition: "opacity 0.15s ease"
         }}>
           {renderStatCard(performanceMetrics.total_queries || 0, "Total Queries")}
           {renderStatCard(performanceMetrics.excellent_count || 0, "Excellent")}
@@ -3558,7 +3448,7 @@ const UnifiedMonitor: React.FC = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
               fontSize: 12,
               fontFamily: "Consolas"
             }}>
@@ -3807,7 +3697,7 @@ const UnifiedMonitor: React.FC = () => {
                   backgroundColor: "rgba(0, 0, 0, 0.6)",
                   zIndex: 999,
                   opacity: 0,
-                  animation: "fadeIn 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                  transition: "opacity 0.15s ease",
                   willChange: "opacity"
                 }}
                 onClick={() => setSelectedItem(null)}
@@ -3869,8 +3759,8 @@ const UnifiedMonitor: React.FC = () => {
                       willChange: "background-color, color"
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = asciiColors.danger;
-                      e.currentTarget.style.color = asciiColors.background;
+                      e.currentTarget.style.border = `2px solid ${asciiColors.foreground}`;
+                      e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = "transparent";
@@ -3984,7 +3874,7 @@ const UnifiedMonitor: React.FC = () => {
             <div style={{
               maxHeight: "calc(100vh - 400px)",
               overflowY: "auto",
-              animation: "fadeInUp 0.4s ease-out"
+              transition: "opacity 0.15s ease"
             }}>
               {renderDetails()}
             </div>
@@ -3992,75 +3882,7 @@ const UnifiedMonitor: React.FC = () => {
         </div>
       )}
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes dots {
-          0%, 20% { opacity: 0; }
-          50% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @keyframes modalSlideIn {
-          from {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.92);
-          }
-          to {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-          }
-        }
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes smoothUpdate {
-          0% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.7;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
-        @keyframes dataPulse {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.05);
-          }
-          100% {
-            transform: scale(1);
-          }
-        }
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
+        /* Keyframes removed - using only CSS transitions (0.15s ease) per design rules */
         .tree-view-container::-webkit-scrollbar {
           width: 6px;
         }
@@ -4071,7 +3893,7 @@ const UnifiedMonitor: React.FC = () => {
           background: ${asciiColors.border};
           border-radius: 3px;
           opacity: 0;
-          transition: opacity 0.2s ease;
+          transition: opacity 0.15s ease;
         }
         .tree-view-container.showing-scrollbar::-webkit-scrollbar-thumb {
           opacity: 0.6;
@@ -4083,7 +3905,7 @@ const UnifiedMonitor: React.FC = () => {
           opacity: 1;
         }
         * {
-          transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+          transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
         }
       `}</style>
 
@@ -4153,16 +3975,16 @@ const UnifiedMonitor: React.FC = () => {
                   </div>
                   <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>EXCELLENT:</strong> Queries with optimal performance metrics
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>EXCELLENT:</strong> Queries with optimal performance metrics
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>GOOD:</strong> Queries with acceptable performance
+                      <span style={{ color: asciiColors.foreground }}>{ascii.blockFull}</span> <strong>GOOD:</strong> Queries with acceptable performance
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.warning }}>{ascii.blockFull}</span> <strong>FAIR:</strong> Queries with moderate performance issues
+                      <span style={{ color: asciiColors.muted }}>{ascii.blockFull}</span> <strong>FAIR:</strong> Queries with moderate performance issues
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.danger }}>{ascii.blockFull}</span> <strong>POOR:</strong> Queries with significant performance problems requiring optimization
+                      <span style={{ color: asciiColors.foreground }}>{ascii.blockFull}</span> <strong>POOR:</strong> Queries with significant performance problems requiring optimization
                     </div>
                   </div>
                 </div>

@@ -216,45 +216,65 @@ const ColumnCatalog = () => {
 
   if (loadingTree && allColumns.length === 0) {
     return (
-      <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-        <h1 style={{
-          fontSize: 14,
-          fontWeight: 600,
-          margin: "0 0 20px 0",
-          color: asciiColors.foreground,
-          textTransform: "uppercase",
-          fontFamily: "Consolas"
+      <Container>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: theme.spacing.lg,
+          paddingBottom: theme.spacing.md,
+          borderBottom: `2px solid ${asciiColors.accent}`
         }}>
-          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-          COLUMN CATALOG
-        </h1>
+          <h1 style={{
+            fontSize: 14,
+            fontWeight: 600,
+            margin: 0,
+            color: asciiColors.foreground,
+            textTransform: 'uppercase',
+            fontFamily: 'Consolas'
+          }}>
+            <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+            COLUMN CATALOG
+          </h1>
+        </div>
         <LoadingOverlay>Loading column catalog data...</LoadingOverlay>
-      </div>
+      </Container>
     );
   }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+    <Container>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        COLUMN CATALOG
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+          COLUMN CATALOG
+        </h1>
+      </div>
       
       {error && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: theme.spacing.md }}>
           <AsciiPanel title="ERROR">
             <div style={{
-              padding: "12px",
-              color: asciiColors.danger,
+              padding: theme.spacing.sm,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: 'Consolas',
+              backgroundColor: asciiColors.backgroundSoft,
+              borderRadius: 2
             }}>
               {error}
             </div>
@@ -323,136 +343,146 @@ const ColumnCatalog = () => {
           }}
           onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="METRICS PLAYBOOK">
-          <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+          <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+            <div style={{ marginBottom: theme.spacing.md }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                 {ascii.blockFull} Total Columns
               </div>
-              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+              <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                 Total number of columns cataloged across all schemas, tables, and database engines in the system.
               </div>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+            <div style={{ marginBottom: theme.spacing.md }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                 {ascii.blockFull} PII Columns
               </div>
-              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+              <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                 Columns containing Personally Identifiable Information (PII) such as names, emails, phone numbers, SSNs, etc. 
                 Detected through pattern matching and confidence scoring.
               </div>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+            <div style={{ marginBottom: theme.spacing.md }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                 {ascii.blockFull} PHI Columns
               </div>
-              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+              <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                 Columns containing Protected Health Information (PHI) such as medical records, patient IDs, diagnoses, etc. 
                 Subject to HIPAA regulations and requires special handling.
               </div>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 8 }}>
+            <div style={{ marginBottom: theme.spacing.md }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                 {ascii.blockFull} High Sensitivity
               </div>
-              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+              <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                 Columns marked with HIGH sensitivity level, indicating they contain sensitive data requiring enhanced security measures, 
                 access controls, and compliance monitoring.
               </div>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+            <div style={{ marginBottom: theme.spacing.md }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                 {ascii.blockFull} Primary Keys
               </div>
-              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+              <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                 Columns defined as primary keys in their respective tables. Primary keys uniquely identify each row and are 
                 essential for data integrity and relationship mapping.
               </div>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+            <div style={{ marginBottom: theme.spacing.md }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                 {ascii.blockFull} Indexed Columns
               </div>
-              <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+              <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                 Columns that have database indexes created on them. Indexed columns improve query performance but may require 
                 additional storage and maintenance overhead.
               </div>
             </div>
 
             <div style={{ 
-              marginTop: 24, 
-              padding: 16, 
+              marginTop: theme.spacing.lg, 
+              padding: theme.spacing.md, 
               background: asciiColors.background, 
               borderRadius: 2,
               border: `1px solid ${asciiColors.accent}`
             }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 12, paddingBottom: 6, borderBottom: `1px solid ${asciiColors.border}` }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, paddingBottom: theme.spacing.xs, borderBottom: `1px solid ${asciiColors.border}`, fontFamily: 'Consolas' }}>
                 {ascii.blockFull} PROFILING QUALITY SCORE
               </div>
-              <div style={{ fontSize: 11, color: asciiColors.foreground, lineHeight: 1.6 }}>
-                <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: asciiColors.foreground, lineHeight: 1.6, fontFamily: 'Consolas' }}>
+                <div style={{ marginBottom: theme.spacing.sm }}>
                   <strong>What is it?</strong><br/>
                   The Profiling Quality Score (0-100) measures how comprehensively a column has been analyzed and profiled. 
                   Higher scores indicate more complete data profiling with richer statistical insights.
                 </div>
-                <div style={{ marginBottom: 8 }}>
+                <div style={{ marginBottom: theme.spacing.sm }}>
                   <strong>How is it calculated?</strong><br/>
                   The score is computed based on multiple factors:
                 </div>
-                <div style={{ marginLeft: 16, marginBottom: 8 }}>
-                  <div style={{ marginBottom: 4 }}>• <strong>Basic Statistics (20 points):</strong> Min, Max, Average, Null count, Distinct count</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Advanced Statistics (25 points):</strong> Median, Std Deviation, Mode, Percentiles (P25, P75, P90, P95, P99)</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Distribution Analysis (20 points):</strong> Value distribution histogram, Top values frequency</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Pattern Detection (15 points):</strong> Detected data patterns (EMAIL, PHONE, DATE, UUID, etc.)</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Anomaly Detection (10 points):</strong> Outlier detection and anomaly identification</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Data Quality (10 points):</strong> Completeness, consistency, and data quality metrics</div>
+                <div style={{ marginLeft: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Basic Statistics (20 points):</strong> Min, Max, Average, Null count, Distinct count</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Advanced Statistics (25 points):</strong> Median, Std Deviation, Mode, Percentiles (P25, P75, P90, P95, P99)</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Distribution Analysis (20 points):</strong> Value distribution histogram, Top values frequency</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Pattern Detection (15 points):</strong> Detected data patterns (EMAIL, PHONE, DATE, UUID, etc.)</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Anomaly Detection (10 points):</strong> Outlier detection and anomaly identification</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Data Quality (10 points):</strong> Completeness, consistency, and data quality metrics</div>
                 </div>
-                <div style={{ marginBottom: 8 }}>
+                <div style={{ marginBottom: theme.spacing.sm }}>
                   <strong>Score Interpretation:</strong>
                 </div>
-                <div style={{ marginLeft: 16, marginBottom: 8 }}>
-                  <div style={{ marginBottom: 4 }}>• <strong style={{ color: asciiColors.success }}>90-100:</strong> Excellent - Comprehensive profiling with all metrics available</div>
-                  <div style={{ marginBottom: 4 }}>• <strong style={{ color: asciiColors.warning }}>70-89:</strong> Good - Most profiling metrics available, minor gaps</div>
-                  <div style={{ marginBottom: 4 }}>• <strong style={{ color: asciiColors.danger }}>0-69:</strong> Needs Improvement - Limited profiling, basic statistics only</div>
+                <div style={{ marginLeft: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong style={{ color: asciiColors.accent }}>90-100:</strong> Excellent - Comprehensive profiling with all metrics available</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong style={{ color: asciiColors.muted }}>70-89:</strong> Good - Most profiling metrics available, minor gaps</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong style={{ color: asciiColors.foreground }}>0-69:</strong> Needs Improvement - Limited profiling, basic statistics only</div>
                 </div>
-                <div style={{ marginTop: 16, marginBottom: 8 }}>
+                <div style={{ marginTop: theme.spacing.md, marginBottom: theme.spacing.sm }}>
                   <strong>Benefits of High Scores:</strong>
                 </div>
-                <div style={{ marginLeft: 16, marginBottom: 8 }}>
-                  <div style={{ marginBottom: 4 }}>• <strong>Better Data Understanding:</strong> Complete statistical insights help identify data quality issues, outliers, and patterns early</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Improved Decision Making:</strong> Rich metadata enables better schema design, query optimization, and data modeling decisions</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Enhanced Data Governance:</strong> Comprehensive profiling supports compliance, data lineage tracking, and regulatory reporting</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Optimized Performance:</strong> Distribution analysis and pattern detection help optimize indexes, partitions, and query strategies</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Risk Mitigation:</strong> Anomaly detection and quality metrics enable proactive identification of data issues before they impact operations</div>
-                  <div style={{ marginBottom: 4 }}>• <strong>Cost Efficiency:</strong> Better data understanding reduces storage costs, improves query performance, and minimizes data processing errors</div>
+                <div style={{ marginLeft: theme.spacing.md, marginBottom: theme.spacing.sm }}>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Better Data Understanding:</strong> Complete statistical insights help identify data quality issues, outliers, and patterns early</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Improved Decision Making:</strong> Rich metadata enables better schema design, query optimization, and data modeling decisions</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Enhanced Data Governance:</strong> Comprehensive profiling supports compliance, data lineage tracking, and regulatory reporting</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Optimized Performance:</strong> Distribution analysis and pattern detection help optimize indexes, partitions, and query strategies</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Risk Mitigation:</strong> Anomaly detection and quality metrics enable proactive identification of data issues before they impact operations</div>
+                  <div style={{ marginBottom: theme.spacing.xs }}>• <strong>Cost Efficiency:</strong> Better data understanding reduces storage costs, improves query performance, and minimizes data processing errors</div>
                 </div>
-                <div style={{ marginTop: 12, padding: 8, background: asciiColors.backgroundSoft, borderRadius: 2, fontSize: 10, color: asciiColors.muted }}>
+                <div style={{ marginTop: theme.spacing.sm, padding: theme.spacing.sm, background: asciiColors.backgroundSoft, borderRadius: 2, fontSize: 10, color: asciiColors.muted, fontFamily: 'Consolas' }}>
                   {ascii.blockSemi} Tip: Re-run profiling analysis to improve scores for columns with low quality scores.
                 </div>
               </div>
             </div>
 
             <div style={{ 
-              marginTop: 16, 
-              padding: 12, 
+              marginTop: theme.spacing.md, 
+              padding: theme.spacing.sm, 
               background: asciiColors.backgroundSoft, 
               borderRadius: 2,
               border: `1px solid ${asciiColors.border}`
             }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                 {ascii.blockSemi} Note
               </div>
-              <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+              <div style={{ fontSize: 11, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
                 These metrics are calculated in real-time from the column_catalog table and reflect the current state of your data catalog.
               </div>
             </div>
 
-            <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <div style={{ marginTop: theme.spacing.md, textAlign: 'right' }}>
               <AsciiButton
                 label="Close"
                 onClick={() => setShowMetricsPlaybook(false)}
@@ -466,18 +496,30 @@ const ColumnCatalog = () => {
       )}
 
       <AsciiPanel title="FILTERS">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
           <select
             value={filters.schema_name as string}
             onChange={(e) => handleFilterChange('schema_name', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Schemas</option>
@@ -491,14 +533,28 @@ const ColumnCatalog = () => {
             onChange={(e) => handleFilterChange('table_name', e.target.value)}
             disabled={!filters.schema_name}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
               color: asciiColors.foreground,
-              opacity: !filters.schema_name ? 0.5 : 1
+              opacity: !filters.schema_name ? 0.5 : 1,
+              cursor: !filters.schema_name ? 'not-allowed' : 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              if (filters.schema_name) {
+                e.target.style.borderColor = asciiColors.accent;
+                e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                e.target.style.outlineOffset = '2px';
+              }
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Tables</option>
@@ -511,13 +567,25 @@ const ColumnCatalog = () => {
             value={filters.db_engine as string}
             onChange={(e) => handleFilterChange('db_engine', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Engines</option>
@@ -533,13 +601,25 @@ const ColumnCatalog = () => {
             value={filters.data_type as string}
             onChange={(e) => handleFilterChange('data_type', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Types</option>
@@ -555,13 +635,25 @@ const ColumnCatalog = () => {
             value={filters.sensitivity_level as string}
             onChange={(e) => handleFilterChange('sensitivity_level', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Sensitivity</option>
@@ -574,13 +666,25 @@ const ColumnCatalog = () => {
             value={filters.contains_pii as string}
             onChange={(e) => handleFilterChange('contains_pii', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All PII</option>
@@ -596,13 +700,24 @@ const ColumnCatalog = () => {
             style={{
               flex: 1,
               minWidth: '200px',
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           />
           
@@ -618,13 +733,13 @@ const ColumnCatalog = () => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        marginBottom: 24,
-        marginTop: 8,
+        marginBottom: theme.spacing.lg,
+        marginTop: theme.spacing.sm,
         fontFamily: 'Consolas',
         fontSize: 12,
-        gap: 32
+        gap: theme.spacing.lg
       }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           <label style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
             Items per page:
           </label>
@@ -635,14 +750,25 @@ const ColumnCatalog = () => {
               setPage(1);
             }}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
               color: asciiColors.foreground,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value={10}>10</option>
@@ -684,30 +810,30 @@ const ColumnCatalog = () => {
             onColumnClick={(column) => toggleColumn(column.id)}
           />
           
-          {pagination.totalPages > 1 && (
-            <div style={{ marginTop: 24 }}>
-              <Pagination>
-                <PageButton
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                >
-                  Previous
-                </PageButton>
-                <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
-                  Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
-                </span>
-                <PageButton
-                  onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
-                  disabled={page === pagination.totalPages}
-                >
-                  Next
-                </PageButton>
-              </Pagination>
-            </div>
-          )}
+                  {pagination.totalPages > 1 && (
+                    <div style={{ marginTop: theme.spacing.lg }}>
+                      <Pagination>
+                        <PageButton
+                          onClick={() => setPage(Math.max(1, page - 1))}
+                          disabled={page === 1}
+                        >
+                          Previous
+                        </PageButton>
+                        <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                          Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
+                        </span>
+                        <PageButton
+                          onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
+                          disabled={page === pagination.totalPages}
+                        >
+                          Next
+                        </PageButton>
+                      </Pagination>
+                    </div>
+                  )}
         </>
       ) : null}
-    </div>
+    </Container>
   );
 };
 

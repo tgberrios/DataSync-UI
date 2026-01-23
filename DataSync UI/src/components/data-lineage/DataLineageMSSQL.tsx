@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import styled, { keyframes } from 'styled-components';
 import {
   LoadingOverlay,
 } from '../shared/BaseComponents';
@@ -7,44 +6,12 @@ import { useTableFilters } from '../../hooks/useTableFilters';
 import { dataLineageMSSQLApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
-import { theme } from '../../theme/theme';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import DataLineageMSSQLTreeView from './DataLineageMSSQLTreeView';
 import LineageCharts from './LineageCharts';
 import SkeletonLoader from '../shared/SkeletonLoader';
-
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
-const getConfidenceColor = (score: number | string | null | undefined) => {
-  if (score === null || score === undefined) return asciiColors.muted;
-  const numScore = Number(score);
-  if (isNaN(numScore)) return asciiColors.muted;
-  if (numScore >= 0.8) return asciiColors.success;
-  if (numScore >= 0.5) return asciiColors.warning;
-  return asciiColors.danger;
-};
 
 const DataLineageMSSQL = () => {
   const { filters, setFilter, clearFilters } = useTableFilters({
@@ -133,15 +100,8 @@ const DataLineageMSSQL = () => {
     isMountedRef.current = true;
     fetchMetrics();
     fetchAllEdges();
-    const interval = setInterval(() => {
-      if (isMountedRef.current) {
-        fetchMetrics();
-        fetchAllEdges();
-      }
-    }, 30000);
     return () => {
       isMountedRef.current = false;
-      clearInterval(interval);
     };
   }, [fetchAllEdges, fetchMetrics]);
 
@@ -260,6 +220,50 @@ const DataLineageMSSQL = () => {
     document.body.removeChild(link);
   }, [allEdges, formatConfidence]);
 
+  const renderMetricCard = useCallback((title: string, value: number | string | null | undefined, subtitle?: string) => {
+    const displayValue = value === null || value === undefined ? 'N/A' : 
+      typeof value === 'string' ? value : Number(value).toLocaleString();
+    return (
+      <div style={{
+        padding: '16px',
+        backgroundColor: asciiColors.background,
+        border: `1px solid ${asciiColors.border}`,
+        borderRadius: 2,
+        minWidth: '150px',
+        fontFamily: 'Consolas'
+      }}>
+        <div style={{
+          fontSize: 11,
+          color: asciiColors.muted,
+          marginBottom: 8,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          fontFamily: 'Consolas'
+        }}>
+          {title}
+        </div>
+        <div style={{
+          fontSize: 24,
+          fontWeight: 700,
+          color: asciiColors.foreground,
+          fontFamily: 'Consolas',
+          marginBottom: subtitle ? 4 : 0
+        }}>
+          {displayValue}
+        </div>
+        {subtitle && (
+          <div style={{
+            fontSize: 10,
+            color: asciiColors.muted,
+            fontFamily: 'Consolas'
+          }}>
+            {subtitle}
+          </div>
+        )}
+      </div>
+    );
+  }, []);
+
   if (loadingTree && allEdges.length === 0) {
     return <SkeletonLoader variant="table" />;
   }
@@ -359,19 +363,19 @@ const DataLineageMSSQL = () => {
                   
                   <div style={{ marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success, fontWeight: 600 }}>High (0.8-1.0)</span>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>High (0.8-1.0)</span>
                       <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                         Strong evidence of relationship, typically from explicit dependencies, foreign keys, or query execution plans
                       </span>
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.warning, fontWeight: 600 }}>Medium (0.5-0.8)</span>
+                      <span style={{ color: asciiColors.muted, fontWeight: 600 }}>Medium (0.5-0.8)</span>
                       <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                         Moderate confidence, inferred from patterns, naming conventions, or query analysis
                       </span>
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.danger, fontWeight: 600 }}>Low (0.0-0.5)</span>
+                      <span style={{ color: asciiColors.foreground, fontWeight: 600 }}>Low (0.0-0.5)</span>
                       <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                         Weak evidence, may require manual verification
                       </span>
@@ -483,9 +487,10 @@ const DataLineageMSSQL = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: "Consolas",
+              border: `2px solid ${asciiColors.borderStrong}`
             }}>
               {error}
             </div>
@@ -499,76 +504,20 @@ const DataLineageMSSQL = () => {
         gap: 12, 
         marginBottom: 24 
       }}>
-        <AsciiPanel title="Total Relationships">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.total_relationships || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Unique Objects">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_objects || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Unique Servers">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_servers || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Unique Instances">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_instances || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Unique Databases">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_databases || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Unique Schemas">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_schemas || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Relationship Types">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_relationship_types || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="High Confidence">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.high_confidence || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Low Confidence">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.low_confidence || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Avg Confidence">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.avg_confidence ? `${(Number(metrics.avg_confidence) * 100).toFixed(1)}%` : 'N/A'}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Total Executions">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.total_executions)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Avg Duration">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatTime(metrics.avg_duration_ms)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Discovered (24h)">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.discovered_last_24h || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Discovery Methods">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_discovery_methods || 0}
-          </div>
-        </AsciiPanel>
+        {renderMetricCard('Total Relationships', metrics.total_relationships)}
+        {renderMetricCard('Unique Objects', metrics.unique_objects)}
+        {renderMetricCard('Unique Servers', metrics.unique_servers)}
+        {renderMetricCard('Unique Instances', metrics.unique_instances)}
+        {renderMetricCard('Unique Databases', metrics.unique_databases)}
+        {renderMetricCard('Unique Schemas', metrics.unique_schemas)}
+        {renderMetricCard('Relationship Types', metrics.unique_relationship_types)}
+        {renderMetricCard('High Confidence', metrics.high_confidence, metrics.total_relationships ? `${((Number(metrics.high_confidence) || 0) / (Number(metrics.total_relationships) || 1) * 100).toFixed(1)}% of total` : undefined)}
+        {renderMetricCard('Low Confidence', metrics.low_confidence, metrics.total_relationships ? `${((Number(metrics.low_confidence) || 0) / (Number(metrics.total_relationships) || 1) * 100).toFixed(1)}% of total` : undefined)}
+        {renderMetricCard('Avg Confidence', metrics.avg_confidence ? `${(Number(metrics.avg_confidence) * 100).toFixed(1)}%` : 'N/A', 'Score (0-100%)')}
+        {renderMetricCard('Total Executions', formatNumber(metrics.total_executions))}
+        {renderMetricCard('Avg Duration', formatTime(metrics.avg_duration_ms))}
+        {renderMetricCard('Discovered (24h)', metrics.discovered_last_24h)}
+        {renderMetricCard('Discovery Methods', metrics.unique_discovery_methods)}
       </div>
 
       <AsciiPanel title="FILTERS">
@@ -696,7 +645,6 @@ const DataLineageMSSQL = () => {
             label="Reset All"
             onClick={() => {
               clearFilters();
-              setPage(1);
             }}
             variant="ghost"
           />

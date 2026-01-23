@@ -4713,41 +4713,118 @@ app.get("/api/security/data", async (req, res) => {
     };
     postgresSecurity.activeUsers = activeUsers.rows;
 
-    const otherDatabases = {};
-    const uniqueConnections = await pool.query(`
-      SELECT DISTINCT db_engine, connection_string
-      FROM metadata.catalog
-      WHERE db_engine IN ('MariaDB', 'MSSQL', 'Oracle', 'MongoDB')
-        AND connection_string IS NOT NULL
-      LIMIT 10
+    // Obtener todas las conexiones activas usando available_connections
+    const availableConnections = await pool.query(`
+      SELECT 
+        db_engine,
+        connection_string,
+        connection_string_masked,
+        COUNT(*) OVER (PARTITION BY db_engine) as total_by_engine
+      FROM metadata.available_connections
+      ORDER BY db_engine, connection_string
     `);
 
-    for (const row of uniqueConnections.rows) {
-      const { db_engine, connection_string } = row;
-      if (!otherDatabases[db_engine]) {
-        otherDatabases[db_engine] = [];
+    // Agrupar conexiones por motor
+    const connectionsByEngine = {};
+    availableConnections.rows.forEach(row => {
+      if (!connectionsByEngine[row.db_engine]) {
+        connectionsByEngine[row.db_engine] = {
+          engine: row.db_engine,
+          total_connections: 0,
+          connections: []
+        };
       }
-      
-      let securityData = null;
-      try {
-        if (db_engine === 'MariaDB') {
-          securityData = await getMariaDBSecurity(connection_string);
-        } else if (db_engine === 'MSSQL') {
-          securityData = await getMSSQLSecurity(connection_string);
-        } else if (db_engine === 'Oracle') {
-          securityData = await getOracleSecurity(connection_string);
-        } else if (db_engine === 'MongoDB') {
-          securityData = await getMongoDBSecurity(connection_string);
-        }
-      } catch (err) {
-        console.error(`Error getting security for ${db_engine}:`, err);
-        securityData = { error: err.message };
-      }
-      
-      otherDatabases[db_engine].push({
-        connection: connection_string.substring(0, 50) + '...',
-        security: securityData,
+      connectionsByEngine[row.db_engine].total_connections++;
+      connectionsByEngine[row.db_engine].connections.push({
+        connection_string: row.connection_string,
+        connection_string_masked: row.connection_string_masked
       });
+    });
+
+    // Obtener estadísticas de auditoría DDL por motor
+    const ddlAuditStats = await pool.query(`
+      SELECT 
+        db_engine,
+        COUNT(*) as total_changes,
+        COUNT(*) FILTER (WHERE change_type = 'DROP') as drop_operations,
+        COUNT(*) FILTER (WHERE change_type = 'ALTER') as alter_operations,
+        COUNT(*) FILTER (WHERE change_type = 'CREATE') as create_operations,
+        COUNT(DISTINCT executed_by) as unique_users,
+        MAX(execution_timestamp) as last_change,
+        MIN(execution_timestamp) as first_change
+      FROM metadata.schema_change_audit
+      WHERE execution_timestamp >= NOW() - INTERVAL '30 days'
+      GROUP BY db_engine
+      ORDER BY db_engine
+    `);
+
+    // Obtener cambios DDL recientes (últimos 7 días) para alertas
+    const recentDDLChanges = await pool.query(`
+      SELECT 
+        id,
+        db_engine,
+        server_name,
+        database_name,
+        schema_name,
+        object_name,
+        object_type,
+        change_type,
+        executed_by,
+        execution_timestamp,
+        ddl_statement
+      FROM metadata.schema_change_audit
+      WHERE execution_timestamp >= NOW() - INTERVAL '7 days'
+      ORDER BY execution_timestamp DESC
+      LIMIT 50
+    `);
+
+    // Calcular niveles de riesgo por motor
+    const riskLevels = {};
+    ddlAuditStats.rows.forEach(row => {
+      let riskLevel = 'NORMAL';
+      if (row.drop_operations > 5) {
+        riskLevel = 'HIGH_RISK';
+      } else if (row.drop_operations > 0) {
+        riskLevel = 'MEDIUM_RISK';
+      } else if (row.total_changes > 50) {
+        riskLevel = 'ELEVATED_ACTIVITY';
+      }
+      riskLevels[row.db_engine] = riskLevel;
+    });
+
+    // Obtener información de seguridad para otras bases de datos
+    const otherDatabases = {};
+    for (const [engine, engineData] of Object.entries(connectionsByEngine)) {
+      if (engine !== 'PostgreSQL') {
+        if (!otherDatabases[engine]) {
+          otherDatabases[engine] = [];
+        }
+        
+        // Para cada conexión, intentar obtener datos de seguridad
+        for (const conn of engineData.connections.slice(0, 5)) { // Limitar a 5 por motor
+          let securityData = null;
+          try {
+            if (engine === 'MariaDB') {
+              securityData = await getMariaDBSecurity(conn.connection_string);
+            } else if (engine === 'MSSQL') {
+              securityData = await getMSSQLSecurity(conn.connection_string);
+            } else if (engine === 'Oracle') {
+              securityData = await getOracleSecurity(conn.connection_string);
+            } else if (engine === 'MongoDB') {
+              securityData = await getMongoDBSecurity(conn.connection_string);
+            }
+          } catch (err) {
+            console.error(`Error getting security for ${engine}:`, err);
+            securityData = { error: err.message };
+          }
+          
+          otherDatabases[engine].push({
+            connection: conn.connection_string_masked || conn.connection_string.substring(0, 50) + '...',
+            connection_string: conn.connection_string,
+            security: securityData,
+          });
+        }
+      }
     }
 
     const securityData = {
@@ -4759,6 +4836,23 @@ app.get("/api/security/data", async (req, res) => {
         permissions: postgresSecurity.permissions,
       },
       activeUsers: postgresSecurity.activeUsers,
+      // Nuevos datos para Blue Team
+      availableConnections: connectionsByEngine,
+      ddlAuditStats: ddlAuditStats.rows.map(row => ({
+        ...row,
+        risk_level: riskLevels[row.db_engine] || 'NORMAL'
+      })),
+      recentDDLChanges: recentDDLChanges.rows,
+      securityAlerts: recentDDLChanges.rows
+        .filter(row => row.change_type === 'DROP')
+        .map(row => ({
+          severity: 'CRITICAL',
+          db_engine: row.db_engine,
+          object_name: row.object_name,
+          executed_by: row.executed_by,
+          execution_timestamp: row.execution_timestamp,
+          message: `DROP operation detected on ${row.object_type} ${row.schema_name}.${row.object_name}`
+        }))
     };
 
     res.json(securityData);

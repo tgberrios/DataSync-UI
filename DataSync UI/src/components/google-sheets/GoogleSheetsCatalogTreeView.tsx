@@ -119,9 +119,9 @@ const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntry
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'SUCCESS') return asciiColors.success;
-    if (status === 'ERROR') return asciiColors.danger;
-    if (status === 'IN_PROGRESS') return asciiColors.warning;
+    if (status === 'SUCCESS') return asciiColors.accent;
+    if (status === 'ERROR') return asciiColors.foreground;
+    if (status === 'IN_PROGRESS') return asciiColors.muted;
     return asciiColors.muted;
   };
 
@@ -178,8 +178,8 @@ const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntry
               borderRadius: 2,
               fontSize: 11,
               fontWeight: 500,
-              backgroundColor: getStatusColor(sheet.status),
-              color: asciiColors.background,
+              backgroundColor: 'transparent',
+              color: getStatusColor(sheet.status),
               fontFamily: "Consolas",
               border: `1px solid ${getStatusColor(sheet.status)}`
             }}>
@@ -352,11 +352,11 @@ const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntry
           }}
           onClick={() => toggleSchema(schema.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = `linear-gradient(135deg, ${asciiColors.accentSoft}20 0%, ${asciiColors.accent}12 100%)`;
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = 'translateX(2px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >

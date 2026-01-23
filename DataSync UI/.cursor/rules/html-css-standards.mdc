@@ -1,0 +1,148 @@
+---
+description: 
+alwaysApply: true
+---
+
+You are an expert developer in HTML and CSS, focusing on best practices, accessibility, and monochromatic ASCII/terminal-style design.
+
+**Key Principles**
+- Write semantic HTML to improve accessibility and SEO.
+- **Styling Approach**: 
+  - Use `styled-components` for reusable styled components.
+  - Use inline styles with style objects (`style={{ ... }}`) for component-specific styling.
+  - Reference design system tokens: `asciiColors` and `theme` from the codebase.
+- Ensure responsive design using CSS Grid and Flexbox (desktop-first approach).
+- Prioritize accessibility by using ARIA roles and attributes.
+
+**HTML**
+- Use semantic elements (e.g., `<header>`, `<main>`, `<footer>`, `<article>`, `<section>`).
+- **Interactive Elements**: 
+  - Use `<button>` for clickable elements, NOT `<div>` or `<span>`.
+  - Add `tabIndex={0}` for keyboard navigation on custom interactive elements.
+  - Add `aria-label` for screen readers when needed.
+  - Add `onKeyDown` handlers for keyboard interactions (Enter, Space keys).
+- Use `<a>` for links, ensuring href attribute is present.
+- Use `<img>` with alt attribute for images.
+- Use `<form>` for forms, with appropriate input types and labels.
+- Avoid using deprecated elements (e.g., `<font>`, `<center>`).
+
+**CSS & Styling**
+- **Primary Method**: Use inline styles with style objects in React components.
+- **Secondary Method**: Use `styled-components` for reusable styled components.
+- **Design System**: Always use design tokens:
+  - `asciiColors` for colors (background, foreground, muted, border, accent)
+  - `theme` for spacing, fonts, borderRadius, shadows, transitions
+- **Color Palette**: 
+  - White (`#ffffff`) for backgrounds
+  - Black/Dark Gray (`#1a1a1a`) for primary text
+  - Gray (`#6b7280`) for secondary text and borders
+  - Navy Blue (`#1e40af`) ONLY for interactive accents
+  - NO other colors unless explicitly requested
+- **Design System Colors**: 
+  - DO NOT use `asciiColors.success`, `asciiColors.warning`, or `asciiColors.danger` - they violate the monochromatic palette
+  - For states (success/warning/danger), use gray variations or navy blue from the monochromatic palette
+  - Use typography weight, borders, and spacing to convey meaning instead of color
+- **Typography**: 
+  - Font family: `'Consolas'` (monospace) for all text
+  - Font sizes: 9px, 11px, 12px, 14px, 16px, 18px (consistent scale)
+- **Borders**: 
+  - `1px solid ${asciiColors.border}` for normal elements
+  - `2px solid ${asciiColors.accent}` or `2px solid ${asciiColors.foreground}` for highlighted/active elements
+  - Always use `borderRadius: 2` (minimal, sharp corners)
+- **Spacing**: Use `theme.spacing` values (xs, sm, md, lg, xl) consistently.
+- **Backgrounds**: Use only `asciiColors.background` (white) and `asciiColors.backgroundSoft` (light gray).
+- Use Flexbox and Grid for layout.
+- **Units**: Use pixels (px) for font sizes and spacing to maintain ASCII aesthetic precision.
+- Use CSS variables through the design system (`theme`, `asciiColors`).
+- Avoid `!important`; use specificity to manage styles.
+
+**Responsive Design**
+- **Approach**: Desktop-first (primary focus on desktop/tablet interfaces).
+- Use CSS Grid and Flexbox for flexible layouts.
+- Use media queries when needed, but prioritize desktop experience.
+- Ensure touch targets are large enough for touch devices (min 44x44 pixels).
+- Use responsive images with srcset and sizes attributes when applicable.
+- Use viewport meta tag for responsive scaling.
+
+**Accessibility**
+- Use ARIA roles and attributes to enhance accessibility.
+- **Color Contrast**: Ensure sufficient contrast (WCAG 2.1 AA standard) with monochromatic palette.
+- **Keyboard Navigation**: 
+  - Provide keyboard navigation for all interactive elements.
+  - Use `tabIndex={0}` for custom interactive elements.
+  - Implement `onKeyDown` handlers for Enter and Space keys.
+- **Focus States**: 
+  - Use visible focus styles with outlines (e.g., `outline: 2px solid ${asciiColors.accent}`).
+  - Provide clear visual feedback for focus state.
+- Use landmarks (e.g., `<nav>`, `<main>`, `<aside>`) for screen readers.
+- Use semantic HTML elements instead of generic `<div>` for interactive elements.
+
+**Performance**
+- Minimize inline style object creation (use constants or memoization when appropriate).
+- Use CSS transitions (`0.15s ease`) instead of JavaScript animations.
+- Avoid excessive animations - keep them subtle.
+- Use lazy loading for images and other media.
+- **Auto-refresh**: Do NOT implement auto-refresh intervals unless explicitly requested.
+
+**Animations & Transitions**
+- Keep transitions subtle: `transition: 'all 0.15s ease'` or `transition: 'border-color 0.15s ease'`.
+- Use CSS transitions, not JavaScript animations.
+- Avoid excessive motion or distracting animations.
+
+**Testing**
+- Test HTML and CSS in multiple browsers and devices.
+- Use tools like Lighthouse for performance and accessibility audits.
+- Validate HTML and CSS using W3C validators.
+- Test keyboard navigation and screen reader compatibility.
+
+**Documentation**
+- Comment complex CSS rules and HTML structures with JSDoc: `/** Description */`.
+- Use consistent naming conventions for variables, functions, and components.
+- Document design decisions and why certain styles were chosen.
+- Reference the design system (`asciiColors`, `theme`) in comments when applicable.
+
+**Code Organization**
+- Group related styles together.
+- Extract reusable styled components when appropriate.
+- Keep inline styles organized and readable.
+- Use early returns in style logic when possible.
+
+**Tree View Styling**
+- **Container**: 
+  - `fontFamily: 'Consolas'`, `fontSize: 12px`, `backgroundColor: asciiColors.background`
+  - `border: 1px solid ${asciiColors.border}`, `borderRadius: 2`, `padding: 16px`
+  - `maxHeight: 800px`, `overflowY: auto`, `overflowX: hidden`
+- **Tree Nodes**:
+  - Group nodes: `padding: 10px 14px`, `borderLeft: 3px solid ${asciiColors.accent}` when expanded
+  - Item nodes: `padding: 8px 12px`, `paddingLeft: ${level * 24 + 8}px`, `borderLeft: 2px solid ${asciiColors.border}`
+  - Both: `borderRadius: 2`, `transition: 'all 0.15s ease'`, `fontFamily: 'Consolas'`, `fontSize: 12px`
+- **Tree Lines**: 
+  - Use ASCII characters: `│` (vertical), `├` (branch), `└` (end), `─` (horizontal)
+  - Color: `asciiColors.border` or `asciiColors.muted`, `fontSize: 11px`
+- **Expand Icons**: 
+  - `marginRight: 10px`, `fontSize: 12px`, `transition: 'transform 0.15s ease'`
+  - Rotate on expand: `transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'`
+- **States**:
+  - Hover: `backgroundColor: asciiColors.backgroundSoft`, `borderColor: asciiColors.border`
+  - Selected: `backgroundColor: asciiColors.backgroundSoft`, `border: 1px solid ${asciiColors.accent}`, `color: asciiColors.accent`
+  - Expanded: `backgroundColor: asciiColors.backgroundSoft`, `border: 1px solid ${asciiColors.border}`
+  - **CRITICAL**: Do NOT use `asciiColors.accentLight` or light blue backgrounds - use ONLY `asciiColors.backgroundSoft` (light gray)
+- **Status Tags/Badges**:
+  - **CRITICAL**: Status tags (SUCCESS, ERROR, LISTENING_CHANGES, GOLD, etc.) MUST use ONLY monochromatic colors
+  - DO NOT use green backgrounds for SUCCESS tags - use `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`, `color: asciiColors.accent` or `asciiColors.foreground`
+  - DO NOT use red backgrounds for ERROR tags - use `backgroundColor: 'transparent'`, `color: asciiColors.foreground`, `border: 1px solid ${asciiColors.foreground}`
+  - Structure: `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`, `border: 1px solid ${asciiColors.border}`, `color: asciiColors.foreground` or `asciiColors.accent`
+- **Delete Buttons**:
+  - **CRITICAL**: Delete buttons MUST use monochromatic colors only
+  - DO NOT use red backgrounds (`backgroundColor: asciiColors.danger`) - use `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`
+  - DO NOT use red text/borders on hover - use `border: 2px solid ${asciiColors.foreground}`, `backgroundColor: asciiColors.backgroundSoft`
+  - Structure: `border: 1px solid ${asciiColors.border}`, `color: asciiColors.foreground`, hover: `border: 2px solid ${asciiColors.foreground}`
+- **Icons**:
+  - **CRITICAL**: Icons (checkmarks ✓, X marks ✗) MUST use ONLY monochromatic colors
+  - Checkmarks: `color: asciiColors.accent` or `asciiColors.foreground` - NO green
+  - X marks: `color: asciiColors.foreground` or `asciiColors.muted` - NO red
+  - Non-interactive icons: `color: asciiColors.muted` or `asciiColors.border`
+- **Transitions**: Use ONLY CSS transitions (`0.15s ease`) - NO keyframes or JavaScript animations
+- **Colors**: Use ONLY monochromatic palette - NO success/warning/danger colors, NO green, NO red, NO light blue backgrounds in TreeView
+
+Refer to MDN Web Docs for HTML and CSS best practices, W3C guidelines for accessibility standards, and maintain the monochromatic ASCII/terminal aesthetic throughout all styling decisions.

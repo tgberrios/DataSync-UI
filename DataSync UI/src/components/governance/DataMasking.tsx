@@ -13,10 +13,10 @@ const MaskingTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   margin-top: ${theme.spacing.lg};
-  background: ${theme.colors.background.main};
-  box-shadow: ${theme.shadows.md};
-  border-radius: ${theme.borderRadius.md};
+  background: ${asciiColors.background};
+  border-radius: 2;
   overflow: hidden;
+  font-family: 'Consolas';
 `;
 
 const Th = styled.th`
@@ -24,8 +24,8 @@ const Th = styled.th`
   text-align: left;
   border-bottom: 2px solid ${asciiColors.border};
   background: ${asciiColors.backgroundSoft};
-  font-weight: bold;
-  font-family: "Consolas";
+  font-weight: 600;
+  font-family: 'Consolas';
   font-size: 13px;
   color: ${asciiColors.accent};
   position: sticky;
@@ -36,41 +36,31 @@ const Th = styled.th`
 const Td = styled.td`
   padding: ${theme.spacing.sm};
   border-bottom: 1px solid ${asciiColors.border};
-  font-family: "Consolas";
+  font-family: 'Consolas';
   font-size: 12px;
-  transition: all ${theme.transitions.normal};
+  transition: background-color 0.15s ease;
 `;
 
 const TableRow = styled.tr`
-  transition: all ${theme.transitions.normal};
-  
-  &:hover {
-    background: linear-gradient(90deg, ${theme.colors.background.main} 0%, ${theme.colors.background.tertiary} 100%);
-    transform: scale(1.001);
-    box-shadow: ${theme.shadows.sm};
-    
-    ${Td} {
-      border-bottom-color: rgba(10, 25, 41, 0.1);
-    }
-  }
+  transition: background-color 0.15s ease;
 `;
 
 const getMaskingTypeColor = (type: string) => {
   switch (type) {
-    case 'FULL': return asciiColors.danger;
-    case 'PARTIAL': return asciiColors.warning;
+    case 'FULL': return asciiColors.foreground;
+    case 'PARTIAL': return asciiColors.muted;
     case 'EMAIL': return asciiColors.accent;
     case 'PHONE': return asciiColors.accent;
     case 'HASH': return asciiColors.muted;
-    case 'TOKENIZE': return asciiColors.success;
+    case 'TOKENIZE': return asciiColors.accent;
     default: return asciiColors.muted;
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'ACTIVE': return asciiColors.success;
-    case 'INACTIVE': return asciiColors.danger;
+    case 'ACTIVE': return asciiColors.accent;
+    case 'INACTIVE': return asciiColors.muted;
     default: return asciiColors.muted;
   }
 };
@@ -418,38 +408,38 @@ const DataMasking = () => {
   }
 
   return (
-    <div style={{
-      width: "100%",
-      minHeight: "100vh",
-      padding: "20px",
-      fontFamily: "Consolas",
-      fontSize: 12,
-      color: asciiColors.foreground,
-      backgroundColor: asciiColors.background,
-      display: "flex",
-      flexDirection: "column",
-      gap: 20
-    }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+    <Container>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        DATA MASKING & ENCRYPTION
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+          DATA MASKING
+        </h1>
+      </div>
 
       {error && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: theme.spacing.md }}>
           <AsciiPanel title="ERROR">
             <div style={{
-              padding: "12px",
-              color: asciiColors.danger,
+              padding: theme.spacing.sm,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: 'Consolas',
+              backgroundColor: asciiColors.backgroundSoft,
+              borderRadius: 2
             }}>
               {error}
             </div>
@@ -461,30 +451,117 @@ const DataMasking = () => {
         <AsciiPanel title="MASKING STATUS OVERVIEW">
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gridTemplateColumns: 'repeat(6, 1fr)',
             gap: theme.spacing.md,
             padding: theme.spacing.md,
-            fontFamily: "Consolas",
+            fontFamily: 'Consolas',
             fontSize: 11
           }}>
-            <div>
-              <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Total Tables</div>
-              <div style={{ color: asciiColors.foreground, fontSize: 16, fontWeight: 'bold' }}>
+            <div style={{
+              padding: theme.spacing.lg,
+              minHeight: '100px',
+              background: asciiColors.backgroundSoft,
+              border: `1px solid ${asciiColors.border}`,
+              borderLeft: `2px solid ${asciiColors.accent}`,
+              borderRadius: 2,
+              transition: 'background-color 0.15s ease',
+              position: 'relative',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.muted,
+                marginBottom: theme.spacing.sm,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontFamily: 'Consolas',
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs
+              }}>
+                Total Tables
+              </div>
+              <div style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: asciiColors.accent,
+                fontFamily: 'Consolas'
+              }}>
                 {maskingStatus.overall_summary.total_tables}
               </div>
             </div>
-            <div>
-              <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Sensitive Columns</div>
-              <div style={{ color: asciiColors.warning, fontSize: 16, fontWeight: 'bold' }}>
+            <div style={{
+              padding: theme.spacing.lg,
+              minHeight: '100px',
+              background: asciiColors.backgroundSoft,
+              border: `1px solid ${asciiColors.border}`,
+              borderLeft: `2px solid ${asciiColors.muted}`,
+              borderRadius: 2,
+              transition: 'background-color 0.15s ease',
+              position: 'relative',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.muted,
+                marginBottom: theme.spacing.sm,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontFamily: 'Consolas',
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs
+              }}>
+                Sensitive Columns
+              </div>
+              <div style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: asciiColors.muted,
+                fontFamily: 'Consolas'
+              }}>
                 {(() => {
                   const realCount = sensitiveColumnsList.filter(item => !item._error).length;
                   return realCount || maskingStatus.overall_summary.sensitive_columns;
                 })()}
               </div>
             </div>
-            <div>
-              <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Protected</div>
-              <div style={{ color: asciiColors.success, fontSize: 16, fontWeight: 'bold' }}>
+            <div style={{
+              padding: theme.spacing.lg,
+              minHeight: '100px',
+              background: asciiColors.backgroundSoft,
+              border: `1px solid ${asciiColors.border}`,
+              borderLeft: `2px solid ${asciiColors.accent}`,
+              borderRadius: 2,
+              transition: 'background-color 0.15s ease',
+              position: 'relative',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.muted,
+                marginBottom: theme.spacing.sm,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontFamily: 'Consolas',
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs
+              }}>
+                Protected
+              </div>
+              <div style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: asciiColors.accent,
+                fontFamily: 'Consolas'
+              }}>
                 {(() => {
                   const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
                   const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
@@ -492,23 +569,82 @@ const DataMasking = () => {
                 })()}
               </div>
             </div>
-            <div>
-              <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Unprotected</div>
-              <div style={{ color: asciiColors.danger, fontSize: 16, fontWeight: 'bold' }}>
+            <div style={{
+              padding: theme.spacing.lg,
+              minHeight: '100px',
+              background: asciiColors.backgroundSoft,
+              border: `1px solid ${asciiColors.border}`,
+              borderLeft: `2px solid ${asciiColors.foreground}`,
+              borderRadius: 2,
+              transition: 'background-color 0.15s ease',
+              position: 'relative',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.muted,
+                marginBottom: theme.spacing.sm,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontFamily: 'Consolas',
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs
+              }}>
+                Unprotected
+              </div>
+              <div style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: asciiColors.foreground,
+                fontFamily: 'Consolas'
+              }}>
                 {unprotectedColumnsList.filter(item => !item._error).length}
               </div>
             </div>
-            <div>
-              <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Coverage</div>
-              <div style={{ 
+            <div style={{
+              padding: theme.spacing.lg,
+              minHeight: '100px',
+              background: asciiColors.backgroundSoft,
+              border: `1px solid ${asciiColors.border}`,
+              borderLeft: `2px solid ${(() => {
+                const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+                const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+                const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
+                return realCoverage >= 90 ? asciiColors.accent : realCoverage >= 70 ? asciiColors.muted : asciiColors.foreground;
+              })()}`,
+              borderRadius: 2,
+              transition: 'background-color 0.15s ease',
+              position: 'relative',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.muted,
+                marginBottom: theme.spacing.sm,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontFamily: 'Consolas',
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs
+              }}>
+                Coverage
+              </div>
+              <div style={{
+                fontSize: 18,
+                fontWeight: 700,
                 color: (() => {
                   const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
                   const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
                   const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
-                  return realCoverage >= 90 ? asciiColors.success : realCoverage >= 70 ? asciiColors.warning : asciiColors.danger;
-                })(), 
-                fontSize: 16, 
-                fontWeight: 'bold' 
+                  return realCoverage >= 90 ? asciiColors.accent : realCoverage >= 70 ? asciiColors.muted : asciiColors.foreground;
+                })(),
+                fontFamily: 'Consolas'
               }}>
                 {(() => {
                   const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
@@ -518,18 +654,49 @@ const DataMasking = () => {
                 })()}%
               </div>
             </div>
-            <div>
-              <div style={{ color: asciiColors.muted, fontSize: 10, marginBottom: 4 }}>Status</div>
-              <div style={{ 
+            <div style={{
+              padding: theme.spacing.lg,
+              minHeight: '100px',
+              background: asciiColors.backgroundSoft,
+              border: `1px solid ${asciiColors.border}`,
+              borderLeft: `2px solid ${(() => {
+                const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+                const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+                const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
+                const realStatus = realCoverage >= 90 ? 'EXCELLENT' : realCoverage >= 70 ? 'GOOD' : realCoverage >= 50 ? 'FAIR' : realCoverage > 0 ? 'POOR' : 'NONE';
+                return realStatus === 'EXCELLENT' ? asciiColors.accent : realStatus === 'GOOD' ? asciiColors.muted : realStatus === 'FAIR' ? asciiColors.muted : asciiColors.foreground;
+              })()}`,
+              borderRadius: 2,
+              transition: 'background-color 0.15s ease',
+              position: 'relative',
+              fontFamily: 'Consolas',
+              fontSize: 12
+            }}>
+              <div style={{
+                fontSize: 11,
+                color: asciiColors.muted,
+                marginBottom: theme.spacing.sm,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                fontFamily: 'Consolas',
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs
+              }}>
+                Status
+              </div>
+              <div style={{
+                fontSize: 18,
+                fontWeight: 700,
                 color: (() => {
                   const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
                   const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
                   const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
                   const realStatus = realCoverage >= 90 ? 'EXCELLENT' : realCoverage >= 70 ? 'GOOD' : realCoverage >= 50 ? 'FAIR' : realCoverage > 0 ? 'POOR' : 'NONE';
-                  return realStatus === 'EXCELLENT' ? asciiColors.success : realStatus === 'GOOD' ? asciiColors.warning : realStatus === 'FAIR' ? asciiColors.warning : asciiColors.danger;
-                })(), 
-                fontSize: 16, 
-                fontWeight: 'bold' 
+                  return realStatus === 'EXCELLENT' ? asciiColors.accent : realStatus === 'GOOD' ? asciiColors.muted : realStatus === 'FAIR' ? asciiColors.muted : asciiColors.foreground;
+                })(),
+                fontFamily: 'Consolas'
               }}>
                 {(() => {
                   const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
@@ -540,7 +707,7 @@ const DataMasking = () => {
               </div>
             </div>
           </div>
-          <div style={{ marginTop: theme.spacing.md, padding: theme.spacing.sm, borderTop: `1px solid ${asciiColors.border}`, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div style={{ marginTop: theme.spacing.md, padding: theme.spacing.sm, borderTop: `1px solid ${asciiColors.border}`, display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
             <AsciiButton
               label="Masking Info"
               onClick={() => setShowMaskingPlaybook(true)}
@@ -589,13 +756,24 @@ const DataMasking = () => {
             value={filters.schema_name}
             onChange={(e) => setFilters(prev => ({ ...prev, schema_name: e.target.value }))}
             style={{
-              padding: '6px 10px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               background: asciiColors.background,
               color: asciiColors.foreground,
-              fontFamily: "Consolas",
-              fontSize: 11
+              fontFamily: 'Consolas',
+              fontSize: 11,
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           />
           <input
@@ -604,26 +782,49 @@ const DataMasking = () => {
             value={filters.table_name}
             onChange={(e) => setFilters(prev => ({ ...prev, table_name: e.target.value }))}
             style={{
-              padding: '6px 10px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               background: asciiColors.background,
               color: asciiColors.foreground,
-              fontFamily: "Consolas",
-              fontSize: 11
+              fontFamily: 'Consolas',
+              fontSize: 11,
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           />
           <select
             value={filters.masking_type}
             onChange={(e) => setFilters(prev => ({ ...prev, masking_type: e.target.value }))}
             style={{
-              padding: '6px 10px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               background: asciiColors.background,
               color: asciiColors.foreground,
-              fontFamily: "Consolas",
-              fontSize: 11
+              fontFamily: 'Consolas',
+              fontSize: 11,
+              outline: 'none',
+              transition: 'border-color 0.15s ease',
+              cursor: 'pointer'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Types</option>
@@ -635,13 +836,25 @@ const DataMasking = () => {
             value={filters.active}
             onChange={(e) => setFilters(prev => ({ ...prev, active: e.target.value }))}
             style={{
-              padding: '6px 10px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               background: asciiColors.background,
               color: asciiColors.foreground,
-              fontFamily: "Consolas",
-              fontSize: 11
+              fontFamily: 'Consolas',
+              fontSize: 11,
+              outline: 'none',
+              transition: 'border-color 0.15s ease',
+              cursor: 'pointer'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
           >
             <option value="">All Status</option>
@@ -665,11 +878,11 @@ const DataMasking = () => {
             borderBottom: activeTab === 'policies' ? `3px solid ${asciiColors.accent}` : '3px solid transparent',
             background: 'transparent',
             color: activeTab === 'policies' ? asciiColors.accent : asciiColors.muted,
-            fontFamily: "Consolas",
+            fontFamily: 'Consolas',
             fontSize: 12,
-            fontWeight: activeTab === 'policies' ? 'bold' : 'normal',
+            fontWeight: activeTab === 'policies' ? 600 : 'normal',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'border-color 0.15s ease, color 0.15s ease'
           }}
         >
           Masking Policies ({policies.length})
@@ -679,14 +892,14 @@ const DataMasking = () => {
           style={{
             padding: `${theme.spacing.sm} ${theme.spacing.md}`,
             border: 'none',
-            borderBottom: activeTab === 'sensitive' ? `3px solid ${asciiColors.warning}` : '3px solid transparent',
+            borderBottom: activeTab === 'sensitive' ? `3px solid ${asciiColors.accent}` : '3px solid transparent',
             background: 'transparent',
-            color: activeTab === 'sensitive' ? asciiColors.warning : asciiColors.muted,
-            fontFamily: "Consolas",
+            color: activeTab === 'sensitive' ? asciiColors.accent : asciiColors.muted,
+            fontFamily: 'Consolas',
             fontSize: 12,
-            fontWeight: activeTab === 'sensitive' ? 'bold' : 'normal',
+            fontWeight: activeTab === 'sensitive' ? 600 : 'normal',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'border-color 0.15s ease, color 0.15s ease'
           }}
         >
           Sensitive Columns ({sensitiveColumnsList.filter(item => !item._error).length})
@@ -696,14 +909,14 @@ const DataMasking = () => {
           style={{
             padding: `${theme.spacing.sm} ${theme.spacing.md}`,
             border: 'none',
-            borderBottom: activeTab === 'unprotected' ? `3px solid ${asciiColors.danger}` : '3px solid transparent',
+            borderBottom: activeTab === 'unprotected' ? `3px solid ${asciiColors.foreground}` : '3px solid transparent',
             background: 'transparent',
-            color: activeTab === 'unprotected' ? asciiColors.danger : asciiColors.muted,
-            fontFamily: "Consolas",
+            color: activeTab === 'unprotected' ? asciiColors.foreground : asciiColors.muted,
+            fontFamily: 'Consolas',
             fontSize: 12,
-            fontWeight: activeTab === 'unprotected' ? 'bold' : 'normal',
+            fontWeight: activeTab === 'unprotected' ? 600 : 'normal',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'border-color 0.15s ease, color 0.15s ease'
           }}
         >
           Unprotected ({unprotectedColumnsList.filter(item => !item._error).length})
@@ -737,26 +950,26 @@ const DataMasking = () => {
             ) : (
               policies.map((policy) => (
                 <TableRow key={policy.policy_id}>
-                  <Td>{policy.policy_name}</Td>
-                  <Td>{policy.schema_name}</Td>
-                  <Td>{policy.table_name}</Td>
-                  <Td>{policy.column_name}</Td>
+                  <Td style={{ fontFamily: 'Consolas' }}>{policy.policy_name}</Td>
+                  <Td style={{ fontFamily: 'Consolas' }}>{policy.schema_name}</Td>
+                  <Td style={{ fontFamily: 'Consolas' }}>{policy.table_name}</Td>
+                  <Td style={{ fontFamily: 'Consolas' }}>{policy.column_name}</Td>
                   <Td>
-                    <span style={{ color: getMaskingTypeColor(policy.masking_type) }}>
+                    <span style={{ color: getMaskingTypeColor(policy.masking_type), fontFamily: 'Consolas' }}>
                       {policy.masking_type}
                     </span>
                   </Td>
                   <Td>
-                    <span style={{ color: getStatusColor(policy.active ? 'ACTIVE' : 'INACTIVE') }}>
+                    <span style={{ color: getStatusColor(policy.active ? 'ACTIVE' : 'INACTIVE'), fontFamily: 'Consolas' }}>
                       {policy.active ? 'ACTIVE' : 'INACTIVE'}
                     </span>
                   </Td>
-                  <Td>
+                  <Td style={{ fontFamily: 'Consolas' }}>
                     {policy.role_whitelist && policy.role_whitelist.length > 0
                       ? policy.role_whitelist.join(', ')
                       : '-'}
                   </Td>
-                  <Td>{formatDate(policy.created_at || '')}</Td>
+                  <Td style={{ fontFamily: 'Consolas' }}>{formatDate(policy.created_at || '')}</Td>
                   <Td>
                     <div style={{ display: 'flex', gap: theme.spacing.sm }}>
                       <AsciiButton
@@ -794,7 +1007,7 @@ const DataMasking = () => {
             fontFamily: "Consolas",
             fontSize: 11
           }}>
-            <div>
+            <div style={{ fontFamily: 'Consolas' }}>
               Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} policies
             </div>
             <div style={{ display: 'flex', gap: theme.spacing.sm }}>
@@ -828,6 +1041,16 @@ const DataMasking = () => {
             </div>
           ) : (
             <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <style>{`
+                div[style*="overflowY"]::-webkit-scrollbar {
+                  width: 0px;
+                  display: none;
+                }
+                div[style*="overflowY"] {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+              `}</style>
               <MaskingTable>
                 <thead>
                   <tr>
@@ -842,16 +1065,16 @@ const DataMasking = () => {
                 <tbody>
                   {sensitiveColumnsList.filter(c => !c._error).map((col, idx) => (
                     <TableRow key={idx}>
-                      <Td>{col.schema_name}</Td>
-                      <Td>{col.table_name}</Td>
-                      <Td>{col.column_name}</Td>
-                      <Td>{col.data_type}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.schema_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.table_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.column_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.data_type}</Td>
                       <Td>
-                        <span style={{ color: getMaskingTypeColor(col.pii_category) }}>
+                        <span style={{ color: getMaskingTypeColor(col.pii_category), fontFamily: 'Consolas' }}>
                           {col.pii_category}
                         </span>
                       </Td>
-                      <Td>{(col.confidence_score * 100).toFixed(0)}%</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{(col.confidence_score * 100).toFixed(0)}%</Td>
                     </TableRow>
                   ))}
                 </tbody>
@@ -868,7 +1091,7 @@ const DataMasking = () => {
               Loading...
             </div>
           ) : unprotectedColumnsList.length === 0 || (unprotectedColumnsList.length === 1 && unprotectedColumnsList[0]._error) ? (
-            <div style={{ textAlign: 'center', padding: theme.spacing.lg, color: error ? asciiColors.danger : asciiColors.success }}>
+            <div style={{ textAlign: 'center', padding: theme.spacing.lg, color: error ? asciiColors.foreground : asciiColors.accent, fontFamily: 'Consolas' }}>
               {error ? `Error: ${error}` : 'All sensitive columns are protected! 🎉'}
             </div>
           ) : (
@@ -888,16 +1111,16 @@ const DataMasking = () => {
                 <tbody>
                   {unprotectedColumnsList.filter(c => !c._error).map((col, idx) => (
                     <TableRow key={idx}>
-                      <Td>{col.schema_name}</Td>
-                      <Td>{col.table_name}</Td>
-                      <Td>{col.column_name}</Td>
-                      <Td>{col.data_type}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.schema_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.table_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.column_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{col.data_type}</Td>
                       <Td>
-                        <span style={{ color: getMaskingTypeColor(col.pii_category) }}>
+                        <span style={{ color: getMaskingTypeColor(col.pii_category), fontFamily: 'Consolas' }}>
                           {col.pii_category}
                         </span>
                       </Td>
-                      <Td>{(col.confidence_score * 100).toFixed(0)}%</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{(col.confidence_score * 100).toFixed(0)}%</Td>
                       <Td>
                         <AsciiButton
                           label="Create Policy"
@@ -946,19 +1169,29 @@ const DataMasking = () => {
             style={{
               backgroundColor: asciiColors.background,
               border: `2px solid ${asciiColors.border}`,
-              borderRadius: 4,
+              borderRadius: 2,
               padding: theme.spacing.lg,
               maxWidth: '600px',
               width: '90%',
               maxHeight: '90vh',
-              overflow: 'auto'
+              overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title={selectedPolicy.policy_id ? "EDIT POLICY" : "CREATE POLICY"}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12 }}>
                 <div>
-                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                     Policy Name *
                   </label>
                   <input
@@ -967,20 +1200,31 @@ const DataMasking = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, policy_name: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       borderRadius: 2,
                       background: asciiColors.background,
                       color: asciiColors.foreground,
-                      fontFamily: "Consolas",
-                      fontSize: 12
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.sm }}>
                   <div>
-                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                       Schema Name *
                     </label>
                     <input
@@ -989,18 +1233,29 @@ const DataMasking = () => {
                       onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, schema_name: e.target.value } : null)}
                       style={{
                         width: '100%',
-                        padding: '8px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         background: asciiColors.background,
                         color: asciiColors.foreground,
-                        fontFamily: "Consolas",
-                        fontSize: 12
+                        fontFamily: 'Consolas',
+                        fontSize: 12,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                   </div>
                   <div>
-                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                       Table Name *
                     </label>
                     <input
@@ -1009,20 +1264,31 @@ const DataMasking = () => {
                       onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, table_name: e.target.value } : null)}
                       style={{
                         width: '100%',
-                        padding: '8px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         background: asciiColors.background,
                         color: asciiColors.foreground,
-                        fontFamily: "Consolas",
-                        fontSize: 12
+                        fontFamily: 'Consolas',
+                        fontSize: 12,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                     Column Name *
                   </label>
                   <input
@@ -1031,19 +1297,30 @@ const DataMasking = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, column_name: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       borderRadius: 2,
                       background: asciiColors.background,
                       color: asciiColors.foreground,
-                      fontFamily: "Consolas",
-                      fontSize: 12
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                     Masking Type *
                   </label>
                   <select
@@ -1051,13 +1328,25 @@ const DataMasking = () => {
                     onChange={(e) => setSelectedPolicy(prev => prev ? { ...prev, masking_type: e.target.value } : null)}
                     style={{
                       width: '100%',
-                      padding: '8px',
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                       border: `1px solid ${asciiColors.border}`,
                       borderRadius: 2,
                       background: asciiColors.background,
                       color: asciiColors.foreground,
-                      fontFamily: "Consolas",
-                      fontSize: 12
+                      fontFamily: 'Consolas',
+                      fontSize: 12,
+                      outline: 'none',
+                      transition: 'border-color 0.15s ease',
+                      cursor: 'pointer'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = asciiColors.accent;
+                      e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                      e.target.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = asciiColors.border;
+                      e.target.style.outline = 'none';
                     }}
                   >
                     {maskingTypes.map(type => (
@@ -1067,7 +1356,7 @@ const DataMasking = () => {
                 </div>
 
                 <div>
-                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                  <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                     Active
                   </label>
                   <input
@@ -1129,15 +1418,25 @@ const DataMasking = () => {
             style={{
               backgroundColor: asciiColors.background,
               border: `2px solid ${asciiColors.border}`,
-              borderRadius: 4,
+              borderRadius: 2,
               padding: theme.spacing.lg,
               maxWidth: '700px',
               width: '90%',
               maxHeight: '90vh',
-              overflow: 'auto'
+              overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="BATCH ANALYZE & CREATE POLICIES">
               {!batchResults ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -1153,9 +1452,9 @@ const DataMasking = () => {
                           background: asciiColors.backgroundSoft,
                           borderRadius: 2,
                           fontSize: 10,
-                          color: asciiColors.warning,
-                          fontFamily: "Consolas",
-                          border: `1px solid ${asciiColors.warning}`
+                          color: asciiColors.muted,
+                          fontFamily: 'Consolas',
+                          border: `1px solid ${asciiColors.border}`
                         }}>
                           <strong>⚠️ Warning:</strong> Avoid selecting system databases like 'postgres' unless you have application data there. System databases typically don't need masking.
                         </div>
@@ -1167,6 +1466,16 @@ const DataMasking = () => {
                           padding: theme.spacing.sm,
                           background: asciiColors.background,
                         }}>
+                          <style>{`
+                            div[style*="overflowY"]::-webkit-scrollbar {
+                              width: 0px;
+                              display: none;
+                            }
+                            div[style*="overflowY"] {
+                              -ms-overflow-style: none;
+                              scrollbar-width: none;
+                            }
+                          `}</style>
                           {availableDatabases.map(db => {
                             const isSystemDb = db === 'postgres' || db === 'template0' || db === 'template1';
                             return (
@@ -1202,9 +1511,9 @@ const DataMasking = () => {
                                   }}
                                 />
                                 <label style={{
-                                  color: isSystemDb ? asciiColors.warning : asciiColors.foreground,
+                                  color: isSystemDb ? asciiColors.muted : asciiColors.foreground,
                                   fontSize: 12,
-                                  fontFamily: "Consolas",
+                                  fontFamily: 'Consolas',
                                   cursor: 'pointer',
                                   flex: 1
                                 }}>
@@ -1223,13 +1532,24 @@ const DataMasking = () => {
                         placeholder="DataLake, postgres, etc. (single database)"
                         style={{
                           width: '100%',
-                          padding: '8px',
+                          padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                           border: `1px solid ${asciiColors.border}`,
                           borderRadius: 2,
                           background: asciiColors.background,
                           color: asciiColors.foreground,
-                          fontFamily: "Consolas",
-                          fontSize: 12
+                          fontFamily: 'Consolas',
+                          fontSize: 12,
+                          outline: 'none',
+                          transition: 'border-color 0.15s ease'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = asciiColors.accent;
+                          e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                          e.target.style.outlineOffset = '2px';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = asciiColors.border;
+                          e.target.style.outline = 'none';
                         }}
                       />
                     )}
@@ -1238,7 +1558,7 @@ const DataMasking = () => {
                         marginTop: theme.spacing.xs,
                         fontSize: 10,
                         color: asciiColors.muted,
-                        fontFamily: "Consolas"
+                        fontFamily: 'Consolas'
                       }}>
                         Selected: {batchConfig.database_names.join(', ')}
                       </div>
@@ -1246,7 +1566,7 @@ const DataMasking = () => {
                   </div>
 
                   <div>
-                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                       Schema Name (leave empty for all schemas in database)
                     </label>
                     <input
@@ -1256,19 +1576,30 @@ const DataMasking = () => {
                       placeholder="public (optional)"
                       style={{
                         width: '100%',
-                        padding: '8px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         background: asciiColors.background,
                         color: asciiColors.foreground,
-                        fontFamily: "Consolas",
-                        fontSize: 12
+                        fontFamily: 'Consolas',
+                        fontSize: 12,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                   </div>
 
                   <div>
-                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                       Default Masking Type
                     </label>
                     <select
@@ -1276,13 +1607,25 @@ const DataMasking = () => {
                       onChange={(e) => setBatchConfig(prev => ({ ...prev, masking_type: e.target.value }))}
                       style={{
                         width: '100%',
-                        padding: '8px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         background: asciiColors.background,
                         color: asciiColors.foreground,
-                        fontFamily: "Consolas",
-                        fontSize: 12
+                        fontFamily: 'Consolas',
+                        fontSize: 12,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease',
+                        cursor: 'pointer'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     >
                       {maskingTypes.map(type => (
@@ -1292,7 +1635,7 @@ const DataMasking = () => {
                   </div>
 
                   <div>
-                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                       Minimum Confidence Score (0.0 - 1.0)
                     </label>
                     <input
@@ -1304,19 +1647,30 @@ const DataMasking = () => {
                       onChange={(e) => setBatchConfig(prev => ({ ...prev, min_confidence: parseFloat(e.target.value) || 0.75 }))}
                       style={{
                         width: '100%',
-                        padding: '8px',
+                        padding: `${theme.spacing.sm} ${theme.spacing.md}`,
                         border: `1px solid ${asciiColors.border}`,
                         borderRadius: 2,
                         background: asciiColors.background,
                         color: asciiColors.foreground,
-                        fontFamily: "Consolas",
-                        fontSize: 12
+                        fontFamily: 'Consolas',
+                        fontSize: 12,
+                        outline: 'none',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = asciiColors.accent;
+                        e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                        e.target.style.outlineOffset = '2px';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = asciiColors.border;
+                        e.target.style.outline = 'none';
                       }}
                     />
                   </div>
 
                   <div>
-                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    <label style={{ color: asciiColors.muted, fontSize: 11, display: 'block', marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                       Auto Activate Policies
                     </label>
                     <input
@@ -1336,7 +1690,8 @@ const DataMasking = () => {
                     background: asciiColors.backgroundSoft, 
                     borderRadius: 2,
                     fontSize: 11,
-                    color: asciiColors.muted
+                    color: asciiColors.muted,
+                    fontFamily: 'Consolas'
                   }}>
                     <strong>Note:</strong> This will scan all tables in the specified database and schema (or all schemas if schema is empty), 
                     detect sensitive columns, and automatically create masking policies. Email and phone columns will use 
@@ -1367,19 +1722,30 @@ const DataMasking = () => {
                     padding: theme.spacing.md,
                     background: asciiColors.backgroundSoft,
                     borderRadius: 2,
-                    fontSize: 12
+                    fontSize: 12,
+                    fontFamily: 'Consolas'
                   }}>
-                    <div style={{ marginBottom: theme.spacing.sm }}>
+                    <div style={{ marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                       <strong>Batch Analysis Complete!</strong>
                     </div>
-                    <div>Total Analyzed: {batchResults.total_analyzed}</div>
-                    <div style={{ color: asciiColors.success }}>Policies Created: {batchResults.policies_created}</div>
-                    <div style={{ color: asciiColors.warning }}>Policies Skipped: {batchResults.policies_skipped}</div>
+                    <div style={{ fontFamily: 'Consolas' }}>Total Analyzed: {batchResults.total_analyzed}</div>
+                    <div style={{ color: asciiColors.accent, fontFamily: 'Consolas' }}>Policies Created: {batchResults.policies_created}</div>
+                    <div style={{ color: asciiColors.muted, fontFamily: 'Consolas' }}>Policies Skipped: {batchResults.policies_skipped}</div>
                   </div>
 
                   {batchResults.results && batchResults.results.length > 0 && (
                     <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                      <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: theme.spacing.sm }}>
+                      <style>{`
+                        div[style*="overflowY"]::-webkit-scrollbar {
+                          width: 0px;
+                          display: none;
+                        }
+                        div[style*="overflowY"] {
+                          -ms-overflow-style: none;
+                          scrollbar-width: none;
+                        }
+                      `}</style>
+                      <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         Results:
                       </div>
                       {batchResults.results.slice(0, 20).map((result: any, idx: number) => (
@@ -1389,14 +1755,15 @@ const DataMasking = () => {
                           background: result.policy_created ? asciiColors.backgroundSoft : asciiColors.background,
                           borderRadius: 2,
                           fontSize: 10,
-                          borderLeft: `3px solid ${result.policy_created ? asciiColors.success : asciiColors.danger}`
+                          fontFamily: 'Consolas',
+                          borderLeft: `3px solid ${result.policy_created ? asciiColors.accent : asciiColors.foreground}`
                         }}>
                           {result.schema_name}.{result.table_name}.{result.column_name} - {result.pii_category} 
                           {result.policy_created ? ' ✓' : ` ✗ (${result.message})`}
                         </div>
                       ))}
                       {batchResults.results.length > 20 && (
-                        <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: theme.spacing.sm }}>
+                        <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: theme.spacing.sm, fontFamily: 'Consolas' }}>
                           ... and {batchResults.results.length - 20} more
                         </div>
                       )}
@@ -1445,40 +1812,52 @@ const DataMasking = () => {
           }}
           onClick={(e) => e.stopPropagation()}
           >
+            <style>{`
+              div[style*="overflowY"]::-webkit-scrollbar {
+                width: 0px;
+                display: none;
+              }
+              div[style*="overflowY"] {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
             <AsciiPanel title="DATA MASKING PLAYBOOK">
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+              <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} OVERVIEW
                   </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                  <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                     Data Masking provides role-based column-level data protection at the database level. The system automatically redirects 
                     queries to masked views or original data based on user privileges, ensuring sensitive data is protected while maintaining 
                     seamless access for authorized users.
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} FLOW: USER CONNECTION → ROLE MAPPING
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} Step 1: PostgreSQL User Identification
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
-                        When you connect to PostgreSQL as a user (e.g., <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>tomy.berrios</code>), 
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
+                        When you connect to PostgreSQL as a user (e.g., <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>tomy.berrios</code>), 
                         PostgreSQL identifies the session user:
                       </div>
                       <pre style={{ 
-                        marginLeft: 32, 
-                        marginTop: 8, 
-                        padding: 8, 
+                        marginLeft: theme.spacing.lg, 
+                        marginTop: theme.spacing.sm, 
+                        padding: theme.spacing.sm, 
                         background: asciiColors.backgroundSoft, 
                         border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
                         fontSize: 11,
+                        fontFamily: 'Consolas',
                         overflowX: 'auto'
                       }}>
 {`-- PostgreSQL identifies your user
@@ -1487,20 +1866,22 @@ session_user = 'tomy.berrios'`}
                       </pre>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} Step 2: Role Mapping Function
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
-                        The function <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.get_user_role_from_db()</code> maps PostgreSQL users to application roles:
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
+                        The function <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>metadata.get_user_role_from_db()</code> maps PostgreSQL users to application roles:
                       </div>
                       <pre style={{ 
-                        marginLeft: 32, 
-                        marginTop: 8, 
-                        padding: 8, 
+                        marginLeft: theme.spacing.lg, 
+                        marginTop: theme.spacing.sm, 
+                        padding: theme.spacing.sm, 
                         background: asciiColors.backgroundSoft, 
                         border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
                         fontSize: 11,
+                        fontFamily: 'Consolas',
                         overflowX: 'auto'
                       }}>
 {`-- 1. Gets current PostgreSQL user
@@ -1514,61 +1895,63 @@ WHERE username = 'tomy.berrios';
 -- 3. Returns the role
 RETURN 'admin';`}
                       </pre>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
-                        <strong>Important:</strong> The mapping is <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>username</code> in <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.users</code> = <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>session_user</code> of PostgreSQL
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.lg, marginTop: theme.spacing.sm, fontSize: 11, fontFamily: 'Consolas' }}>
+                        <strong>Important:</strong> The mapping is <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>username</code> in <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>metadata.users</code> = <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>session_user</code> of PostgreSQL
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} FLOW: POLICY VERIFICATION
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} Step 3: Column Masking Decision
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
-                        When querying a column, <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.should_mask_column()</code> verifies:
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
+                        When querying a column, <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>metadata.should_mask_column()</code> verifies:
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
-                        <div style={{ marginBottom: 4 }}>1. <strong>Is the user admin?</strong></div>
-                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If YES: RETURN false (NO masking)</div>
-                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If NO: continue</div>
-                        <div style={{ marginBottom: 4, marginTop: 8 }}>2. <strong>Does an active policy exist for this column?</strong></div>
-                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If NO: RETURN false (NO masking)</div>
-                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If YES: continue</div>
-                        <div style={{ marginBottom: 4, marginTop: 8 }}>3. <strong>Is the role in the whitelist?</strong></div>
-                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If YES: RETURN false (NO masking)</div>
-                        <div style={{ marginLeft: 16, color: asciiColors.success }}>→ If NO: RETURN true (YES masking)</div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.lg, marginTop: theme.spacing.sm, fontSize: 11, fontFamily: 'Consolas' }}>
+                        <div style={{ marginBottom: theme.spacing.xs }}>1. <strong>Is the user admin?</strong></div>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.accent }}>→ If YES: RETURN false (NO masking)</div>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.accent }}>→ If NO: continue</div>
+                        <div style={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.sm }}>2. <strong>Does an active policy exist for this column?</strong></div>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.accent }}>→ If NO: RETURN false (NO masking)</div>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.accent }}>→ If YES: continue</div>
+                        <div style={{ marginBottom: theme.spacing.xs, marginTop: theme.spacing.sm }}>3. <strong>Is the role in the whitelist?</strong></div>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.accent }}>→ If YES: RETURN false (NO masking)</div>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.accent }}>→ If NO: RETURN true (YES masking)</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} FLOW: SMART VIEW - AUTOMATIC REDIRECTION
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} Step 4: Smart View Creation
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
-                        The view <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>saleslt_smart_customer</code> is created with dynamic masking:
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
+                        The view <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>saleslt_smart_customer</code> is created with dynamic masking:
                       </div>
                       <pre style={{ 
-                        marginLeft: 32, 
-                        marginTop: 8, 
-                        padding: 8, 
+                        marginLeft: theme.spacing.lg, 
+                        marginTop: theme.spacing.sm, 
+                        padding: theme.spacing.sm, 
                         background: asciiColors.backgroundSoft, 
                         border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
                         fontSize: 11,
+                        fontFamily: 'Consolas',
                         overflowX: 'auto'
                       }}>
 {`CREATE VIEW saleslt_smart_customer AS
@@ -1601,73 +1984,75 @@ FROM saleslt.customer;`}
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} FLOW: EXECUTION EXAMPLES
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 6 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} Admin User Query
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
-                        When <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>tomy.berrios</code> (admin) executes:
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
+                        When <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>tomy.berrios</code> (admin) executes:
                       </div>
                       <pre style={{ 
-                        marginLeft: 32, 
-                        marginTop: 8, 
-                        padding: 8, 
+                        marginLeft: theme.spacing.lg, 
+                        marginTop: theme.spacing.sm, 
+                        padding: theme.spacing.sm, 
                         background: asciiColors.backgroundSoft, 
                         border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
                         fontSize: 11,
+                        fontFamily: 'Consolas',
                         overflowX: 'auto'
                       }}>
 {`SELECT emailaddress, phone 
 FROM saleslt.saleslt_smart_customer;`}
                       </pre>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.lg, marginTop: theme.spacing.sm, fontSize: 11, fontFamily: 'Consolas' }}>
                         PostgreSQL evaluates CASE WHEN:
-                        <div style={{ marginLeft: 16, marginTop: 4 }}>
-                          • <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>session_user = 'tomy.berrios'</code>
+                        <div style={{ marginLeft: theme.spacing.md, marginTop: theme.spacing.xs }}>
+                          • <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>session_user = 'tomy.berrios'</code>
                         </div>
-                        <div style={{ marginLeft: 16 }}>
-                          • Query: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>SELECT role FROM metadata.users WHERE username = 'tomy.berrios'</code>
+                        <div style={{ marginLeft: theme.spacing.md }}>
+                          • Query: <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>SELECT role FROM metadata.users WHERE username = 'tomy.berrios'</code>
                         </div>
-                        <div style={{ marginLeft: 16 }}>
-                          • Result: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>'admin'</code>
+                        <div style={{ marginLeft: theme.spacing.md }}>
+                          • Result: <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>'admin'</code>
                         </div>
-                        <div style={{ marginLeft: 16, color: asciiColors.success, marginTop: 4 }}>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.accent, marginTop: theme.spacing.xs }}>
                           → Returns: <strong>original values</strong> (no masking)
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 6 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} Regular User Query
                       </div>
                       <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
                         When <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>testuser</code> (non-admin) executes the same query:
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 32, marginTop: 8, fontSize: 11 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.lg, marginTop: theme.spacing.sm, fontSize: 11, fontFamily: 'Consolas' }}>
                         PostgreSQL evaluates CASE WHEN:
-                        <div style={{ marginLeft: 16, marginTop: 4 }}>
-                          • <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>session_user = 'testuser'</code>
+                        <div style={{ marginLeft: theme.spacing.md, marginTop: theme.spacing.xs }}>
+                          • <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>session_user = 'testuser'</code>
                         </div>
-                        <div style={{ marginLeft: 16 }}>
-                          • Query: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>SELECT role FROM metadata.users WHERE username = 'testuser'</code>
+                        <div style={{ marginLeft: theme.spacing.md }}>
+                          • Query: <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>SELECT role FROM metadata.users WHERE username = 'testuser'</code>
                         </div>
-                        <div style={{ marginLeft: 16 }}>
-                          • Result: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>'user'</code>
+                        <div style={{ marginLeft: theme.spacing.md }}>
+                          • Result: <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>'user'</code>
                         </div>
-                        <div style={{ marginLeft: 16 }}>
-                          • Condition: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>'user' = 'admin'</code> → FALSE
+                        <div style={{ marginLeft: theme.spacing.md }}>
+                          • Condition: <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>'user' = 'admin'</code> → FALSE
                         </div>
-                        <div style={{ marginLeft: 16, color: asciiColors.warning, marginTop: 4 }}>
-                          → Executes: <code style={{ background: asciiColors.backgroundSoft, padding: '2px 4px' }}>metadata.mask_value(emailaddress, 'EMAIL', '{}')</code>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.muted, marginTop: theme.spacing.xs }}>
+                          → Executes: <code style={{ background: asciiColors.backgroundSoft, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>metadata.mask_value(emailaddress, 'EMAIL', '{}')</code>
                         </div>
-                        <div style={{ marginLeft: 16, color: asciiColors.warning }}>
+                        <div style={{ marginLeft: theme.spacing.md, color: asciiColors.muted }}>
                           → Returns: <strong>'orl***@adventure-works.com'</strong> (masked)
                         </div>
                       </div>
@@ -1675,40 +2060,44 @@ FROM saleslt.saleslt_smart_customer;`}
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} REQUIREMENTS
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         1. PostgreSQL User Must Exist
                       </div>
                       <pre style={{ 
-                        marginLeft: 16, 
-                        marginTop: 4, 
-                        padding: 8, 
+                        marginLeft: theme.spacing.md, 
+                        marginTop: theme.spacing.xs, 
+                        padding: theme.spacing.sm, 
                         background: asciiColors.backgroundSoft, 
                         border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
                         fontSize: 11,
+                        fontFamily: 'Consolas',
                         overflowX: 'auto'
                       }}>
 {`CREATE USER tomy.berrios WITH PASSWORD 'your_password';`}
                       </pre>
                     </div>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         2. User Must Be in metadata.users
                       </div>
                       <pre style={{ 
-                        marginLeft: 16, 
-                        marginTop: 4, 
-                        padding: 8, 
+                        marginLeft: theme.spacing.md, 
+                        marginTop: theme.spacing.xs, 
+                        padding: theme.spacing.sm, 
                         background: asciiColors.backgroundSoft, 
                         border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
                         fontSize: 11,
+                        fontFamily: 'Consolas',
                         overflowX: 'auto'
                       }}>
 {`INSERT INTO metadata.users (username, email, password_hash, role, active)
@@ -1716,17 +2105,19 @@ VALUES ('tomy.berrios', 'your@email.com', 'hash', 'admin', true);`}
                       </pre>
                     </div>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         3. Required Permissions
                       </div>
                       <pre style={{ 
-                        marginLeft: 16, 
-                        marginTop: 4, 
-                        padding: 8, 
+                        marginLeft: theme.spacing.md, 
+                        marginTop: theme.spacing.xs, 
+                        padding: theme.spacing.sm, 
                         background: asciiColors.backgroundSoft, 
                         border: `1px solid ${asciiColors.border}`,
+                        borderRadius: 2,
                         fontSize: 11,
+                        fontFamily: 'Consolas',
                         overflowX: 'auto'
                       }}>
 {`GRANT CONNECT ON DATABASE DataLake TO tomy.berrios;
@@ -1738,23 +2129,23 @@ GRANT SELECT ON metadata.users TO tomy.berrios;`}
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                <div style={{ marginBottom: theme.spacing.lg }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                     {ascii.blockFull} MASKING TYPES
                   </div>
                   
-                  <div style={{ marginLeft: 16 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.danger, fontWeight: 600 }}>FULL</span>
-                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Complete masking: ***MASKED***</span>
+                  <div style={{ marginLeft: theme.spacing.md }}>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <span style={{ color: asciiColors.foreground, fontWeight: 600, fontFamily: 'Consolas' }}>FULL</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: theme.spacing.sm, fontFamily: 'Consolas' }}>Complete masking: ***MASKED***</span>
                     </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.warning, fontWeight: 600 }}>PARTIAL</span>
-                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Partial masking: Shows first/last characters</span>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <span style={{ color: asciiColors.muted, fontWeight: 600, fontFamily: 'Consolas' }}>PARTIAL</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: theme.spacing.sm, fontFamily: 'Consolas' }}>Partial masking: Shows first/last characters</span>
                     </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>EMAIL</span>
-                      <span style={{ color: asciiColors.foreground, marginLeft: 8 }}>Email masking: orl***@adventure-works.com</span>
+                    <div style={{ marginBottom: theme.spacing.sm }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>EMAIL</span>
+                      <span style={{ color: asciiColors.foreground, marginLeft: theme.spacing.sm, fontFamily: 'Consolas' }}>Email masking: orl***@adventure-works.com</span>
                     </div>
                     <div style={{ marginBottom: 8 }}>
                       <span style={{ color: asciiColors.accent, fontWeight: 600 }}>PHONE</span>
@@ -1781,15 +2172,15 @@ GRANT SELECT ON metadata.users TO tomy.berrios;`}
                   <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
                     {ascii.blockSemi} Important Notes
                   </div>
-                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
-                    • The view queries <code style={{ background: asciiColors.background, padding: '2px 4px' }}>metadata.users</code> at <strong>execution time</strong>, not at creation time<br/>
-                    • If a PostgreSQL user exists but is not in <code style={{ background: asciiColors.background, padding: '2px 4px' }}>metadata.users</code>, the function returns 'admin' by default (hardcoded)<br/>
-                    • If the user exists in <code style={{ background: asciiColors.background, padding: '2px 4px' }}>metadata.users</code>, it uses the role from that table<br/>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
+                    • The view queries <code style={{ background: asciiColors.background, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>metadata.users</code> at <strong>execution time</strong>, not at creation time<br/>
+                    • If a PostgreSQL user exists but is not in <code style={{ background: asciiColors.background, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>metadata.users</code>, the function returns 'admin' by default (hardcoded)<br/>
+                    • If the user exists in <code style={{ background: asciiColors.background, padding: `${theme.spacing.xs} ${theme.spacing.xs}`, fontFamily: 'Consolas' }}>metadata.users</code>, it uses the role from that table<br/>
                     • Masking is applied at the database level, ensuring consistent protection across all applications
                   </div>
                 </div>
 
-                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                <div style={{ marginTop: theme.spacing.md, textAlign: 'right' }}>
                   <AsciiButton
                     label="Close"
                     onClick={() => setShowMaskingPlaybook(false)}
@@ -1801,7 +2192,7 @@ GRANT SELECT ON metadata.users TO tomy.berrios;`}
           </div>
         </div>
       )}
-    </div>
+    </Container>
   );
 };
 

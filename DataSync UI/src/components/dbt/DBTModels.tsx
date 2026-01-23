@@ -115,22 +115,22 @@ const DBTModels = () => {
   }, []);
 
   const getStatusColor = (status?: string) => {
-    if (!status) return asciiColors.gray;
+    if (!status) return asciiColors.muted;
     switch (status.toLowerCase()) {
-      case 'success': return asciiColors.green;
-      case 'error': return asciiColors.red;
-      case 'running': return asciiColors.yellow;
-      default: return asciiColors.gray;
+      case 'success': return asciiColors.accent;
+      case 'error': return asciiColors.foreground;
+      case 'running': return asciiColors.muted;
+      default: return asciiColors.muted;
     }
   };
 
   const getMaterializationColor = (materialization?: string) => {
     switch (materialization) {
-      case 'table': return asciiColors.blue;
-      case 'view': return asciiColors.cyan;
-      case 'incremental': return asciiColors.magenta;
-      case 'ephemeral': return asciiColors.gray;
-      default: return asciiColors.white;
+      case 'table': return asciiColors.accent;
+      case 'view': return asciiColors.foreground;
+      case 'incremental': return asciiColors.muted;
+      case 'ephemeral': return asciiColors.muted;
+      default: return asciiColors.foreground;
     }
   };
 
@@ -143,7 +143,7 @@ const DBTModels = () => {
       <AsciiPanel>
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h2 style={{ color: asciiColors.cyan, margin: 0 }}>DBT MODELS</h2>
+            <h2 style={{ color: asciiColors.accent, margin: 0 }}>DBT MODELS</h2>
             <div style={{ display: 'flex', gap: 8 }}>
               <AsciiButton 
                 label="DBT Playbook" 
@@ -185,7 +185,7 @@ const DBTModels = () => {
           </div>
 
           {error && (
-            <div style={{ color: asciiColors.red, marginBottom: '15px', padding: '10px', border: `1px solid ${asciiColors.red}` }}>
+            <div style={{ color: asciiColors.foreground, marginBottom: '15px', padding: '10px', border: `2px solid ${asciiColors.foreground}` }}>
               {error}
             </div>
           )}
@@ -242,7 +242,7 @@ const DBTModels = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                      <span style={{ color: asciiColors.cyan, fontWeight: 'bold', fontSize: '16px' }}>
+                      <span style={{ color: asciiColors.accent, fontWeight: 'bold', fontSize: '16px' }}>
                         {model.model_name}
                       </span>
                       <span style={{ color: getMaterializationColor(model.materialization), fontSize: '12px' }}>
@@ -270,7 +270,7 @@ const DBTModels = () => {
                     {model.tags && model.tags.length > 0 && (
                       <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '5px' }}>
                         {model.tags.map((tag, idx) => (
-                          <span key={idx} style={{ color: asciiColors.yellow, fontSize: '11px' }}>
+                          <span key={idx} style={{ color: asciiColors.muted, fontSize: '11px' }}>
                             #{tag}
                           </span>
                         ))}
@@ -384,7 +384,7 @@ const DBTModels = () => {
                       </div>
                     </div>
                     <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>TESTS & DATA QUALITY</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>TESTS & DATA QUALITY</div>
                       <div style={{ fontSize: 11, lineHeight: 1.5 }}>
                         • <strong>Test Types:</strong> not_null, unique, relationships, accepted_values, custom, expression<br/>
                         • <strong>Column Tests:</strong> Validate specific columns meet business rules<br/>
@@ -431,7 +431,7 @@ const DBTModels = () => {
                     </div>
 
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>4. TEST EXECUTION</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>4. TEST EXECUTION</div>
                       <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Run all tests defined for the model</div>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Column tests: Validate not_null, unique, accepted_values, etc.</div>
@@ -448,25 +448,25 @@ const DBTModels = () => {
                   </div>
                   <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SQL-Based:</strong> Write transformations in standard SQL (PostgreSQL, Snowflake, BigQuery, Redshift)
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>SQL-Based:</strong> Write transformations in standard SQL (PostgreSQL, Snowflake, BigQuery, Redshift)
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Macro Support:</strong> Reusable SQL functions with parameters
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Macro Support:</strong> Reusable SQL functions with parameters
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Dependency Management:</strong> Automatic build order resolution
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Dependency Management:</strong> Automatic build order resolution
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Data Quality Tests:</strong> Built-in and custom tests for validation
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Data Quality Tests:</strong> Built-in and custom tests for validation
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Version Control:</strong> Git commit hash and branch tracking
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Version Control:</strong> Git commit hash and branch tracking
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Incremental Models:</strong> Efficient processing of large datasets
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Incremental Models:</strong> Efficient processing of large datasets
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Documentation:</strong> Model and column-level documentation
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Documentation:</strong> Model and column-level documentation
                     </div>
                   </div>
                 </div>

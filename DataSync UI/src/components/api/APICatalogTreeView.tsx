@@ -135,9 +135,9 @@ const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'SUCCESS') return asciiColors.success;
-    if (status === 'ERROR') return asciiColors.danger;
-    if (status === 'IN_PROGRESS') return asciiColors.warning;
+    if (status === 'SUCCESS') return asciiColors.accent;
+    if (status === 'ERROR') return asciiColors.foreground;
+    if (status === 'IN_PROGRESS') return asciiColors.muted;
     return asciiColors.muted;
   };
 
@@ -190,6 +190,7 @@ const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
               padding: "2px 8px",
               border: `1px solid ${getStatusColor(api.status)}`,
               borderRadius: 2,
+              backgroundColor: 'transparent',
               color: getStatusColor(api.status),
               fontFamily: "Consolas",
               fontSize: 11
@@ -351,7 +352,7 @@ const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
             paddingLeft: `${level * 24 + 8}px`,
             cursor: "pointer",
             borderLeft: `3px solid ${asciiColors.accent}`,
-            backgroundColor: isExpanded ? asciiColors.accentLight : asciiColors.background,
+            backgroundColor: isExpanded ? asciiColors.backgroundSoft : asciiColors.background,
             margin: "2px 0",
             transition: "all 0.2s ease",
             fontFamily: "Consolas",
@@ -360,11 +361,11 @@ const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
           }}
           onClick={() => toggleSchema(schema.name)}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = asciiColors.accentLight;
+            e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = "translateX(2px)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = isExpanded ? asciiColors.accentLight : asciiColors.background;
+            e.currentTarget.style.backgroundColor = isExpanded ? asciiColors.backgroundSoft : asciiColors.background;
             e.currentTarget.style.transform = "translateX(0)";
           }}
         >

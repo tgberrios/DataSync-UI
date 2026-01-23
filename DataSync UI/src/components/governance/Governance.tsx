@@ -40,23 +40,88 @@ const slideUp = keyframes`
   }
 `;
 
+const TabContent = styled.div`
+  font-family: 'Consolas';
+  font-size: 12px;
+`;
+
+const DetailsSection = styled.div`
+  margin-bottom: ${theme.spacing.md};
+  padding-bottom: ${theme.spacing.sm};
+  border-bottom: 1px solid ${asciiColors.border};
+  
+  &:last-child {
+    margin-bottom: 0;
+    border-bottom: none;
+  }
+`;
+
+const SectionTitle = styled.h3`
+  font-size: 13px;
+  font-family: 'Consolas';
+  font-weight: 600;
+  color: ${asciiColors.foreground};
+  margin: 0 0 ${theme.spacing.sm} 0;
+  padding-bottom: ${theme.spacing.xs};
+  border-bottom: 2px solid ${asciiColors.accent};
+`;
+
+const DetailsGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: ${theme.spacing.sm};
+`;
+
+const DetailLabel = styled.div`
+  color: ${asciiColors.muted};
+  font-weight: 500;
+  font-size: 11px;
+  font-family: 'Consolas';
+`;
+
+const DetailValue = styled.div`
+  color: ${asciiColors.foreground};
+  font-size: 12px;
+  font-family: 'Consolas';
+`;
+
+const Badge = styled.span<{ $status?: string }>`
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+  border-radius: 2;
+  font-size: 11px;
+  font-family: 'Consolas';
+  background-color: ${props => getStatusColor(props.$status) + '20'};
+  color: ${props => getStatusColor(props.$status)};
+  border: 1px solid ${props => getStatusColor(props.$status)};
+`;
+
+const QualityScore = styled.span<{ $score: number }>`
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+  border-radius: 2;
+  font-size: 11px;
+  font-family: 'Consolas';
+  background-color: ${props => getScoreColor(props.$score) + '20'};
+  color: ${props => getScoreColor(props.$score)};
+  border: 1px solid ${props => getScoreColor(props.$score)};
+`;
+
 const getStatusColor = (status?: string) => {
   if (!status) return asciiColors.muted;
   switch (status) {
     case 'HEALTHY':
-    case 'EXCELLENT': return asciiColors.success;
-    case 'WARNING': return asciiColors.warning;
+    case 'EXCELLENT': return asciiColors.accent;
+    case 'WARNING': return asciiColors.muted;
     case 'CRITICAL':
-    case 'EMERGENCY': return asciiColors.danger;
+    case 'EMERGENCY': return asciiColors.foreground;
     default: return asciiColors.muted;
   }
 };
 
 const getScoreColor = (score: number) => {
-  if (score >= 90) return asciiColors.success;
+  if (score >= 90) return asciiColors.accent;
   if (score >= 70) return asciiColors.accent;
-  if (score >= 50) return asciiColors.warning;
-  return asciiColors.danger;
+  if (score >= 50) return asciiColors.muted;
+  return asciiColors.foreground;
 };
 
 /**
@@ -305,13 +370,13 @@ const Governance = () => {
   const renderOverviewTab = useCallback((item: any) => {
     return (
       <div>
-        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
-          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+        <div style={{ marginBottom: theme.spacing.md, paddingBottom: theme.spacing.sm, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: `0 0 ${theme.spacing.sm} 0`, paddingBottom: theme.spacing.xs, borderBottom: `2px solid ${asciiColors.accent}` }}>
             Basic Information
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing.sm }}>
             <div>
-              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Schema:</div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Schema:</div>
               <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.schema_name || 'N/A'}</div>
             </div>
             <div>
@@ -327,7 +392,7 @@ const Governance = () => {
               <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.data_category ? (
                   <span style={{
-                    padding: '2px 8px',
+                    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                     borderRadius: 2,
                     fontSize: 11,
                     fontFamily: 'Consolas',
@@ -341,15 +406,15 @@ const Governance = () => {
               </div>
             </div>
             <div>
-              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Business Domain:</div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Business Domain:</div>
               <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.business_domain || 'N/A'}</div>
             </div>
             <div>
-              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Sensitivity Level:</div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Sensitivity Level:</div>
               <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.sensitivity_level ? (
                   <span style={{
-                    padding: '2px 8px',
+                    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                     borderRadius: 2,
                     fontSize: 11,
                     fontFamily: 'Consolas',
@@ -363,11 +428,11 @@ const Governance = () => {
               </div>
             </div>
             <div>
-              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Health Status:</div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>Health Status:</div>
               <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
               {item.health_status ? (
                   <span style={{
-                    padding: '2px 8px',
+                    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                     borderRadius: 2,
                     fontSize: 11,
                     fontFamily: 'Consolas',
@@ -383,11 +448,11 @@ const Governance = () => {
           </div>
         </div>
 
-        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
-          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+        <div style={{ marginBottom: theme.spacing.md, paddingBottom: theme.spacing.sm, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: `0 0 ${theme.spacing.sm} 0`, paddingBottom: theme.spacing.xs, borderBottom: `2px solid ${asciiColors.accent}` }}>
             Metrics
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: theme.spacing.sm }}>
             <div>
               <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Total Columns:</div>
               <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.total_columns?.toLocaleString() || 'N/A'}</div>
@@ -973,27 +1038,38 @@ const Governance = () => {
   }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Consolas", fontSize: 12 }}>
-      <h1 style={{
-        fontSize: 14,
-        fontWeight: 600,
-        margin: "0 0 20px 0",
-        color: asciiColors.foreground,
-        textTransform: "uppercase",
-        fontFamily: "Consolas"
+    <Container>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `2px solid ${asciiColors.accent}`
       }}>
-        <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-        DATA GOVERNANCE CATALOG
-      </h1>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: theme.spacing.sm }}>{ascii.blockFull}</span>
+          DATA GOVERNANCE CATALOG
+        </h1>
+      </div>
 
       {error && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: theme.spacing.md }}>
           <AsciiPanel title="ERROR">
             <div style={{
-              padding: "12px",
-              color: asciiColors.danger,
+              padding: theme.spacing.sm,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: 'Consolas',
+              backgroundColor: asciiColors.backgroundSoft,
+              borderRadius: 2
             }}>
               {error}
             </div>
@@ -1004,8 +1080,8 @@ const Governance = () => {
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: 12, 
-        marginBottom: 24 
+        gap: theme.spacing.md, 
+        marginBottom: theme.spacing.lg 
       }}>
         <AsciiPanel title="Total Tables">
           <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
@@ -1045,18 +1121,30 @@ const Governance = () => {
       </div>
 
       <AsciiPanel title="FILTERS">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
           <select 
           value={filters.engine as string}
           onChange={(e) => handleFilterChange('engine', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
         >
           <option value="">All Engines</option>
@@ -1070,13 +1158,25 @@ const Governance = () => {
           value={filters.category as string}
           onChange={(e) => handleFilterChange('category', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
         >
           <option value="">All Categories</option>
@@ -1097,13 +1197,25 @@ const Governance = () => {
           value={filters.health as string}
           onChange={(e) => handleFilterChange('health', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
         >
           <option value="">All Health Status</option>
@@ -1118,13 +1230,25 @@ const Governance = () => {
           value={filters.sensitivity as string}
           onChange={(e) => handleFilterChange('sensitivity', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
         >
           <option value="">All Sensitivity</option>
@@ -1139,13 +1263,25 @@ const Governance = () => {
           value={filters.domain as string}
           onChange={(e) => handleFilterChange('domain', e.target.value)}
             style={{
-              padding: '4px 8px',
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
               border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontFamily: 'Consolas',
               fontSize: 12,
               backgroundColor: asciiColors.background,
-              color: asciiColors.foreground
+              color: asciiColors.foreground,
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = asciiColors.accent;
+              e.target.style.outline = `2px solid ${asciiColors.accent}`;
+              e.target.style.outlineOffset = '2px';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = asciiColors.border;
+              e.target.style.outline = 'none';
             }}
         >
           <option value="">All Domains</option>
@@ -1189,13 +1325,13 @@ const Governance = () => {
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center', 
-            marginBottom: 24,
-            marginTop: 8,
+            marginBottom: theme.spacing.lg,
+            marginTop: theme.spacing.sm,
             fontFamily: 'Consolas',
             fontSize: 12,
-            gap: 32
+            gap: theme.spacing.lg
           }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
               <label style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
                 Items per page:
               </label>
@@ -1206,14 +1342,25 @@ const Governance = () => {
                   setPage(1);
                 }}
                 style={{
-                  padding: '4px 8px',
+                  padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
                   border: `1px solid ${asciiColors.border}`,
                   borderRadius: 2,
                   fontFamily: 'Consolas',
                   fontSize: 12,
                   backgroundColor: asciiColors.background,
                   color: asciiColors.foreground,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  outline: 'none',
+                  transition: 'border-color 0.15s ease'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = asciiColors.accent;
+                  e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                  e.target.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = asciiColors.border;
+                  e.target.style.outline = 'none';
                 }}
               >
                 <option value={10}>10</option>
@@ -1223,7 +1370,7 @@ const Governance = () => {
                 <option value={200}>200</option>
               </select>
             </div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
               <AsciiButton
                 label={activeView === 'list' ? 'Show Charts' : 'Show List'}
                 onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
@@ -1265,90 +1412,100 @@ const Governance = () => {
               }}
               onClick={(e) => e.stopPropagation()}
               >
+                <style>{`
+                  div[style*="overflowY"]::-webkit-scrollbar {
+                    width: 0px;
+                    display: none;
+                  }
+                  div[style*="overflowY"] {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                  }
+                `}</style>
                 <AsciiPanel title="METRICS PLAYBOOK - DATA GOVERNANCE">
-                  <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                  <div style={{ padding: theme.spacing.md, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         {ascii.blockFull} Total Tables
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Total number of tables cataloged across all database engines in the unified governance system.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         {ascii.blockFull} Total Size
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Combined storage size of all tables across all databases. Includes data and index sizes.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         {ascii.blockFull} Total Rows
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Total number of rows across all tables in the governance catalog.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 8 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         {ascii.blockFull} Healthy
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Tables with HEALTHY status, indicating optimal performance, good data quality, proper governance controls, and compliance.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 8 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         {ascii.blockFull} Warning
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Tables with WARNING status, indicating potential governance issues such as missing metadata, 
                         incomplete documentation, or compliance concerns that should be addressed.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 8 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         {ascii.blockFull} Critical
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Tables with CRITICAL status, indicating serious governance issues requiring immediate attention such as 
                         missing data owners, unclassified sensitive data, or compliance violations.
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>
                         {ascii.blockFull} Unique Engines
                       </div>
-                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                      <div style={{ color: asciiColors.foreground, marginLeft: theme.spacing.md, fontSize: 11, fontFamily: 'Consolas' }}>
                         Number of distinct database engines (PostgreSQL, MariaDB, MSSQL, MongoDB, Oracle) being monitored in the unified governance catalog.
                       </div>
                     </div>
 
                     <div style={{ 
-                      marginTop: 16, 
-                      padding: 12, 
+                      marginTop: theme.spacing.md, 
+                      padding: theme.spacing.sm, 
                       background: asciiColors.backgroundSoft, 
                       borderRadius: 2,
                       border: `1px solid ${asciiColors.border}`
                     }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: theme.spacing.xs, fontFamily: 'Consolas' }}>
                         {ascii.blockSemi} Note
                       </div>
-                      <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                      <div style={{ fontSize: 11, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
                         These metrics are calculated in real-time from the data_governance_catalog table and reflect 
                         the current state of your unified data governance catalog across all database engines.
                       </div>
                     </div>
 
-                    <div style={{ marginTop: 16, textAlign: 'right' }}>
+                    <div style={{ marginTop: theme.spacing.md, textAlign: 'right' }}>
                       <AsciiButton
                         label="Close"
                         onClick={() => setShowMetricsPlaybook(false)}
@@ -1380,8 +1537,8 @@ const Governance = () => {
                   <div style={{ 
                     display: 'grid', 
                     gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
-                    gap: 16, 
-                    marginTop: 16 
+                    gap: theme.spacing.md, 
+                    marginTop: theme.spacing.md 
                   }}>
                     <GovernanceTreeView 
                       items={allItems} 
@@ -1391,16 +1548,26 @@ const Governance = () => {
                     {selectedItem && (
                       <AsciiPanel title="DETAILS" style={{ 
                         position: 'sticky', 
-                        top: 16, 
+                        top: theme.spacing.md, 
                         maxHeight: 'calc(100vh - 200px)',
                         overflowY: 'auto'
                       }}>
+                        <style>{`
+                          div[style*="overflowY"]::-webkit-scrollbar {
+                            width: 0px;
+                            display: none;
+                          }
+                          div[style*="overflowY"] {
+                            -ms-overflow-style: none;
+                            scrollbar-width: none;
+                          }
+                        `}</style>
                         <div style={{ 
                           display: 'flex', 
-                          gap: 4, 
-                          marginBottom: 16, 
+                          gap: theme.spacing.xs, 
+                          marginBottom: theme.spacing.md, 
                           borderBottom: `1px solid ${asciiColors.border}`, 
-                          paddingBottom: 8,
+                          paddingBottom: theme.spacing.sm,
                           flexWrap: 'wrap'
                         }}>
                           <AsciiButton
@@ -1464,7 +1631,7 @@ const Governance = () => {
                   </div>
                   
                   {pagination.totalPages > 1 && (
-                    <div style={{ marginTop: 24 }}>
+                    <div style={{ marginTop: theme.spacing.lg }}>
                       <Pagination>
                         <PageButton
                           onClick={() => setPage(Math.max(1, page - 1))}
@@ -1491,7 +1658,7 @@ const Governance = () => {
         </>
       )}
 
-    </div>
+    </Container>
   );
 };
 

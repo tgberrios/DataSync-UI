@@ -223,16 +223,16 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                         <span style={{
                           padding: '2px 6px',
                           borderRadius: 2,
-                          backgroundColor: warehouse.target_layer === 'GOLD' ? asciiColors.success + '20' :
-                                         warehouse.target_layer === 'SILVER' ? asciiColors.accent + '20' :
+                          backgroundColor: warehouse.target_layer === 'GOLD' ? asciiColors.backgroundSoft :
+                                         warehouse.target_layer === 'SILVER' ? asciiColors.backgroundSoft :
                                          'transparent',
-                          color: warehouse.target_layer === 'GOLD' ? asciiColors.success :
-                                 warehouse.target_layer === 'SILVER' ? asciiColors.accent :
+                          color: warehouse.target_layer === 'GOLD' ? asciiColors.accent :
+                                 warehouse.target_layer === 'SILVER' ? asciiColors.foreground :
                                  asciiColors.muted,
                           fontWeight: 600,
                           fontSize: 10,
-                          border: `1px solid ${warehouse.target_layer === 'GOLD' ? asciiColors.success :
-                                  warehouse.target_layer === 'SILVER' ? asciiColors.accent :
+                          border: `1px solid ${warehouse.target_layer === 'GOLD' ? asciiColors.accent :
+                                  warehouse.target_layer === 'SILVER' ? asciiColors.foreground :
                                   asciiColors.border}`
                         }}>
                           {warehouse.target_layer || 'BRONZE'}
@@ -268,10 +268,10 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                         borderRadius: 2,
                         fontSize: 10,
                         fontWeight: 500,
-                        backgroundColor: warehouse.enabled ? asciiColors.accent : asciiColors.danger,
-                        color: warehouse.enabled ? asciiColors.background : asciiColors.background,
+                        backgroundColor: warehouse.enabled ? asciiColors.backgroundSoft : 'transparent',
+                        color: warehouse.enabled ? asciiColors.accent : asciiColors.foreground,
                         fontFamily: "Consolas",
-                        border: `1px solid ${warehouse.enabled ? asciiColors.accent : asciiColors.danger}`
+                        border: `1px solid ${warehouse.enabled ? asciiColors.accent : asciiColors.border}`
                       }}>
                         {warehouse.enabled ? 'Enabled' : 'Disabled'}
                       </span>
@@ -279,7 +279,7 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                         <span 
                           style={{ 
                             fontSize: 14, 
-                            color: asciiColors.success, 
+                            color: asciiColors.accent, 
                             fontFamily: 'Consolas',
                             lineHeight: 1
                           }}
@@ -292,7 +292,7 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                         <span 
                           style={{ 
                             fontSize: 14, 
-                            color: asciiColors.danger, 
+                            color: asciiColors.foreground, 
                             fontFamily: 'Consolas',
                             lineHeight: 1
                           }}

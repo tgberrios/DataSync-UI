@@ -1,0 +1,161 @@
+---
+description: 
+alwaysApply: true
+---
+
+# Monochromatic ASCII/Terminal UI/UX Design Principles
+
+You are an expert in UI and UX design principles for software development, specializing in monochromatic ASCII/terminal-style interfaces.
+
+**Visual Design**
+- Establish a clear visual hierarchy to guide user attention.
+- **Color Palette**: Use ONLY a monochromatic palette:
+  - White (`#ffffff`) for backgrounds
+  - Black/Dark Gray (`#1a1a1a`) for primary text
+  - Gray (`#6b7280`) for secondary text and borders
+  - Navy Blue (`#1e40af`) ONLY for interactive accents (active states, highlights)
+  - NO other colors (no red, green, yellow, etc.) unless explicitly requested
+- **Design System Colors**: 
+  - DO NOT use `asciiColors.success`, `asciiColors.warning`, or `asciiColors.danger` as they violate the monochromatic palette
+  - For success/warning/danger states, use variations of gray or navy blue:
+    - Success: Use `asciiColors.foreground` (dark gray) or `asciiColors.accent` (navy blue)
+    - Warning: Use `asciiColors.muted` (medium gray) or `asciiColors.borderStrong` (darker gray)
+    - Danger/Error: Use `asciiColors.foreground` (black) with stronger borders or `asciiColors.borderStrong` (dark gray)
+  - Always maintain the monochromatic aesthetic - use typography, borders, and spacing to convey meaning instead of color
+- **Typography**: 
+  - Use `'Consolas'` (monospace) font family for all text elements
+  - Maintain ASCII/terminal aesthetic
+  - Use consistent font sizes (9px, 11px, 12px, 14px, 16px, 18px)
+- **Borders**: 
+  - Use `1px solid` for normal elements
+  - Use `2px solid` for highlighted/active elements
+  - Always use `borderRadius: 2` (minimal, sharp corners)
+- Maintain sufficient contrast for legibility (WCAG 2.1 AA standard).
+- Design with a consistent ASCII/terminal style across the application.
+
+**Interaction Design**
+- Create intuitive navigation patterns.
+- Use familiar UI components to reduce cognitive load.
+- Provide clear calls-to-action to guide user behavior.
+- **Animations**: 
+  - Keep transitions subtle: `0.15s ease` for hover and interaction states
+  - Avoid excessive animations or motion
+  - Use CSS transitions, not JavaScript animations when possible
+- **Auto-refresh**: Do NOT implement auto-refresh intervals unless explicitly requested by the user.
+
+**Accessibility**
+- Follow WCAG guidelines for web accessibility.
+- Use semantic HTML (`<button>`, `<nav>`, `<main>`, etc.) instead of `<div>` for interactive elements.
+- Provide alternative text for images and non-text content.
+- Ensure keyboard navigability for all interactive elements (tabIndex, onKeyDown handlers).
+- Provide visible focus states with outlines.
+- Test with various assistive technologies.
+
+**Performance Optimization**
+- Optimize images and assets to minimize load times.
+- Implement lazy loading for non-critical resources.
+- Use code splitting to improve initial load performance.
+- Monitor and optimize Core Web Vitals (LCP, FID, CLS).
+
+**User Feedback**
+- Incorporate clear feedback mechanisms for user actions.
+- Use loading indicators (SkeletonLoader) for asynchronous operations.
+- Provide clear error messages with proper styling (monochromatic).
+- Do NOT use colorful error states - use black borders and text.
+
+**Information Architecture**
+- Organize content logically to facilitate easy access.
+- Use clear labeling and categorization for navigation.
+- Implement effective search functionality.
+- Create a sitemap to visualize overall structure.
+
+**Layout & Spacing**
+- Use CSS Grid and Flexbox for flexible layouts.
+- Use consistent spacing from design system (`theme.spacing`: xs, sm, md, lg, xl).
+- Use relative units when appropriate, but maintain pixel precision for ASCII aesthetic.
+- **Backgrounds**: Use only `asciiColors.background` (white) and `asciiColors.backgroundSoft` (light gray `#f8f9fa`).
+
+**Consistency**
+- Develop and adhere to the ASCII/terminal design system.
+- Use consistent terminology throughout the interface.
+- Maintain consistent positioning of recurring elements.
+- Ensure visual consistency across different sections.
+- **Cards/Metrics**: 
+  - Metrics MUST be displayed as cards (not just panels) with proper card styling
+  - Do NOT use accent colors (navy blue) in metric cards - use only white, black, and gray
+  - Cards should have: padding, border, borderRadius: 2, background, and clear visual hierarchy
+  - Card structure: title (small, muted), value (large, bold), optional subtitle
+- **Component Review**: If any element in a component doesn't align with the design system or rules, review and adjust it to match the monochromatic ASCII/terminal aesthetic
+
+**Testing and Iteration**
+- Test designs for consistency with ASCII/terminal aesthetic.
+- Regularly gather and incorporate user feedback.
+- Continuously iterate on designs based on data and feedback.
+
+**Documentation**
+- Maintain consistency with the existing design system (`asciiColors`, `theme`).
+- Document design patterns and component usage.
+- Keep design assets organized and accessible.
+
+**Responsive Design** (Secondary priority - desktop-first)
+- Design primarily for desktop/tablet interfaces.
+- Ensure layouts work on larger screens first.
+- Use CSS Grid and Flexbox for flexible layouts.
+- Test on different screen sizes but prioritize desktop experience.
+
+**Forms**
+- Design form layouts with ASCII/terminal aesthetic.
+- Use appropriate input types for better user experiences.
+- Implement inline validation with monochromatic styling.
+- Clear error messaging with black borders, not colorful states.
+
+**Code Implementation**
+- Use `styled-components` for reusable styled components.
+- Use inline styles with style objects for component-specific styling.
+- Always reference `asciiColors` and `theme` from the design system.
+- Maintain DRY principles while keeping code readable.
+
+**Tree View Standard**
+- **Container**: 
+  - `fontFamily: 'Consolas'`, `fontSize: 12`, `backgroundColor: asciiColors.background`
+  - `border: 1px solid ${asciiColors.border}`, `borderRadius: 2`, `padding: 16`
+  - `maxHeight: '800px'`, `overflowY: 'auto'`, `overflowX: 'hidden'`
+- **TreeNode (Group/Expandable)**:
+  - `display: 'flex'`, `alignItems: 'center'`, `padding: '10px 14px'`, `cursor: 'pointer'`
+  - `backgroundColor: isExpanded ? asciiColors.backgroundSoft : 'transparent'`
+  - `border: isExpanded ? 1px solid ${asciiColors.border} : '1px solid transparent'`
+  - `borderRadius: 2`, `transition: 'all 0.15s ease'`
+- **TreeNode (Item/Leaf)**:
+  - `display: 'flex'`, `alignItems: 'center'`, `padding: '8px 12px'`, `paddingLeft: ${level * 24 + 8}px`
+  - `backgroundColor: isSelected ? asciiColors.backgroundSoft : 'transparent'`
+  - `borderLeft: 2px solid ${isSelected ? asciiColors.accent : asciiColors.border}`
+  - `borderRadius: 2`, `transition: 'all 0.15s ease'`, `margin: '2px 0'`
+- **TreeLine**: Use ASCII characters (`ascii.v`, `ascii.tRight`, `ascii.bl`, `ascii.h`)
+  - Color: `asciiColors.border` or `asciiColors.muted`, `fontSize: 11`
+- **ExpandIcon**: 
+  - `marginRight: 10`, `fontSize: 12`, `transition: 'transform 0.15s ease'`
+  - `transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'`
+  - `color: isExpanded ? asciiColors.accent : asciiColors.muted`
+- **Hover States**: `backgroundColor: asciiColors.backgroundSoft`, `border: asciiColors.border`
+  - **CRITICAL**: Do NOT use light blue backgrounds (`asciiColors.accentLight`) on hover - use ONLY `asciiColors.backgroundSoft` (light gray)
+- **Selected States**: `backgroundColor: asciiColors.backgroundSoft`, `border: 1px solid ${asciiColors.accent}`, `color: asciiColors.accent`
+- **Status Tags/Badges**: 
+  - **CRITICAL**: Status tags (SUCCESS, ERROR, LISTENING_CHANGES, GOLD, etc.) MUST use ONLY monochromatic colors
+  - DO NOT use green backgrounds for SUCCESS tags - use `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`, `color: asciiColors.accent` or `asciiColors.foreground`
+  - DO NOT use red backgrounds for ERROR tags - use `backgroundColor: 'transparent'`, `color: asciiColors.foreground`, `border: 1px solid ${asciiColors.foreground}`
+  - Status tag structure: `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`, `border: 1px solid ${asciiColors.border}`, `color: asciiColors.foreground` or `asciiColors.accent`
+- **Delete Buttons**: 
+  - **CRITICAL**: Delete buttons MUST use monochromatic colors only
+  - DO NOT use red backgrounds (`backgroundColor: asciiColors.danger`) - use `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`
+  - DO NOT use red text/borders on hover - use `border: 2px solid ${asciiColors.foreground}`, `backgroundColor: asciiColors.backgroundSoft`
+  - Structure: `border: 1px solid ${asciiColors.border}`, `color: asciiColors.foreground`, hover: `border: 2px solid ${asciiColors.foreground}`
+- **Icons**: 
+  - **CRITICAL**: Icons (checkmarks ✓, X marks ✗, table icons) MUST use ONLY monochromatic colors
+  - DO NOT use green for checkmarks - use `color: asciiColors.accent` or `asciiColors.foreground`
+  - DO NOT use red for X marks - use `color: asciiColors.foreground` or `asciiColors.muted`
+  - DO NOT use colored icons for non-interactive elements - use `asciiColors.muted` or `asciiColors.border`
+- **Animations**: Use ONLY CSS transitions (`0.15s ease`), NO keyframes or JavaScript animations
+- **Colors**: Use ONLY monochromatic colors (white, black, gray, navy blue for accent) - NO success/warning/danger colors, NO green, NO red, NO light blue backgrounds
+- **Structure**: Support hierarchical nesting (schema > table > item) with consistent indentation (24px per level)
+
+Stay updated with accessibility standards and maintain the monochromatic ASCII/terminal aesthetic throughout all design decisions.

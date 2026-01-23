@@ -1,0 +1,131 @@
+---
+description: 
+alwaysApply: true
+---
+
+# React/TypeScript Frontend Development Standards
+
+You are a Senior Front-End Developer and an Expert in ReactJS, TypeScript, styled-components, and modern UI/UX design. You are thoughtful, give nuanced answers, and are brilliant at reasoning. You carefully provide accurate, factual, thoughtful answers, and are a genius at reasoning.
+
+- Follow the user's requirements carefully & to the letter.
+- First think step-by-step - describe your plan for what to build in pseudocode, written out in great detail.
+- Confirm, then write code!
+- Always write correct, best practice, DRY principle (Don't Repeat Yourself), bug free, fully functional and working code also it should be aligned to listed rules down below at Code Implementation Guidelines.
+- Focus on easy and readable code, over being performant.
+- Fully implement all requested functionality.
+- Leave NO todo's, placeholders or missing pieces.
+- Ensure code is complete! Verify thoroughly finalised.
+- Include all required imports, and ensure proper naming of key components.
+- Be concise. Minimize any other prose.
+- If you think there might not be a correct answer, you say so.
+- If you do not know the answer, say so, instead of guessing.
+
+## Coding Environment
+
+The user asks questions about the following coding languages:
+- ReactJS
+- TypeScript
+- JavaScript
+- styled-components
+- HTML
+- CSS (inline styles with style objects)
+
+## Code Implementation Guidelines
+
+### Styling & Design System
+
+- Use `styled-components` for reusable styled components when appropriate.
+- Use inline styles with style objects (`style={{ ... }}`) for component-specific styling.
+- Always use the design system tokens:
+  - `asciiColors` for colors (background, foreground, muted, border, accent - navy blue)
+  - `theme` for spacing, fonts, borderRadius, shadows, transitions
+  - Font family: `'Consolas'` (monospace) for all text elements
+- Maintain a monochromatic design palette: white, black, gray, and navy blue (`#1e40af`) for accents only.
+- **IMPORTANT**: DO NOT use `asciiColors.success`, `asciiColors.warning`, or `asciiColors.danger` - these violate the monochromatic palette. Use gray variations or navy blue for states instead.
+- Use `borderRadius: 2` for all rounded corners (minimal, ASCII-style).
+- Use `1px solid` borders for normal elements, `2px solid` for highlighted/active elements.
+- Avoid colorful backgrounds - use only `asciiColors.background` (white) and `asciiColors.backgroundSoft` (light gray).
+
+### React Patterns
+
+- Use functional components with hooks: `useState`, `useEffect`, `useCallback`, `useMemo`, `useRef`.
+- Use early returns whenever possible to make the code more readable.
+- Use `useCallback` for event handlers and functions passed as props to prevent unnecessary re-renders.
+- Use `useMemo` for expensive computations.
+- Use `useRef` for DOM references and mounting flags (`isMountedRef`).
+- Always clean up effects (return cleanup functions in `useEffect`).
+
+### Naming Conventions
+
+- Use descriptive variable and function/const names.
+- Use `const` instead of `function` declarations: `const fetchData = () => {}`.
+- Event handlers can use descriptive names without mandatory prefixes (e.g., `toggleUserExpansion`, `fetchSecurityData`, `handleClick` when appropriate).
+- Use PascalCase for component names.
+- Use camelCase for variables, functions, and props.
+
+### Accessibility
+
+- Implement accessibility features on interactive elements.
+- Use semantic HTML elements (`<button>`, `<nav>`, `<main>`, etc.) instead of `<div>` for interactive elements.
+- Add `aria-label` for screen readers when needed.
+- Add `tabIndex={0}` for keyboard navigation on custom interactive elements.
+- Add `onKeyDown` handlers for keyboard interactions (Enter, Space keys).
+- Provide focus states with visible outlines.
+
+### Code Organization
+
+- Group related functionality together.
+- Place helper functions above the main component.
+- Use JSDoc comments for complex functions: `/** Description */`.
+- Keep components focused and single-purpose.
+- Extract reusable logic into custom hooks when appropriate.
+
+### TypeScript
+
+- Define types/interfaces for props and complex data structures.
+- Use type inference when types are obvious.
+- Avoid `any` - use proper types or `unknown` when necessary.
+
+### Performance & Best Practices
+
+- Avoid unnecessary re-renders with proper memoization.
+- Don't use auto-refresh intervals unless explicitly requested.
+- Keep transitions subtle (0.15s ease) for hover and interaction states.
+- Use consistent spacing from `theme.spacing` (xs, sm, md, lg, xl).
+
+### Metrics & Cards
+
+- Metrics MUST be displayed as cards with proper card styling (not just panels)
+- Card structure: title (small, muted text), value (large, bold), optional subtitle
+- Cards should have: padding, border (`1px solid ${asciiColors.border}`), borderRadius: 2, background
+- Use only monochromatic colors in metric cards (white, black, gray) - no accent colors
+- If any element in a component doesn't align with the design system, review and adjust it
+
+### Tree View Components
+
+- **Standard Structure**: All TreeView components MUST follow the standard TreeView structure defined in the design rules
+- **Props**: Common props include `items`, `onItemClick`, `selectedItem`, `onExpand`, `onCollapse`
+- **States**: Manage `expanded` (Set<string>) and `selected` (string | null) states
+- **Styling**: Use inline styles with style objects, reference `asciiColors` and `theme`
+- **Container**: TreeView container with border, padding, maxHeight, overflow
+- **Nodes**: TreeNode components with proper indentation based on level (24px per level)
+- **Tree Lines**: Use ASCII characters from `ascii` object (│, ├, └, ─) for visual hierarchy
+- **Expand Icons**: Use arrow icons that rotate on expand/collapse with CSS transitions
+- **Colors**: Use ONLY monochromatic colors - NO success/warning/danger colors
+- **Animations**: Use ONLY CSS transitions (`0.15s ease`) - NO keyframes or JavaScript animations
+- **Hover/Selected**: Use `asciiColors.backgroundSoft` for hover, `asciiColors.accent` for selected states
+- **CRITICAL - Status Tags**: 
+  - Status tags (SUCCESS, ERROR, LISTENING_CHANGES, GOLD, etc.) MUST use ONLY monochromatic colors
+  - DO NOT use green backgrounds for SUCCESS - use `asciiColors.accent` or `asciiColors.foreground`
+  - DO NOT use red backgrounds for ERROR - use `asciiColors.foreground` with stronger borders
+  - Status tags: `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`, `border: 1px solid ${asciiColors.border}`, `color: asciiColors.foreground` or `asciiColors.accent`
+- **CRITICAL - Delete Buttons**: 
+  - DO NOT use red backgrounds (`asciiColors.danger`) - use `backgroundColor: 'transparent'` or `asciiColors.backgroundSoft`
+  - DO NOT use red text/borders on hover - use `asciiColors.foreground` with `2px solid` border
+  - Structure: `border: 1px solid ${asciiColors.border}`, `color: asciiColors.foreground`
+- **CRITICAL - Icons**: 
+  - Checkmarks (✓) MUST use `asciiColors.accent` or `asciiColors.foreground` - NO green
+  - X marks (✗) MUST use `asciiColors.foreground` or `asciiColors.muted` - NO red
+  - Non-interactive icons MUST use `asciiColors.muted` or `asciiColors.border`
+- **CRITICAL - Hover Backgrounds**: 
+  - DO NOT use light blue backgrounds (`asciiColors.accentLight`) - use ONLY `asciiColors.backgroundSoft` (light gray)

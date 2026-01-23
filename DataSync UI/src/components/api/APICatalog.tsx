@@ -290,9 +290,10 @@ const APICatalog = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: "Consolas",
+              border: `2px solid ${asciiColors.foreground}`
             }}>
               {error}
             </div>
@@ -785,8 +786,8 @@ const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({ api, history, loa
 
   const getStatusColor = (status: string) => {
     if (status === 'SUCCESS') return asciiColors.accent;
-    if (status === 'ERROR') return asciiColors.accent;
-    if (status === 'IN_PROGRESS') return asciiColors.accentSoft;
+    if (status === 'ERROR') return asciiColors.foreground;
+    if (status === 'IN_PROGRESS') return asciiColors.muted;
     return asciiColors.muted;
   };
 

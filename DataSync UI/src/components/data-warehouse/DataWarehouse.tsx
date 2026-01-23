@@ -265,9 +265,10 @@ const DataWarehouse = () => {
           <AsciiPanel title="ERROR">
             <div style={{
               padding: "12px",
-              color: asciiColors.danger,
+              color: asciiColors.foreground,
               fontSize: 12,
-              fontFamily: "Consolas"
+              fontFamily: "Consolas",
+              border: `2px solid ${asciiColors.foreground}`
             }}>
               {error}
             </div>
@@ -605,8 +606,8 @@ const DataWarehouse = () => {
                         fontSize: 12, 
                         fontFamily: 'Consolas', 
                         fontWeight: 600,
-                        color: selectedWarehouse.target_layer === 'GOLD' ? asciiColors.success :
-                               selectedWarehouse.target_layer === 'SILVER' ? asciiColors.accent :
+                        color: selectedWarehouse.target_layer === 'GOLD' ? asciiColors.accent :
+                               selectedWarehouse.target_layer === 'SILVER' ? asciiColors.foreground :
                                asciiColors.muted
                       }}>
                         {selectedWarehouse.target_layer || 'BRONZE'}
@@ -654,8 +655,8 @@ const DataWarehouse = () => {
                         fontSize: 12,
                         fontFamily: 'Consolas',
                         fontWeight: 500,
-                        color: selectedWarehouse.last_build_status === 'SUCCESS' ? asciiColors.success :
-                               selectedWarehouse.last_build_status === 'ERROR' ? asciiColors.danger :
+                        color: selectedWarehouse.last_build_status === 'SUCCESS' ? asciiColors.accent :
+                               selectedWarehouse.last_build_status === 'ERROR' ? asciiColors.foreground :
                                asciiColors.muted,
                         display: 'flex',
                         alignItems: 'center',
@@ -669,10 +670,10 @@ const DataWarehouse = () => {
                         <div style={{
                           marginTop: 8,
                           padding: '10px 12px',
-                          backgroundColor: asciiColors.danger + '20',
-                          border: `1px solid ${asciiColors.danger}`,
+                          backgroundColor: asciiColors.backgroundSoft,
+                          border: `2px solid ${asciiColors.foreground}`,
                           borderRadius: 2,
-                          color: asciiColors.danger,
+                          color: asciiColors.foreground,
                           fontSize: 11,
                           fontFamily: 'Consolas',
                           wordBreak: 'break-word',
@@ -896,7 +897,7 @@ const DataWarehouse = () => {
                       </div>
                     </div>
                     <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>GOLD (Business-Ready)</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>GOLD (Business-Ready)</div>
                       <div style={{ fontSize: 11, lineHeight: 1.5 }}>
                         • <strong>Function:</strong> Transform data into business-ready analytical models<br/>
                         • <strong>Schema:</strong> <code style={{ color: asciiColors.accent }}>{`{warehouse_name}_gold`}</code><br/>
@@ -938,7 +939,7 @@ const DataWarehouse = () => {
                     </div>
 
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>3. AUTOMATIC PROMOTION SILVER → GOLD (every 60 sec)</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>3. AUTOMATIC PROMOTION SILVER → GOLD (every 60 sec)</div>
                       <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> <code style={{ color: asciiColors.accent }}>warehouseBuilderThread</code> checks warehouses in SILVER</div>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> If <code style={{ color: asciiColors.accent }}>last_build_status = 'SUCCESS'</code>:</div>
@@ -959,19 +960,19 @@ const DataWarehouse = () => {
                   </div>
                   <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Automatic Promotion:</strong> System checks and promotes warehouses every 60 seconds
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Automatic Promotion:</strong> System checks and promotes warehouses every 60 seconds
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Quality Gates:</strong> BRONZE → SILVER requires quality_score ≥ 70
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Quality Gates:</strong> BRONZE → SILVER requires quality_score ≥ 70
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Separate Schemas:</strong> Each layer has its own schema to prevent conflicts
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Separate Schemas:</strong> Each layer has its own schema to prevent conflicts
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Sequential Flow:</strong> Data must flow BRONZE → SILVER → GOLD (cannot skip layers)
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Sequential Flow:</strong> Data must flow BRONZE → SILVER → GOLD (cannot skip layers)
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Historical Preservation:</strong> Each layer maintains its own data snapshot
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Historical Preservation:</strong> Each layer maintains its own data snapshot
                     </div>
                   </div>
                 </div>
@@ -1070,7 +1071,7 @@ const DataWarehouse = () => {
                       </div>
                     </div>
                     <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>MEDALLION ARCHITECTURE</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>MEDALLION ARCHITECTURE</div>
                       <div style={{ fontSize: 11, lineHeight: 1.5 }}>
                         • <strong>BRONZE:</strong> Raw data copied from source (no transformation)<br/>
                         • <strong>SILVER:</strong> Cleaned and validated data (quality score ≥ 70)<br/>
@@ -1108,7 +1109,7 @@ const DataWarehouse = () => {
                     </div>
 
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
-                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>3. AUTOMATIC PROMOTION (if enabled)</div>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>3. AUTOMATIC PROMOTION (if enabled)</div>
                       <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> System checks warehouses every 60 seconds</div>
                         <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> If BRONZE build succeeds: Validate quality → Promote to SILVER</div>
@@ -1125,22 +1126,22 @@ const DataWarehouse = () => {
                   </div>
                   <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Dimensional Modeling:</strong> Automatic Star/Snowflake schema construction
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Dimensional Modeling:</strong> Automatic Star/Snowflake schema construction
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SCD Support:</strong> Type 1, 2, and 3 for historical tracking
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>SCD Support:</strong> Type 1, 2, and 3 for historical tracking
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Medallion Architecture:</strong> Automatic data quality-based promotion
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Medallion Architecture:</strong> Automatic data quality-based promotion
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Multi-Engine Support:</strong> PostgreSQL, Snowflake, BigQuery, Redshift
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Multi-Engine Support:</strong> PostgreSQL, Snowflake, BigQuery, Redshift
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Incremental Loading:</strong> Support for incremental fact table updates
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Incremental Loading:</strong> Support for incremental fact table updates
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Partitioning:</strong> Automatic table partitioning by date/range
+                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>Partitioning:</strong> Automatic table partitioning by date/range
                     </div>
                   </div>
                 </div>
