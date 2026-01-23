@@ -167,14 +167,9 @@ const CustomJobs = () => {
     isMountedRef.current = true;
     loadDataLakeConnection();
     fetchAllJobs();
-    const interval = setInterval(() => {
-      if (isMountedRef.current) {
-        fetchAllJobs();
-      }
-    }, 30000);
+    // Auto-refresh disabled - user can manually refresh if needed
     return () => {
       isMountedRef.current = false;
-      clearInterval(interval);
     };
   }, [fetchAllJobs, loadDataLakeConnection]);
 
@@ -218,24 +213,43 @@ const CustomJobs = () => {
   }, [fetchAllJobs]);
 
   const handleDelete = useCallback(async (jobName: string) => {
-    if (!confirm(`Are you sure you want to delete job "${jobName}"?`)) {
+    const job = allJobs.find(j => j.job_name === jobName);
+    if (!job) return;
+
+    const confirmMessage = `Are you sure you want to delete job "${jobName}"?\n\n` +
+      `This will delete the job from the catalog.\n\n` +
+      `IMPORTANT: Remember to manually delete the target table if no longer needed:\n` +
+      `   Table: ${job.target_schema}.${job.target_table}\n` +
+      `   Database: ${job.target_db_engine}\n` +
+      `   Connection: ${job.target_connection_string?.substring(0, 50)}...\n\n` +
+      `This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
+
     try {
       await customJobsApi.deleteJob(jobName);
-      fetchAllJobs();
+      await fetchAllJobs();
+      
+      const reminderMessage = `Job "${jobName}" deleted successfully.\n\n` +
+        `REMINDER: Don't forget to manually delete the target table if no longer needed:\n` +
+        `   DROP TABLE IF EXISTS "${job.target_schema}"."${job.target_table}" CASCADE;\n` +
+        `   (In database: ${job.target_db_engine})`;
+      
+      alert(reminderMessage);
     } catch (err) {
       if (isMountedRef.current) {
         setError(extractApiError(err));
       }
     }
-  }, [fetchAllJobs]);
+  }, [allJobs, fetchAllJobs]);
 
   const handleReboot = useCallback(async (jobName: string) => {
     const job = allJobs.find(j => j.job_name === jobName);
     if (!job) return;
 
-    const confirmMessage = `⚠️ WARNING: This will DROP the table "${job.target_schema}.${job.target_table}" and ALL its data will be PERMANENTLY DELETED!\n\n` +
+    const confirmMessage = `WARNING: This will DROP the table "${job.target_schema}.${job.target_table}" and ALL its data will be PERMANENTLY DELETED!\n\n` +
       `The table will be automatically recreated on the next job execution.\n\n` +
       `Are you absolutely sure you want to continue?`;
 
@@ -245,7 +259,7 @@ const CustomJobs = () => {
 
     try {
       const result = await customJobsApi.rebootTable(jobName);
-      alert(`✅ ${result.message || 'Table dropped successfully. It will be recreated on next execution.'}`);
+      alert(`${result.message || 'Table dropped successfully. It will be recreated on next execution.'}`);
       fetchAllJobs();
     } catch (err) {
       if (isMountedRef.current) {
@@ -564,19 +578,35 @@ const CustomJobs = () => {
       };
 
       if (editingJob) {
+        const oldJob = allJobs.find(j => j.job_name === editingJob.job_name);
         await customJobsApi.updateJob(editingJob.job_name, jobData);
+        await fetchAllJobs();
+        handleCloseModal();
+        
+        if (oldJob && (
+          oldJob.target_schema !== jobData.target_schema || 
+          oldJob.target_table !== jobData.target_table
+        )) {
+          let message = `Job "${editingJob.job_name}" updated successfully.`;
+          message += `\n\nREMINDER: The target table has changed.\n` +
+            `   Old table: ${oldJob.target_schema}.${oldJob.target_table}\n` +
+            `   New table: ${jobData.target_schema}.${jobData.target_table}\n\n` +
+            `   Consider manually deleting the old table if no longer needed:\n` +
+            `   DROP TABLE IF EXISTS "${oldJob.target_schema}"."${oldJob.target_table}" CASCADE;`;
+          
+          alert(message);
+        }
       } else {
         await customJobsApi.createJob(jobData);
+        await fetchAllJobs();
+        handleCloseModal();
       }
-      
-      await fetchAllJobs();
-      handleCloseModal();
     } catch (err) {
       if (isMountedRef.current) {
         setError(extractApiError(err));
       }
     }
-  }, [jobForm, editingJob, fetchAllJobs, handleCloseModal, editorMode, pipelineGraph]);
+  }, [jobForm, editingJob, allJobs, fetchAllJobs, handleCloseModal, editorMode, pipelineGraph]);
 
   useEffect(() => {
     if (isModalOpen && jobForm.source_db_engine === 'Python') {
@@ -608,18 +638,11 @@ const CustomJobs = () => {
           <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
           PIPELINE ORCHESTRATION
         </h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <AsciiButton
-            label="Custom Jobs Info"
-            onClick={() => setShowCustomJobsPlaybook(true)}
-            variant="ghost"
-          />
-          <AsciiButton
-            label="+ Add Pipeline"
-            onClick={() => handleOpenModal()}
-            variant="primary"
-          />
-        </div>
+        <AsciiButton
+          label="Custom Jobs Info"
+          onClick={() => setShowCustomJobsPlaybook(true)}
+          variant="ghost"
+        />
       </div>
       
       {error && (
@@ -691,6 +714,12 @@ const CustomJobs = () => {
             gap: 12,
             padding: "8px 0"
           }}>
+            <AsciiButton
+              label="Add Pipeline"
+              onClick={() => handleOpenModal()}
+              variant="primary"
+            />
+            
             <select
               value={filters.source_db_engine as string}
               onChange={(e) => handleFilterChange('source_db_engine', e.target.value)}

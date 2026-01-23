@@ -197,12 +197,13 @@ const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
               {api.status}
             </span>
             <span style={{
-              padding: "2px 8px",
-              border: `1px solid ${api.active ? asciiColors.success : asciiColors.danger}`,
+              padding: "1px 6px",
+              border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
-              color: api.active ? asciiColors.success : asciiColors.danger,
+              backgroundColor: 'transparent',
+              color: asciiColors.muted,
               fontFamily: "Consolas",
-              fontSize: 11
+              fontSize: 10
             }}>
               {api.active ? "Active" : "Inactive"}
             </span>

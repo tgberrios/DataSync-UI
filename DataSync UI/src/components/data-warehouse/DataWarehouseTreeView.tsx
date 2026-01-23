@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import type { DataWarehouseEntry } from '../../services/api';
 
 interface SchemaNode {
@@ -250,20 +251,30 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                       paddingLeft: 12,
                       borderLeft: `1px solid ${asciiColors.border}`
                     }}>
-                      <div style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        backgroundColor: warehouse.active && warehouse.enabled 
-                          ? asciiColors.success 
-                          : asciiColors.muted,
-                        boxShadow: warehouse.active && warehouse.enabled 
-                          ? `0 0 6px ${asciiColors.success}40` 
-                          : 'none',
-                        transition: 'all 0.2s'
-                      }}
-                        title={warehouse.active && warehouse.enabled ? 'Active' : 'Inactive'}
-                      />
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: 2,
+                        fontSize: 10,
+                        fontWeight: 500,
+                        backgroundColor: 'transparent',
+                        color: asciiColors.muted,
+                        fontFamily: "Consolas",
+                        border: `1px solid ${asciiColors.border}`
+                      }}>
+                        {warehouse.active ? 'Active' : 'Inactive'}
+                      </span>
+                      <span style={{
+                        padding: '1px 6px',
+                        borderRadius: 2,
+                        fontSize: 10,
+                        fontWeight: 500,
+                        backgroundColor: warehouse.enabled ? asciiColors.accent : asciiColors.danger,
+                        color: warehouse.enabled ? asciiColors.background : asciiColors.background,
+                        fontFamily: "Consolas",
+                        border: `1px solid ${warehouse.enabled ? asciiColors.accent : asciiColors.danger}`
+                      }}>
+                        {warehouse.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
                       {warehouse.last_build_status === 'SUCCESS' && (
                         <span 
                           style={{ 
@@ -290,6 +301,22 @@ const DataWarehouseTreeView: React.FC<TreeViewProps> = ({
                           ✗
                         </span>
                       )}
+                      <div style={{ display: 'flex', gap: 4, marginLeft: 4 }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                        {onWarehouseEdit && (
+                          <AsciiButton
+                            label="Edit"
+                            onClick={() => onWarehouseEdit(warehouse)}
+                            variant="ghost"
+                          />
+                        )}
+                        {onWarehouseDelete && (
+                          <AsciiButton
+                            label="Delete"
+                            onClick={() => onWarehouseDelete(warehouse.warehouse_name)}
+                            variant="ghost"
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

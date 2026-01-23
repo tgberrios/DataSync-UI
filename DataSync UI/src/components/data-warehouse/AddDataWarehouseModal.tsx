@@ -7,7 +7,7 @@ import { extractApiError } from '../../utils/errorHandler';
 
 interface AddDataWarehouseModalProps {
   onClose: () => void;
-  onSave: () => void;
+  onSave: (oldWarehouse?: DataWarehouseEntry, newWarehouseData?: any) => void;
   initialData?: DataWarehouseEntry | null;
 }
 
@@ -415,11 +415,11 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
 
       if (initialData) {
         await dataWarehouseApi.updateWarehouse(initialData.warehouse_name, warehouseData);
+        onSave(initialData, warehouseData);
       } else {
         await dataWarehouseApi.createWarehouse(warehouseData);
+        onSave();
       }
-
-      onSave();
     } catch (err) {
       setError(extractApiError(err));
     } finally {
@@ -651,6 +651,7 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                     type="text"
                     value={formData.warehouse_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, warehouse_name: e.target.value }))}
+                    disabled={!!initialData}
                     placeholder="my_warehouse"
                     style={{
                       width: '100%',
@@ -659,10 +660,11 @@ const AddDataWarehouseModal: React.FC<AddDataWarehouseModalProps> = ({ onClose, 
                       borderRadius: 2,
                       fontSize: 12,
                       fontFamily: 'Consolas',
-                      backgroundColor: asciiColors.background,
-                      color: asciiColors.foreground,
+                      backgroundColor: initialData ? asciiColors.backgroundSoft : asciiColors.background,
+                      color: initialData ? asciiColors.muted : asciiColors.foreground,
                       outline: 'none',
-                      transition: 'border-color 0.2s, box-shadow 0.2s'
+                      transition: 'border-color 0.2s, box-shadow 0.2s',
+                      cursor: initialData ? 'not-allowed' : 'text'
                     }}
                     onFocus={(e) => {
                       e.currentTarget.style.borderColor = asciiColors.accent;

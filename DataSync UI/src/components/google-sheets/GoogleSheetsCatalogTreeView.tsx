@@ -185,33 +185,18 @@ const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntry
             }}>
               {sheet.status}
             </span>
-            {sheet.active ? (
-              <span style={{
-                padding: '2px 8px',
-                borderRadius: 2,
-                fontSize: 11,
-                fontWeight: 500,
-                backgroundColor: asciiColors.success,
-                color: asciiColors.background,
-                fontFamily: "Consolas",
-                border: `1px solid ${asciiColors.success}`
-              }}>
-                Active
-              </span>
-            ) : (
-              <span style={{
-                padding: '2px 8px',
-                borderRadius: 2,
-                fontSize: 11,
-                fontWeight: 500,
-                backgroundColor: asciiColors.danger,
-                color: asciiColors.background,
-                fontFamily: "Consolas",
-                border: `1px solid ${asciiColors.danger}`
-              }}>
-                Inactive
-              </span>
-            )}
+            <span style={{
+              padding: '1px 6px',
+              borderRadius: 2,
+              fontSize: 10,
+              fontWeight: 500,
+              backgroundColor: 'transparent',
+              color: asciiColors.muted,
+              fontFamily: "Consolas",
+              border: `1px solid ${asciiColors.border}`
+            }}>
+              {sheet.active ? 'Active' : 'Inactive'}
+            </span>
             {onDuplicate && (
               <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <AsciiButton

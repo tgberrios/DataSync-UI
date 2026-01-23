@@ -12487,6 +12487,11 @@ app.put(
         ["STAR_SCHEMA", "SNOWFLAKE_SCHEMA"],
         null
       );
+      const target_layer = validateEnum(
+        req.body.target_layer,
+        ["BRONZE", "SILVER", "GOLD"],
+        "BRONZE"
+      );
       const source_db_engine = validateEnum(
         req.body.source_db_engine,
         ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
@@ -21137,7 +21142,7 @@ app.post("/api/dbt/models/:modelName/execute", requireAuth, requireRole("admin",
     }
 
     const result = await pool.query(
-      "SELECT model_name FROM metadata.dbt_models WHERE model_name = $1 AND active = true",
+      "SELECT model_name, metadata FROM metadata.dbt_models WHERE model_name = $1 AND active = true",
       [modelName]
     );
 
@@ -21145,47 +21150,22 @@ app.post("/api/dbt/models/:modelName/execute", requireAuth, requireRole("admin",
       return res.status(404).json({ error: "Model not found or inactive" });
     }
 
-    const { spawn } = await import("child_process");
-    const cppProcess = spawn("./DataSync", ["--execute-dbt-model", modelName], {
-      cwd: process.cwd(),
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const currentMetadata = result.rows[0].metadata || {};
+    currentMetadata.execute_now = true;
 
-    let stdout = "";
-    let stderr = "";
+    await pool.query(
+      "UPDATE metadata.dbt_models SET metadata = $1::jsonb, updated_at = NOW() WHERE model_name = $2",
+      [JSON.stringify(currentMetadata), modelName]
+    );
 
-    cppProcess.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    cppProcess.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    cppProcess.on("close", async (code) => {
-      if (code === 0) {
-        const runResult = await pool.query(
-          `SELECT * FROM metadata.dbt_model_runs 
-           WHERE model_name = $1 ORDER BY created_at DESC LIMIT 1`,
-          [modelName]
-        );
-        res.json({
-          success: true,
-          message: "Model executed successfully",
-          run: runResult.rows[0] || null,
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          error: "Model execution failed",
-          stderr: stderr,
-        });
-      }
+    res.json({
+      success: true,
+      message: "Model execution queued. DataSync will execute it shortly.",
     });
   } catch (err) {
-    console.error("Error executing dbt model:", err);
+    console.error("Error queueing dbt model execution:", err);
     res.status(500).json({
-      error: sanitizeError(err, "Error executing dbt model", process.env.NODE_ENV === "production"),
+      error: sanitizeError(err, "Error queueing dbt model execution", process.env.NODE_ENV === "production"),
     });
   }
 });
@@ -21220,47 +21200,31 @@ app.post("/api/dbt/models/:modelName/tests/run", requireAuth, requireRole("admin
       return res.status(400).json({ error: "Invalid model name" });
     }
 
-    const { spawn } = await import("child_process");
-    const cppProcess = spawn("./DataSync", ["--run-dbt-tests", modelName], {
-      cwd: process.cwd(),
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const result = await pool.query(
+      "SELECT model_name, metadata FROM metadata.dbt_models WHERE model_name = $1 AND active = true",
+      [modelName]
+    );
 
-    let stdout = "";
-    let stderr = "";
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Model not found or inactive" });
+    }
 
-    cppProcess.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
+    const currentMetadata = result.rows[0].metadata || {};
+    currentMetadata.run_tests = true;
 
-    cppProcess.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
+    await pool.query(
+      "UPDATE metadata.dbt_models SET metadata = $1::jsonb, updated_at = NOW() WHERE model_name = $2",
+      [JSON.stringify(currentMetadata), modelName]
+    );
 
-    cppProcess.on("close", async (code) => {
-      if (code === 0) {
-        const testResults = await pool.query(
-          `SELECT * FROM metadata.dbt_test_results 
-           WHERE model_name = $1 ORDER BY created_at DESC LIMIT 50`,
-          [modelName]
-        );
-        res.json({
-          success: true,
-          message: "Tests executed successfully",
-          results: testResults.rows,
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          error: "Test execution failed",
-          stderr: stderr,
-        });
-      }
+    res.json({
+      success: true,
+      message: "Test execution queued. DataSync will execute it shortly.",
     });
   } catch (err) {
-    console.error("Error running dbt tests:", err);
+    console.error("Error queueing dbt tests:", err);
     res.status(500).json({
-      error: sanitizeError(err, "Error running dbt tests", process.env.NODE_ENV === "production"),
+      error: sanitizeError(err, "Error queueing dbt tests", process.env.NODE_ENV === "production"),
     });
   }
 });
@@ -21388,8 +21352,16 @@ app.get("/api/dbt/models/:modelName/compile", requireAuth, requireRole("admin", 
     }
 
     const { spawn } = await import("child_process");
-    const cppProcess = spawn("./DataSync", ["--compile-dbt-model", modelName], {
-      cwd: process.cwd(),
+    const DataSyncPath = path.join(process.cwd(), "..", "DataSync", "DataSync");
+    
+    if (!fs.existsSync(DataSyncPath)) {
+      return res.status(500).json({
+        error: `DataSync executable not found at: ${DataSyncPath}`,
+      });
+    }
+
+    const cppProcess = spawn(DataSyncPath, ["--compile-dbt-model", modelName], {
+      cwd: path.join(process.cwd(), "..", "DataSync"),
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -21404,13 +21376,35 @@ app.get("/api/dbt/models/:modelName/compile", requireAuth, requireRole("admin", 
       stderr += data.toString();
     });
 
+    cppProcess.on("error", (err) => {
+      console.error("Error spawning DataSync process:", err);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "Failed to start DataSync process",
+          details: err.message,
+        });
+      }
+    });
+
     cppProcess.on("close", (code) => {
+      if (res.headersSent) return;
+      
       if (code === 0) {
-        res.json({ compiled_sql: stdout.trim() });
+        try {
+          const output = JSON.parse(stdout);
+          if (output.compiled_sql) {
+            res.json({ compiled_sql: output.compiled_sql });
+          } else {
+            res.json({ compiled_sql: stdout.trim() });
+          }
+        } catch (parseErr) {
+          res.json({ compiled_sql: stdout.trim() });
+        }
       } else {
         res.status(500).json({
           error: "Compilation failed",
-          stderr: stderr,
+          stderr: stderr || stdout,
+          exitCode: code,
         });
       }
     });

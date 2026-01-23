@@ -143,12 +143,13 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick }) => 
               {entry.status}
             </span>
             <span style={{
-              padding: "2px 8px",
-              border: `1px solid ${entry.active ? asciiColors.success : asciiColors.danger}`,
+              padding: "1px 6px",
+              border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
-              color: entry.active ? asciiColors.success : asciiColors.danger,
+              backgroundColor: 'transparent',
+              color: asciiColors.muted,
               fontFamily: "Consolas",
-              fontSize: 11
+              fontSize: 10
             }}>
               {entry.active ? "Active" : "Inactive"}
             </span>

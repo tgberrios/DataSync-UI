@@ -32,8 +32,6 @@ const DBTModelEditor = ({ model, onClose }: DBTModelEditorProps) => {
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [compiledSQL, setCompiledSQL] = useState<string | null>(null);
-  const [compiling, setCompiling] = useState(false);
 
   useEffect(() => {
     if (model) {
@@ -85,23 +83,6 @@ const DBTModelEditor = ({ model, onClose }: DBTModelEditorProps) => {
     }
   };
 
-  const handleCompile = async () => {
-    if (!formData.model_name) {
-      setError('Please save the model first before compiling');
-      return;
-    }
-
-    try {
-      setCompiling(true);
-      setError(null);
-      const result = await dbtApi.compileModel(formData.model_name);
-      setCompiledSQL(result.compiled_sql);
-    } catch (err) {
-      setError(extractApiError(err));
-    } finally {
-      setCompiling(false);
-    }
-  };
 
   return (
     <div
@@ -130,9 +111,11 @@ const DBTModelEditor = ({ model, onClose }: DBTModelEditorProps) => {
             <h2 style={{ color: asciiColors.cyan, margin: 0 }}>
               {model ? 'Edit Model' : 'New Model'}
             </h2>
-            <AsciiButton onClick={onClose} style={{ color: asciiColors.red }}>
-              {ascii.close} Close
-            </AsciiButton>
+            <AsciiButton 
+              label="Close" 
+              onClick={onClose} 
+              variant="ghost"
+            />
           </div>
 
           {error && (
@@ -336,41 +319,12 @@ const DBTModelEditor = ({ model, onClose }: DBTModelEditorProps) => {
             </div>
           </div>
 
-          {compiledSQL && (
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ color: asciiColors.cyan, display: 'block', marginBottom: '5px' }}>
-                Compiled SQL:
-              </label>
-              <pre
-                style={{
-                  padding: '10px',
-                  backgroundColor: asciiColors.bgDark,
-                  border: `1px solid ${asciiColors.border}`,
-                  overflow: 'auto',
-                  maxHeight: '300px',
-                  fontSize: '12px',
-                }}
-              >
-                {compiledSQL}
-              </pre>
-            </div>
-          )}
-
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            {model && (
-              <AsciiButton
-                onClick={handleCompile}
-                disabled={compiling}
-              >
-                {compiling ? ascii.loading : ascii.code} Compile
-              </AsciiButton>
-            )}
             <AsciiButton
+              label={saving ? ascii.loading : "Save"}
               onClick={handleSave}
               disabled={saving}
-            >
-              {saving ? ascii.loading : ascii.save} Save
-            </AsciiButton>
+            />
           </div>
         </div>
       </AsciiPanel>

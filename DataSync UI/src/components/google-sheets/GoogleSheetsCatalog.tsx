@@ -80,14 +80,15 @@ const GoogleSheetsCatalog = () => {
   useEffect(() => {
     isMountedRef.current = true;
     fetchAllEntries();
-    const interval = setInterval(() => {
-      if (isMountedRef.current && !showAddModal) {
-        fetchAllEntries();
-      }
-    }, 30000);
+    // Auto-refresh disabled - user can manually refresh if needed
+    // const interval = setInterval(() => {
+    //   if (isMountedRef.current && !showAddModal) {
+    //     fetchAllEntries();
+    //   }
+    // }, 30000);
     return () => {
       isMountedRef.current = false;
-      clearInterval(interval);
+      // clearInterval(interval);
     };
   }, [fetchAllEntries, showAddModal]);
 

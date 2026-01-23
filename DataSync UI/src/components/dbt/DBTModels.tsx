@@ -19,7 +19,7 @@ const DBTModels = () => {
   const [editingModel, setEditingModel] = useState<DBTModel | null>(null);
   const [selectedModel, setSelectedModel] = useState<DBTModel | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tests'>('list');
-  const [executingModel, setExecutingModel] = useState<string | null>(null);
+  const [showDBTPlaybook, setShowDBTPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchModels = useCallback(async () => {
@@ -107,19 +107,6 @@ const DBTModels = () => {
     fetchModels();
   }, [fetchModels]);
 
-  const handleExecute = useCallback(async (modelName: string) => {
-    try {
-      setExecutingModel(modelName);
-      await dbtApi.executeModel(modelName);
-      fetchModels();
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(extractApiError(err));
-      }
-    } finally {
-      setExecutingModel(null);
-    }
-  }, [fetchModels]);
 
   const handleViewTests = useCallback((model: DBTModel) => {
     setSelectedModel(model);
@@ -168,9 +155,17 @@ const DBTModels = () => {
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h2 style={{ color: asciiColors.cyan, margin: 0 }}>DBT MODELS</h2>
-            <AsciiButton onClick={() => handleOpenModal()}>
-              {ascii.plus} New Model
-            </AsciiButton>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <AsciiButton 
+                label="DBT Playbook" 
+                onClick={() => setShowDBTPlaybook(true)} 
+                variant="ghost"
+              />
+              <AsciiButton 
+                label="New Model" 
+                onClick={() => handleOpenModal()}
+              />
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
@@ -189,9 +184,10 @@ const DBTModels = () => {
                 fontFamily: 'monospace',
               }}
             />
-            <AsciiButton onClick={handleSearch}>
-              {ascii.search} Search
-            </AsciiButton>
+            <AsciiButton 
+              label="Search" 
+              onClick={handleSearch}
+            />
           </div>
 
           {error && (
@@ -264,32 +260,31 @@ const DBTModels = () => {
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
                     <AsciiButton
-                      onClick={() => handleExecute(model.model_name)}
-                      disabled={executingModel === model.model_name}
-                      style={{ fontSize: '11px', padding: '5px 10px' }}
-                    >
-                      {executingModel === model.model_name ? ascii.loading : ascii.play} Execute
-                    </AsciiButton>
+                      label="Tests"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewTests(model);
+                      }}
+                      variant="ghost"
+                    />
                     <AsciiButton
-                      onClick={() => handleViewTests(model)}
-                      style={{ fontSize: '11px', padding: '5px 10px' }}
-                    >
-                      {ascii.check} Tests
-                    </AsciiButton>
+                      label="Edit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenModal(model);
+                      }}
+                      variant="ghost"
+                    />
                     <AsciiButton
-                      onClick={() => handleOpenModal(model)}
-                      style={{ fontSize: '11px', padding: '5px 10px' }}
-                    >
-                      {ascii.edit} Edit
-                    </AsciiButton>
-                    <AsciiButton
-                      onClick={() => handleDelete(model.model_name)}
-                      style={{ fontSize: '11px', padding: '5px 10px', color: asciiColors.red }}
-                    >
-                      {ascii.delete} Delete
-                    </AsciiButton>
+                      label="Delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(model.model_name);
+                      }}
+                      variant="ghost"
+                    />
                   </div>
                 </div>
               </div>
@@ -303,6 +298,190 @@ const DBTModels = () => {
           model={editingModel}
           onClose={handleCloseModal}
         />
+      )}
+
+      {showDBTPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowDBTPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="DBT MODELS PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    DBT (data build tool) Models are SQL-based transformation models that follow the "analytics engineering" methodology. 
+                    Models are written as SQL queries that transform raw data into analytics-ready tables, views, or incremental models. 
+                    The system supports dbt-style materializations, macros, tests, dependencies, and version control integration.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} KEY CONCEPTS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>MATERIALIZATIONS</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>Table:</strong> Creates a physical table (full refresh on each run)<br/>
+                        • <strong>View:</strong> Creates a database view (no storage, computed on query)<br/>
+                        • <strong>Incremental:</strong> Only processes new/changed rows (efficient for large datasets)<br/>
+                        • <strong>Ephemeral:</strong> CTE-based model (no database object created, used in other models)
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>MODEL DEPENDENCIES</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>depends_on:</strong> Array of model names that this model depends on<br/>
+                        • <strong>Dependency Resolution:</strong> System automatically builds models in correct order<br/>
+                        • <strong>Reference Syntax:</strong> Use <code style={{ color: asciiColors.accent }}>{`{{ ref('model_name') }}`}</code> in SQL to reference other models<br/>
+                        • <strong>Circular Dependencies:</strong> Detected and prevented during validation
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>TESTS & DATA QUALITY</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>Test Types:</strong> not_null, unique, relationships, accepted_values, custom, expression<br/>
+                        • <strong>Column Tests:</strong> Validate specific columns meet business rules<br/>
+                        • <strong>Model Tests:</strong> Validate entire model outputs<br/>
+                        • <strong>Severity:</strong> error (fails build) or warn (logs warning)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} EXECUTION PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.muted, marginBottom: 8, fontSize: 11 }}>1. MODEL COMPILATION</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Resolve <code style={{ color: asciiColors.accent }}>{`{{ ref('model_name') }}`}</code> references to actual table/view names</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Expand macro calls <code style={{ color: asciiColors.accent }}>{`{{ macro_name(args) }}`}</code> to SQL code</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Replace variables and configuration values</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Generate final compiled SQL query</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>2. DEPENDENCY RESOLUTION</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Build dependency graph from <code style={{ color: asciiColors.accent }}>depends_on</code> arrays</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Topological sort to determine execution order</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Execute upstream models before downstream models</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Parallel execution when dependencies allow</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>3. MATERIALIZATION</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> <strong>Table:</strong> <code style={{ color: asciiColors.accent }}>CREATE TABLE AS SELECT</code> or <code style={{ color: asciiColors.accent }}>DROP + CREATE</code></div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> <strong>View:</strong> <code style={{ color: asciiColors.accent }}>CREATE OR REPLACE VIEW</code></div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> <strong>Incremental:</strong> <code style={{ color: asciiColors.accent }}>INSERT</code> new rows or <code style={{ color: asciiColors.accent }}>MERGE</code> based on unique key</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> <strong>Ephemeral:</strong> No database object, SQL inlined into dependent models</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>4. TEST EXECUTION</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Run all tests defined for the model</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Column tests: Validate not_null, unique, accepted_values, etc.</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Relationship tests: Validate foreign key relationships</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Custom tests: Execute custom SQL test expressions</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} KEY FEATURES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SQL-Based:</strong> Write transformations in standard SQL (PostgreSQL, Snowflake, BigQuery, Redshift)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Macro Support:</strong> Reusable SQL functions with parameters
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Dependency Management:</strong> Automatic build order resolution
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Data Quality Tests:</strong> Built-in and custom tests for validation
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Version Control:</strong> Git commit hash and branch tracking
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Incremental Models:</strong> Efficient processing of large datasets
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Documentation:</strong> Model and column-level documentation
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground, lineHeight: 1.6 }}>
+                    • Use incremental materialization for large fact tables that grow over time<br/>
+                    • Use views for lightweight transformations that don't need materialization<br/>
+                    • Define clear dependencies using <code style={{ color: asciiColors.accent }}>depends_on</code> array<br/>
+                    • Write comprehensive tests to catch data quality issues early<br/>
+                    • Use macros to avoid SQL code duplication<br/>
+                    • Document models and columns for better maintainability<br/>
+                    • Use tags to organize and filter models (e.g., "staging", "marts", "intermediate")<br/>
+                    • Keep models focused on single business concepts (one model = one purpose)<br/>
+                    • Test models in development before deploying to production<br/>
+                    • Monitor model execution times and optimize slow queries
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowDBTPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );

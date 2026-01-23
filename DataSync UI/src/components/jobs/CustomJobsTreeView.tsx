@@ -372,180 +372,71 @@ const CustomJobsTreeView: React.FC<TreeViewProps> = ({
           </span>
         )}
         <span style={{
-          padding: '2px 8px',
+          padding: '1px 6px',
           borderRadius: 2,
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 500,
-          backgroundColor: job.active ? asciiColors.success : asciiColors.danger,
-          color: asciiColors.background,
+          backgroundColor: 'transparent',
+          color: asciiColors.muted,
           fontFamily: "Consolas",
-          border: `1px solid ${job.active ? asciiColors.success : asciiColors.danger}`
+          border: `1px solid ${asciiColors.border}`
         }}>
           {job.active ? 'Active' : 'Inactive'}
         </span>
         <span style={{
-          padding: '2px 8px',
+          padding: '1px 6px',
           borderRadius: 2,
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 500,
-          backgroundColor: job.enabled ? asciiColors.success : asciiColors.danger,
-          color: asciiColors.background,
+          backgroundColor: job.enabled ? asciiColors.accent : asciiColors.danger,
+          color: job.enabled ? asciiColors.background : asciiColors.background,
           fontFamily: "Consolas",
-          border: `1px solid ${job.enabled ? asciiColors.success : asciiColors.danger}`
+          border: `1px solid ${job.enabled ? asciiColors.accent : asciiColors.danger}`
         }}>
           {job.enabled ? 'Enabled' : 'Disabled'}
         </span>
-        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           {onJobExecute && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onJobExecute(job.job_name);
-              }}
-              title={`Execute job: ${job.job_name}`}
-              style={{
-                padding: '4px 8px',
-                border: `1px solid ${asciiColors.accent}`,
-                borderRadius: 2,
-                background: asciiColors.accent,
-                color: asciiColors.background,
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: "Consolas",
-                fontWeight: 600,
-                outline: "none"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.accentSoft;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.accent;
-              }}
-            >
-              ▶
-            </button>
+            <AsciiButton
+              label="▶"
+              onClick={() => onJobExecute(job.job_name)}
+              variant="ghost"
+            />
           )}
           {onJobDuplicate && (
-            <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-              <AsciiButton
-                label="Duplicate"
-                onClick={() => onJobDuplicate(job)}
-                variant="primary"
-              />
-            </div>
+            <AsciiButton
+              label="Duplicate"
+              onClick={() => onJobDuplicate(job)}
+              variant="ghost"
+            />
           )}
           {onJobEdit && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onJobEdit(job);
-              }}
-              style={{
-                padding: '4px 8px',
-                border: `1px solid ${asciiColors.border}`,
-                borderRadius: 2,
-                background: asciiColors.background,
-                color: asciiColors.foreground,
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: "Consolas",
-                fontWeight: 600,
-                outline: "none"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.background;
-              }}
-            >
-              Edit
-            </button>
+            <AsciiButton
+              label="Edit"
+              onClick={() => onJobEdit(job)}
+              variant="ghost"
+            />
           )}
           {onJobToggleActive && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onJobToggleActive(job.job_name, job.active);
-              }}
-              style={{
-                padding: '4px 8px',
-                border: `1px solid ${asciiColors.border}`,
-                borderRadius: 2,
-                background: asciiColors.background,
-                color: asciiColors.foreground,
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: "Consolas",
-                fontWeight: 600,
-                outline: "none"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.background;
-              }}
-            >
-              {job.active ? 'Deactivate' : 'Activate'}
-            </button>
+            <AsciiButton
+              label={job.active ? 'Deactivate' : 'Activate'}
+              onClick={() => onJobToggleActive(job.job_name, job.active)}
+              variant="ghost"
+            />
           )}
           {onJobDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onJobDelete(job.job_name);
-              }}
-              style={{
-                padding: '4px 8px',
-                border: `1px solid ${asciiColors.danger}`,
-                borderRadius: 2,
-                background: asciiColors.danger,
-                color: asciiColors.background,
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: "Consolas",
-                fontWeight: 600,
-                outline: "none"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.danger + "CC";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.danger;
-              }}
-            >
-              Delete
-            </button>
+            <AsciiButton
+              label="Delete"
+              onClick={() => onJobDelete(job.job_name)}
+              variant="ghost"
+            />
           )}
           {onJobReboot && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onJobReboot(job.job_name);
-              }}
-              title={`Reboot table: ${job.target_schema}.${job.target_table}`}
-              style={{
-                padding: '4px 8px',
-                border: `1px solid ${asciiColors.warning}`,
-                borderRadius: 2,
-                background: asciiColors.warning,
-                color: asciiColors.background,
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: "Consolas",
-                fontWeight: 600,
-                outline: "none"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.warning + "CC";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = asciiColors.warning;
-              }}
-            >
-              🔄 Reboot
-            </button>
+            <AsciiButton
+              label="Reboot"
+              onClick={() => onJobReboot(job.job_name)}
+              variant="ghost"
+            />
           )}
         </div>
       </div>

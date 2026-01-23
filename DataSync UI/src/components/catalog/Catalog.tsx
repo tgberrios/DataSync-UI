@@ -353,16 +353,16 @@ const Catalog = () => {
     fetchAllEntries();
   }, [fetchAllEntries]);
 
-  // Configurar el intervalo de actualización
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (isMountedRef.current) {
-        fetchAllEntries();
-      }
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [fetchAllEntries]);
+  // Auto-refresh disabled - user can manually refresh if needed
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (isMountedRef.current) {
+  //       fetchAllEntries();
+  //     }
+  //   }, 30000);
+  //   
+  //   return () => clearInterval(interval);
+  // }, [fetchAllEntries]);
 
   if (loadingTree && allEntries.length === 0) {
     return <SkeletonLoader variant="table" />;

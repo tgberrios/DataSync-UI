@@ -34,6 +34,7 @@ const Workflows = () => {
   const [isBackfillModalOpen, setIsBackfillModalOpen] = useState(false);
   const [isVersionHistoryModalOpen, setIsVersionHistoryModalOpen] = useState(false);
   const [isTaskQueuePanelOpen, setIsTaskQueuePanelOpen] = useState(false);
+  const [showWorkflowPlaybook, setShowWorkflowPlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
   const fetchAllWorkflows = useCallback(async () => {
@@ -200,7 +201,12 @@ const Workflows = () => {
         </h1>
         <div style={{ display: "flex", gap: 8 }}>
           <AsciiButton
-            label={viewMode === 'list' ? '📊 Monitor' : '📋 List'}
+            label="Workflow Playbook"
+            onClick={() => setShowWorkflowPlaybook(true)}
+            variant="ghost"
+          />
+          <AsciiButton
+            label={viewMode === 'list' ? 'Monitor' : 'List'}
             onClick={() => setViewMode(viewMode === 'list' ? 'monitor' : 'list')}
             variant="ghost"
           />
@@ -488,6 +494,190 @@ const Workflows = () => {
         <TaskQueuePanel
           onClose={() => setIsTaskQueuePanelOpen(false)}
         />
+      )}
+
+      {showWorkflowPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowWorkflowPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="WORKFLOW ORCHESTRATION PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Workflows are Directed Acyclic Graphs (DAGs) that orchestrate and automate complex data pipelines. 
+                    They enable you to chain together multiple tasks (Custom Jobs, Data Warehouses, Data Vaults, Syncs, API Calls, Scripts) 
+                    with dependencies, retry policies, SLA monitoring, and rollback capabilities. Workflows can be triggered manually, 
+                    scheduled via cron, or invoked via API/events.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} KEY CONCEPTS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>TASKS</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>Task Types:</strong> CUSTOM_JOB, DATA_WAREHOUSE, DATA_VAULT, SYNC, API_CALL, SCRIPT, SUB_WORKFLOW<br/>
+                        • <strong>Task Reference:</strong> Name of the job/warehouse/vault/etc. to execute<br/>
+                        • <strong>Task Config:</strong> JSON configuration specific to task type<br/>
+                        • <strong>Priority:</strong> Higher priority tasks execute first when multiple are ready
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>DEPENDENCIES</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>Upstream Task:</strong> Task that must complete before downstream task runs<br/>
+                        • <strong>Downstream Task:</strong> Task that waits for upstream task(s)<br/>
+                        • <strong>Dependency Types:</strong> SUCCESS (must succeed), COMPLETION (any status), SKIP_ON_FAILURE (skip if upstream fails)<br/>
+                        • <strong>Conditional Execution:</strong> Tasks can have IF/ELSE conditions based on upstream task outputs
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>RETRY & SLA</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>Retry Policy:</strong> max_retries, retry_delay_seconds, retry_backoff_multiplier<br/>
+                        • <strong>SLA Config:</strong> max_execution_time_seconds, alert_on_sla_breach<br/>
+                        • <strong>Rollback:</strong> Automatic rollback on failure/timeout (configurable depth)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} EXECUTION PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.muted, marginBottom: 8, fontSize: 11 }}>1. WORKFLOW TRIGGER</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> <strong>Scheduled:</strong> Cron expression triggers workflow at specified times</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> <strong>Manual:</strong> User clicks "Execute" button</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> <strong>API:</strong> External system calls workflow execution endpoint</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> <strong>Event:</strong> Workflow triggered by data/event conditions</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>2. DEPENDENCY RESOLUTION</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Build dependency graph from workflow dependencies</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Identify ready tasks (all upstream dependencies met)</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Sort ready tasks by priority (higher priority first)</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Evaluate conditional expressions (IF/ELSE) based on upstream outputs</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>3. TASK EXECUTION</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Execute ready tasks in parallel (when possible)</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Monitor task execution status (PENDING → RUNNING → SUCCESS/FAILED)</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> On failure: Retry based on retry_policy (exponential backoff)</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Check SLA: Alert if execution exceeds max_execution_time_seconds</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Store task outputs for downstream task condition evaluation</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>4. WORKFLOW COMPLETION</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Continue until all tasks complete or workflow fails</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> On critical failure: Trigger rollback (if enabled)</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Update workflow execution status and metrics</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Store execution history for monitoring and debugging</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} KEY FEATURES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>DAG Execution:</strong> Automatic dependency resolution and parallel execution
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Retry Logic:</strong> Configurable retry policies with exponential backoff
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SLA Monitoring:</strong> Track execution time and alert on breaches
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Rollback:</strong> Automatic rollback on failure with configurable depth
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Conditional Logic:</strong> IF/ELSE conditions based on task outputs
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Version History:</strong> Track workflow changes and restore previous versions
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Backfill:</strong> Re-run workflows for historical date ranges
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground, lineHeight: 1.6 }}>
+                    • Design workflows with clear dependencies and minimal complexity<br/>
+                    • Use appropriate retry policies for transient failures (network, temporary locks)<br/>
+                    • Set realistic SLA timeouts based on expected execution duration<br/>
+                    • Enable rollback for critical workflows that modify production data<br/>
+                    • Use conditional logic to handle different execution paths based on data conditions<br/>
+                    • Monitor workflow execution history to identify bottlenecks and failures<br/>
+                    • Use SUB_WORKFLOW tasks to modularize complex workflows<br/>
+                    • Schedule workflows during off-peak hours for resource-intensive operations<br/>
+                    • Test workflows in development before deploying to production
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowWorkflowPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );

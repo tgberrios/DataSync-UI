@@ -96,12 +96,16 @@ const DBTTestRunner = ({ model, onBack }: DBTTestRunnerProps) => {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <AsciiButton onClick={handleRunTests} disabled={running}>
-                {running ? ascii.loading : ascii.play} Run All Tests
-              </AsciiButton>
-              <AsciiButton onClick={onBack}>
-                {ascii.back} Back
-              </AsciiButton>
+              <AsciiButton 
+                label="Run All Tests" 
+                onClick={handleRunTests} 
+                disabled={running}
+              />
+              <AsciiButton 
+                label="Back" 
+                onClick={onBack}
+                variant="ghost"
+              />
             </div>
           </div>
 

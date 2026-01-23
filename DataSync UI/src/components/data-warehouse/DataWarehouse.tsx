@@ -31,6 +31,7 @@ const DataWarehouse = () => {
   const [editingWarehouse, setEditingWarehouse] = useState<DataWarehouseEntry | null>(null);
   const [selectedWarehouse, setSelectedWarehouse] = useState<DataWarehouseEntry | null>(null);
   const [showDataWarehousePlaybook, setShowDataWarehousePlaybook] = useState(false);
+  const [showDataWarehouseGeneralPlaybook, setShowDataWarehouseGeneralPlaybook] = useState(false);
   const [showCleanupModal, setShowCleanupModal] = useState(false);
   const isMountedRef = useRef(true);
 
@@ -96,18 +97,42 @@ const DataWarehouse = () => {
   }, [handleSearch]);
 
   const handleDelete = useCallback(async (warehouseName: string) => {
-    if (!confirm(`Are you sure you want to delete warehouse "${warehouseName}"?`)) {
+    const warehouse = allWarehouses.find(w => w.warehouse_name === warehouseName);
+    if (!warehouse) return;
+
+    const confirmMessage = `Are you sure you want to delete warehouse "${warehouseName}"?\n\n` +
+      `This will delete the warehouse from the catalog.\n\n` +
+      `IMPORTANT: Remember to manually delete the target schemas if no longer needed:\n` +
+      `   Schemas: ${warehouse.target_schema}_bronze, ${warehouse.target_schema}_silver, ${warehouse.target_schema}_gold\n` +
+      `   Database: ${warehouse.target_db_engine}\n` +
+      `   Connection: ${warehouse.target_connection_string?.substring(0, 50)}...\n\n` +
+      `This action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
+
     try {
       await dataWarehouseApi.deleteWarehouse(warehouseName);
-      fetchAllWarehouses();
+      await fetchAllWarehouses();
+      if (selectedWarehouse?.warehouse_name === warehouseName) {
+        setSelectedWarehouse(null);
+      }
+      
+      const reminderMessage = `Warehouse "${warehouseName}" deleted successfully.\n\n` +
+        `REMINDER: Don't forget to manually delete the target schemas if no longer needed:\n` +
+        `   DROP SCHEMA IF EXISTS "${warehouse.target_schema}_bronze" CASCADE;\n` +
+        `   DROP SCHEMA IF EXISTS "${warehouse.target_schema}_silver" CASCADE;\n` +
+        `   DROP SCHEMA IF EXISTS "${warehouse.target_schema}_gold" CASCADE;\n` +
+        `   (In database: ${warehouse.target_db_engine})`;
+      
+      alert(reminderMessage);
     } catch (err) {
       if (isMountedRef.current) {
         setError(extractApiError(err));
       }
     }
-  }, [fetchAllWarehouses]);
+  }, [allWarehouses, selectedWarehouse, fetchAllWarehouses]);
 
   const handleOpenModal = useCallback((warehouse?: DataWarehouseEntry) => {
     if (warehouse) {
@@ -123,9 +148,24 @@ const DataWarehouse = () => {
     setEditingWarehouse(null);
   }, []);
 
-  const handleSave = useCallback(() => {
-    fetchAllWarehouses();
+  const handleSave = useCallback(async (oldWarehouse?: DataWarehouseEntry, newWarehouseData?: any) => {
+    await fetchAllWarehouses();
     handleCloseModal();
+    
+    if (oldWarehouse && newWarehouseData && (
+      oldWarehouse.target_schema !== newWarehouseData.target_schema
+    )) {
+      let message = `Warehouse "${oldWarehouse.warehouse_name}" updated successfully.`;
+      message += `\n\nREMINDER: The target schema has changed.\n` +
+        `   Old schema: ${oldWarehouse.target_schema}\n` +
+        `   New schema: ${newWarehouseData.target_schema}\n\n` +
+        `   Consider manually deleting the old schemas if no longer needed:\n` +
+        `   DROP SCHEMA IF EXISTS "${oldWarehouse.target_schema}_bronze" CASCADE;\n` +
+        `   DROP SCHEMA IF EXISTS "${oldWarehouse.target_schema}_silver" CASCADE;\n` +
+        `   DROP SCHEMA IF EXISTS "${oldWarehouse.target_schema}_gold" CASCADE;`;
+      
+      alert(message);
+    }
   }, [fetchAllWarehouses, handleCloseModal]);
 
   const handleToggleActive = useCallback(async (warehouseName: string, currentActive: boolean) => {
@@ -206,11 +246,18 @@ const DataWarehouse = () => {
           <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
           DATA WAREHOUSE
         </h1>
-        <AsciiButton
-          label="Medallion Architecture Playbook"
-          onClick={() => setShowDataWarehousePlaybook(true)}
-          variant="ghost"
-        />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <AsciiButton
+            label="Data Warehouse Playbook"
+            onClick={() => setShowDataWarehouseGeneralPlaybook(true)}
+            variant="ghost"
+          />
+          <AsciiButton
+            label="Medallion Architecture Playbook"
+            onClick={() => setShowDataWarehousePlaybook(true)}
+            variant="ghost"
+          />
+        </div>
       </div>
       
       {error && (
@@ -715,13 +762,13 @@ const DataWarehouse = () => {
                       onClick={() => handleBuild(selectedWarehouse.warehouse_name)}
                     />
                     <AsciiButton
-                      label="✎ Edit"
+                      label="Edit"
                       onClick={() => handleOpenModal(selectedWarehouse)}
                       variant="ghost"
                     />
                     {(selectedWarehouse.target_layer === 'SILVER' || selectedWarehouse.target_layer === 'GOLD') && (
                       <AsciiButton
-                        label="🗑️ Cleanup Layers"
+                        label="Cleanup Layers"
                         onClick={() => setShowCleanupModal(true)}
                         variant="ghost"
                       />
@@ -954,6 +1001,176 @@ const DataWarehouse = () => {
                   <AsciiButton
                     label="Close"
                     onClick={() => setShowDataWarehousePlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
+      )}
+
+      {showDataWarehouseGeneralPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowDataWarehouseGeneralPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="DATA WAREHOUSE PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    A Data Warehouse is a centralized repository that stores integrated data from multiple sources, 
+                    organized in dimensional models (Star Schema or Snowflake Schema) for analytical and reporting purposes. 
+                    The system automatically builds dimensional models with fact and dimension tables, supporting SCD (Slowly Changing Dimension) 
+                    types and automatic promotion through Medallion Architecture layers (Bronze → Silver → Gold).
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} KEY CONCEPTS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>DIMENSIONAL MODELING</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>Star Schema:</strong> Central fact table surrounded by denormalized dimension tables<br/>
+                        • <strong>Snowflake Schema:</strong> Normalized dimensions with sub-dimensions for complex hierarchies<br/>
+                        • <strong>Fact Tables:</strong> Store measurable business events (sales, transactions, metrics)<br/>
+                        • <strong>Dimension Tables:</strong> Store descriptive attributes (customers, products, time, geography)
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 6, fontSize: 11 }}>SLOWLY CHANGING DIMENSIONS (SCD)</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>Type 1:</strong> Overwrite old values (no history)<br/>
+                        • <strong>Type 2:</strong> Create new row with valid_from/valid_to dates (full history)<br/>
+                        • <strong>Type 3:</strong> Add previous value column (limited history)
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 6, fontSize: 11 }}>MEDALLION ARCHITECTURE</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+                        • <strong>BRONZE:</strong> Raw data copied from source (no transformation)<br/>
+                        • <strong>SILVER:</strong> Cleaned and validated data (quality score ≥ 70)<br/>
+                        • <strong>GOLD:</strong> Business-ready dimensional models (Star/Snowflake schemas)<br/>
+                        • Automatic promotion every 60 seconds when quality gates are met
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} BUILD PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.muted, marginBottom: 8, fontSize: 11 }}>1. CREATE WAREHOUSE</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Define warehouse name, schema type (Star/Snowflake), and target layer (BRONZE/SILVER/GOLD)</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Configure source and target database connections</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Define dimensions with business keys, SCD type, and source queries</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Define facts with source queries and grain (level of detail)</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.accent, marginBottom: 8, fontSize: 11 }}>2. BUILD WAREHOUSE</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> Execute <code style={{ color: asciiColors.accent }}>buildWarehouse()</code> to start construction</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> For BRONZE: Copy raw data from source_query to target schema</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> For SILVER: Clean, validate, and deduplicate data from BRONZE</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> For GOLD: Build dimensional models (dimensions + facts) with SCD logic</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Create indexes, partitions, and constraints as configured</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 16, padding: '12px', backgroundColor: asciiColors.backgroundSoft, borderRadius: 2, border: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontWeight: 600, color: asciiColors.success, marginBottom: 8, fontSize: 11 }}>3. AUTOMATIC PROMOTION (if enabled)</div>
+                      <div style={{ fontSize: 11, lineHeight: 1.6, marginLeft: 8 }}>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> System checks warehouses every 60 seconds</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> If BRONZE build succeeds: Validate quality → Promote to SILVER</div>
+                        <div style={{ marginBottom: 4 }}><span style={{ color: asciiColors.muted }}>└─</span> If SILVER build succeeds: Promote to GOLD and build dimensional models</div>
+                        <div><span style={{ color: asciiColors.muted }}>└─</span> Each layer maintains separate schema: <code style={{ color: asciiColors.accent }}>{`{warehouse_name}_bronze`}</code>, <code style={{ color: asciiColors.accent }}>{`{warehouse_name}_silver`}</code>, <code style={{ color: asciiColors.accent }}>{`{warehouse_name}_gold`}</code></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} KEY FEATURES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Dimensional Modeling:</strong> Automatic Star/Snowflake schema construction
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>SCD Support:</strong> Type 1, 2, and 3 for historical tracking
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Medallion Architecture:</strong> Automatic data quality-based promotion
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Multi-Engine Support:</strong> PostgreSQL, Snowflake, BigQuery, Redshift
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Incremental Loading:</strong> Support for incremental fact table updates
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.success }}>{ascii.blockFull}</span> <strong>Partitioning:</strong> Automatic table partitioning by date/range
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground, lineHeight: 1.6 }}>
+                    • Start with BRONZE layer to capture raw data without transformation<br/>
+                    • Design dimensions with clear business keys and appropriate SCD type<br/>
+                    • Use Type 2 SCD for dimensions that change over time (customers, products)<br/>
+                    • Define fact tables with clear grain (transaction level, daily aggregates, etc.)<br/>
+                    • Monitor data quality scores to ensure successful promotion to SILVER<br/>
+                    • Use GOLD layer for business-ready analytical models<br/>
+                    • Schedule regular builds using cron expressions or workflow orchestration<br/>
+                    • Use separate schemas per layer to maintain data lineage
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowDataWarehouseGeneralPlaybook(false)}
                     variant="ghost"
                   />
                 </div>
