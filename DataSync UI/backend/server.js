@@ -1766,6 +1766,57 @@ app.put("/api/catalog", requireAuth, requireRole("admin", "user"), async (req, r
   }
 });
 
+// Eliminar una entrada del catálogo
+app.delete("/api/catalog", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const schema_name = validateIdentifier(req.body.schema_name);
+    const table_name = validateIdentifier(req.body.table_name);
+    const db_engine = validateEnum(
+      req.body.db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      null
+    );
+
+    if (!schema_name || !table_name || !db_engine) {
+      return res.status(400).json({
+        error: "schema_name, table_name, and db_engine are required",
+      });
+    }
+
+    const checkResult = await pool.query(
+      `SELECT * FROM metadata.catalog 
+       WHERE schema_name = $1 AND table_name = $2 AND db_engine = $3`,
+      [schema_name, table_name, db_engine]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        error: "Catalog entry not found",
+      });
+    }
+
+    const result = await pool.query(
+      `DELETE FROM metadata.catalog 
+       WHERE schema_name = $1 AND table_name = $2 AND db_engine = $3
+       RETURNING *`,
+      [schema_name, table_name, db_engine]
+    );
+
+    res.json({ 
+      message: "Catalog entry deleted successfully",
+      deleted: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Database error:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error deleting catalog entry",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 // Obtener todos los schemas únicos
 app.get("/api/catalog/schemas", requireAuth, async (req, res) => {
   try {

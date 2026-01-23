@@ -971,6 +971,33 @@ export const catalogApi = {
     }
   },
 
+  // Eliminar una entrada del catálogo
+  deleteEntry: async (
+    schema_name: string,
+    table_name: string,
+    db_engine: string
+  ) => {
+    try {
+      const response = await api.delete<{
+        message: string;
+        deleted: CatalogEntry;
+      }>("/catalog", {
+        data: { schema_name, table_name, db_engine },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting entry:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
   // Obtener todos los schemas únicos
   getSchemas: async () => {
     try {

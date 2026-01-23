@@ -73,7 +73,6 @@ const GovernanceCatalogOracle = () => {
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({});
-  const [openItemId, setOpenItemId] = useState<number | null>(null);
   const [pagination, setPagination] = useState({
     total: 0,
     totalPages: 0,
@@ -87,6 +86,7 @@ const GovernanceCatalogOracle = () => {
   const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
   const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'recommendations'>('overview');
   const isMountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
@@ -254,11 +254,17 @@ const GovernanceCatalogOracle = () => {
     fetchSchemas();
   }, [filters.server_name]);
 
-  const toggleItem = useCallback((id: number) => {
-    setOpenItemId(prev => prev === id ? null : id);
-    const item = allItems.find(i => i.id === id);
-    setSelectedItem(prev => prev?.id === id ? null : (item || null));
-  }, [allItems]);
+  const handleItemClick = useCallback((item: any) => {
+    if (!item) return;
+    
+    setSelectedItem((prev: any) => {
+      if (prev && item.id && prev.id === item.id) {
+        return null;
+      }
+      return item;
+    });
+    setActiveTab('overview');
+  }, []);
 
   const formatBytes = useCallback((mb: number | string | null | undefined) => {
     if (mb === null || mb === undefined) return 'N/A';
@@ -278,6 +284,13 @@ const GovernanceCatalogOracle = () => {
   const formatDate = useCallback((date: string | null | undefined) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleString();
+  }, []);
+
+  const formatPercentage = useCallback((value: number | string | null | undefined) => {
+    if (value === null || value === undefined) return 'N/A';
+    const num = Number(value);
+    if (isNaN(num)) return 'N/A';
+    return `${num.toFixed(2)}%`;
   }, []);
 
   const handleFilterChange = useCallback((key: string, value: string) => {
@@ -324,6 +337,132 @@ const GovernanceCatalogOracle = () => {
         : String(bVal).localeCompare(String(aVal));
     });
   }, [items, sortField, sortDirection]);
+
+  const renderOverviewTab = useCallback((item: any) => {
+    return (
+      <div>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Basic Information
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Server:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.server_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Schema:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.schema_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Table:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.table_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Health Status:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                {item.health_status ? (
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: 2,
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                    backgroundColor: getStatusColor(item.health_status) + '20',
+                    color: getStatusColor(item.health_status),
+                    border: `1px solid ${getStatusColor(item.health_status)}`
+                  }}>
+                    {item.health_status}
+                  </span>
+                ) : 'N/A'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Access Frequency:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.access_frequency || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Storage
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Row Count:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatNumber(item.row_count || item.num_rows)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Table Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.table_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Index Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.index_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Total Size:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatBytes(item.total_size_mb)}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Tablespace:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{item.tablespace_name || 'N/A'}</div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Fragmentation:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatPercentage(item.fragmentation_pct)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [formatBytes, formatNumber, formatPercentage]);
+
+  const renderPerformanceTab = useCallback((item: any) => {
+    return (
+      <div>
+        <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${asciiColors.border}` }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Performance Metrics
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Health Score:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>
+                {item.health_score !== null && item.health_score !== undefined
+                  ? `${Number(item.health_score).toFixed(2)}`
+                  : 'N/A'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Fragmentation:</div>
+              <div style={{ color: asciiColors.foreground, fontSize: 12, fontFamily: 'Consolas' }}>{formatPercentage(item.fragmentation_pct)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [formatPercentage]);
+
+  const renderRecommendationsTab = useCallback((item: any) => {
+    return (
+      <div>
+        <div style={{ marginBottom: 0 }}>
+          <h3 style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, color: asciiColors.foreground, margin: '0 0 12px 0', paddingBottom: 4, borderBottom: `2px solid ${asciiColors.accent}` }}>
+            Recommendations
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div>
+              <div style={{ color: asciiColors.muted, fontWeight: 500, fontSize: 11, marginBottom: 4, fontFamily: 'Consolas' }}>Recommendation Summary:</div>
+              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+                {item.recommendation_summary || 'No recommendations available'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, []);
 
   const handleExportCSV = useCallback(() => {
     const headers = ["Server", "Schema", "Table", "Rows", "Size (MB)", "Health", "Access", "Tablespace"];
@@ -733,7 +872,54 @@ const GovernanceCatalogOracle = () => {
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
       ) : activeView === 'list' ? (
         <>
-          <GovernanceCatalogOracleTreeView items={allItems} onItemClick={(item: any) => toggleItem(item.id)} />
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: selectedItem ? '1fr 500px' : '1fr', 
+            gap: 16, 
+            marginTop: 16 
+          }}>
+            <GovernanceCatalogOracleTreeView items={allItems} onItemClick={handleItemClick} />
+            
+            {selectedItem && (
+              <div style={{ 
+                position: 'sticky', 
+                top: 16, 
+                maxHeight: 'calc(100vh - 200px)',
+                overflowY: 'auto'
+              }}>
+                <AsciiPanel title="DETAILS">
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: 4, 
+                    marginBottom: 16, 
+                    borderBottom: `1px solid ${asciiColors.border}`, 
+                    paddingBottom: 8,
+                    flexWrap: 'wrap'
+                  }}>
+                    <AsciiButton
+                      label="Overview"
+                      onClick={() => setActiveTab('overview')}
+                      variant={activeTab === 'overview' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Performance"
+                      onClick={() => setActiveTab('performance')}
+                      variant={activeTab === 'performance' ? 'primary' : 'ghost'}
+                    />
+                    <AsciiButton
+                      label="Recommendations"
+                      onClick={() => setActiveTab('recommendations')}
+                      variant={activeTab === 'recommendations' ? 'primary' : 'ghost'}
+                    />
+                  </div>
+                  
+                  {activeTab === 'overview' && renderOverviewTab(selectedItem)}
+                  {activeTab === 'performance' && renderPerformanceTab(selectedItem)}
+                  {activeTab === 'recommendations' && renderRecommendationsTab(selectedItem)}
+                </AsciiPanel>
+              </div>
+            )}
+          </div>
           
           {pagination.totalPages > 1 && (
             <div style={{ marginTop: 24 }}>

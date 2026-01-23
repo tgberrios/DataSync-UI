@@ -216,12 +216,12 @@ const DataLineageMariaDBTreeView: React.FC<TreeViewProps> = ({ edges, onEdgeClic
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = 'translateX(4px)';
-            e.currentTarget.style.borderColor = asciiColors.accent;
+            e.currentTarget.style.border = `1px solid ${asciiColors.accent}`;
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
-            e.currentTarget.style.borderColor = 'transparent';
+            e.currentTarget.style.border = '1px solid transparent';
           }}
         >
           {renderTreeLine(level, isLast)}
@@ -390,12 +390,14 @@ const DataLineageMariaDBTreeView: React.FC<TreeViewProps> = ({ edges, onEdgeClic
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
             e.currentTarget.style.transform = 'translateX(4px)';
-            e.currentTarget.style.borderColor = asciiColors.accent;
+            e.currentTarget.style.border = `1px solid ${asciiColors.accent}`;
+            e.currentTarget.style.borderLeft = `3px solid ${asciiColors.accent}`;
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'transparent';
             e.currentTarget.style.transform = 'translateX(0)';
-            e.currentTarget.style.borderColor = 'transparent';
+            e.currentTarget.style.border = `1px solid transparent`;
+            e.currentTarget.style.borderLeft = `3px solid ${asciiColors.accent}`;
           }}
         >
           {renderTreeLine(level, isLast)}

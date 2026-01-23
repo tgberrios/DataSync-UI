@@ -12,9 +12,10 @@ interface SchemaNode {
 interface TreeViewProps {
   entries: CatalogEntry[];
   onEntryClick?: (entry: CatalogEntry) => void;
+  onDelete?: (entry: CatalogEntry) => void;
 }
 
-const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick }) => {
+const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDelete }) => {
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
 
   const treeData = useMemo(() => {
@@ -163,6 +164,35 @@ const CatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick }) => 
             }}>
               {entry.db_engine}
             </span>
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(entry);
+                }}
+                style={{
+                  padding: "2px 8px",
+                  border: `1px solid ${asciiColors.danger}`,
+                  borderRadius: 2,
+                  backgroundColor: "transparent",
+                  color: asciiColors.danger,
+                  fontFamily: "Consolas",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = asciiColors.danger;
+                  e.currentTarget.style.color = "#ffffff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = asciiColors.danger;
+                }}
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
       </div>

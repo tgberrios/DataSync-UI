@@ -192,6 +192,42 @@ const Catalog = () => {
   );
 
   /**
+   * Maneja la eliminación de una entrada del catálogo
+   *
+   * @param {CatalogEntry} entry - Entrada del catálogo a eliminar
+   * @returns {Promise<void>}
+   */
+  const handleDelete = useCallback(
+    async (entry: CatalogEntry) => {
+      if (
+        !confirm(
+          `Are you sure you want to DELETE table "${entry.schema_name}.${entry.table_name}" from the catalog?\n\nThis will permanently remove the entry from the catalog.\n\nThis action CANNOT be undone.`
+        )
+      ) {
+        return;
+      }
+
+      try {
+        setLoadingTree(true);
+        await catalogApi.deleteEntry(
+          entry.schema_name,
+          entry.table_name,
+          entry.db_engine
+        );
+        await fetchAllEntries();
+        alert(
+          `Table "${entry.schema_name}.${entry.table_name}" deleted successfully.`
+        );
+      } catch (err) {
+        setError(extractApiError(err));
+      } finally {
+        setLoadingTree(false);
+      }
+    },
+    [fetchAllEntries]
+  );
+
+  /**
    * Maneja la desactivación de todas las tablas de un schema
    *
    * @param {string} schemaName - Nombre del schema a desactivar
@@ -577,21 +613,15 @@ const Catalog = () => {
             onChange={(e) => handleSchemaAction(e.target.value)}
             style={{
               padding: "6px 10px",
-              border: `1px solid ${asciiColors.accent}`,
+              border: "none",
               borderRadius: 2,
               fontSize: 12,
               fontFamily: "Consolas",
-              backgroundColor: asciiColors.accentLight,
-              color: asciiColors.accent,
+              backgroundColor: "transparent",
+              color: asciiColors.foreground,
               cursor: "pointer",
               outline: "none",
               fontWeight: 600
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = asciiColors.accent;
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = asciiColors.accent;
             }}
           >
             <option value="">Deactivate Schema</option>
@@ -608,21 +638,15 @@ const Catalog = () => {
             onChange={(e) => handleActivateSchema(e.target.value)}
             style={{
               padding: "6px 10px",
-              border: `1px solid ${asciiColors.success}`,
+              border: "none",
               borderRadius: 2,
               fontSize: 12,
               fontFamily: "Consolas",
-              backgroundColor: asciiColors.success + "20",
-              color: asciiColors.success,
+              backgroundColor: "transparent",
+              color: asciiColors.foreground,
               cursor: "pointer",
               outline: "none",
               fontWeight: 600
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = asciiColors.success;
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = asciiColors.success;
             }}
           >
             <option value="">Activate Schema</option>
@@ -683,6 +707,7 @@ const Catalog = () => {
           <CatalogTreeView 
             entries={allEntries}
             onEntryClick={handleTableClick}
+            onDelete={handleDelete}
           />
         </div>
       )}

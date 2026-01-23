@@ -175,8 +175,15 @@ const Governance = () => {
   }, [fetchAllItems]);
 
   const handleItemClick = useCallback((item: any) => {
+    if (!item) return;
+    
     setSelectedItem((prev: any) => {
-      if (prev?.id === item.id) {
+      if (prev && item.id && prev.id === item.id) {
+        return null;
+      }
+      if (prev && item.schema_name && item.table_name && 
+          prev.schema_name === item.schema_name && 
+          prev.table_name === item.table_name) {
         return null;
       }
       return item;
