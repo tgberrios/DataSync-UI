@@ -8385,6 +8385,237 @@ app.post(
   }
 );
 
+app.put(
+  "/api/api-catalog",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const {
+      api_name,
+      api_type,
+      base_url,
+      endpoint,
+      http_method,
+      auth_type,
+      auth_config,
+      target_db_engine,
+      target_connection_string,
+      target_schema,
+      target_table,
+      request_body,
+      request_headers,
+      query_params,
+      sync_interval,
+      status,
+      active,
+    } = req.body;
+
+    if (!api_name) {
+      return res.status(400).json({
+        error: "api_name is required",
+      });
+    }
+
+    const validApiType = api_type ? validateEnum(
+      api_type,
+      ["REST", "GraphQL", "SOAP"],
+      null
+    ) : null;
+    if (api_type && !validApiType) {
+      return res.status(400).json({ error: "Invalid api_type" });
+    }
+
+    const validHttpMethod = http_method ? validateEnum(
+      http_method,
+      ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      null
+    ) : null;
+    if (http_method && !validHttpMethod) {
+      return res.status(400).json({ error: "Invalid http_method" });
+    }
+
+    const validAuthType = auth_type ? validateEnum(
+      auth_type,
+      ["NONE", "BASIC", "BEARER", "API_KEY", "OAUTH2"],
+      null
+    ) : null;
+    if (auth_type && !validAuthType) {
+      return res.status(400).json({ error: "Invalid auth_type" });
+    }
+
+    const validTargetEngine = target_db_engine ? validateEnum(
+      target_db_engine,
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      null
+    ) : null;
+    if (target_db_engine && !validTargetEngine) {
+      return res.status(400).json({ error: "Invalid target_db_engine" });
+    }
+
+    const validStatus = status ? validateEnum(
+      status,
+      ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING"],
+      null
+    ) : null;
+    if (status && !validStatus) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT api_name FROM metadata.api_catalog WHERE api_name = $1`,
+        [api_name]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          error: "API not found",
+        });
+      }
+
+      const updateFields = [];
+      const updateValues = [];
+      let paramCount = 1;
+
+      if (api_type !== undefined) {
+        updateFields.push(`api_type = $${paramCount++}`);
+        updateValues.push(api_type);
+      }
+      if (base_url !== undefined) {
+        updateFields.push(`base_url = $${paramCount++}`);
+        updateValues.push(base_url);
+      }
+      if (endpoint !== undefined) {
+        updateFields.push(`endpoint = $${paramCount++}`);
+        updateValues.push(endpoint);
+      }
+      if (http_method !== undefined) {
+        updateFields.push(`http_method = $${paramCount++}`);
+        updateValues.push(http_method);
+      }
+      if (auth_type !== undefined) {
+        updateFields.push(`auth_type = $${paramCount++}`);
+        updateValues.push(auth_type);
+      }
+      if (auth_config !== undefined) {
+        updateFields.push(`auth_config = $${paramCount++}::jsonb`);
+        updateValues.push(JSON.stringify(auth_config || {}));
+      }
+      if (target_db_engine !== undefined) {
+        updateFields.push(`target_db_engine = $${paramCount++}`);
+        updateValues.push(target_db_engine);
+      }
+      if (target_connection_string !== undefined) {
+        updateFields.push(`target_connection_string = $${paramCount++}`);
+        updateValues.push(target_connection_string);
+      }
+      if (target_schema !== undefined) {
+        updateFields.push(`target_schema = $${paramCount++}`);
+        updateValues.push(target_schema.toLowerCase());
+      }
+      if (target_table !== undefined) {
+        updateFields.push(`target_table = $${paramCount++}`);
+        updateValues.push(target_table.toLowerCase());
+      }
+      if (request_body !== undefined) {
+        updateFields.push(`request_body = $${paramCount++}`);
+        updateValues.push(request_body || null);
+      }
+      if (request_headers !== undefined) {
+        updateFields.push(`request_headers = $${paramCount++}::jsonb`);
+        updateValues.push(JSON.stringify(request_headers || {}));
+      }
+      if (query_params !== undefined) {
+        updateFields.push(`query_params = $${paramCount++}::jsonb`);
+        updateValues.push(JSON.stringify(query_params || {}));
+      }
+      if (sync_interval !== undefined) {
+        const interval = sync_interval && sync_interval > 0 ? parseInt(sync_interval) : 3600;
+        updateFields.push(`sync_interval = $${paramCount++}`);
+        updateValues.push(interval);
+      }
+      if (status !== undefined) {
+        updateFields.push(`status = $${paramCount++}`);
+        updateValues.push(validStatus);
+      }
+      if (active !== undefined) {
+        const isActive = validateBoolean(active, true);
+        updateFields.push(`active = $${paramCount++}`);
+        updateValues.push(isActive);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+      }
+
+      updateFields.push(`updated_at = NOW()`);
+      updateValues.push(api_name);
+
+      const updateQuery = `
+        UPDATE metadata.api_catalog 
+        SET ${updateFields.join(", ")}
+        WHERE api_name = $${paramCount}
+        RETURNING *
+      `;
+
+      const result = await pool.query(updateQuery, updateValues);
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating API entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/api-catalog/:api_name",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const { api_name } = req.params;
+
+    if (!api_name) {
+      return res.status(400).json({
+        error: "api_name is required",
+      });
+    }
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT api_name FROM metadata.api_catalog WHERE api_name = $1`,
+        [api_name]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          error: "API not found",
+        });
+      }
+
+      await pool.query(
+        `DELETE FROM metadata.api_catalog WHERE api_name = $1`,
+        [api_name]
+      );
+
+      res.json({ message: "API deleted successfully" });
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error deleting API entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
 app.get("/api/api-catalog/metrics", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -13572,6 +13803,208 @@ app.post(
   }
 );
 
+app.put(
+  "/api/csv-catalog",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const {
+      csv_name,
+      source_type,
+      source_path,
+      has_header,
+      delimiter,
+      skip_rows,
+      skip_empty_rows,
+      target_db_engine,
+      target_connection_string,
+      target_schema,
+      target_table,
+      sync_interval,
+      status,
+      active,
+    } = req.body;
+
+    if (!csv_name) {
+      return res.status(400).json({
+        error: "csv_name is required",
+      });
+    }
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT csv_name FROM metadata.csv_catalog WHERE csv_name = $1`,
+        [csv_name]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          error: "CSV not found",
+        });
+      }
+
+      const updateFields = [];
+      const updateValues = [];
+      let paramCount = 1;
+
+      if (source_type !== undefined) {
+        const validSourceType = validateEnum(
+          source_type,
+          ["FILEPATH", "URL", "ENDPOINT", "UPLOADED_FILE"],
+          null
+        );
+        if (!validSourceType) {
+          return res.status(400).json({ error: "Invalid source_type" });
+        }
+        updateFields.push(`source_type = $${paramCount++}`);
+        updateValues.push(source_type);
+      }
+
+      if (source_path !== undefined) {
+        updateFields.push(`source_path = $${paramCount++}`);
+        updateValues.push(source_path);
+      }
+
+      if (has_header !== undefined) {
+        updateFields.push(`has_header = $${paramCount++}`);
+        updateValues.push(validateBoolean(has_header, true));
+      }
+
+      if (delimiter !== undefined) {
+        updateFields.push(`delimiter = $${paramCount++}`);
+        updateValues.push(delimiter);
+      }
+
+      if (skip_rows !== undefined) {
+        updateFields.push(`skip_rows = $${paramCount++}`);
+        updateValues.push(parseInt(skip_rows) || 0);
+      }
+
+      if (skip_empty_rows !== undefined) {
+        updateFields.push(`skip_empty_rows = $${paramCount++}`);
+        updateValues.push(validateBoolean(skip_empty_rows, true));
+      }
+
+      if (target_db_engine !== undefined) {
+        const validTargetEngine = validateEnum(
+          target_db_engine,
+          ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+          null
+        );
+        if (!validTargetEngine) {
+          return res.status(400).json({ error: "Invalid target_db_engine" });
+        }
+        updateFields.push(`target_db_engine = $${paramCount++}`);
+        updateValues.push(target_db_engine);
+      }
+
+      if (target_connection_string !== undefined) {
+        updateFields.push(`target_connection_string = $${paramCount++}`);
+        updateValues.push(target_connection_string);
+      }
+
+      if (target_schema !== undefined) {
+        updateFields.push(`target_schema = $${paramCount++}`);
+        updateValues.push(target_schema.toLowerCase());
+      }
+
+      if (target_table !== undefined) {
+        updateFields.push(`target_table = $${paramCount++}`);
+        updateValues.push(target_table.toLowerCase());
+      }
+
+      if (sync_interval !== undefined) {
+        updateFields.push(`sync_interval = $${paramCount++}`);
+        updateValues.push(parseInt(sync_interval) || 3600);
+      }
+
+      if (status !== undefined) {
+        const validStatus = validateEnum(
+          status,
+          ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING"],
+          "PENDING"
+        );
+        updateFields.push(`status = $${paramCount++}`);
+        updateValues.push(validStatus);
+      }
+
+      if (active !== undefined) {
+        updateFields.push(`active = $${paramCount++}`);
+        updateValues.push(validateBoolean(active, true));
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({
+          error: "No fields to update",
+        });
+      }
+
+      updateFields.push(`updated_at = NOW()`);
+      updateValues.push(csv_name);
+
+      const query = `UPDATE metadata.csv_catalog 
+                     SET ${updateFields.join(", ")}
+                     WHERE csv_name = $${paramCount}
+                     RETURNING *`;
+
+      const result = await pool.query(query, updateValues);
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating CSV entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/csv-catalog/:csv_name",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const { csv_name } = req.params;
+
+    if (!csv_name) {
+      return res.status(400).json({
+        error: "csv_name is required",
+      });
+    }
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT csv_name FROM metadata.csv_catalog WHERE csv_name = $1`,
+        [csv_name]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          error: "CSV not found",
+        });
+      }
+
+      await pool.query(
+        `DELETE FROM metadata.csv_catalog WHERE csv_name = $1`,
+        [csv_name]
+      );
+
+      res.json({ message: "CSV deleted successfully" });
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error deleting CSV entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
 app.patch("/api/csv-catalog/active", async (req, res) => {
   const { csv_name, active } = req.body;
   try {
@@ -14540,6 +14973,188 @@ app.post(
       const safeError = sanitizeError(
         err,
         "Error previewing table",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/google-sheets-catalog",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const {
+      sheet_name,
+      spreadsheet_id,
+      api_key,
+      access_token,
+      range,
+      target_db_engine,
+      target_connection_string,
+      target_schema,
+      target_table,
+      sync_interval,
+      status,
+      active,
+    } = req.body;
+
+    if (!sheet_name) {
+      return res.status(400).json({
+        error: "sheet_name is required",
+      });
+    }
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT sheet_name FROM metadata.google_sheets_catalog WHERE sheet_name = $1`,
+        [sheet_name]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          error: "Google Sheet not found",
+        });
+      }
+
+      const updateFields = [];
+      const updateValues = [];
+      let paramCount = 1;
+
+      if (spreadsheet_id !== undefined) {
+        updateFields.push(`spreadsheet_id = $${paramCount++}`);
+        updateValues.push(spreadsheet_id);
+      }
+
+      if (api_key !== undefined) {
+        updateFields.push(`api_key = $${paramCount++}`);
+        updateValues.push(api_key || null);
+      }
+
+      if (access_token !== undefined) {
+        updateFields.push(`access_token = $${paramCount++}`);
+        updateValues.push(access_token || null);
+      }
+
+      if (range !== undefined) {
+        updateFields.push(`range = $${paramCount++}`);
+        updateValues.push(range || null);
+      }
+
+      if (target_db_engine !== undefined) {
+        const validTargetEngine = validateEnum(
+          target_db_engine,
+          ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+          null
+        );
+        if (!validTargetEngine) {
+          return res.status(400).json({ error: "Invalid target_db_engine" });
+        }
+        updateFields.push(`target_db_engine = $${paramCount++}`);
+        updateValues.push(target_db_engine);
+      }
+
+      if (target_connection_string !== undefined) {
+        updateFields.push(`target_connection_string = $${paramCount++}`);
+        updateValues.push(target_connection_string);
+      }
+
+      if (target_schema !== undefined) {
+        updateFields.push(`target_schema = $${paramCount++}`);
+        updateValues.push(target_schema.toLowerCase());
+      }
+
+      if (target_table !== undefined) {
+        updateFields.push(`target_table = $${paramCount++}`);
+        updateValues.push(target_table.toLowerCase());
+      }
+
+      if (sync_interval !== undefined) {
+        updateFields.push(`sync_interval = $${paramCount++}`);
+        updateValues.push(parseInt(sync_interval) || 3600);
+      }
+
+      if (status !== undefined) {
+        const validStatus = validateEnum(
+          status,
+          ["SUCCESS", "ERROR", "IN_PROGRESS", "PENDING"],
+          "PENDING"
+        );
+        updateFields.push(`status = $${paramCount++}`);
+        updateValues.push(validStatus);
+      }
+
+      if (active !== undefined) {
+        updateFields.push(`active = $${paramCount++}`);
+        updateValues.push(validateBoolean(active, true));
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({
+          error: "No fields to update",
+        });
+      }
+
+      updateFields.push(`updated_at = NOW()`);
+      updateValues.push(sheet_name);
+
+      const query = `UPDATE metadata.google_sheets_catalog 
+                     SET ${updateFields.join(", ")}
+                     WHERE sheet_name = $${paramCount}
+                     RETURNING *`;
+
+      const result = await pool.query(query, updateValues);
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating Google Sheets entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/google-sheets-catalog/:sheet_name",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    const { sheet_name } = req.params;
+
+    if (!sheet_name) {
+      return res.status(400).json({
+        error: "sheet_name is required",
+      });
+    }
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT sheet_name FROM metadata.google_sheets_catalog WHERE sheet_name = $1`,
+        [sheet_name]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({
+          error: "Google Sheet not found",
+        });
+      }
+
+      await pool.query(
+        `DELETE FROM metadata.google_sheets_catalog WHERE sheet_name = $1`,
+        [sheet_name]
+      );
+
+      res.json({ message: "Google Sheet deleted successfully" });
+    } catch (err) {
+      console.error("Database error:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error deleting Google Sheets entry",
         process.env.NODE_ENV === "production"
       );
       res.status(500).json({ error: safeError });

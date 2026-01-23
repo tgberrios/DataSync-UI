@@ -39,9 +39,11 @@ interface TreeViewProps {
   entries: APICatalogEntry[];
   onEntryClick?: (entry: APICatalogEntry) => void;
   onDuplicate?: (entry: APICatalogEntry) => void;
+  onEdit?: (entry: APICatalogEntry) => void;
+  onDelete?: (entry: APICatalogEntry) => void;
 }
 
-const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDuplicate }) => {
+const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDuplicate, onEdit, onDelete }) => {
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
@@ -224,15 +226,29 @@ const APICatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
             }}>
               {api.api_type}
             </span>
-            {onDuplicate && (
-              <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <div style={{ display: "flex", gap: 4 }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              {onEdit && (
+                <AsciiButton
+                  label="Edit"
+                  onClick={() => onEdit(api)}
+                  variant="ghost"
+                />
+              )}
+              {onDelete && (
+                <AsciiButton
+                  label="Delete"
+                  onClick={() => onDelete(api)}
+                  variant="ghost"
+                />
+              )}
+              {onDuplicate && (
                 <AsciiButton
                   label="Duplicate"
                   onClick={() => onDuplicate(api)}
                   variant="primary"
                 />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

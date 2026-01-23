@@ -121,13 +121,38 @@ const GoogleSheetsCatalog = () => {
       sync_interval: number;
       status: string;
       active: boolean;
-    }) => {
+    }, isEdit: boolean = false, originalSheetName?: string) => {
       try {
         setError(null);
-        await googleSheetsCatalogApi.createSheet(newEntry);
-        await fetchAllEntries();
-        setShowAddModal(false);
-        alert(`Google Sheets "${newEntry.sheet_name}" added successfully.`);
+        if (isEdit && originalSheetName) {
+          const { sheet_name, ...updateData } = newEntry;
+          const oldEntry = allEntries.find(e => e.sheet_name === originalSheetName);
+          await googleSheetsCatalogApi.updateSheet(originalSheetName, updateData);
+          await fetchAllEntries();
+          setShowAddModal(false);
+          setDuplicateData(null);
+          
+          let message = `Google Sheet "${originalSheetName}" updated successfully.`;
+          
+          if (oldEntry && (
+            oldEntry.target_schema !== newEntry.target_schema || 
+            oldEntry.target_table !== newEntry.target_table
+          )) {
+            message += `\n\nREMINDER: The target table has changed.\n` +
+              `   Old table: ${oldEntry.target_schema}.${oldEntry.target_table}\n` +
+              `   New table: ${newEntry.target_schema}.${newEntry.target_table}\n\n` +
+              `   Consider manually deleting the old table if no longer needed:\n` +
+              `   DROP TABLE IF EXISTS "${oldEntry.target_schema}"."${oldEntry.target_table}" CASCADE;`;
+          }
+          
+          alert(message);
+        } else {
+          await googleSheetsCatalogApi.createSheet(newEntry);
+          await fetchAllEntries();
+          setShowAddModal(false);
+          setDuplicateData(null);
+          alert(`Google Sheets "${newEntry.sheet_name}" added successfully.`);
+        }
       } catch (err: unknown) {
         if (isMountedRef.current) {
           const error = err as { message?: string };
@@ -139,9 +164,54 @@ const GoogleSheetsCatalog = () => {
         }
       }
     },
-    [fetchAllEntries]
+    [fetchAllEntries, allEntries]
   );
 
+  const handleEdit = useCallback((entry: GoogleSheetsCatalogEntry) => {
+    setDuplicateData(entry);
+    setShowAddModal(true);
+  }, []);
+
+  const handleDelete = useCallback(
+    async (entry: GoogleSheetsCatalogEntry) => {
+      const confirmMessage = `Are you sure you want to delete Google Sheet "${entry.sheet_name}"?\n\n` +
+        `This will delete the Google Sheet from the catalog.\n\n` +
+        `IMPORTANT: Remember to manually delete the target table if no longer needed:\n` +
+        `   Table: ${entry.target_schema}.${entry.target_table}\n` +
+        `   Database: ${entry.target_db_engine}\n` +
+        `   Connection: ${entry.target_connection_string?.substring(0, 50)}...\n\n` +
+        `This action cannot be undone.`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      try {
+        setError(null);
+        await googleSheetsCatalogApi.deleteSheet(entry.sheet_name);
+        await fetchAllEntries();
+        if (selectedSheet?.sheet_name === entry.sheet_name) {
+          setSelectedSheet(null);
+        }
+        
+        const reminderMessage = `Google Sheet "${entry.sheet_name}" deleted successfully.\n\n` +
+          `REMINDER: Don't forget to manually delete the target table if no longer needed:\n` +
+          `   DROP TABLE IF EXISTS "${entry.target_schema}"."${entry.target_table}" CASCADE;\n` +
+          `   (In database: ${entry.target_db_engine})`;
+        
+        alert(reminderMessage);
+      } catch (err: any) {
+        if (isMountedRef.current) {
+          if (err.message && err.message.includes('Network Error')) {
+            setError('Network error. Please check if the server is running and try again.');
+          } else {
+            setError(extractApiError(err));
+          }
+        }
+      }
+    },
+    [fetchAllEntries, selectedSheet]
+  );
 
   const handleDuplicate = useCallback((entry: GoogleSheetsCatalogEntry) => {
     setDuplicateData(entry);
@@ -388,6 +458,8 @@ const GoogleSheetsCatalog = () => {
             entries={allEntries}
             onEntryClick={(entry) => handleSheetClick(entry)}
             onDuplicate={handleDuplicate}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </div>
       )}
@@ -427,7 +499,7 @@ const GoogleSheetsCatalog = () => {
             setShowAddModal(false);
             setDuplicateData(null);
           }}
-          onSave={handleAdd}
+          onSave={(entry, isEdit, originalSheetName) => handleAdd(entry, isEdit, originalSheetName)}
           initialData={duplicateData || undefined}
         />
       )}

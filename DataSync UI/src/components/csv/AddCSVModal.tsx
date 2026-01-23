@@ -7,7 +7,7 @@ import { csvCatalogApi } from '../../services/api';
 
 interface AddCSVModalProps {
   onClose: () => void;
-  onSave: (entry: any) => void;
+  onSave: (entry: any, isEdit?: boolean, originalCsvName?: string) => void;
   initialData?: Partial<any>;
 }
 
@@ -29,8 +29,11 @@ const formatFileSize = (bytes: number): string => {
 
 
 const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData }) => {
+  const isEditMode = initialData?.csv_name && !initialData.csv_name.endsWith(' (Copy)');
+  const originalCsvName = isEditMode ? initialData?.csv_name : undefined;
+  
   const [formData, setFormData] = useState({
-    csv_name: initialData?.csv_name ? `${initialData.csv_name} (Copy)` : '',
+    csv_name: isEditMode ? (initialData?.csv_name || '') : (initialData?.csv_name ? `${initialData.csv_name} (Copy)` : ''),
     source_type: initialData?.source_type || 'FILEPATH',
     source_path: initialData?.source_path || '',
     has_header: initialData?.has_header !== undefined ? initialData.has_header : true,
@@ -432,8 +435,8 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
       ...formData,
       skip_rows: parseInt(String(formData.skip_rows)) || 0,
       sync_interval: parseInt(String(formData.sync_interval)) || 3600,
-    });
-  }, [formData, onSave]);
+    }, isEditMode, originalCsvName);
+  }, [formData, onSave, isEditMode, originalCsvName]);
 
   const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -555,7 +558,7 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
                 letterSpacing: 0.5
               }}>
                 <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-                ADD NEW CSV SOURCE
+                {isEditMode ? `EDIT CSV: ${originalCsvName}` : 'ADD NEW CSV SOURCE'}
               </h2>
             </div>
             
@@ -584,6 +587,7 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
                     value={formData.csv_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, csv_name: e.target.value }))}
                     placeholder="e.g., Sales Data, Customer List"
+                    disabled={isEditMode}
                     style={{
                       width: "100%",
                       padding: "8px 12px",
@@ -591,12 +595,15 @@ const AddCSVModal: React.FC<AddCSVModalProps> = ({ onClose, onSave, initialData 
                       borderRadius: 2,
                       fontSize: 12,
                       fontFamily: "Consolas",
-                      backgroundColor: asciiColors.background,
-                      color: asciiColors.foreground,
-                      outline: "none"
+                      backgroundColor: isEditMode ? asciiColors.backgroundSoft : asciiColors.background,
+                      color: isEditMode ? asciiColors.muted : asciiColors.foreground,
+                      outline: "none",
+                      cursor: isEditMode ? "not-allowed" : "text"
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.borderColor = asciiColors.accent;
+                      if (!isEditMode) {
+                        e.currentTarget.style.borderColor = asciiColors.accent;
+                      }
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.borderColor = asciiColors.border;

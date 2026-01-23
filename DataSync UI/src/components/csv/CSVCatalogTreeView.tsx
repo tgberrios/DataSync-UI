@@ -19,9 +19,11 @@ interface TreeViewProps {
   entries: CSVCatalogEntry[];
   onEntryClick?: (entry: CSVCatalogEntry) => void;
   onDuplicate?: (entry: CSVCatalogEntry) => void;
+  onEdit?: (entry: CSVCatalogEntry) => void;
+  onDelete?: (entry: CSVCatalogEntry) => void;
 }
 
-const CSVCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDuplicate }) => {
+const CSVCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDuplicate, onEdit, onDelete }) => {
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
@@ -228,6 +230,24 @@ const CSVCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, on
                   label="Duplicate"
                   onClick={() => onDuplicate(csv)}
                   variant="primary"
+                />
+              </div>
+            )}
+            {onEdit && (
+              <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                <AsciiButton
+                  label="Edit"
+                  onClick={() => onEdit(csv)}
+                  variant="ghost"
+                />
+              </div>
+            )}
+            {onDelete && (
+              <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                <AsciiButton
+                  label="Delete"
+                  onClick={() => onDelete(csv)}
+                  variant="ghost"
                 />
               </div>
             )}

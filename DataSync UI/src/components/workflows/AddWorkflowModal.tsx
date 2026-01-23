@@ -122,12 +122,98 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
   }, []);
 
   return (
-    <AsciiPanel
-      title={workflow ? `EDIT WORKFLOW: ${workflow.workflow_name}` : 'ADD WORKFLOW'}
-      onClose={onClose}
-      style={{ width: '90vw', maxWidth: '1400px', maxHeight: '90vh', overflow: 'auto' }}
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '2.5vh 2.5vw'
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
-      <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12 }}>
+      <div
+        style={{
+          width: '95vw',
+          height: '95vh',
+          maxWidth: '95vw',
+          maxHeight: '95vh',
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: asciiColors.background,
+          border: `2px solid ${asciiColors.border}`,
+          borderRadius: 4,
+          overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 16px',
+            borderBottom: `2px solid ${asciiColors.border}`,
+            backgroundColor: asciiColors.backgroundSoft
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 14,
+              fontFamily: 'Consolas',
+              color: asciiColors.foreground,
+              margin: 0,
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5
+            }}
+          >
+            <span style={{ color: asciiColors.accent }}>{ascii.tl}</span>
+            {ascii.h.repeat(2)}
+            {workflow ? `EDIT WORKFLOW: ${workflow.workflow_name}` : 'ADD WORKFLOW'}
+          </h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: asciiColors.foreground,
+              fontSize: 18,
+              cursor: 'pointer',
+              padding: '4px 8px',
+              fontFamily: 'Consolas',
+              lineHeight: 1
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = asciiColors.danger;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = asciiColors.foreground;
+            }}
+          >
+            ×
+          </button>
+        </div>
+        <div
+          style={{
+            flex: 1,
+            overflow: 'auto',
+            padding: 16,
+            fontFamily: 'Consolas',
+            fontSize: 12
+          }}
+        >
         {error && (
           <div style={{
             padding: 12,
@@ -695,8 +781,9 @@ const AddWorkflowModal: React.FC<AddWorkflowModalProps> = ({ onClose, onSave, wo
             disabled={isSaving}
           />
         </div>
+        </div>
       </div>
-    </AsciiPanel>
+    </div>
   );
 };
 

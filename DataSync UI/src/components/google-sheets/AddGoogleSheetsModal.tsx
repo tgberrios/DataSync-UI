@@ -6,7 +6,7 @@ import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSe
 
 interface AddGoogleSheetsModalProps {
   onClose: () => void;
-  onSave: (entry: any) => void;
+  onSave: (entry: any, isEdit?: boolean, originalSheetName?: string) => void;
   initialData?: Partial<any>;
 }
 
@@ -20,8 +20,11 @@ const connectionStringExamples: Record<string, string> = {
 
 
 const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, onSave, initialData }) => {
+  const isEditMode = initialData?.sheet_name && !initialData.sheet_name.endsWith(' (Copy)');
+  const originalSheetName = isEditMode ? initialData?.sheet_name : undefined;
+  
   const [formData, setFormData] = useState({
-    sheet_name: initialData?.sheet_name ? `${initialData.sheet_name} (Copy)` : '',
+    sheet_name: isEditMode ? (initialData?.sheet_name || '') : (initialData?.sheet_name ? `${initialData.sheet_name} (Copy)` : ''),
     spreadsheet_id: initialData?.spreadsheet_id || '',
     api_key: initialData?.api_key || '',
     access_token: initialData?.access_token || '',
@@ -474,8 +477,8 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
     onSave({
       ...formData,
       sync_interval: parseInt(String(formData.sync_interval)) || 3600,
-    });
-  }, [formData, onSave]);
+    }, isEditMode, originalSheetName);
+  }, [formData, onSave, isEditMode, originalSheetName]);
 
   return (
     <>
@@ -540,7 +543,7 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
             textTransform: "uppercase"
           }}>
             <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
-            ADD NEW GOOGLE SHEET SOURCE
+            {isEditMode ? `EDIT GOOGLE SHEET: ${originalSheetName}` : 'ADD NEW GOOGLE SHEET SOURCE'}
           </h2>
           
           <form onSubmit={handleSubmit} style={{ fontFamily: "Consolas", fontSize: 12 }}>
@@ -561,6 +564,7 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                 value={formData.sheet_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, sheet_name: e.target.value }))}
                 placeholder="e.g., Sales Data, Customer List"
+                disabled={isEditMode}
                 style={{
                   width: "100%",
                   padding: "6px 10px",
@@ -568,12 +572,15 @@ const AddGoogleSheetsModal: React.FC<AddGoogleSheetsModalProps> = ({ onClose, on
                   borderRadius: 2,
                   fontSize: 12,
                   fontFamily: "Consolas",
-                  backgroundColor: asciiColors.background,
-                  color: asciiColors.foreground,
-                  outline: "none"
+                  backgroundColor: isEditMode ? asciiColors.backgroundSoft : asciiColors.background,
+                  color: isEditMode ? asciiColors.muted : asciiColors.foreground,
+                  outline: "none",
+                  cursor: isEditMode ? "not-allowed" : "text"
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = asciiColors.accent;
+                  if (!isEditMode) {
+                    e.currentTarget.style.borderColor = asciiColors.accent;
+                  }
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = asciiColors.border;

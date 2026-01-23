@@ -127,13 +127,38 @@ const CSVCatalog = () => {
       sync_interval: number;
       status: string;
       active: boolean;
-    }) => {
+    }, isEdit: boolean = false, originalCsvName?: string) => {
       try {
         setError(null);
-        await csvCatalogApi.createCSV(newEntry);
-        await fetchAllEntries();
-        setShowAddModal(false);
-        alert(`CSV "${newEntry.csv_name}" added successfully.`);
+        if (isEdit && originalCsvName) {
+          const { csv_name, ...updateData } = newEntry;
+          const oldEntry = allEntries.find(e => e.csv_name === originalCsvName);
+          await csvCatalogApi.updateCSV(originalCsvName, updateData);
+          await fetchAllEntries();
+          setShowAddModal(false);
+          setDuplicateData(null);
+          
+          let message = `CSV "${originalCsvName}" updated successfully.`;
+          
+          if (oldEntry && (
+            oldEntry.target_schema !== newEntry.target_schema || 
+            oldEntry.target_table !== newEntry.target_table
+          )) {
+            message += `\n\nREMINDER: The target table has changed.\n` +
+              `   Old table: ${oldEntry.target_schema}.${oldEntry.target_table}\n` +
+              `   New table: ${newEntry.target_schema}.${newEntry.target_table}\n\n` +
+              `   Consider manually deleting the old table if no longer needed:\n` +
+              `   DROP TABLE IF EXISTS "${oldEntry.target_schema}"."${oldEntry.target_table}" CASCADE;`;
+          }
+          
+          alert(message);
+        } else {
+          await csvCatalogApi.createCSV(newEntry);
+          await fetchAllEntries();
+          setShowAddModal(false);
+          setDuplicateData(null);
+          alert(`CSV "${newEntry.csv_name}" added successfully.`);
+        }
       } catch (err: unknown) {
         if (isMountedRef.current) {
           const error = err as { message?: string };
@@ -145,9 +170,54 @@ const CSVCatalog = () => {
         }
       }
     },
-    [fetchAllEntries]
+    [fetchAllEntries, allEntries]
   );
 
+  const handleEdit = useCallback((entry: CSVCatalogEntry) => {
+    setDuplicateData(entry);
+    setShowAddModal(true);
+  }, []);
+
+  const handleDelete = useCallback(
+    async (entry: CSVCatalogEntry) => {
+      const confirmMessage = `Are you sure you want to delete CSV "${entry.csv_name}"?\n\n` +
+        `This will delete the CSV from the catalog.\n\n` +
+        `IMPORTANT: Remember to manually delete the target table if no longer needed:\n` +
+        `   Table: ${entry.target_schema}.${entry.target_table}\n` +
+        `   Database: ${entry.target_db_engine}\n` +
+        `   Connection: ${entry.target_connection_string?.substring(0, 50)}...\n\n` +
+        `This action cannot be undone.`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      try {
+        setError(null);
+        await csvCatalogApi.deleteCSV(entry.csv_name);
+        await fetchAllEntries();
+        if (selectedCSV?.csv_name === entry.csv_name) {
+          setSelectedCSV(null);
+        }
+        
+        const reminderMessage = `CSV "${entry.csv_name}" deleted successfully.\n\n` +
+          `REMINDER: Don't forget to manually delete the target table if no longer needed:\n` +
+          `   DROP TABLE IF EXISTS "${entry.target_schema}"."${entry.target_table}" CASCADE;\n` +
+          `   (In database: ${entry.target_db_engine})`;
+        
+        alert(reminderMessage);
+      } catch (err: any) {
+        if (isMountedRef.current) {
+          if (err.message && err.message.includes('Network Error')) {
+            setError('Network error. Please check if the server is running and try again.');
+          } else {
+            setError(extractApiError(err));
+          }
+        }
+      }
+    },
+    [fetchAllEntries, selectedCSV]
+  );
 
   const handleDuplicate = useCallback((entry: CSVCatalogEntry) => {
     setDuplicateData(entry);
@@ -422,6 +492,8 @@ const CSVCatalog = () => {
             entries={allEntries}
             onEntryClick={(entry: CSVCatalogEntry) => handleCSVClick(entry)}
             onDuplicate={handleDuplicate}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </div>
       )}
@@ -463,7 +535,7 @@ const CSVCatalog = () => {
             setShowAddModal(false);
             setDuplicateData(null);
           }}
-          onSave={handleAdd}
+          onSave={(entry, isEdit, originalCsvName) => handleAdd(entry, isEdit, originalCsvName)}
           initialData={duplicateData}
         />
       )}

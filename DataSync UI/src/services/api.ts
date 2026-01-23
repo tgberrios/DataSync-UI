@@ -2686,6 +2686,60 @@ export const apiCatalogApi = {
     }
   },
 
+  updateAPI: async (apiName: string, entry: {
+    api_type?: string;
+    base_url?: string;
+    endpoint?: string;
+    http_method?: string;
+    auth_type?: string;
+    auth_config?: Record<string, unknown>;
+    target_db_engine?: string;
+    target_connection_string?: string;
+    target_schema?: string;
+    target_table?: string;
+    request_body?: string | null;
+    request_headers?: Record<string, unknown>;
+    query_params?: Record<string, unknown>;
+    sync_interval?: number;
+    status?: string;
+    active?: boolean;
+  }) => {
+    try {
+      const response = await api.put("/api-catalog", {
+        api_name: apiName,
+        ...entry
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating API:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteAPI: async (apiName: string) => {
+    try {
+      const response = await api.delete(`/api-catalog/${encodeURIComponent(apiName)}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting API:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
   updateActive: async (apiName: string, active: boolean) => {
     try {
       const response = await api.patch("/api-catalog/active", {
@@ -3277,6 +3331,57 @@ export const csvCatalogApi = {
       throw error;
     }
   },
+
+  updateCSV: async (csvName: string, updateData: Partial<{
+    source_type: string;
+    source_path: string;
+    has_header: boolean;
+    delimiter: string;
+    skip_rows: number;
+    skip_empty_rows: boolean;
+    target_db_engine: string;
+    target_connection_string: string;
+    target_schema: string;
+    target_table: string;
+    sync_interval: number;
+    status: string;
+    active: boolean;
+  }>) => {
+    try {
+      const response = await api.put("/csv-catalog", {
+        csv_name: csvName,
+        ...updateData
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating CSV:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteCSV: async (csvName: string) => {
+    try {
+      const response = await api.delete(`/csv-catalog/${encodeURIComponent(csvName)}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting CSV:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
 
 export const googleSheetsCatalogApi = {
@@ -3403,6 +3508,55 @@ export const googleSheetsCatalogApi = {
       return response.data;
     } catch (error) {
       console.error("Error fetching table structure:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  updateSheet: async (sheetName: string, updateData: Partial<{
+    spreadsheet_id: string;
+    api_key: string;
+    access_token: string;
+    range: string;
+    target_db_engine: string;
+    target_connection_string: string;
+    target_schema: string;
+    target_table: string;
+    sync_interval: number;
+    status: string;
+    active: boolean;
+  }>) => {
+    try {
+      const response = await api.put("/google-sheets-catalog", {
+        sheet_name: sheetName,
+        ...updateData
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating Google Sheet:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  deleteSheet: async (sheetName: string) => {
+    try {
+      const response = await api.delete(`/google-sheets-catalog/${encodeURIComponent(sheetName)}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting Google Sheet:", error);
       if (axios.isAxiosError(error) && error.response) {
         throw new Error(
           error.response.data.details ||

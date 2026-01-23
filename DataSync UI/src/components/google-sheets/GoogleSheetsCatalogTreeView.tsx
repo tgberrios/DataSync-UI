@@ -19,9 +19,11 @@ interface TreeViewProps {
   entries: GoogleSheetsCatalogEntry[];
   onEntryClick?: (entry: GoogleSheetsCatalogEntry) => void;
   onDuplicate?: (entry: GoogleSheetsCatalogEntry) => void;
+  onEdit?: (entry: GoogleSheetsCatalogEntry) => void;
+  onDelete?: (entry: GoogleSheetsCatalogEntry) => void;
 }
 
-const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDuplicate }) => {
+const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntryClick, onDuplicate, onEdit, onDelete }) => {
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
@@ -216,6 +218,24 @@ const GoogleSheetsCatalogTreeView: React.FC<TreeViewProps> = ({ entries, onEntry
                   label="Duplicate"
                   onClick={() => onDuplicate(sheet)}
                   variant="primary"
+                />
+              </div>
+            )}
+            {onEdit && (
+              <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                <AsciiButton
+                  label="Edit"
+                  onClick={() => onEdit(sheet)}
+                  variant="ghost"
+                />
+              </div>
+            )}
+            {onDelete && (
+              <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                <AsciiButton
+                  label="Delete"
+                  onClick={() => onDelete(sheet)}
+                  variant="ghost"
                 />
               </div>
             )}

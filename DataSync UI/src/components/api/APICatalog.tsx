@@ -130,13 +130,38 @@ const APICatalog = () => {
   }, [setFilter, setPage]);
 
   const handleAdd = useCallback(
-    async (newEntry: any) => {
+    async (newEntry: any, isEdit: boolean = false, originalApiName?: string) => {
       try {
         setError(null);
-        await apiCatalogApi.createAPI(newEntry);
-        await fetchAllEntries();
-        setShowAddModal(false);
-        alert(`API "${newEntry.api_name}" added successfully.`);
+        if (isEdit && originalApiName) {
+          const { api_name, ...updateData } = newEntry;
+          const oldEntry = allEntries.find(e => e.api_name === originalApiName);
+          await apiCatalogApi.updateAPI(originalApiName, updateData);
+          await fetchAllEntries();
+          setShowAddModal(false);
+          setDuplicateData(null);
+          
+          let message = `API "${originalApiName}" updated successfully.`;
+          
+          if (oldEntry && (
+            oldEntry.target_schema !== newEntry.target_schema || 
+            oldEntry.target_table !== newEntry.target_table
+          )) {
+            message += `\n\nREMINDER: The target table has changed.\n` +
+              `   Old table: ${oldEntry.target_schema}.${oldEntry.target_table}\n` +
+              `   New table: ${newEntry.target_schema}.${newEntry.target_table}\n\n` +
+              `   Consider manually deleting the old table if no longer needed:\n` +
+              `   DROP TABLE IF EXISTS "${oldEntry.target_schema}"."${oldEntry.target_table}" CASCADE;`;
+          }
+          
+          alert(message);
+        } else {
+          await apiCatalogApi.createAPI(newEntry);
+          await fetchAllEntries();
+          setShowAddModal(false);
+          setDuplicateData(null);
+          alert(`API "${newEntry.api_name}" added successfully.`);
+        }
       } catch (err: any) {
         if (isMountedRef.current) {
           if (err.message && err.message.includes('Network Error')) {
@@ -147,7 +172,53 @@ const APICatalog = () => {
         }
       }
     },
-    [fetchAllEntries]
+    [fetchAllEntries, allEntries]
+  );
+
+  const handleEdit = useCallback((entry: APICatalogEntry) => {
+    setDuplicateData(entry);
+    setShowAddModal(true);
+  }, []);
+
+  const handleDelete = useCallback(
+    async (entry: APICatalogEntry) => {
+      const confirmMessage = `Are you sure you want to delete API "${entry.api_name}"?\n\n` +
+        `This will delete the API from the catalog.\n\n` +
+        `IMPORTANT: Remember to manually delete the target table if no longer needed:\n` +
+        `   Table: ${entry.target_schema}.${entry.target_table}\n` +
+        `   Database: ${entry.target_db_engine}\n` +
+        `   Connection: ${entry.target_connection_string?.substring(0, 50)}...\n\n` +
+        `This action cannot be undone.`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      try {
+        setError(null);
+        await apiCatalogApi.deleteAPI(entry.api_name);
+        await fetchAllEntries();
+        if (selectedAPI?.api_name === entry.api_name) {
+          setSelectedAPI(null);
+        }
+        
+        const reminderMessage = `API "${entry.api_name}" deleted successfully.\n\n` +
+          `REMINDER: Don't forget to manually delete the target table if no longer needed:\n` +
+          `   DROP TABLE IF EXISTS "${entry.target_schema}"."${entry.target_table}" CASCADE;\n` +
+          `   (In database: ${entry.target_db_engine})`;
+        
+        alert(reminderMessage);
+      } catch (err: any) {
+        if (isMountedRef.current) {
+          if (err.message && err.message.includes('Network Error')) {
+            setError('Network error. Please check if the server is running and try again.');
+          } else {
+            setError(extractApiError(err));
+          }
+        }
+      }
+    },
+    [fetchAllEntries, selectedAPI]
   );
 
   const handleDuplicate = useCallback((entry: APICatalogEntry) => {
@@ -419,6 +490,8 @@ const APICatalog = () => {
             entries={allEntries}
             onEntryClick={handleAPIClick}
             onDuplicate={handleDuplicate}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </div>
       )}
@@ -442,7 +515,174 @@ const APICatalog = () => {
           }}
           onSave={handleAdd}
           initialData={duplicateData}
+          isEdit={duplicateData && !duplicateData.api_name?.endsWith(' (Copy)')}
         />
+      )}
+
+      {showAPICatalogPlaybook && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => setShowAPICatalogPlaybook(false)}
+        >
+          <div style={{
+            width: '90%',
+            maxWidth: 1000,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <AsciiPanel title="API CATALOG PLAYBOOK">
+              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} OVERVIEW
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    The API Catalog synchronizes data from REST API endpoints to target databases. APIs are polled at configured intervals 
+                    and data is loaded using full load strategy (no incremental sync). Each API sync creates a timestamp column (_api_sync_at) 
+                    to track when data was last synchronized.
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SUPPORTED TARGET ENGINES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PostgreSQL:</strong> Native PostgreSQL target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MariaDB:</strong> MySQL-compatible target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MSSQL:</strong> Microsoft SQL Server target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MongoDB:</strong> MongoDB document store target
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Oracle:</strong> Oracle Database target
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SYNC PROCESS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Full Load:</strong> Each sync performs complete data replacement (TRUNCATE and INSERT)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Status Tracking:</strong> IN_PROGRESS during sync, SUCCESS/ERROR on completion
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Timestamp Column:</strong> _api_sync_at added to track sync time
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Error Handling:</strong> Failed syncs are logged with error messages
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} HTTP METHODS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>GET:</strong> Retrieve data from API endpoint
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>POST:</strong> Send data to API endpoint
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PUT:</strong> Update data via API endpoint
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>DELETE:</strong> Delete data via API endpoint
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} AUTHENTICATION TYPES
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>NONE:</strong> No authentication required
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>API_KEY:</strong> API key authentication via headers or query parameters
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>BASIC:</strong> HTTP Basic Authentication
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>BEARER:</strong> Bearer token authentication
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>OAUTH2:</strong> OAuth 2.0 authentication flow
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                    {ascii.blockFull} SYNC INTERVALS
+                  </div>
+                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                    Configure how frequently the API should be polled for new data. Intervals are specified in seconds. 
+                    Valid range: 5-3600 seconds (5 seconds to 1 hour). Common intervals: 60 (1 minute), 300 (5 minutes), 3600 (1 hour).
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: 16, 
+                  padding: 12, 
+                  background: asciiColors.backgroundSoft, 
+                  borderRadius: 2,
+                  border: `1px solid ${asciiColors.border}`
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                    {ascii.blockSemi} Best Practices
+                  </div>
+                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                    • Test API endpoints before enabling synchronization<br/>
+                    • Use appropriate authentication methods (API_KEY, BEARER, OAUTH2)<br/>
+                    • Set reasonable sync intervals to avoid rate limiting (5-3600 seconds)<br/>
+                    • Monitor execution history for failed syncs<br/>
+                    • Handle API rate limits and errors gracefully<br/>
+                    • Review target table structures for data compatibility<br/>
+                    • Use filters to organize APIs by type, engine, or status
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <AsciiButton
+                    label="Close"
+                    onClick={() => setShowAPICatalogPlaybook(false)}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </AsciiPanel>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1184,172 +1424,6 @@ const MappingGraph: React.FC<MappingGraphProps> = ({ api, tableStructure, loadin
         </div>
       )}
       </AsciiPanel>
-
-      {showAPICatalogPlaybook && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}
-        onClick={() => setShowAPICatalogPlaybook(false)}
-        >
-          <div style={{
-            width: '90%',
-            maxWidth: 1000,
-            maxHeight: '90vh',
-            overflowY: 'auto'
-          }}
-          onClick={(e) => e.stopPropagation()}
-          >
-            <AsciiPanel title="API CATALOG PLAYBOOK">
-              <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
-                    {ascii.blockFull} OVERVIEW
-                  </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
-                    The API Catalog synchronizes data from REST API endpoints to target databases. APIs are polled at configured intervals 
-                    and data is loaded using full load strategy (no incremental sync). Each API sync creates a timestamp column (_api_sync_at) 
-                    to track when data was last synchronized.
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
-                    {ascii.blockFull} SUPPORTED TARGET ENGINES
-                  </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PostgreSQL:</strong> Native PostgreSQL target
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MariaDB:</strong> MySQL-compatible target
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MSSQL:</strong> Microsoft SQL Server target
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>MongoDB:</strong> MongoDB document store target
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Oracle:</strong> Oracle Database target
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
-                    {ascii.blockFull} SYNC PROCESS
-                  </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Full Load:</strong> Each sync performs complete data replacement (TRUNCATE and INSERT)
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Status Tracking:</strong> IN_PROGRESS during sync, SUCCESS/ERROR on completion
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Timestamp Column:</strong> _api_sync_at added to track sync time
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>Error Handling:</strong> Failed syncs are logged with error messages
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
-                    {ascii.blockFull} HTTP METHODS
-                  </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>GET:</strong> Retrieve data from API endpoint
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>POST:</strong> Send data to API endpoint
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>PUT:</strong> Update data via API endpoint
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>DELETE:</strong> Delete data via API endpoint
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
-                    {ascii.blockFull} AUTHENTICATION TYPES
-                  </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>NONE:</strong> No authentication required
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>API_KEY:</strong> API key authentication via headers or query parameters
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>BASIC:</strong> HTTP Basic Authentication
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>BEARER:</strong> Bearer token authentication
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>└─</span> <strong>OAUTH2:</strong> OAuth 2.0 authentication flow
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
-                    {ascii.blockFull} SYNC INTERVALS
-                  </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
-                    Configure how frequently the API should be polled for new data. Intervals are specified in seconds. 
-                    Valid range: 5-3600 seconds (5 seconds to 1 hour). Common intervals: 60 (1 minute), 300 (5 minutes), 3600 (1 hour).
-                  </div>
-                </div>
-
-                <div style={{ 
-                  marginTop: 16, 
-                  padding: 12, 
-                  background: asciiColors.backgroundSoft, 
-                  borderRadius: 2,
-                  border: `1px solid ${asciiColors.border}`
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
-                    {ascii.blockSemi} Best Practices
-                  </div>
-                  <div style={{ fontSize: 11, color: asciiColors.foreground }}>
-                    • Test API endpoints before enabling synchronization<br/>
-                    • Use appropriate authentication methods (API_KEY, BEARER, OAUTH2)<br/>
-                    • Set reasonable sync intervals to avoid rate limiting (5-3600 seconds)<br/>
-                    • Monitor execution history for failed syncs<br/>
-                    • Handle API rate limits and errors gracefully<br/>
-                    • Review target table structures for data compatibility<br/>
-                    • Use filters to organize APIs by type, engine, or status
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 16, textAlign: 'right' }}>
-                  <AsciiButton
-                    label="Close"
-                    onClick={() => setShowAPICatalogPlaybook(false)}
-                    variant="ghost"
-                  />
-                </div>
-              </div>
-            </AsciiPanel>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

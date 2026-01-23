@@ -356,8 +356,9 @@ interface DetectedEndpoint {
 
 interface AddAPIModalProps {
   onClose: () => void;
-  onSave: (entry: any) => void;
+  onSave: (entry: any, isEdit?: boolean) => void;
   initialData?: Partial<any>;
+  isEdit?: boolean;
 }
 
 const connectionStringExamples: Record<string, string> = {
@@ -490,9 +491,12 @@ const discoverEndpointsFromOpenAPI = async (baseUrl: string, openApiPath: string
   return [];
 };
 
-const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData }) => {
+const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData, isEdit = false }) => {
+  const isEditMode = isEdit || (initialData?.api_name && !initialData.api_name.endsWith(' (Copy)'));
+  const originalApiName = isEditMode ? initialData?.api_name : undefined;
+  
   const [formData, setFormData] = useState({
-    api_name: initialData?.api_name ? `${initialData.api_name} (Copy)` : '',
+    api_name: isEditMode ? (initialData?.api_name || '') : (initialData?.api_name ? `${initialData.api_name} (Copy)` : ''),
     api_type: initialData?.api_type || 'REST',
     base_url: initialData?.base_url || '',
     endpoint: initialData?.endpoint || '',
@@ -501,13 +505,13 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
     auth_config: initialData?.auth_config ? (typeof initialData.auth_config === 'string' ? initialData.auth_config : JSON.stringify(initialData.auth_config)) : '{}',
     target_db_engine: initialData?.target_db_engine || '',
     target_connection_string: initialData?.target_connection_string || '',
-    target_schema: '',
-    target_table: '',
-    request_headers: '{}',
-    query_params: '{}',
-    sync_interval: 3600,
-    status: 'PENDING',
-    active: true,
+    target_schema: initialData?.target_schema || '',
+    target_table: initialData?.target_table || '',
+    request_headers: initialData?.request_headers ? (typeof initialData.request_headers === 'string' ? initialData.request_headers : JSON.stringify(initialData.request_headers)) : '{}',
+    query_params: initialData?.query_params ? (typeof initialData.query_params === 'string' ? initialData.query_params : JSON.stringify(initialData.query_params)) : '{}',
+    sync_interval: initialData?.sync_interval || 3600,
+    status: initialData?.status || 'PENDING',
+    active: initialData?.active !== undefined ? initialData.active : true,
     operation_type: 'EXTRACT',
   });
   const [error, setError] = useState<string | null>(null);
@@ -964,9 +968,9 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
       sync_interval: formData.sync_interval,
       status: formData.status,
       active: formData.active,
-    });
+    }, isEditMode, originalApiName);
     handleClose();
-  }, [formData, onSave, handleClose]);
+  }, [formData, onSave, handleClose, isEditMode, originalApiName]);
 
   const handleEngineChange = useCallback((engine: string) => {
     setFormData(prev => ({
@@ -1085,7 +1089,7 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
       <BlurOverlay style={{ animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in' }} onClick={handleClose} />
       <ModalOverlay style={{ animation: isClosing ? 'fadeOut 0.15s ease-out' : 'fadeIn 0.15s ease-in' }}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalHeader>Add New API to Catalog</ModalHeader>
+          <ModalHeader>{isEditMode ? `Edit API: ${originalApiName}` : 'Add New API to Catalog'}</ModalHeader>
           
           <FormGroup>
             <Label>API Name *</Label>
@@ -1094,6 +1098,7 @@ const AddAPIModal: React.FC<AddAPIModalProps> = ({ onClose, onSave, initialData 
               value={formData.api_name}
               onChange={(e) => setFormData(prev => ({ ...prev, api_name: e.target.value }))}
               placeholder="e.g., Cat API, Users API"
+              disabled={isEditMode}
             />
           </FormGroup>
 
