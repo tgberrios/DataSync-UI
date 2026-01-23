@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { theme } from '../../theme/theme';
+import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import type { ConfigEntry } from '../../services/api';
 
 const fadeIn = keyframes`
@@ -14,62 +15,34 @@ const fadeIn = keyframes`
   }
 `;
 
-const slideDown = keyframes`
-  from {
-    opacity: 0;
-    max-height: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    max-height: 10000px;
-    transform: translateY(0);
-  }
-`;
-
-const slideUp = keyframes`
-  from {
-    opacity: 1;
-    max-height: 10000px;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    max-height: 0;
-    transform: translateY(-10px);
-  }
-`;
-
 const TreeContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  font-size: 0.95em;
-  background: ${theme.colors.background.main};
-  border: 1px solid ${theme.colors.border.light};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.lg};
+  font-family: Consolas;
+  font-size: 12px;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  border-radius: 2px;
+  padding: 16px;
   max-height: 800px;
   overflow-y: auto;
   overflow-x: hidden;
-  box-shadow: ${theme.shadows.md};
   position: relative;
-  animation: ${fadeIn} 0.3s ease-out;
   
   &::-webkit-scrollbar {
     width: 8px;
   }
   
   &::-webkit-scrollbar-track {
-    background: ${theme.colors.background.secondary};
-    border-radius: ${theme.borderRadius.sm};
+    background: ${asciiColors.backgroundSoft};
+    border-radius: 2px;
   }
   
   &::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.medium};
-    border-radius: ${theme.borderRadius.sm};
-    transition: background ${theme.transitions.normal};
+    background: ${asciiColors.border};
+    border-radius: 2px;
+    transition: background 0.2s ease;
     
     &:hover {
-      background: ${theme.colors.primary.main};
+      background: ${asciiColors.accent};
     }
   }
 `;
@@ -77,184 +50,99 @@ const TreeContainer = styled.div`
 const TreeNode = styled.div`
   user-select: none;
   margin: 4px 0;
-  animation: ${fadeIn} 0.3s ease-out;
-  animation-fill-mode: both;
-  
-  &:nth-child(1) { animation-delay: 0.05s; }
-  &:nth-child(2) { animation-delay: 0.1s; }
-  &:nth-child(3) { animation-delay: 0.15s; }
-  &:nth-child(4) { animation-delay: 0.2s; }
-  &:nth-child(5) { animation-delay: 0.25s; }
 `;
 
-const TreeContent = styled.div<{ $level: number; $isExpanded?: boolean; $nodeType?: 'category' | 'config' }>`
+const TreeContent = styled.div`
   display: flex;
   align-items: center;
-  padding: ${props => props.$level === 0 ? '12px 8px' : '10px 8px'};
-  padding-left: ${props => props.$level * 24 + 8}px;
-  border-radius: ${theme.borderRadius.md};
-  transition: all ${theme.transitions.normal};
+  padding: 8px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
   cursor: pointer;
-  position: relative;
-  margin: 2px 0;
-  
+  font-family: Consolas;
+  font-size: 12px;
   background: transparent;
   
-  ${props => {
-    if (props.$nodeType === 'category') {
-      return `
-        border-left: 3px solid ${theme.colors.primary.main};
-        font-weight: 600;
-      `;
-    }
-    return `
-      border-left: 1px solid ${theme.colors.border.light};
-    `;
-  }}
-  
   &:hover {
-    background: ${props => {
-      if (props.$nodeType === 'category') {
-        return `linear-gradient(135deg, ${theme.colors.primary.light}15 0%, ${theme.colors.primary.main}10 100%)`;
-      }
-      return theme.colors.background.secondary;
-    }};
-    transform: translateX(2px);
-    box-shadow: ${theme.shadows.sm};
+    background: ${asciiColors.backgroundSoft};
   }
 `;
 
 const ExpandIconContainer = styled.div<{ $isExpanded: boolean }>`
-  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
   margin-right: 8px;
-  border-radius: ${theme.borderRadius.sm};
-  background: ${props => props.$isExpanded 
-    ? `linear-gradient(135deg, ${theme.colors.primary.main} 0%, ${theme.colors.primary.light} 100%)`
-    : theme.colors.background.secondary
-  };
-  color: ${props => props.$isExpanded ? theme.colors.text.white : theme.colors.primary.main};
-  font-size: 0.7em;
+  border-radius: 2px;
+  background: ${props => props.$isExpanded ? asciiColors.accent : asciiColors.backgroundSoft};
+  color: ${props => props.$isExpanded ? '#ffffff' : asciiColors.accent};
+  font-size: 10px;
   font-weight: bold;
-  transition: all ${theme.transitions.normal};
+  font-family: Consolas;
+  transition: all 0.2s ease;
   flex-shrink: 0;
   
   &:hover {
     transform: scale(1.1);
-    box-shadow: ${theme.shadows.sm};
-  }
-  
-  svg {
-    transition: transform ${theme.transitions.normal};
-    transform: ${props => props.$isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'};
   }
 `;
 
-const NodeLabel = styled.span<{ $isCategory?: boolean }>`
-  font-weight: ${props => props.$isCategory ? '700' : '500'};
-  font-size: ${props => props.$isCategory ? '1.05em' : '0.92em'};
-  color: ${props => props.$isCategory ? theme.colors.primary.main : theme.colors.text.primary};
-  margin-right: 12px;
-  transition: color ${theme.transitions.normal};
+const NodeLabel = styled.span`
+  font-weight: 500;
+  font-family: Consolas;
+  font-size: 13px;
+  color: ${asciiColors.accent};
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 const CountBadge = styled.span`
-  padding: 4px 10px;
-  border-radius: ${theme.borderRadius.md};
-  font-size: 0.8em;
+  background: ${asciiColors.backgroundSoft};
+  color: ${asciiColors.foreground};
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 11px;
   font-weight: 500;
-  background: linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%);
-  color: ${theme.colors.text.secondary};
-  border: 1px solid ${theme.colors.border.light};
-  margin-left: auto;
-  transition: all ${theme.transitions.normal};
+  font-family: Consolas;
+  border: 1px solid ${asciiColors.border};
+  transition: all 0.2s ease;
   
   &:hover {
-    background: linear-gradient(135deg, ${theme.colors.primary.light}10 0%, ${theme.colors.primary.main}08 100%);
-    border-color: ${theme.colors.primary.main};
-    color: ${theme.colors.primary.main};
+    background: ${asciiColors.accentLight};
+    border-color: ${asciiColors.accent};
+    color: ${asciiColors.accent};
     transform: translateY(-1px);
   }
 `;
 
-const ExpandableContent = styled.div<{ $isExpanded: boolean; $level: number }>`
+const ExpandableContent = styled.div<{ $isExpanded: boolean }>`
+  max-height: ${props => props.$isExpanded ? '10000px' : '0'};
   overflow: hidden;
-  animation: ${props => props.$isExpanded ? slideDown : slideUp} 0.3s ease-out;
-  padding-left: ${props => props.$level * 24 + 36}px;
+  transition: max-height 0.3s ease-out;
+  margin-left: 28px;
 `;
 
-const TreeLine = styled.span`
-  color: ${theme.colors.text.secondary};
-  font-family: "Consolas, 'Source Code Pro', monospace";
-  margin-right: 4px;
-  font-size: 0.9em;
-`;
-
-const ConfigItemRow = styled.div<{ $level: number; $isSelected?: boolean }>`
-  padding: 12px 8px;
-  padding-left: ${props => props.$level * 24 + 36}px;
+const TableDetailsRow = styled.div<{ $level?: number }>`
+  padding: 8px;
+  padding-left: ${props => (props.$level || 0) * 24 + 36}px;
   margin: 2px 0;
-  border-radius: ${theme.borderRadius.md};
-  background: ${props => props.$isSelected ? theme.colors.primary.light + '15' : 'transparent'};
-  border: 1px solid ${theme.colors.border.light};
-  transition: all ${theme.transitions.normal};
+  border-radius: 2px;
+  background: transparent;
+  border: 1px solid ${asciiColors.border};
+  transition: all 0.2s ease;
   cursor: pointer;
-  animation: ${fadeIn} 0.3s ease-out;
+  font-family: Consolas;
+  font-size: 12px;
   
   &:hover {
-    background: ${theme.colors.background.secondary};
-    border-color: ${theme.colors.primary.main};
+    background: ${asciiColors.backgroundSoft};
+    border-color: ${asciiColors.accent};
     transform: translateX(4px);
-    box-shadow: ${theme.shadows.sm};
   }
-`;
-
-const ConfigKey = styled.span`
-  font-weight: 600;
-  color: ${theme.colors.text.primary};
-  font-family: "Consolas, 'Source Code Pro', monospace";
-  font-size: 0.9em;
-  margin-right: 12px;
-`;
-
-const ConfigValue = styled.span`
-  color: ${theme.colors.text.secondary};
-  font-size: 0.85em;
-  font-family: "Consolas, 'Source Code Pro', monospace";
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 300px;
-  user-select: text;
-  cursor: text;
-  
-  &:hover {
-    white-space: normal;
-    word-break: break-word;
-    max-width: 100%;
-  }
-`;
-
-const ConfigMeta = styled.div`
-  display: flex;
-  gap: 12px;
-  margin-top: 4px;
-  font-size: 0.75em;
-  color: ${theme.colors.text.secondary};
-`;
-
-const EmptyState = styled.div`
-  padding: 60px 40px;
-  text-align: center;
-  color: ${theme.colors.text.secondary};
-  animation: ${fadeIn} 0.5s ease-out;
 `;
 
 const EmptyStateIcon = styled.div`
@@ -335,7 +223,7 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({ configs, onConfigClick 
       lines.push('│  ');
     }
     lines.push(isLast ? '└─ ' : '├─ ');
-    return <TreeLine>{lines.join('')}</TreeLine>;
+    return <span style={{ color: asciiColors.muted, fontFamily: 'Consolas', fontSize: 12 }}>{lines.join('')}</span>;
   };
 
   const formatDate = (date: string | null | undefined) => {
@@ -356,79 +244,82 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({ configs, onConfigClick 
 
     return (
       <TreeNode key={category.name}>
-        <TreeContent 
-          $level={level} 
-          $isExpanded={isExpanded}
-          $nodeType="category"
-          onClick={() => toggleCategory(category.name)}
-        >
+        <TreeContent onClick={() => toggleCategory(category.name)}>
           {renderTreeLine(level, isLast)}
           <ExpandIconContainer $isExpanded={isExpanded}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.colors.primary.main} strokeWidth="2" style={{ marginRight: '8px' }}>
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <path d="M3 9h18M9 3v18"/>
-          </svg>
-          <NodeLabel $isCategory>
+          <span style={{ marginRight: '8px', color: asciiColors.accent, fontFamily: 'Consolas' }}>
+            {ascii.blockFull}
+          </span>
+          <NodeLabel>
             {category.name}
+            <CountBadge>{category.configs.length}</CountBadge>
           </NodeLabel>
-          <CountBadge>{category.configs.length}</CountBadge>
         </TreeContent>
-        <ExpandableContent $isExpanded={isExpanded} $level={level}>
+        <ExpandableContent $isExpanded={isExpanded}>
           {isExpanded && category.configs
             .sort((a, b) => a.key.localeCompare(b.key))
             .map((config, index) => 
-              renderConfig(config, level + 1, index === category.configs.length - 1)
+              renderConfig(config, category.name, level + 1, index === category.configs.length - 1)
             )}
         </ExpandableContent>
       </TreeNode>
     );
   };
 
-  const renderConfig = (config: ConfigEntry, level: number, isLast: boolean) => {
+  const renderConfig = (config: ConfigEntry, _categoryName: string, level: number, isLast: boolean) => {
     return (
-      <ConfigItemRow
+      <TableDetailsRow
         key={config.key}
         $level={level}
         onClick={() => onConfigClick?.(config)}
       >
         {renderTreeLine(level, isLast)}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.colors.text.secondary} strokeWidth="2" style={{ marginRight: '8px', flexShrink: 0 }}>
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10 9 9 9 8 9"/>
-        </svg>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <ConfigKey>{config.key}</ConfigKey>
-            <ConfigValue onClick={(e) => e.stopPropagation()}>
-              {getValuePreview(config.value)}
-            </ConfigValue>
-          </div>
-          <ConfigMeta>
-            <span>Updated: {formatDate(config.updated_at)}</span>
-            {config.description && (
-              <span>• {config.description}</span>
-            )}
-          </ConfigMeta>
-        </div>
-      </ConfigItemRow>
+        <span style={{ marginRight: '8px', color: asciiColors.muted, fontFamily: 'Consolas' }}>
+          {ascii.blockFull}
+        </span>
+        <span style={{ marginRight: '8px', fontWeight: 500, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
+          {config.key}
+        </span>
+        <span style={{
+          padding: '2px 8px',
+          borderRadius: 2,
+          fontSize: 11,
+          fontFamily: 'Consolas',
+          backgroundColor: asciiColors.backgroundSoft,
+          color: asciiColors.muted,
+          border: `1px solid ${asciiColors.border}`,
+          marginRight: 4
+        }}>
+          {getValuePreview(config.value)}
+        </span>
+        <span style={{ marginLeft: 'auto', color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
+          {formatDate(config.updated_at)}
+        </span>
+      </TableDetailsRow>
     );
   };
 
   if (treeData.categories.length === 0 && treeData.uncategorized.length === 0) {
     return (
       <TreeContainer>
-        <EmptyState>
-          <EmptyStateIcon>⚙️</EmptyStateIcon>
-          <EmptyStateTitle>No configuration available</EmptyStateTitle>
-          <EmptyStateText>Configuration entries will appear here once added.</EmptyStateText>
-        </EmptyState>
+        <div style={{ 
+          padding: '60px 40px', 
+          textAlign: 'center', 
+          color: asciiColors.muted,
+          fontFamily: 'Consolas'
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16, fontFamily: 'Consolas', opacity: 0.5 }}>
+            {ascii.blockFull}
+          </div>
+          <div style={{ fontSize: 13, fontFamily: 'Consolas', fontWeight: 600, marginBottom: 8, color: asciiColors.foreground }}>
+            No configuration available
+          </div>
+          <div style={{ fontSize: 12, fontFamily: 'Consolas', opacity: 0.7, color: asciiColors.muted }}>
+            Configuration entries will appear here once added.
+          </div>
+        </div>
       </TreeContainer>
     );
   }
@@ -436,7 +327,7 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({ configs, onConfigClick 
   return (
     <TreeContainer>
       {treeData.uncategorized.map((config, index) => 
-        renderConfig(config, 0, index === treeData.uncategorized.length - 1 && treeData.categories.length === 0)
+        renderConfig(config, '', 0, index === treeData.uncategorized.length - 1 && treeData.categories.length === 0)
       )}
       {treeData.categories.map((category, index) => 
         renderCategory(category, 0, index === treeData.categories.length - 1)
@@ -446,4 +337,3 @@ const ConfigTreeView: React.FC<ConfigTreeViewProps> = ({ configs, onConfigClick 
 };
 
 export default ConfigTreeView;
-

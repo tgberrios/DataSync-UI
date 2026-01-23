@@ -613,7 +613,7 @@ const Catalog = () => {
             onChange={(e) => handleSchemaAction(e.target.value)}
             style={{
               padding: "6px 10px",
-              border: "none",
+              border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontSize: 12,
               fontFamily: "Consolas",
@@ -638,7 +638,7 @@ const Catalog = () => {
             onChange={(e) => handleActivateSchema(e.target.value)}
             style={{
               padding: "6px 10px",
-              border: "none",
+              border: `1px solid ${asciiColors.border}`,
               borderRadius: 2,
               fontSize: 12,
               fontFamily: "Consolas",

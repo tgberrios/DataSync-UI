@@ -40,6 +40,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import UserManagementTreeView from './UserManagementTreeView';
+import UserManagementCharts from './UserManagementCharts';
 import SkeletonLoader from '../shared/SkeletonLoader';
 
 const HeaderContent = styled.div`
@@ -89,6 +90,8 @@ const RoleBadge = styled.span<{ $role: string }>`
       case 'admin': return asciiColors.danger + '20';
       case 'user': return asciiColors.accent + '20';
       case 'viewer': return asciiColors.muted + '20';
+      case 'analytics': return asciiColors.warning + '20';
+      case 'reporting': return asciiColors.success + '20';
       default: return asciiColors.backgroundSoft;
     }
   }};
@@ -97,6 +100,8 @@ const RoleBadge = styled.span<{ $role: string }>`
       case 'admin': return asciiColors.danger;
       case 'user': return asciiColors.accent;
       case 'viewer': return asciiColors.muted;
+      case 'analytics': return asciiColors.warning;
+      case 'reporting': return asciiColors.success;
       default: return asciiColors.foreground;
     }
   }};
@@ -105,6 +110,8 @@ const RoleBadge = styled.span<{ $role: string }>`
       case 'admin': return asciiColors.danger;
       case 'user': return asciiColors.accent;
       case 'viewer': return asciiColors.muted;
+      case 'analytics': return asciiColors.warning;
+      case 'reporting': return asciiColors.success;
       default: return asciiColors.border;
     }
   }};
@@ -114,7 +121,7 @@ interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'user' | 'viewer';
+  role: 'admin' | 'user' | 'viewer' | 'analytics' | 'reporting';
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -147,13 +154,15 @@ const UserManagement = () => {
     username: '',
     email: '',
     password: '',
-    role: 'user' as 'admin' | 'user' | 'viewer',
+    role: 'user' as 'admin' | 'user' | 'viewer' | 'analytics' | 'reporting',
     active: true
   });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserManagementPlaybook, setShowUserManagementPlaybook] = useState(false);
+  const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
+  const [metrics, setMetrics] = useState<any>({});
   const isMountedRef = useRef(true);
 
   const fetchUsers = useCallback(async () => {
@@ -182,13 +191,34 @@ const UserManagement = () => {
       await new Promise(resolve => setTimeout(resolve, remaining));
       
       if (isMountedRef.current) {
-        setData(response.data || []);
+        const usersData = response.data || [];
+        setData(usersData);
         setPagination(response.pagination || {
           total: 0,
           totalPages: 0,
           page: 1,
           limit: 20
         });
+        
+        const calculatedMetrics = {
+          totalUsers: usersData.length,
+          activeUsers: usersData.filter((u: User) => u.active).length,
+          inactiveUsers: usersData.filter((u: User) => !u.active).length,
+          adminCount: usersData.filter((u: User) => u.role === 'admin').length,
+          userCount: usersData.filter((u: User) => u.role === 'user').length,
+          viewerCount: usersData.filter((u: User) => u.role === 'viewer').length,
+          analyticsCount: usersData.filter((u: User) => u.role === 'analytics').length,
+          reportingCount: usersData.filter((u: User) => u.role === 'reporting').length,
+          usersWithLogin: usersData.filter((u: User) => u.last_login !== null).length,
+          usersNeverLoggedIn: usersData.filter((u: User) => u.last_login === null).length,
+          recentLogins: usersData.filter((u: User) => {
+            if (!u.last_login) return false;
+            const loginDate = new Date(u.last_login);
+            const daysSinceLogin = (Date.now() - loginDate.getTime()) / (1000 * 60 * 60 * 24);
+            return daysSinceLogin <= 30;
+          }).length
+        };
+        setMetrics(calculatedMetrics);
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -662,6 +692,8 @@ const UserManagement = () => {
               <option value="admin">Admin</option>
               <option value="user">User</option>
               <option value="viewer">Viewer</option>
+              <option value="analytics">Analytics</option>
+              <option value="reporting">Reporting</option>
             </select>
 
             <select
@@ -695,11 +727,20 @@ const UserManagement = () => {
               onClick={() => setShowUserManagementPlaybook(true)}
               variant="ghost"
             />
+            <AsciiButton
+              label={activeView === 'list' ? 'Show Charts' : 'Show List'}
+              onClick={() => setActiveView(activeView === 'list' ? 'charts' : 'list')}
+              variant={activeView === 'charts' ? 'primary' : 'ghost'}
+            />
           </div>
         </AsciiPanel>
       </div>
 
-      {loading ? (
+      {activeView === 'charts' && (
+        <UserManagementCharts users={data} filters={filters} />
+      )}
+
+      {activeView === 'list' && loading ? (
         <div style={{ marginTop: 20 }}>
           <AsciiPanel title="LOADING">
             <div style={{
@@ -713,7 +754,7 @@ const UserManagement = () => {
             </div>
           </AsciiPanel>
         </div>
-      ) : (
+      ) : activeView === 'list' ? (
         <div style={{ display: 'grid', gridTemplateColumns: selectedUser ? '1fr 400px' : '1fr', gap: theme.spacing.lg }}>
           <UserManagementTreeView 
             users={data} 
@@ -851,7 +892,7 @@ const UserManagement = () => {
             </AsciiPanel>
           )}
         </div>
-      )}
+      ) : null}
 
       {isModalOpen && (
         <ModalOverlay $isOpen={isModalOpen} onClick={handleCloseModal}>
@@ -909,12 +950,14 @@ const UserManagement = () => {
                 onChange={(e) =>
                   setUserForm({
                     ...userForm,
-                    role: e.target.value as 'admin' | 'user' | 'viewer',
+                    role: e.target.value as 'admin' | 'user' | 'viewer' | 'analytics' | 'reporting',
                   })
                 }
               >
                 <option value="viewer">Viewer</option>
                 <option value="user">User</option>
+                <option value="analytics">Analytics</option>
+                <option value="reporting">Reporting</option>
                 <option value="admin">Admin</option>
               </Select>
             </FormGroup>

@@ -247,6 +247,18 @@ const Badge = styled.span<{ $role?: string; $active?: boolean }>`
             color: ${asciiColors.muted};
             border-color: ${asciiColors.muted};
           `;
+        case 'analytics':
+          return `
+            background: ${asciiColors.warning}20;
+            color: ${asciiColors.warning};
+            border-color: ${asciiColors.warning};
+          `;
+        case 'reporting':
+          return `
+            background: ${asciiColors.success}20;
+            color: ${asciiColors.success};
+            border-color: ${asciiColors.success};
+          `;
         default:
           return `
             background: ${asciiColors.backgroundSoft};
@@ -316,7 +328,7 @@ interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'user' | 'viewer';
+  role: 'admin' | 'user' | 'viewer' | 'analytics' | 'reporting';
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -338,7 +350,7 @@ const UserManagementTreeView: React.FC<UserManagementTreeViewProps> = ({ users, 
 
   const treeData = useMemo(() => {
     const roles = new Map<string, RoleNode>();
-    const roleOrder = ['admin', 'user', 'viewer'];
+    const roleOrder = ['admin', 'user', 'viewer', 'analytics', 'reporting'];
 
     users.forEach(user => {
       const roleKey = user.role || 'user';
@@ -405,9 +417,11 @@ const UserManagementTreeView: React.FC<UserManagementTreeViewProps> = ({ users, 
           <ExpandIconContainer $isExpanded={isExpanded}>
             {isExpanded ? ascii.arrowDown : ascii.arrowRight}
           </ExpandIconContainer>
-          <Badge $role={role.name}>{role.name.toUpperCase()}</Badge>
+          <span style={{ marginRight: '8px', color: asciiColors.accent, fontFamily: 'Consolas' }}>
+            {ascii.blockFull}
+          </span>
           <NodeLabel $isRole>
-            {role.name}
+            {role.name.toUpperCase()}
           </NodeLabel>
           <CountBadge>{role.users.length}</CountBadge>
         </TreeContent>
@@ -439,8 +453,11 @@ const UserManagementTreeView: React.FC<UserManagementTreeViewProps> = ({ users, 
         }}>
           {ascii.blockFull}
         </span>
+        <Badge $role={user.role} style={{ marginRight: '12px' }}>
+          {user.role.toUpperCase()}
+        </Badge>
         <span style={{ 
-          marginRight: '8px', 
+          marginRight: '12px', 
           fontWeight: 600, 
           fontFamily: "Consolas",
           fontSize: 12,
@@ -449,7 +466,7 @@ const UserManagementTreeView: React.FC<UserManagementTreeViewProps> = ({ users, 
           {user.username}
         </span>
         <span style={{ 
-          marginRight: '8px', 
+          marginRight: '12px', 
           fontFamily: "Consolas",
           fontSize: 11,
           color: asciiColors.muted 
