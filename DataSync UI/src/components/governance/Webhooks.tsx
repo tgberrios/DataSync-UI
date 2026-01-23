@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { WebhookModal } from './WebhookModal';
 import AlertRules from './AlertRules';
+import WebhooksTreeView from './WebhooksTreeView';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
@@ -615,144 +616,12 @@ const Webhooks = () => {
               </div>
             </AsciiPanel>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: theme.spacing.sm }}>
-              {webhooks.map(webhook => (
-            <AsciiPanel key={webhook.id} title={webhook.name}>
-              <div style={{ padding: theme.spacing.md }}>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "start",
-                  marginBottom: theme.spacing.sm
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ marginBottom: theme.spacing.sm }}>
-                      <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>Type:</span>{' '}
-                      <span style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{webhook.webhook_type}</span>
-                    </div>
-                    {webhook.url && (
-                      <div style={{ marginBottom: theme.spacing.sm }}>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>URL:</span>{' '}
-                        <span style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
-                          {webhook.url.length > 70 ? webhook.url.substring(0, 70) + '...' : webhook.url}
-                        </span>
-                      </div>
-                    )}
-                    {webhook.email_address && (
-                      <div style={{ marginBottom: theme.spacing.sm }}>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>Email:</span>{' '}
-                        <span style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>{webhook.email_address}</span>
-                      </div>
-                    )}
-                    {webhook.chat_id && (
-                      <div style={{ marginBottom: theme.spacing.sm }}>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>Chat ID:</span>{' '}
-                        <span style={{ color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 11 }}>
-                          {webhook.chat_id}
-                        </span>
-                      </div>
-                    )}
-                    {webhook.api_key && (
-                      <div style={{ marginBottom: theme.spacing.sm }}>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>API Key:</span>{' '}
-                        <span style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
-                          {webhook.api_key.length > 30 ? webhook.api_key.substring(0, 30) + '...' : webhook.api_key}
-                        </span>
-                      </div>
-                    )}
-                    {webhook.bot_token && (
-                      <div style={{ marginBottom: theme.spacing.sm }}>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>Bot Token:</span>{' '}
-                        <span style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
-                          {webhook.bot_token.length > 30 ? webhook.bot_token.substring(0, 30) + '...' : webhook.bot_token}
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ marginBottom: theme.spacing.sm }}>
-                      <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>Log Levels:</span>{' '}
-                      <span style={{ color: asciiColors.foreground }}>
-                        {webhook.log_levels && webhook.log_levels.length > 0 
-                          ? webhook.log_levels.map((level, idx) => (
-                              <span key={idx} style={{
-                                display: 'inline-block',
-                                padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                                margin: `0 ${theme.spacing.xs}`,
-                                background: asciiColors.backgroundSoft,
-                                color: asciiColors.foreground,
-                                border: `1px solid ${asciiColors.border}`,
-                                borderRadius: 2,
-                                fontSize: 10,
-                                fontFamily: 'Consolas'
-                              }}>
-                                {level}
-                              </span>
-                            ))
-                          : <span style={{ color: asciiColors.muted, fontFamily: 'Consolas' }}>All</span>}
-                      </span>
-                    </div>
-                    <div style={{ marginBottom: theme.spacing.sm }}>
-                      <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>Log Categories:</span>{' '}
-                      <span style={{ color: asciiColors.foreground, fontFamily: 'Consolas' }}>
-                        {webhook.log_categories && webhook.log_categories.length > 0 
-                          ? webhook.log_categories.join(', ')
-                          : <span style={{ color: asciiColors.muted }}>All</span>}
-                      </span>
-                    </div>
-                    <div style={{ marginBottom: theme.spacing.sm }}>
-                      <span style={{ color: asciiColors.accent, fontWeight: 600, fontFamily: 'Consolas' }}>Status:</span>{' '}
-                      <span style={{
-                        color: webhook.enabled ? asciiColors.accent : asciiColors.muted,
-                        fontWeight: 600,
-                        fontFamily: 'Consolas'
-                      }}>
-                        {webhook.enabled ? 'ENABLED' : 'DISABLED'}
-                      </span>
-                    </div>
-                    <div style={{ 
-                      marginTop: theme.spacing.md, 
-                      paddingTop: theme.spacing.md, 
-                      borderTop: `1px solid ${asciiColors.border}`, 
-                      fontSize: 11, 
-                      color: asciiColors.muted,
-                      fontFamily: 'Consolas'
-                    }}>
-                      <div style={{ marginBottom: theme.spacing.xs }}>
-                        Created: {format(new Date(webhook.created_at), 'yyyy-MM-dd HH:mm:ss')}
-                      </div>
-                      {webhook.updated_at !== webhook.created_at && (
-                        <div>
-                          Updated: {format(new Date(webhook.updated_at), 'yyyy-MM-dd HH:mm:ss')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: theme.spacing.xs,
-                    marginLeft: theme.spacing.md
-                  }}>
-                    <AsciiButton
-                      label={webhook.enabled ? "Disable" : "Enable"}
-                      onClick={() => handleToggle(webhook)}
-                      variant="ghost"
-                    />
-                    <AsciiButton
-                      label="Edit"
-                      onClick={() => handleEdit(webhook)}
-                      variant="ghost"
-                    />
-                    <AsciiButton
-                      label="Delete"
-                      onClick={() => handleDelete(webhook)}
-                      variant="ghost"
-                    />
-                  </div>
-                </div>
-              </div>
-            </AsciiPanel>
-              ))}
-            </div>
+            <WebhooksTreeView
+              webhooks={webhooks}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onToggle={handleToggle}
+            />
           )}
         </>
       )}

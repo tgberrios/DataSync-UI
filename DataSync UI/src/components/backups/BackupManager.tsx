@@ -7,6 +7,8 @@ import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSe
 import SkeletonLoader from '../shared/SkeletonLoader';
 import { Container } from '../shared/BaseComponents';
 import { theme } from '../../theme/theme';
+import BackupManagerTreeView from './BackupManagerTreeView';
+import BackupHistoryTreeView from './BackupHistoryTreeView';
 
 const BackupManager = () => {
   const [backups, setBackups] = useState<BackupEntry[]>([]);
@@ -387,191 +389,22 @@ const BackupManager = () => {
         </div>
       ) : (
         <>
-          <div style={{
-            border: `1px solid ${asciiColors.border}`,
-            borderRadius: 2,
-            overflow: 'hidden',
-            fontFamily: 'Consolas',
-            fontSize: 11,
-            background: asciiColors.background
-          }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse'
-            }}>
-              <thead>
-                <tr style={{
-                  background: asciiColors.backgroundSoft,
-                  borderBottom: `2px solid ${asciiColors.border}`
-                }}>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Name</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Engine</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Database</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Type</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Status</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Size</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Schedule</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Next Run</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Created</th>
-                  <th style={{ padding: theme.spacing.sm, textAlign: 'left', fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas', fontSize: 13 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {backups.map((backup) => (
-                  <tr
-                    key={backup.backup_id}
-                    style={{
-                      borderBottom: `1px solid ${asciiColors.border}`,
-                      transition: 'background-color 0.15s ease'
-                    }}
-                    onClick={() => setSelectedBackup(backup)}
-                  >
-                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{backup.backup_name}</td>
-                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{backup.db_engine}</td>
-                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{backup.database_name}</td>
-                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, textTransform: 'uppercase', fontFamily: 'Consolas', fontSize: 12 }}>{backup.backup_type}</td>
-                    <td style={{ padding: theme.spacing.sm }}>
-                      <span style={{
-                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                        borderRadius: 2,
-                        background: getStatusColor(backup.status) + '20',
-                        color: getStatusColor(backup.status),
-                        fontSize: 10,
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        fontFamily: 'Consolas'
-                      }}>
-                        {backup.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: theme.spacing.sm, color: asciiColors.foreground, fontFamily: 'Consolas', fontSize: 12 }}>{formatFileSize(backup.file_size)}</td>
-                    <td style={{ padding: theme.spacing.sm }}>
-                      {backup.is_scheduled ? (
-                        <span style={{
-                          padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                          borderRadius: 2,
-                          background: asciiColors.accent + '20',
-                          color: asciiColors.accent,
-                          fontSize: 10,
-                          fontWeight: 600,
-                          fontFamily: 'Consolas'
-                        }}>
-                          {backup.cron_schedule || 'SCHEDULED'}
-                        </span>
-                      ) : (
-                        <span style={{
-                          padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                          borderRadius: 2,
-                          background: asciiColors.muted + '20',
-                          color: asciiColors.muted,
-                          fontSize: 10,
-                          fontFamily: 'Consolas'
-                        }}>
-                          MANUAL
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: theme.spacing.sm, color: asciiColors.muted, fontSize: 10, fontFamily: 'Consolas' }}>
-                      {backup.next_run_at ? new Date(backup.next_run_at).toLocaleString() : 'N/A'}
-                    </td>
-                    <td style={{ padding: theme.spacing.sm, color: asciiColors.muted, fontSize: 10, fontFamily: 'Consolas' }}>
-                      {new Date(backup.created_at).toLocaleString()}
-                    </td>
-                    <td style={{ padding: theme.spacing.sm }}>
-                      <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewHistory(backup.backup_id);
-                          }}
-                          style={{
-                            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                            border: `1px solid ${asciiColors.accent}`,
-                            borderRadius: 2,
-                            background: asciiColors.accent,
-                            color: asciiColors.background,
-                            cursor: 'pointer',
-                            fontSize: 10,
-                            fontFamily: 'Consolas',
-                            fontWeight: 600
-                          }}
-                        >
-                          HISTORY
-                        </button>
-                        {backup.cron_schedule && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleSchedule(backup);
-                            }}
-                            style={{
-                              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                              border: `1px solid ${backup.is_scheduled ? asciiColors.muted : asciiColors.accent}`,
-                              borderRadius: 2,
-                              background: backup.is_scheduled ? asciiColors.muted : asciiColors.accent,
-                              color: asciiColors.background,
-                              cursor: 'pointer',
-                              fontSize: 10,
-                              fontFamily: 'Consolas',
-                              fontWeight: 600
-                            }}
-                          >
-                            {backup.is_scheduled ? 'DISABLE' : 'ENABLE'}
-                          </button>
-                        )}
-                        {backup.status === 'completed' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm('Restore this backup?')) {
-                                backupsApi.restore(backup.backup_id).then(() => {
-                                  alert('Restore operation started');
-                                }).catch(err => {
-                                  setError(extractApiError(err));
-                                });
-                              }
-                            }}
-                            style={{
-                              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                              border: `1px solid ${asciiColors.accent}`,
-                              borderRadius: 2,
-                              background: asciiColors.accent,
-                              color: asciiColors.background,
-                              cursor: 'pointer',
-                              fontSize: 10,
-                              fontFamily: 'Consolas',
-                              fontWeight: 600
-                            }}
-                          >
-                            RESTORE
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteBackup(backup.backup_id);
-                          }}
-                          style={{
-                            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-                            border: `1px solid ${asciiColors.foreground}`,
-                            borderRadius: 2,
-                            background: asciiColors.foreground,
-                            color: asciiColors.background,
-                            cursor: 'pointer',
-                            fontSize: 10,
-                            fontFamily: 'Consolas',
-                            fontWeight: 600
-                          }}
-                        >
-                          DELETE
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <BackupManagerTreeView
+            backups={backups}
+            onViewHistory={handleViewHistory}
+            onToggleSchedule={handleToggleSchedule}
+            onRestore={(backupId) => {
+              if (confirm('Restore this backup?')) {
+                backupsApi.restore(backupId).then(() => {
+                  alert('Restore operation started');
+                }).catch(err => {
+                  setError(extractApiError(err));
+                });
+              }
+            }}
+            onDelete={handleDeleteBackup}
+            onSelect={setSelectedBackup}
+          />
 
           <div style={{
             display: 'flex',
@@ -1271,7 +1104,7 @@ const BackupManager = () => {
                 <div><strong>Created By:</strong> {selectedBackup.created_by}</div>
               )}
               {selectedBackup.error_message && (
-                <div style={{ color: asciiColors.danger }}>
+                <div style={{ color: asciiColors.foreground }}>
                   <strong>Error:</strong> {selectedBackup.error_message}
                 </div>
               )}
@@ -1365,71 +1198,11 @@ const BackupManager = () => {
                 No execution history found
               </div>
             ) : (
-              <div style={{
-                border: `1px solid ${asciiColors.border}`,
-                borderRadius: 2,
-                overflow: 'hidden',
-                fontFamily: 'Consolas',
-                fontSize: 11
-              }}>
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse'
-                }}>
-                  <thead>
-                    <tr style={{
-                      background: asciiColors.backgroundSoft,
-                      borderBottom: `2px solid ${asciiColors.border}`
-                    }}>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Started</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Status</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Duration</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Size</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Triggered By</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: asciiColors.accent }}>Error</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {backupHistory.map((history) => (
-                      <tr
-                        key={history.id}
-                        style={{
-                          borderBottom: `1px solid ${asciiColors.border}`
-                        }}
-                      >
-                        <td style={{ padding: '12px', color: asciiColors.foreground, fontSize: 10 }}>
-                          {new Date(history.started_at).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{
-                            padding: '4px 8px',
-                            borderRadius: 2,
-                            background: getStatusColor(history.status) + '20',
-                            color: getStatusColor(history.status),
-                            fontSize: 10,
-                            fontWeight: 600,
-                            textTransform: 'uppercase'
-                          }}>
-                            {history.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px', color: asciiColors.foreground }}>
-                          {history.duration_seconds ? `${history.duration_seconds}s` : 'N/A'}
-                        </td>
-                        <td style={{ padding: '12px', color: asciiColors.foreground }}>
-                          {formatFileSize(history.file_size)}
-                        </td>
-                        <td style={{ padding: '12px', color: asciiColors.muted, fontSize: 10, textTransform: 'uppercase' }}>
-                          {history.triggered_by || 'manual'}
-                        </td>
-                        <td style={{ padding: theme.spacing.sm, color: history.error_message ? asciiColors.foreground : asciiColors.muted, fontSize: 10, fontFamily: 'Consolas' }}>
-                          {history.error_message || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <BackupHistoryTreeView
+                history={backupHistory}
+                backupName={backups.find(b => b.backup_id === historyBackupId)?.backup_name}
+                backupId={historyBackupId || undefined}
+              />
             )}
           </div>
         </>

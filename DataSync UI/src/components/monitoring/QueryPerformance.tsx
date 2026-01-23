@@ -7,6 +7,7 @@ import { useTableFilters } from '../../hooks/useTableFilters';
 import { extractApiError } from '../../utils/errorHandler';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import QueryPerformanceTreeView from './QueryPerformanceTreeView';
 
 const MetricsGrid = styled.div`
   display: grid;
@@ -379,44 +380,10 @@ const QueryPerformance = () => {
         />
       </FiltersContainer>
 
-      <QueryTable>
-        <TableHeader>
-          <TableCell>Tier</TableCell>
-          <TableCell>Source</TableCell>
-          <TableCell>Operation</TableCell>
-          <TableCell>Duration</TableCell>
-          <TableCell>Query</TableCell>
-          <TableCell>Efficiency</TableCell>
-          <TableCell>Cache Hit</TableCell>
-          <TableCell>Rows</TableCell>
-        </TableHeader>
-        {queries.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-            No query performance data available. Data will appear here once queries are captured.
-          </div>
-        ) : (
-          queries.map((query) => (
-          <div key={query.id}>
-            <TableRow onClick={() => toggleQuery(query.id)}>
-              <TableCell>
-                <Badge $tier={query.performance_tier}>{query.performance_tier || 'N/A'}</Badge>
-              </TableCell>
-              <TableCell>
-                <Badge $type={query.source_type}>{query.source_type || 'N/A'}</Badge>
-              </TableCell>
-              <TableCell>{query.operation_type || 'N/A'}</TableCell>
-              <TableCell>{formatTime(query.mean_time_ms || query.query_duration_ms)}</TableCell>
-              <QueryTextCell title={query.query_text}>
-                {query.query_text?.substring(0, 80) || 'N/A'}...
-              </QueryTextCell>
-              <TableCell>{query.query_efficiency_score ? `${Number(query.query_efficiency_score).toFixed(1)}%` : 'N/A'}</TableCell>
-              <TableCell>{query.cache_hit_ratio ? `${Number(query.cache_hit_ratio).toFixed(1)}%` : 'N/A'}</TableCell>
-              <TableCell>{formatNumber(query.rows_returned)}</TableCell>
-            </TableRow>
-          </div>
-          ))
-        )}
-      </QueryTable>
+      <QueryPerformanceTreeView
+        queries={queries}
+        onQueryClick={(query) => toggleQuery(query.id)}
+      />
 
       {loading && queries.length === 0 && (
         <LoadingOverlay>Loading query performance data...</LoadingOverlay>
@@ -456,7 +423,7 @@ const QueryPerformance = () => {
                 backgroundColor: "rgba(0, 0, 0, 0.5)",
                 backdropFilter: "blur(2px)",
                 zIndex: 999,
-                animation: "fadeInUp 0.2s ease-out"
+                transition: "opacity 0.15s ease"
               }}
               onClick={() => setOpenQueryId(null)}
             />
@@ -478,7 +445,7 @@ const QueryPerformance = () => {
                 fontSize: 12,
                 color: asciiColors.foreground,
                 boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-                animation: "fadeInUp 0.3s ease-out"
+                transition: "opacity 0.15s ease"
               }}
             >
               <div style={{
@@ -512,12 +479,12 @@ const QueryPerformance = () => {
                     transition: "all 0.2s ease"
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = asciiColors.danger;
-                    e.currentTarget.style.color = asciiColors.background;
+                    e.currentTarget.style.border = `2px solid ${asciiColors.foreground}`;
+                    e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
                   }}
                   onMouseLeave={(e) => {
+                    e.currentTarget.style.border = `1px solid ${asciiColors.border}`;
                     e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = asciiColors.foreground;
                   }}
                 >
                   {ascii.blockFull} CLOSE
@@ -591,7 +558,7 @@ const QueryPerformance = () => {
                     flex: 1,
                     fontFamily: "Consolas",
                     fontSize: 11,
-                    animation: "fadeInUp 0.4s ease-out"
+                    transition: "opacity 0.15s ease"
                   }}>
                     <div style={{
                       display: "grid",

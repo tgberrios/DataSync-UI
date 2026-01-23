@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import styled from 'styled-components';
 import { dataEncryptionApi, type EncryptionPolicy, type EncryptionKey } from '../../services/api';
 import { Container, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
 import SkeletonLoader from '../shared/SkeletonLoader';
@@ -8,42 +7,9 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { theme } from '../../theme/theme';
+import DataEncryptionTreeView from './DataEncryptionTreeView';
+import EncryptionKeysTreeView from './EncryptionKeysTreeView';
 
-const EncryptionTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: ${theme.spacing.lg};
-  background: ${asciiColors.background};
-  border-radius: 2;
-  overflow: hidden;
-  font-family: 'Consolas';
-`;
-
-const Th = styled.th`
-  padding: ${theme.spacing.sm};
-  text-align: left;
-  border-bottom: 2px solid ${asciiColors.border};
-  background: ${asciiColors.backgroundSoft};
-  font-weight: 600;
-  font-family: 'Consolas';
-  font-size: 13px;
-  color: ${asciiColors.accent};
-  position: sticky;
-  top: 0;
-  z-index: 10;
-`;
-
-const Td = styled.td`
-  padding: ${theme.spacing.sm};
-  border-bottom: 1px solid ${asciiColors.border};
-  font-family: 'Consolas';
-  font-size: 12px;
-  transition: background-color 0.15s ease;
-`;
-
-const TableRow = styled.tr`
-  transition: background-color 0.15s ease;
-`;
 
 const formatDate = (date: string) => {
   if (!date) return '-';
@@ -385,101 +351,13 @@ const DataEncryption = () => {
               Encryption Policies ({total})
             </div>
 
-            <EncryptionTable>
-              <thead>
-                <tr>
-                  <Th>Policy Name</Th>
-                  <Th>Schema.Table.Column</Th>
-                  <Th>Algorithm</Th>
-                  <Th>Key ID</Th>
-                  <Th>Status</Th>
-                  <Th>Last Rotated</Th>
-                  <Th>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies.length === 0 ? (
-                  <tr>
-                    <Td colSpan={7} style={{ textAlign: 'center', padding: 20, color: asciiColors.muted }}>
-                      No encryption policies found. Create one to get started.
-                    </Td>
-                  </tr>
-                ) : (
-                  policies.map((policy) => (
-                    <TableRow key={policy.policy_id}>
-                      <Td>{policy.policy_name}</Td>
-                      <Td>
-                        <code style={{ color: asciiColors.accent }}>
-                          {policy.schema_name}.{policy.table_name}.{policy.column_name}
-                        </code>
-                      </Td>
-                      <Td>{policy.encryption_algorithm}</Td>
-                      <Td>
-                        <code style={{ color: asciiColors.muted }}>{policy.key_id}</code>
-                      </Td>
-                      <Td>
-                        <span style={{
-                          color: policy.active ? asciiColors.accent : asciiColors.muted,
-                          fontWeight: 600,
-                          fontFamily: 'Consolas'
-                        }}>
-                          {policy.active ? 'ACTIVE' : 'INACTIVE'}
-                        </span>
-                      </Td>
-                      <Td>{formatDate(policy.last_rotated_at || '')}</Td>
-                      <Td>
-                        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-                          <AsciiButton
-                            label="✎"
-                            onClick={() => handleEditPolicy(policy)}
-                            variant="ghost"
-                          />
-                          <AsciiButton
-                            label="🔒"
-                            onClick={() => handleEncryptColumn(policy)}
-                            variant="ghost"
-                            title="Encrypt Column Data"
-                          />
-                          <AsciiButton
-                            label="🔄"
-                            onClick={() => handleRotateKey(policy)}
-                            variant="ghost"
-                            title="Rotate Key"
-                          />
-                          <AsciiButton
-                            label="🗑️"
-                            onClick={() => handleDeletePolicy(policy.policy_id!)}
-                            variant="ghost"
-                          />
-                        </div>
-                      </Td>
-                    </TableRow>
-                  ))
-                )}
-              </tbody>
-            </EncryptionTable>
-
-            {total > limit && (
-              <div style={{ marginTop: theme.spacing.md, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>
-                  Page {page} of {Math.ceil(total / limit)}
-                </div>
-                <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-                  <AsciiButton
-                    label="◀ Previous"
-                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                    disabled={page === 1}
-                    variant="ghost"
-                  />
-                  <AsciiButton
-                    label="Next ▶"
-                    onClick={() => setPage(prev => Math.min(Math.ceil(total / limit), prev + 1))}
-                    disabled={page >= Math.ceil(total / limit)}
-                    variant="ghost"
-                  />
-                </div>
-              </div>
-            )}
+            <DataEncryptionTreeView
+              policies={policies}
+              onEdit={handleEditPolicy}
+              onDelete={handleDeletePolicy}
+              onEncrypt={handleEncryptColumn}
+              onRotateKey={handleRotateKey}
+            />
           </div>
         </AsciiPanel>
       </div>
@@ -954,28 +832,7 @@ const DataEncryption = () => {
                       No encryption keys found. Create one above.
                     </div>
                   ) : (
-                    <EncryptionTable>
-                      <thead>
-                        <tr>
-                          <Th>Key ID</Th>
-                          <Th>Algorithm</Th>
-                          <Th>Created</Th>
-                          <Th>Last Used</Th>
-                          <Th>Rotations</Th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {keys.map(key => (
-                          <TableRow key={key.key_id}>
-                            <Td><code style={{ color: asciiColors.accent, fontFamily: 'Consolas' }}>{key.key_id}</code></Td>
-                            <Td style={{ fontFamily: 'Consolas' }}>{key.algorithm}</Td>
-                            <Td style={{ fontFamily: 'Consolas' }}>{formatDate(key.created_at)}</Td>
-                            <Td style={{ fontFamily: 'Consolas' }}>{formatDate(key.last_used_at || '')}</Td>
-                            <Td style={{ fontFamily: 'Consolas' }}>{key.rotation_count}</Td>
-                          </TableRow>
-                        ))}
-                      </tbody>
-                    </EncryptionTable>
+                    <EncryptionKeysTreeView keys={keys} />
                   )}
                 </div>
 

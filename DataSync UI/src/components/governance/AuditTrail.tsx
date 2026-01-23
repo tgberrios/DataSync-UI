@@ -8,6 +8,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { theme } from '../../theme/theme';
+import AuditTrailTreeView from './AuditTrailTreeView';
 
 const AuditTable = styled.table`
   width: 100%;
@@ -417,94 +418,10 @@ const AuditTrail = () => {
               Audit Logs ({total})
             </div>
 
-            <AuditTable>
-              <thead>
-                <tr>
-                  <Th>Timestamp</Th>
-                  <Th>User</Th>
-                  <Th>Action</Th>
-                  <Th>Schema.Table</Th>
-                  <Th>Rows</Th>
-                  <Th>Compliance</Th>
-                  <Th>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.length === 0 ? (
-                  <tr>
-                    <Td colSpan={7} style={{ textAlign: 'center', padding: 20, color: asciiColors.muted }}>
-                      No audit logs found.
-                    </Td>
-                  </tr>
-                ) : (
-                  logs.map((log) => (
-                    <TableRow key={log.log_id}>
-                      <Td>{formatDate(log.created_at)}</Td>
-                      <Td>
-                        <code style={{ color: asciiColors.accent }}>{log.username}</code>
-                      </Td>
-                      <Td>
-                        <span style={{ 
-                          color: getActionTypeColor(log.action_type),
-                          fontWeight: 600 
-                        }}>
-                          {log.action_type}
-                        </span>
-                      </Td>
-                      <Td>
-                        {log.schema_name && log.table_name ? (
-                          <code style={{ color: asciiColors.muted, fontSize: 11 }}>
-                            {log.schema_name}.{log.table_name}
-                          </code>
-                        ) : (
-                          <span style={{ color: asciiColors.muted }}>-</span>
-                        )}
-                      </Td>
-                      <Td>{log.rows_affected || 0}</Td>
-                      <Td>
-                        {log.compliance_requirement ? (
-                          <span style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
-                            {log.compliance_requirement}
-                          </span>
-                        ) : (
-                          <span style={{ color: asciiColors.muted, fontFamily: 'Consolas' }}>-</span>
-                        )}
-                      </Td>
-                      <Td>
-                        <AsciiButton
-                          label="👁️"
-                          onClick={() => setSelectedLog(log)}
-                          variant="ghost"
-                          title="View Details"
-                        />
-                      </Td>
-                    </TableRow>
-                  ))
-                )}
-              </tbody>
-            </AuditTable>
-
-            {total > limit && (
-              <div style={{ marginTop: theme.spacing.md, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>
-                  Page {page} of {Math.ceil(total / limit)}
-                </div>
-                <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-                  <AsciiButton
-                    label="◀ Previous"
-                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                    disabled={page === 1}
-                    variant="ghost"
-                  />
-                  <AsciiButton
-                    label="Next ▶"
-                    onClick={() => setPage(prev => Math.min(Math.ceil(total / limit), prev + 1))}
-                    disabled={page >= Math.ceil(total / limit)}
-                    variant="ghost"
-                  />
-                </div>
-              </div>
-            )}
+            <AuditTrailTreeView
+              logs={logs}
+              onViewDetails={setSelectedLog}
+            />
           </div>
         </AsciiPanel>
       </div>

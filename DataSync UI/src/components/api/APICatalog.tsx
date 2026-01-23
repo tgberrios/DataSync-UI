@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { format } from 'date-fns';
 import AddAPIModal from './AddAPIModal';
 import APICatalogTreeView from './APICatalogTreeView';
+import APITableStructureTreeView from './APITableStructureTreeView';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
@@ -1342,86 +1343,7 @@ const MappingGraph: React.FC<MappingGraphProps> = ({ api, tableStructure, loadin
                 </div>
               </div>
             </div>
-            <table style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 12,
-              fontFamily: "Consolas"
-            }}>
-              <thead style={{
-                background: asciiColors.backgroundSoft,
-                position: "sticky",
-                top: 0,
-                zIndex: 10
-              }}>
-                <tr style={{
-                  borderBottom: `2px solid ${asciiColors.border}`
-                }}>
-                  <th style={{
-                    padding: "8px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: asciiColors.foreground,
-                    fontSize: 12,
-                    fontFamily: "Consolas",
-                    width: 20
-                  }}></th>
-                  <th style={{
-                    padding: "8px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: asciiColors.foreground,
-                    fontSize: 12,
-                    fontFamily: "Consolas",
-                    width: "40%"
-                  }}>Name</th>
-                  <th style={{
-                    padding: "8px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: asciiColors.foreground,
-                    fontSize: 12,
-                    fontFamily: "Consolas"
-                  }}>Data Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tableStructure.columns.map((col: any, index: number) => (
-                  <tr 
-                    key={col.name}
-                    style={{
-                      borderBottom: `1px solid ${asciiColors.border}`,
-                      transition: "background-color 0.2s ease"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = asciiColors.background;
-                    }}
-                  >
-                    <td style={{
-                      padding: "4px 8px",
-                      color: asciiColors.muted,
-                      fontSize: 11,
-                      fontFamily: "Consolas"
-                    }}>{index + 1}</td>
-                    <td style={{
-                      padding: "4px 8px",
-                      fontWeight: 500,
-                      color: asciiColors.accent,
-                      fontFamily: "Consolas"
-                    }}>{col.name}</td>
-                    <td style={{
-                      padding: "4px 8px",
-                      color: asciiColors.muted,
-                      fontFamily: "Consolas",
-                      fontSize: 11
-                    }}>{col.type}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <APITableStructureTreeView tableStructure={tableStructure} />
           </div>
         </div>
       )}

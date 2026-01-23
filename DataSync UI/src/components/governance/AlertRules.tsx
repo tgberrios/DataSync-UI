@@ -6,6 +6,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import SkeletonLoader from '../shared/SkeletonLoader';
 import { extractApiError } from '../../utils/errorHandler';
 import { AlertRuleModal } from './AlertRuleModal';
+import AlertRulesTreeView from './AlertRulesTreeView';
 
 interface AlertRule {
   id: number;
@@ -229,8 +230,8 @@ const AlertRules = () => {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'CRITICAL': return asciiColors.danger;
-      case 'WARNING': return asciiColors.warning;
+      case 'CRITICAL': return asciiColors.foreground;
+      case 'WARNING': return asciiColors.muted;
       case 'INFO': return asciiColors.accent;
       default: return asciiColors.muted;
     }
@@ -351,137 +352,13 @@ const AlertRules = () => {
           </div>
         </AsciiPanel>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {rules.map(rule => (
-            <AsciiPanel key={rule.id} title={rule.rule_name}>
-              <div style={{ padding: "15px" }}>
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "start",
-                  marginBottom: "10px"
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ marginBottom: "8px", display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                      <div>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Type:</span>{' '}
-                        <span style={{ color: asciiColors.foreground }}>{rule.query_type}</span>
-                      </div>
-                      <div>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Severity:</span>{' '}
-                        <span style={{ color: getSeverityColor(rule.severity), fontWeight: 600 }}>
-                          {rule.severity}
-                        </span>
-                      </div>
-                      {rule.db_engine && (
-                        <div>
-                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Engine:</span>{' '}
-                          <span style={{ color: asciiColors.foreground }}>{rule.db_engine}</span>
-                        </div>
-                      )}
-                      <div>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Interval:</span>{' '}
-                        <span style={{ color: asciiColors.foreground }}>{rule.check_interval}s</span>
-                      </div>
-                    </div>
-                    {rule.threshold_value && (
-                      <div style={{ marginBottom: "8px" }}>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Threshold:</span>{' '}
-                        <span style={{ color: asciiColors.foreground }}>{rule.threshold_value}</span>
-                      </div>
-                    )}
-                    <div style={{ marginBottom: "8px" }}>
-                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Query:</span>
-                      <div style={{
-                        marginTop: "4px",
-                        padding: "8px",
-                        background: asciiColors.backgroundSoft,
-                        border: `1px solid ${asciiColors.border}`,
-                        borderRadius: 2,
-                        fontSize: 10,
-                        fontFamily: "monospace",
-                        color: asciiColors.foreground,
-                        maxHeight: "100px",
-                        overflow: "auto",
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-all"
-                      }}>
-                        {rule.condition_expression.length > 200 
-                          ? rule.condition_expression.substring(0, 200) + '...'
-                          : rule.condition_expression}
-                      </div>
-                    </div>
-                    {rule.is_system_rule && (
-                      <div style={{ marginBottom: "8px" }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '2px 6px',
-                          background: asciiColors.accent,
-                          color: '#ffffff',
-                          borderRadius: 2,
-                          fontSize: 10,
-                          fontWeight: 600
-                        }}>
-                          SYSTEM RULE
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ marginBottom: "8px" }}>
-                      <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Status:</span>{' '}
-                      <span style={{
-                        color: rule.enabled ? asciiColors.success : asciiColors.muted,
-                        fontWeight: 600
-                      }}>
-                        {rule.enabled ? 'ENABLED' : 'DISABLED'}
-                      </span>
-                    </div>
-                    <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${asciiColors.border}`, fontSize: 11, color: asciiColors.muted }}>
-                      <div style={{ marginBottom: "4px" }}>
-                        Created: {format(new Date(rule.created_at), 'yyyy-MM-dd HH:mm:ss')}
-                      </div>
-                      {rule.updated_at !== rule.created_at && (
-                        <div>
-                          Updated: {format(new Date(rule.updated_at), 'yyyy-MM-dd HH:mm:ss')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "5px",
-                    marginLeft: "15px"
-                  }}>
-                    <AsciiButton
-                      label="Test Query"
-                      onClick={() => handleTest(rule)}
-                      variant="ghost"
-                    />
-                    {!rule.is_system_rule && (
-                      <>
-                        <AsciiButton
-                          label={rule.enabled ? "Disable" : "Enable"}
-                          onClick={() => handleToggle(rule)}
-                          variant="ghost"
-                        />
-                        <AsciiButton
-                          label="Edit"
-                          onClick={() => handleEdit(rule)}
-                          variant="ghost"
-                        />
-                        <AsciiButton
-                          label="Delete"
-                          onClick={() => handleDelete(rule)}
-                          variant="ghost"
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </AsciiPanel>
-          ))}
-        </div>
+        <AlertRulesTreeView
+          rules={rules}
+          onTest={handleTest}
+          onToggle={handleToggle}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       )}
 
       {totalPages > 1 && (

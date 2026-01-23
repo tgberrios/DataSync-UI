@@ -8,6 +8,8 @@ import { theme } from '../../theme/theme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import SkeletonLoader from '../shared/SkeletonLoader';
+import SecurityActiveUsersTreeView from './SecurityActiveUsersTreeView';
+import SecurityDDLChangesTreeView from './SecurityDDLChangesTreeView';
 
 const getBadgeColor = (type: string) => {
   // Solo usamos azul marino para acentos importantes, gris para el resto
@@ -907,305 +909,20 @@ const Security = () => {
                 {/* ACTIVE USERS */}
                 {connActiveUsers && connActiveUsers.length > 0 && (
                   <AsciiPanel title="ACTIVE USERS">
-                    <div style={{ 
-                      marginTop: theme.spacing.sm, 
-                      overflowX: 'auto',
-                      borderRadius: 2,
-                      border: `1px solid ${asciiColors.border}`
-                    }}>
-                      <table style={{
-                        width: '100%',
-                        borderCollapse: 'collapse',
-                        fontFamily: 'Consolas',
-                        fontSize: 12
-                      }}>
-                        <thead>
-                          <tr>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Username</th>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Role</th>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Status</th>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Last Activity</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {groupUsersByUsername(connActiveUsers).slice(0, 20).map((user: any, index) => {
-                            const isExpanded = expandedUsers.has(user.username);
-                            return (
-                              <React.Fragment key={index}>
-                                <tr 
-                                  style={{
-                                    cursor: 'pointer',
-                                    backgroundColor: isExpanded ? asciiColors.backgroundSoft : asciiColors.background,
-                                    transition: 'background-color 0.15s ease'
-                                  }}
-                                  onClick={() => toggleUserExpansion(user.username)}
-                                >
-                                  <td style={{
-                            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                            borderBottom: `1px solid ${asciiColors.border}`,
-                            fontFamily: 'Consolas',
-                            fontSize: 12,
-                            color: asciiColors.foreground
-                                  }}>
-                                    {user.username}
-                                    <span style={{
-                                      backgroundColor: asciiColors.accent,
-                                      color: '#ffffff',
-                                      padding: '2px 8px',
-                                      borderRadius: 12,
-                                      fontSize: 11,
-                                      fontFamily: theme.fonts.primary,
-                                      marginLeft: 8
-                                    }}>
-                                      {user.connections.length}
-                                    </span>
-                                  </td>
-                                  <td style={{
-                            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                            borderBottom: `1px solid ${asciiColors.border}`,
-                            fontFamily: 'Consolas',
-                            fontSize: 12,
-                            color: asciiColors.foreground
-                                  }}>
-                                    <span style={{
-                                      padding: '2px 8px',
-                                      borderRadius: 2,
-                                      fontSize: 11,
-                                      fontFamily: 'Consolas',
-                                      backgroundColor: asciiColors.backgroundSoft,
-                                      color: getBadgeColor(user.role_type),
-                                      border: `1px solid ${getBadgeColor(user.role_type)}`
-                                    }}>
-                                      {user.role_type}
-                                    </span>
-                                  </td>
-                                  <td style={{
-                            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                            borderBottom: `1px solid ${asciiColors.border}`,
-                            fontFamily: 'Consolas',
-                            fontSize: 12,
-                            color: asciiColors.foreground
-                                  }}>
-                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
-                                      {Object.entries(user.statusCounts).map(([status, count]) => (
-                                        <span key={status} style={{
-                                          padding: '2px 8px',
-                                          borderRadius: 2,
-                                          fontSize: 11,
-                                          fontFamily: 'Consolas',
-                                          backgroundColor: asciiColors.backgroundSoft,
-                                          color: getBadgeColor(status),
-                                          border: `1px solid ${getBadgeColor(status)}`
-                                        }}>
-                                          {status}: {count as number}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </td>
-                                  <td style={{
-                            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                            borderBottom: `1px solid ${asciiColors.border}`,
-                            fontFamily: 'Consolas',
-                            fontSize: 12,
-                            color: asciiColors.foreground
-                                  }}>{formatDate(user.mostRecentActivity)}</td>
-                                </tr>
-                                {isExpanded && (
-                                  <tr style={{ backgroundColor: asciiColors.backgroundSoft }}>
-                                    <td colSpan={4} style={{ padding: 0, borderBottom: `1px solid ${asciiColors.border}` }}>
-                                      <div style={{
-                                        padding: '12px 16px',
-                                        borderLeft: `3px solid ${asciiColors.accent}`,
-                                        marginLeft: 16,
-                                        fontFamily: 'Consolas',
-                                        fontSize: 12
-                                      }}>
-                                        <div style={{ marginBottom: 12, fontWeight: 600, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
-                                          All Connections for {user.username}
-                                        </div>
-                                        {user.connections.map((conn: any, connIndex: number) => (
-                                          <div key={connIndex} style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: 8,
-                                            padding: '8px 0',
-                                            borderBottom: connIndex < user.connections.length - 1 ? `1px solid ${asciiColors.border}` : 'none',
-                                            fontFamily: 'Consolas',
-                                            fontSize: 12
-                                          }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
-                                              <div>
-                                                <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>Status:</div>
-                                                <div>
-                                                  <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: 2,
-                                                    fontSize: 11,
-                                                    fontFamily: 'Consolas',
-                                                    backgroundColor: asciiColors.backgroundSoft,
-                                                    color: getBadgeColor(conn.status),
-                                                    border: `1px solid ${getBadgeColor(conn.status)}`
-                                                  }}>
-                                                    {conn.status}
-                                                  </span>
-                                                </div>
-                                              </div>
-                                              <div>
-                                                <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>IP:</div>
-                                                <div style={{ color: asciiColors.foreground, fontSize: 11, fontFamily: 'Consolas' }}>{conn.client_addr || '-'}</div>
-                                              </div>
-                                              <div>
-                                                <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>App:</div>
-                                                <div style={{ color: asciiColors.foreground, fontSize: 11, fontFamily: 'Consolas' }}>{conn.application_name || '-'}</div>
-                                              </div>
-                                              <div>
-                                                <div style={{ fontWeight: 500, color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>Activity:</div>
-                                                <div style={{ color: asciiColors.foreground, fontSize: 11, fontFamily: 'Consolas' }}>{formatDate(conn.last_activity)}</div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <SecurityActiveUsersTreeView
+                      users={connActiveUsers}
+                      onUserToggle={toggleUserExpansion}
+                      expandedUsers={expandedUsers}
+                    />
                   </AsciiPanel>
                 )}
 
                 {/* DDL Changes para esta conexión */}
                 {activeConnection.ddlChanges && activeConnection.ddlChanges.length > 0 && (
                   <AsciiPanel title="RECENT DDL CHANGES (LAST 7 DAYS)">
-                    <div style={{ marginTop: 8, overflowX: 'auto' }}>
-                      <table style={{
-                        width: '100%',
-                        borderCollapse: 'collapse',
-                        fontFamily: 'Consolas',
-                        fontSize: 12
-                      }}>
-                        <thead>
-                          <tr>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Timestamp</th>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Type</th>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Object</th>
-                            <th style={{
-                              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                              textAlign: 'left',
-                              borderBottom: `2px solid ${asciiColors.borderStrong}`,
-                              backgroundColor: asciiColors.backgroundSoft,
-                              fontFamily: 'Consolas',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: asciiColors.foreground
-                            }}>Executed By</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {activeConnection.ddlChanges.slice(0, 20).map((change: any, idx: number) => {
-                            // Solo usamos azul marino para acentos, gris para el resto
-                            const changeColor = change.change_type === 'DROP' ? asciiColors.foreground :
-                                               change.change_type === 'ALTER' ? asciiColors.accent :
-                                               asciiColors.accent;
-                            return (
-                              <tr key={idx} style={{
-                                backgroundColor: idx % 2 === 0 ? asciiColors.background : asciiColors.backgroundSoft
-                              }}>
-                                <td style={{ padding: `${theme.spacing.sm} ${theme.spacing.md}`, borderBottom: `1px solid ${asciiColors.border}`, fontSize: 11, fontFamily: 'Consolas', color: asciiColors.foreground }}>
-                                  {formatDate(change.execution_timestamp)}
-                                </td>
-                                <td style={{ padding: `${theme.spacing.sm} ${theme.spacing.md}`, borderBottom: `1px solid ${asciiColors.border}`, fontFamily: 'Consolas' }}>
-                                  <span style={{
-                                    padding: '2px 8px',
-                                    borderRadius: 2,
-                                    fontSize: 11,
-                                    fontFamily: 'Consolas',
-                                    backgroundColor: asciiColors.backgroundSoft,
-                                    color: changeColor,
-                                    border: `1px solid ${changeColor}`
-                                  }}>
-                                    {change.change_type}
-                                  </span>
-                                </td>
-                                <td style={{ padding: `${theme.spacing.sm} ${theme.spacing.md}`, borderBottom: `1px solid ${asciiColors.border}`, fontFamily: 'Consolas', fontSize: 11, color: asciiColors.foreground }}>
-                                  {change.schema_name}.{change.object_name} ({change.object_type})
-                                </td>
-                                <td style={{ padding: `${theme.spacing.sm} ${theme.spacing.md}`, borderBottom: `1px solid ${asciiColors.border}`, fontFamily: 'Consolas', fontSize: 11, color: asciiColors.foreground }}>
-                                  {change.executed_by}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <SecurityDDLChangesTreeView
+                      changes={activeConnection.ddlChanges.slice(0, 20)}
+                    />
                   </AsciiPanel>
                 )}
                     </>
@@ -1267,7 +984,7 @@ const Security = () => {
                         </div>
 
                         <div style={{ marginBottom: 12 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 4 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 4 }}>
                             Active Users
                           </div>
                           <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
@@ -1277,7 +994,7 @@ const Security = () => {
                         </div>
 
                         <div style={{ marginBottom: 12 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.danger, marginBottom: 4 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.foreground, marginBottom: 4 }}>
                             Superusers
                           </div>
                           <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
@@ -1324,7 +1041,7 @@ const Security = () => {
                         </div>
 
                         <div style={{ marginBottom: 12 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.warning, marginBottom: 4 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
                             Idle Connections
                           </div>
                           <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
@@ -1334,7 +1051,7 @@ const Security = () => {
                         </div>
 
                         <div style={{ marginBottom: 12 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.success, marginBottom: 4 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: asciiColors.accent, marginBottom: 4 }}>
                             Active Connections
                           </div>
                           <div style={{ color: asciiColors.foreground, marginLeft: 16, fontSize: 11 }}>
@@ -1389,7 +1106,7 @@ const Security = () => {
                       
                       <div style={{ marginLeft: 16 }}>
                         <div style={{ marginBottom: 8 }}>
-                          <span style={{ color: asciiColors.danger, fontWeight: 600 }}>SUPERUSER</span>
+                          <span style={{ color: asciiColors.foreground, fontWeight: 600 }}>SUPERUSER</span>
                           <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                             Unrestricted access to all database objects, can bypass all permission checks
                           </span>
@@ -1401,13 +1118,13 @@ const Security = () => {
                           </span>
                         </div>
                         <div style={{ marginBottom: 8 }}>
-                          <span style={{ color: '#6a1b9a', fontWeight: 600 }}>CREATEROLE</span>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>CREATEROLE</span>
                           <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                             Can create new roles and manage role memberships
                           </span>
                         </div>
                         <div style={{ marginBottom: 8 }}>
-                          <span style={{ color: asciiColors.success, fontWeight: 600 }}>LOGIN</span>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>LOGIN</span>
                           <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                             Can connect to the database
                           </span>
@@ -1422,19 +1139,19 @@ const Security = () => {
                       
                       <div style={{ marginLeft: 16 }}>
                         <div style={{ marginBottom: 8 }}>
-                          <span style={{ color: asciiColors.success, fontWeight: 600 }}>ACTIVE</span>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>ACTIVE</span>
                           <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                             Connection is currently executing a query or transaction
                           </span>
                         </div>
                         <div style={{ marginBottom: 8 }}>
-                          <span style={{ color: asciiColors.warning, fontWeight: 600 }}>IDLE</span>
+                          <span style={{ color: asciiColors.muted, fontWeight: 600 }}>IDLE</span>
                           <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                             Connection is established but not executing any query
                           </span>
                         </div>
                         <div style={{ marginBottom: 8 }}>
-                          <span style={{ color: asciiColors.danger, fontWeight: 600 }}>INACTIVE</span>
+                          <span style={{ color: asciiColors.foreground, fontWeight: 600 }}>INACTIVE</span>
                           <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
                             Connection is not active or has been terminated
                           </span>

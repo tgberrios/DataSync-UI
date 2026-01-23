@@ -8,6 +8,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { theme } from '../../theme/theme';
+import DataMaskingTreeView from './DataMaskingTreeView';
 
 const MaskingTable = styled.table`
   width: 100%;
@@ -926,107 +927,13 @@ const DataMasking = () => {
       {activeTab === 'policies' && (
         <AsciiPanel title="MASKING POLICIES">
           {loading && <LoadingOverlay />}
-          <MaskingTable>
-          <thead>
-            <tr>
-              <Th>Policy Name</Th>
-              <Th>Schema</Th>
-              <Th>Table</Th>
-              <Th>Column</Th>
-              <Th>Masking Type</Th>
-              <Th>Status</Th>
-              <Th>Roles Whitelist</Th>
-              <Th>Created</Th>
-              <Th>Actions</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {policies.length === 0 ? (
-              <TableRow>
-                <Td colSpan={9} style={{ textAlign: 'center', padding: theme.spacing.lg }}>
-                  No masking policies found. Create one to get started.
-                </Td>
-              </TableRow>
-            ) : (
-              policies.map((policy) => (
-                <TableRow key={policy.policy_id}>
-                  <Td style={{ fontFamily: 'Consolas' }}>{policy.policy_name}</Td>
-                  <Td style={{ fontFamily: 'Consolas' }}>{policy.schema_name}</Td>
-                  <Td style={{ fontFamily: 'Consolas' }}>{policy.table_name}</Td>
-                  <Td style={{ fontFamily: 'Consolas' }}>{policy.column_name}</Td>
-                  <Td>
-                    <span style={{ color: getMaskingTypeColor(policy.masking_type), fontFamily: 'Consolas' }}>
-                      {policy.masking_type}
-                    </span>
-                  </Td>
-                  <Td>
-                    <span style={{ color: getStatusColor(policy.active ? 'ACTIVE' : 'INACTIVE'), fontFamily: 'Consolas' }}>
-                      {policy.active ? 'ACTIVE' : 'INACTIVE'}
-                    </span>
-                  </Td>
-                  <Td style={{ fontFamily: 'Consolas' }}>
-                    {policy.role_whitelist && policy.role_whitelist.length > 0
-                      ? policy.role_whitelist.join(', ')
-                      : '-'}
-                  </Td>
-                  <Td style={{ fontFamily: 'Consolas' }}>{formatDate(policy.created_at || '')}</Td>
-                  <Td>
-                    <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-                      <AsciiButton
-                        label="Edit"
-                        onClick={() => handleEditPolicy(policy)}
-                        variant="ghost"
-                      />
-                      {policy.policy_id && (
-                        <AsciiButton
-                          label="Delete"
-                          onClick={() => handleDeletePolicy(policy.policy_id!)}
-                          variant="ghost"
-                        />
-                      )}
-                      <AsciiButton
-                        label="Analyze"
-                        onClick={() => handleAnalyzeColumns(policy.schema_name, policy.table_name)}
-                        variant="ghost"
-                      />
-                    </div>
-                  </Td>
-                </TableRow>
-              ))
-            )}
-          </tbody>
-        </MaskingTable>
-
-        {total > limit && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: theme.spacing.md,
-            padding: theme.spacing.sm,
-            fontFamily: "Consolas",
-            fontSize: 11
-          }}>
-            <div style={{ fontFamily: 'Consolas' }}>
-              Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} policies
-            </div>
-            <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-              <AsciiButton
-                label="Previous"
-                onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                variant="ghost"
-                disabled={page === 1}
-              />
-              <AsciiButton
-                label="Next"
-                onClick={() => setPage(prev => prev + 1)}
-                variant="ghost"
-                disabled={page * limit >= total}
-              />
-            </div>
-          </div>
-        )}
-      </AsciiPanel>
+          <DataMaskingTreeView
+            policies={policies}
+            onEdit={handleEditPolicy}
+            onDelete={handleDeletePolicy}
+            onAnalyze={handleAnalyzeColumns}
+          />
+        </AsciiPanel>
       )}
 
       {activeTab === 'sensitive' && (

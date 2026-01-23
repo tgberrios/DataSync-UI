@@ -8,6 +8,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { theme } from '../../theme/theme';
+import RowLevelSecurityTreeView from './RowLevelSecurityTreeView';
 
 const RLSTable = styled.table`
   width: 100%;
@@ -317,101 +318,11 @@ const RowLevelSecurity = () => {
               RLS Policies ({total})
             </div>
 
-            <RLSTable>
-              <thead>
-                <tr>
-                  <Th>Policy Name</Th>
-                  <Th>Schema.Table</Th>
-                  <Th>Type</Th>
-                  <Th>Expression</Th>
-                  <Th>Status</Th>
-                  <Th>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies.length === 0 ? (
-                  <tr>
-                    <Td colSpan={6} style={{ textAlign: 'center', padding: 20, color: asciiColors.muted }}>
-                      No RLS policies found. Create one to get started.
-                    </Td>
-                  </tr>
-                ) : (
-                  policies.map((policy) => (
-                    <TableRow key={policy.policy_id}>
-                      <Td>{policy.policy_name}</Td>
-                      <Td>
-                        <code style={{ color: asciiColors.accent }}>
-                          {policy.schema_name}.{policy.table_name}
-                        </code>
-                      </Td>
-                      <Td>
-                        <span style={{ color: asciiColors.accent, fontWeight: 600 }}>
-                          {policy.policy_type}
-                        </span>
-                      </Td>
-                      <Td>
-                        <code style={{ 
-                          color: asciiColors.muted, 
-                          fontSize: 11,
-                          maxWidth: 400,
-                          display: 'block',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }} title={policy.policy_expression}>
-                          {policy.policy_expression}
-                        </code>
-                      </Td>
-                      <Td>
-                        <span style={{
-                          color: policy.active ? asciiColors.accent : asciiColors.muted,
-                          fontWeight: 600,
-                          fontFamily: 'Consolas'
-                        }}>
-                          {policy.active ? 'ACTIVE' : 'INACTIVE'}
-                        </span>
-                      </Td>
-                      <Td>
-                        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-                          <AsciiButton
-                            label="✎"
-                            onClick={() => handleEditPolicy(policy)}
-                            variant="ghost"
-                          />
-                          <AsciiButton
-                            label="🗑️"
-                            onClick={() => handleDeletePolicy(policy.policy_id!)}
-                            variant="ghost"
-                          />
-                        </div>
-                      </Td>
-                    </TableRow>
-                  ))
-                )}
-              </tbody>
-            </RLSTable>
-
-            {total > limit && (
-              <div style={{ marginTop: theme.spacing.md, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 11, color: asciiColors.muted, fontFamily: 'Consolas' }}>
-                  Page {page} of {Math.ceil(total / limit)}
-                </div>
-                <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-                  <AsciiButton
-                    label="◀ Previous"
-                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                    disabled={page === 1}
-                    variant="ghost"
-                  />
-                  <AsciiButton
-                    label="Next ▶"
-                    onClick={() => setPage(prev => Math.min(Math.ceil(total / limit), prev + 1))}
-                    disabled={page >= Math.ceil(total / limit)}
-                    variant="ghost"
-                  />
-                </div>
-              </div>
-            )}
+            <RowLevelSecurityTreeView
+              policies={policies}
+              onEdit={handleEditPolicy}
+              onDelete={handleDeletePolicy}
+            />
           </div>
         </AsciiPanel>
       </div>
