@@ -49,6 +49,13 @@ const DataMasking = lazy(() => import("./components/governance/DataMasking"));
 const DataEncryption = lazy(() => import("./components/governance/DataEncryption"));
 const RowLevelSecurity = lazy(() => import("./components/governance/RowLevelSecurity"));
 const AuditTrail = lazy(() => import("./components/governance/AuditTrail"));
+const BusinessGlossary = lazy(() => import("./components/governance/BusinessGlossary"));
+const ComplianceManager = lazy(() => import("./components/governance/ComplianceManager"));
+const DataRetention = lazy(() => import("./components/governance/DataRetention"));
+const DataClassifier = lazy(() => import("./components/governance/DataClassifier"));
+const SchemaChangeAuditor = lazy(() => import("./components/governance/SchemaChangeAuditor"));
+const EventTriggers = lazy(() => import("./components/workflows/EventTriggers"));
+const Transformations = lazy(() => import("./components/transformations/Transformations"));
 const Login = lazy(() => import("./components/auth/Login"));
 
 function App() {
@@ -449,6 +456,76 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={null}>
                   <AuditTrail />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="business-glossary"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <BusinessGlossary />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="compliance-manager"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <ComplianceManager />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="data-retention"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <DataRetention />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="data-classifier"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <DataClassifier />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="schema-change-auditor"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <SchemaChangeAuditor />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="event-triggers"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <EventTriggers />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="transformations"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <Transformations />
                 </Suspense>
               </ProtectedRoute>
             }

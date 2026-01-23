@@ -101,6 +101,133 @@ const Input = styled.input`
   }
 `;
 
+const CheckboxContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${theme.spacing.xs};
+  font-family: 'Consolas';
+  font-size: 12px;
+`;
+
+const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.sm};
+  cursor: pointer;
+  color: ${asciiColors.foreground};
+  font-size: 12px;
+  font-family: 'Consolas';
+  
+  &:hover {
+    color: ${asciiColors.accent};
+  }
+`;
+
+const CheckboxInput = styled.input`
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: ${asciiColors.accent};
+`;
+
+const LevelBadgesContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${theme.spacing.xs};
+  align-items: center;
+  font-family: 'Consolas';
+`;
+
+const LevelBadge = styled.button<{ $level: string; $selected: boolean }>`
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+  border: 2px solid ${props => {
+    if (props.$selected) {
+      switch (props.$level) {
+        case 'DEBUG': return asciiColors.muted;
+        case 'INFO': return asciiColors.accent;
+        case 'WARNING': return asciiColors.warning;
+        case 'ERROR': return asciiColors.danger;
+        case 'CRITICAL': return asciiColors.danger;
+        default: return asciiColors.border;
+      }
+    }
+    return asciiColors.border;
+  }};
+  border-radius: 2;
+  background-color: ${props => {
+    if (props.$selected) {
+      switch (props.$level) {
+        case 'DEBUG': return `${asciiColors.muted}20`;
+        case 'INFO': return `${asciiColors.accent}20`;
+        case 'WARNING': return `${asciiColors.warning}20`;
+        case 'ERROR': return `${asciiColors.danger}20`;
+        case 'CRITICAL': return `${asciiColors.danger}30`;
+        default: return asciiColors.backgroundSoft;
+      }
+    }
+    return asciiColors.background;
+  }};
+  color: ${props => {
+    if (props.$selected) {
+      switch (props.$level) {
+        case 'DEBUG': return asciiColors.muted;
+        case 'INFO': return asciiColors.accent;
+        case 'WARNING': return asciiColors.warning;
+        case 'ERROR': return asciiColors.danger;
+        case 'CRITICAL': return asciiColors.danger;
+        default: return asciiColors.foreground;
+      }
+    }
+    return asciiColors.muted;
+  }};
+  font-family: 'Consolas';
+  font-size: 11px;
+  font-weight: ${props => props.$selected ? 600 : 400};
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 70px;
+  text-align: center;
+  
+  &:hover {
+    border-color: ${props => {
+      switch (props.$level) {
+        case 'DEBUG': return asciiColors.muted;
+        case 'INFO': return asciiColors.accent;
+        case 'WARNING': return asciiColors.warning;
+        case 'ERROR': return asciiColors.danger;
+        case 'CRITICAL': return asciiColors.danger;
+        default: return asciiColors.accent;
+      }
+    }};
+    background-color: ${props => {
+      if (!props.$selected) {
+        switch (props.$level) {
+          case 'DEBUG': return `${asciiColors.muted}10`;
+          case 'INFO': return `${asciiColors.accent}10`;
+          case 'WARNING': return `${asciiColors.warning}10`;
+          case 'ERROR': return `${asciiColors.danger}10`;
+          case 'CRITICAL': return `${asciiColors.danger}15`;
+          default: return asciiColors.backgroundSoft;
+        }
+      }
+      return props.$selected ? undefined : asciiColors.backgroundSoft;
+    }};
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  &:focus {
+    outline: 2px solid ${asciiColors.accent};
+    outline-offset: 2px;
+  }
+`;
+
 const LogsArea = styled.div<{ $isTransitioning?: boolean }>`
   flex: 1;
   border: 1px solid ${asciiColors.border};
@@ -310,7 +437,8 @@ const LogsViewer = () => {
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lines, setLines] = useState(10000);
-  const [level, setLevel] = useState('ALL');
+  const [selectedLevels, setSelectedLevels] = useState<string[]>(['WARNING', 'ERROR']);
+  const [distinctMessages, setDistinctMessages] = useState(true);
   const [category, setCategory] = useState('ALL');
   const [search, setSearch] = useState('');
   const [func, setFunc] = useState('ALL');
@@ -325,6 +453,7 @@ const LogsViewer = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [clearSuccess, setClearSuccess] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState(5);
   const [isCopying, setIsCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -360,7 +489,8 @@ const LogsViewer = () => {
       const [logsData, infoData] = await Promise.all([
         logsApi.getLogs({ 
           lines, 
-          level, 
+          levels: selectedLevels.length > 0 ? selectedLevels : undefined,
+          distinct: distinctMessages,
           category,
           function: func,
           search: sanitizedSearch,
@@ -439,7 +569,7 @@ const LogsViewer = () => {
         setIsRefreshing(false);
       }
     }
-  }, [lines, level, category, func, search, startDate, endDate, currentPage, autoCleanup, deleteDebug, deleteDuplicates, deleteOlderThan]);
+  }, [lines, selectedLevels, distinctMessages, category, func, search, startDate, endDate, currentPage, autoCleanup, deleteDebug, deleteDuplicates, deleteOlderThan]);
 
   useEffect(() => {
     const loadFilters = async () => {
@@ -590,17 +720,29 @@ const LogsViewer = () => {
       if (!isMountedRef.current) return;
       setIsClearing(true);
       setError(null);
+      setClearSuccess(false);
       
-      await logsApi.clearLogs();
+      const result = await logsApi.clearLogs();
       
       if (isMountedRef.current) {
         setShowClearDialog(false);
+        setClearSuccess(true);
         setCurrentPage(1);
         await fetchLogs();
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            setClearSuccess(false);
+          }
+        }, 3000);
       }
     } catch (err) {
       if (isMountedRef.current) {
-        setError(extractApiError(err));
+        const errorMessage = extractApiError(err);
+        setError(errorMessage);
+        console.error("Error clearing logs:", err);
+        // Keep dialog open on error so user can see the error message
       }
     } finally {
       if (isMountedRef.current) {
@@ -611,7 +753,8 @@ const LogsViewer = () => {
 
   const clearFilters = useCallback(() => {
     setLines(10000);
-    setLevel('ALL');
+    setSelectedLevels(['WARNING', 'ERROR']);
+    setDistinctMessages(true);
     setCategory('ALL');
     setSearch('');
     setStartDate('');
@@ -627,7 +770,8 @@ const LogsViewer = () => {
       
       const allLogsData = await logsApi.getLogs({ 
         lines: 10000, 
-        level, 
+        levels: selectedLevels.length > 0 ? selectedLevels : undefined,
+        distinct: distinctMessages,
         category,
         search: sanitizeSearch(search, 200),
         startDate,
@@ -644,7 +788,7 @@ const LogsViewer = () => {
       
       const header = `DataSync Logs - ${new Date().toLocaleString()}\n` +
                     `Total Entries: ${(allLogsData.logs || []).length}\n` +
-                    `Level Filter: ${level}\n` +
+                    `Level Filter: ${selectedLevels.length > 0 ? selectedLevels.join(', ') : 'ALL'}\n` +
                     `Category Filter: ${category}\n` +
                     `File: ${logInfo?.filePath || 'Unknown'}\n` +
                     `Size: ${logInfo ? formatFileSize(logInfo.size || 0) : 'Unknown'}\n` +
@@ -672,7 +816,7 @@ const LogsViewer = () => {
         setIsCopying(false);
       }
     }
-  }, [level, category, search, startDate, endDate, logInfo]);
+  }, [selectedLevels, distinctMessages, category, search, startDate, endDate, logInfo]);
 
   const formatFileSize = useCallback((bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -1285,16 +1429,43 @@ const LogsViewer = () => {
             />
           </ControlGroup>
           
+          <ControlGroup style={{ minWidth: 'auto', width: '100%' }}>
+            <Label style={{ marginBottom: theme.spacing.xs }}>Log Levels:</Label>
+            <LevelBadgesContainer>
+              {['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].map((lvl) => {
+                const isSelected = selectedLevels.includes(lvl);
+                return (
+                  <LevelBadge
+                    key={lvl}
+                    type="button"
+                    $level={lvl}
+                    $selected={isSelected}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedLevels(selectedLevels.filter(l => l !== lvl));
+                      } else {
+                        setSelectedLevels([...selectedLevels, lvl]);
+                      }
+                    }}
+                    title={`${isSelected ? 'Deselect' : 'Select'} ${lvl} level logs`}
+                  >
+                    {lvl}
+                  </LevelBadge>
+                );
+              })}
+            </LevelBadgesContainer>
+          </ControlGroup>
+          
           <ControlGroup>
-            <Label>Log Level:</Label>
-            <Select value={level} onChange={(e) => setLevel(e.target.value)}>
-              <option value="ALL">All Levels</option>
-              <option value="DEBUG">DEBUG</option>
-              <option value="INFO">INFO</option>
-              <option value="WARNING">WARNING</option>
-              <option value="ERROR">ERROR</option>
-              <option value="CRITICAL">CRITICAL</option>
-            </Select>
+            <Label>Distinct Messages:</Label>
+            <CheckboxLabel>
+              <CheckboxInput
+                type="checkbox"
+                checked={distinctMessages}
+                onChange={(e) => setDistinctMessages(e.target.checked)}
+              />
+              Show only unique messages (most recent)
+            </CheckboxLabel>
           </ControlGroup>
           
           <ControlGroup>
@@ -1472,6 +1643,19 @@ const LogsViewer = () => {
             </div>
           </AsciiPanel>
         )}
+        
+        {clearSuccess && (
+          <AsciiPanel title="SUCCESS">
+            <div style={{ 
+              color: asciiColors.accent, 
+              fontFamily: 'Consolas', 
+              fontSize: 12,
+              padding: `${theme.spacing.sm} 0`
+            }}>
+              {ascii.blockFull} All logs cleared successfully!
+            </div>
+          </AsciiPanel>
+        )}
       </AsciiPanel>
 
         <AsciiPanel title="LOG ENTRIES (DB)">
@@ -1613,10 +1797,27 @@ const LogsViewer = () => {
               <br />
               <strong style={{ color: asciiColors.foreground }}>This operation cannot be undone!</strong>
             </p>
+            {error && (
+              <div style={{
+                marginBottom: theme.spacing.md,
+                padding: theme.spacing.sm,
+                backgroundColor: asciiColors.backgroundSoft,
+                border: `1px solid ${asciiColors.foreground}`,
+                borderRadius: 2,
+                color: asciiColors.foreground,
+                fontSize: 11,
+                fontFamily: 'Consolas'
+              }}>
+                Error: {error}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: theme.spacing.md, justifyContent: 'center' }}>
               <AsciiButton
                 label="Cancel"
-                onClick={() => setShowClearDialog(false)}
+                onClick={() => {
+                  setShowClearDialog(false);
+                  setError(null);
+                }}
                 disabled={isClearing}
                 variant="ghost"
               />

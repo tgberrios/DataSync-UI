@@ -13,6 +13,7 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import MaintenanceTreeView from './MaintenanceTreeView';
+import CatalogCleaner from './CatalogCleaner';
 import SkeletonLoader from '../shared/SkeletonLoader';
 
 
@@ -32,7 +33,7 @@ const Maintenance = () => {
   const [maintenanceItems, setMaintenanceItems] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({});
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'all'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'all' | 'cleaner'>('pending');
   const [showMaintenancePlaybook, setShowMaintenancePlaybook] = useState(false);
   const isMountedRef = useRef(true);
 
@@ -242,6 +243,11 @@ const Maintenance = () => {
             label="All"
             onClick={() => setActiveTab('all')}
             variant={activeTab === 'all' ? 'primary' : 'ghost'}
+          />
+          <AsciiButton 
+            label="Catalog Cleaner"
+            onClick={() => setActiveTab('cleaner')}
+            variant={activeTab === 'cleaner' ? 'primary' : 'ghost'}
           />
         </div>
         <AsciiButton
@@ -555,13 +561,16 @@ const Maintenance = () => {
         </div>
       </AsciiPanel>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selectedItem ? '1fr 400px' : '1fr', gap: theme.spacing.md }}>
-        <MaintenanceTreeView 
-          items={maintenanceItems} 
-          onItemClick={handleItemClick}
-        />
-        
-        {selectedItem && (
+      {activeTab === 'cleaner' ? (
+        <CatalogCleaner onCleanupComplete={fetchData} />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: selectedItem ? '1fr 400px' : '1fr', gap: theme.spacing.md }}>
+          <MaintenanceTreeView 
+            items={maintenanceItems} 
+            onItemClick={handleItemClick}
+          />
+          
+          {selectedItem && (
           <AsciiPanel title="MAINTENANCE DETAILS">
             <div style={{ 
               position: 'sticky', 
@@ -851,7 +860,8 @@ const Maintenance = () => {
             </div>
           </AsciiPanel>
         )}
-      </div>
+        </div>
+      )}
     </Container>
   );
 };

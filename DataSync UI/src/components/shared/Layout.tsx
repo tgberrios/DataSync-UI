@@ -286,6 +286,12 @@ const Layout = () => {
             <NavSubItem to="/workflows">
               ■ Data Integration - Workflow Orchestration (DAGs)
             </NavSubItem>
+            <NavSubItem to="/event-triggers">
+              ■ Data Integration - Event Triggers
+            </NavSubItem>
+            <NavSubItem to="/transformations">
+              ■ Data Integration - Transformations
+            </NavSubItem>
             <NavSubItem to="/dbt-models">
               ■ Data Integration - dbt Models
             </NavSubItem>
@@ -340,6 +346,21 @@ const Layout = () => {
             </NavSubItem>
             <NavSubItem to="/governance">
               ■ Governance
+            </NavSubItem>
+            <NavSubItem to="/business-glossary">
+              ■ Business Glossary
+            </NavSubItem>
+            <NavSubItem to="/compliance-manager">
+              ■ Compliance Manager
+            </NavSubItem>
+            <NavSubItem to="/data-retention">
+              ■ Data Retention
+            </NavSubItem>
+            <NavSubItem to="/data-classifier">
+              ■ Data Classifier
+            </NavSubItem>
+            <NavSubItem to="/schema-change-auditor">
+              ■ Schema Change Auditor
             </NavSubItem>
           </NavGroupContent>
         </NavGroup>

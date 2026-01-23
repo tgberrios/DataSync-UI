@@ -3,11 +3,8 @@ import styled from 'styled-components';
 import {
   Container,
   LoadingOverlay,
-  Pagination,
-  PageButton,
 } from '../shared/BaseComponents';
 import { useTableFilters } from '../../hooks/useTableFilters';
-import { usePagination } from '../../hooks/usePagination';
 import { columnCatalogApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
@@ -25,7 +22,6 @@ import ColumnCatalogCharts from './ColumnCatalogCharts';
  * Displays detailed metadata about database columns including data types, sensitivity levels, and PII/PHI flags
  */
 const ColumnCatalog = () => {
-  const { page, limit, setPage, setLimit } = usePagination(1, 20, 1000);
   const { filters, setFilter, clearFilters } = useTableFilters({
     schema_name: '',
     table_name: '',
@@ -43,12 +39,6 @@ const ColumnCatalog = () => {
   const [schemas, setSchemas] = useState<string[]>([]);
   const [tables, setTables] = useState<string[]>([]);
   const [allColumns, setAllColumns] = useState<any[]>([]);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    totalPages: 0,
-    currentPage: 1,
-    limit: 20
-  });
   const [loadingTree, setLoadingTree] = useState(false);
   const [showMetricsPlaybook, setShowMetricsPlaybook] = useState(false);
   const [activeView, setActiveView] = useState<'list' | 'charts'>('list');
@@ -62,8 +52,6 @@ const ColumnCatalog = () => {
       const sanitizedSearch = sanitizeSearch(filters.search as string, 100);
       const [columnsData, metricsData, schemasData] = await Promise.all([
         columnCatalogApi.getColumns({
-          page,
-          limit,
           schema_name: filters.schema_name as string,
           table_name: filters.table_name as string,
           db_engine: filters.db_engine as string,
@@ -78,12 +66,6 @@ const ColumnCatalog = () => {
       ]);
       if (isMountedRef.current) {
         setAllColumns(columnsData.data || []);
-        setPagination(columnsData.pagination || {
-          total: 0,
-          totalPages: 0,
-          currentPage: 1,
-          limit: 20
-        });
         setMetrics(metricsData || {});
         setSchemas(schemasData || []);
       }
@@ -97,8 +79,6 @@ const ColumnCatalog = () => {
       }
     }
   }, [
-    page,
-    limit,
     filters.schema_name,
     filters.table_name,
     filters.db_engine,
@@ -731,7 +711,7 @@ const ColumnCatalog = () => {
 
       <div style={{ 
         display: 'flex', 
-        justifyContent: 'space-between', 
+        justifyContent: 'flex-end', 
         alignItems: 'center', 
         marginBottom: theme.spacing.lg,
         marginTop: theme.spacing.sm,
@@ -739,45 +719,6 @@ const ColumnCatalog = () => {
         fontSize: 12,
         gap: theme.spacing.lg
       }}>
-        <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <label style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas' }}>
-            Items per page:
-          </label>
-          <select
-            value={limit}
-            onChange={(e) => {
-              setLimit(Number(e.target.value));
-              setPage(1);
-            }}
-            style={{
-              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              fontFamily: 'Consolas',
-              fontSize: 12,
-              backgroundColor: asciiColors.background,
-              color: asciiColors.foreground,
-              cursor: 'pointer',
-              outline: 'none',
-              transition: 'border-color 0.15s ease'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = asciiColors.accent;
-              e.target.style.outline = `2px solid ${asciiColors.accent}`;
-              e.target.style.outlineOffset = '2px';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = asciiColors.border;
-              e.target.style.outline = 'none';
-            }}
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <AsciiButton
             label={activeView === 'list' ? 'Show Charts' : 'Show List'}
@@ -804,34 +745,10 @@ const ColumnCatalog = () => {
       {activeView === 'list' && loadingTree ? (
         <LoadingOverlay>Loading tree view...</LoadingOverlay>
       ) : activeView === 'list' ? (
-        <>
-          <ColumnCatalogTreeView 
-            columns={allColumns}
-            onColumnClick={(column) => toggleColumn(column.id)}
-          />
-          
-                  {pagination.totalPages > 1 && (
-                    <div style={{ marginTop: theme.spacing.lg }}>
-                      <Pagination>
-                        <PageButton
-                          onClick={() => setPage(Math.max(1, page - 1))}
-                          disabled={page === 1}
-                        >
-                          Previous
-                        </PageButton>
-                        <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
-                          Page {pagination.currentPage} of {pagination.totalPages} ({pagination.total} total)
-                        </span>
-                        <PageButton
-                          onClick={() => setPage(Math.min(pagination.totalPages, page + 1))}
-                          disabled={page === pagination.totalPages}
-                        >
-                          Next
-                        </PageButton>
-                      </Pagination>
-                    </div>
-                  )}
-        </>
+        <ColumnCatalogTreeView 
+          columns={allColumns}
+          onColumnClick={(column) => toggleColumn(column.id)}
+        />
       ) : null}
     </Container>
   );

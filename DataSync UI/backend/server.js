@@ -3761,11 +3761,27 @@ app.get("/api/logs", async (req, res) => {
     }
 
     const lines = validateLimit(req.query.lines, 1, 1000);
-    const level = validateEnum(
-      req.query.level,
-      ["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-      "ALL"
-    );
+    
+    // Support both single 'level' and multiple 'levels' parameter
+    const levelParam = req.query.levels || req.query.level;
+    const distinctMessages = req.query.distinct === "true" || req.query.distinct === true;
+    
+    // Parse levels: support array, comma-separated string, or single value
+    let levels = [];
+    if (levelParam) {
+      if (Array.isArray(levelParam)) {
+        levels = levelParam.filter(l => l && l !== "ALL");
+      } else if (typeof levelParam === "string") {
+        if (levelParam !== "ALL") {
+          levels = levelParam.split(",").map(l => l.trim()).filter(l => l && l !== "ALL");
+        }
+      }
+    }
+    
+    // Validate levels
+    const validLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
+    levels = levels.filter(l => validLevels.includes(l.toUpperCase()));
+    
     const category = validateEnum(
       req.query.category,
       [
@@ -3788,9 +3804,11 @@ app.get("/api/logs", async (req, res) => {
     const params = [];
     let where = [];
 
-    if (level && level !== "ALL") {
-      params.push(level);
-      where.push(`level = $${params.length}`);
+    // Support multiple levels with IN clause
+    if (levels.length > 0) {
+      const placeholders = levels.map((_, i) => `$${params.length + i + 1}`).join(',');
+      params.push(...levels.map(l => l.toUpperCase()));
+      where.push(`level IN (${placeholders})`);
     }
     
     if (category && category !== "ALL") {
@@ -3826,17 +3844,42 @@ app.get("/api/logs", async (req, res) => {
     const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
     const limit = lines;
 
-    const query = `
-      SELECT ts, level, category, function, message
-      FROM metadata.logs
-      ${whereClause}
-      ORDER BY ts DESC
-      LIMIT $${params.length + 1}
-    `;
+    // Build query with optional DISTINCT ON for unique messages
+    let query;
+    if (distinctMessages) {
+      // Use DISTINCT ON to get most recent entry per unique message
+      // DISTINCT ON requires message to be first in ORDER BY
+      query = `
+        SELECT DISTINCT ON (message) ts, level, category, function, message
+        FROM metadata.logs
+        ${whereClause}
+        ORDER BY message, ts DESC
+        LIMIT $${params.length + 1}
+      `;
+    } else {
+      // Standard query ordered by timestamp
+      query = `
+        SELECT ts, level, category, function, message
+        FROM metadata.logs
+        ${whereClause}
+        ORDER BY ts DESC
+        LIMIT $${params.length + 1}
+      `;
+    }
     
     const result = await pool.query(query, [...params, limit]);
+    
+    // If using DISTINCT ON, reorder results by timestamp DESC to show most recent first
+    let sortedRows = result.rows;
+    if (distinctMessages) {
+      sortedRows = result.rows.sort((a, b) => {
+        const tsA = a.ts ? new Date(a.ts).getTime() : 0;
+        const tsB = b.ts ? new Date(b.ts).getTime() : 0;
+        return tsB - tsA; // Most recent first
+      });
+    }
 
-    const logs = result.rows.map((r) => {
+    const logs = sortedRows.map((r) => {
       const tsIso = r.ts ? new Date(r.ts).toISOString() : null;
       const lvl = (r.level || "").toUpperCase();
       const cat = (r.category || "").toUpperCase();
@@ -3858,7 +3901,7 @@ app.get("/api/logs", async (req, res) => {
       totalLines: logs.length,
       filePath: "metadata.logs",
       lastModified: new Date().toISOString(),
-      filters: { level, category, function: func, search, startDate, endDate },
+      filters: { level: levels.length > 0 ? levels.join(',') : 'ALL', category, function: func, search, startDate, endDate },
     });
   } catch (err) {
     console.error("Error reading logs from DB:", err);
@@ -5445,9 +5488,6 @@ app.get("/api/maintenance/metrics", async (req, res) => {
 
 app.get("/api/column-catalog/columns", async (req, res) => {
   try {
-    const page = validatePage(req.query.page, 1);
-    const limit = validateLimit(req.query.limit, 1, 100);
-    const offset = (page - 1) * limit;
     const schema_name = validateIdentifier(req.query.schema_name) || "";
     const table_name = validateIdentifier(req.query.table_name) || "";
     const db_engine = validateEnum(
@@ -5528,31 +5568,17 @@ app.get("/api/column-catalog/columns", async (req, res) => {
         ? "WHERE " + whereConditions.join(" AND ")
         : "";
 
-    const countQuery = `SELECT COUNT(*) FROM metadata.column_catalog ${whereClause}`;
-    const countResult = await pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
-
-    params.push(limit, offset);
     const dataQuery = `
       SELECT *
       FROM metadata.column_catalog
       ${whereClause}
       ORDER BY schema_name, table_name, ordinal_position
-      LIMIT $${paramCount} OFFSET $${paramCount + 1}
     `;
 
     const result = await pool.query(dataQuery, params);
 
-    const totalPages = Math.ceil(total / limit);
-
     res.json({
       data: result.rows,
-      pagination: {
-        total,
-        totalPages,
-        currentPage: page,
-        limit,
-      },
     });
   } catch (err) {
     console.error("Error getting column catalog data:", err);
@@ -15951,6 +15977,2371 @@ app.patch(
     }
   }
 );
+
+// Business Glossary API Endpoints
+app.get("/api/business-glossary/terms", requireAuth, async (req, res) => {
+  try {
+    const { domain, category, search } = req.query;
+    let query = `
+      SELECT id, term, definition, category, business_domain, owner, steward,
+             related_tables, tags, created_at, updated_at
+      FROM metadata.business_glossary
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (domain) {
+      paramCount++;
+      query += ` AND business_domain = $${paramCount}`;
+      params.push(domain);
+    }
+
+    if (category) {
+      paramCount++;
+      query += ` AND category = $${paramCount}`;
+      params.push(category);
+    }
+
+    if (search) {
+      paramCount++;
+      query += ` AND (
+        term ILIKE $${paramCount} OR 
+        definition ILIKE $${paramCount} OR
+        tags ILIKE $${paramCount}
+      )`;
+      params.push(`%${search}%`);
+    }
+
+    query += ` ORDER BY term ASC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting glossary terms:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting glossary terms",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/business-glossary/terms/search", requireAuth, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) {
+      return res.status(400).json({ error: "Search query is required" });
+    }
+
+    const result = await pool.query(
+      `SELECT id, term, definition, category, business_domain, owner, steward,
+              related_tables, tags, created_at, updated_at
+       FROM metadata.business_glossary
+       WHERE term ILIKE $1 OR definition ILIKE $1 OR tags ILIKE $1
+       ORDER BY term ASC
+       LIMIT 50`,
+      [`%${q}%`]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error searching glossary terms:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error searching glossary terms",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/business-glossary/terms/by-domain/:domain", requireAuth, async (req, res) => {
+  try {
+    const domain = req.params.domain;
+    const result = await pool.query(
+      `SELECT id, term, definition, category, business_domain, owner, steward,
+              related_tables, tags, created_at, updated_at
+       FROM metadata.business_glossary
+       WHERE business_domain = $1
+       ORDER BY term ASC`,
+      [domain]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting terms by domain:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting terms by domain",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/business-glossary/terms",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { term, definition, category, business_domain, owner, steward, related_tables, tags } = req.body;
+
+      if (!term || !definition) {
+        return res.status(400).json({
+          error: "Missing required fields: term, definition",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.business_glossary 
+        (term, definition, category, business_domain, owner, steward, related_tables, tags)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (term) DO UPDATE SET
+          definition = EXCLUDED.definition,
+          category = EXCLUDED.category,
+          business_domain = EXCLUDED.business_domain,
+          owner = EXCLUDED.owner,
+          steward = EXCLUDED.steward,
+          related_tables = EXCLUDED.related_tables,
+          tags = EXCLUDED.tags,
+          updated_at = NOW()
+        RETURNING *`,
+        [term, definition, category || null, business_domain || null, owner || null, steward || null, related_tables || null, tags || null]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating glossary term:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating glossary term",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/business-glossary/terms/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const termId = parseInt(req.params.id);
+      if (isNaN(termId)) {
+        return res.status(400).json({ error: "Invalid term ID" });
+      }
+
+      const { term, definition, category, business_domain, owner, steward, related_tables, tags } = req.body;
+
+      if (!term || !definition) {
+        return res.status(400).json({
+          error: "Missing required fields: term, definition",
+        });
+      }
+
+      const result = await pool.query(
+        `UPDATE metadata.business_glossary 
+       SET term = $1, definition = $2, category = $3, business_domain = $4,
+           owner = $5, steward = $6, related_tables = $7, tags = $8,
+           updated_at = NOW()
+       WHERE id = $9
+       RETURNING *`,
+        [term, definition, category || null, business_domain || null, owner || null, steward || null, related_tables || null, tags || null, termId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Glossary term not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating glossary term:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating glossary term",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/business-glossary/terms/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const termId = parseInt(req.params.id);
+      if (isNaN(termId)) {
+        return res.status(400).json({ error: "Invalid term ID" });
+      }
+
+      const result = await pool.query(
+        `DELETE FROM metadata.business_glossary WHERE id = $1 RETURNING id`,
+        [termId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Glossary term not found" });
+      }
+
+      res.json({ message: "Glossary term deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting glossary term:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error deleting glossary term",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/business-glossary/dictionary", requireAuth, async (req, res) => {
+  try {
+    const { schema_name, table_name, search } = req.query;
+    let query = `
+      SELECT schema_name, table_name, column_name, business_description,
+             business_name, data_type_business, business_rules, examples,
+             glossary_term, owner, steward, created_at, updated_at
+      FROM metadata.data_dictionary
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (table_name) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table_name);
+    }
+
+    if (search) {
+      paramCount++;
+      query += ` AND (
+        column_name ILIKE $${paramCount} OR 
+        business_description ILIKE $${paramCount} OR
+        business_name ILIKE $${paramCount}
+      )`;
+      params.push(`%${search}%`);
+    }
+
+    query += ` ORDER BY schema_name, table_name, column_name`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting data dictionary:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting data dictionary",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/business-glossary/dictionary",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        schema_name,
+        table_name,
+        column_name,
+        business_description,
+        business_name,
+        data_type_business,
+        business_rules,
+        examples,
+        glossary_term,
+        owner,
+        steward,
+      } = req.body;
+
+      if (!schema_name || !table_name || !column_name) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name, column_name",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.data_dictionary 
+        (schema_name, table_name, column_name, business_description, business_name,
+         data_type_business, business_rules, examples, glossary_term, owner, steward)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT (schema_name, table_name, column_name) DO UPDATE SET
+          business_description = EXCLUDED.business_description,
+          business_name = EXCLUDED.business_name,
+          data_type_business = EXCLUDED.data_type_business,
+          business_rules = EXCLUDED.business_rules,
+          examples = EXCLUDED.examples,
+          glossary_term = EXCLUDED.glossary_term,
+          owner = EXCLUDED.owner,
+          steward = EXCLUDED.steward,
+          updated_at = NOW()
+        RETURNING *`,
+        [
+          schema_name,
+          table_name,
+          column_name,
+          business_description || null,
+          business_name || null,
+          data_type_business || null,
+          business_rules || null,
+          examples || null,
+          glossary_term || null,
+          owner || null,
+          steward || null,
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating dictionary entry:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating dictionary entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/business-glossary/dictionary",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        schema_name,
+        table_name,
+        column_name,
+        business_description,
+        business_name,
+        data_type_business,
+        business_rules,
+        examples,
+        glossary_term,
+        owner,
+        steward,
+      } = req.body;
+
+      if (!schema_name || !table_name || !column_name) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name, column_name",
+        });
+      }
+
+      const result = await pool.query(
+        `UPDATE metadata.data_dictionary 
+       SET business_description = $1, business_name = $2, data_type_business = $3,
+           business_rules = $4, examples = $5, glossary_term = $6,
+           owner = $7, steward = $8, updated_at = NOW()
+       WHERE schema_name = $9 AND table_name = $10 AND column_name = $11
+       RETURNING *`,
+        [
+          business_description || null,
+          business_name || null,
+          data_type_business || null,
+          business_rules || null,
+          examples || null,
+          glossary_term || null,
+          owner || null,
+          steward || null,
+          schema_name,
+          table_name,
+          column_name,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Dictionary entry not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating dictionary entry:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating dictionary entry",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/business-glossary/terms/:termId/link-table",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const termId = parseInt(req.params.termId);
+      if (isNaN(termId)) {
+        return res.status(400).json({ error: "Invalid term ID" });
+      }
+
+      const { schema_name, table_name } = req.body;
+
+      if (!schema_name || !table_name) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.glossary_term_links (term_id, schema_name, table_name)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (term_id, schema_name, table_name) DO NOTHING
+         RETURNING *`,
+        [termId, schema_name, table_name]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(409).json({ error: "Link already exists" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error linking term to table:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error linking term to table",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/business-glossary/terms/:termId/tables", requireAuth, async (req, res) => {
+  try {
+    const termId = parseInt(req.params.termId);
+    if (isNaN(termId)) {
+      return res.status(400).json({ error: "Invalid term ID" });
+    }
+
+    const result = await pool.query(
+      `SELECT gtl.id, gtl.schema_name, gtl.table_name, gtl.created_at
+       FROM metadata.glossary_term_links gtl
+       WHERE gtl.term_id = $1
+       ORDER BY gtl.schema_name, gtl.table_name`,
+      [termId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting tables for term:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting tables for term",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Compliance Manager API Endpoints
+app.get("/api/compliance/requests", requireAuth, async (req, res) => {
+  try {
+    const { status, request_type, compliance_requirement } = req.query;
+    let query = `
+      SELECT request_id, request_type, data_subject_email, data_subject_name,
+             request_status, requested_data, response_data, processed_by,
+             compliance_requirement, created_at, updated_at
+      FROM metadata.data_subject_requests
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (status) {
+      paramCount++;
+      query += ` AND request_status = $${paramCount}`;
+      params.push(status);
+    }
+
+    if (request_type) {
+      paramCount++;
+      query += ` AND request_type = $${paramCount}`;
+      params.push(request_type);
+    }
+
+    if (compliance_requirement) {
+      paramCount++;
+      query += ` AND compliance_requirement = $${paramCount}`;
+      params.push(compliance_requirement);
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting compliance requests:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting compliance requests",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/compliance/requests",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        request_type,
+        data_subject_email,
+        data_subject_name,
+        compliance_requirement,
+      } = req.body;
+
+      if (!request_type) {
+        return res.status(400).json({
+          error: "Missing required field: request_type",
+        });
+      }
+
+      const validTypes = ["ACCESS", "PORTABILITY", "RIGHT_TO_BE_FORGOTTEN"];
+      if (!validTypes.includes(request_type)) {
+        return res.status(400).json({ error: "Invalid request_type" });
+      }
+
+      const requestId = `DSR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      const result = await pool.query(
+        `INSERT INTO metadata.data_subject_requests 
+        (request_id, request_type, data_subject_email, data_subject_name, 
+         request_status, compliance_requirement)
+        VALUES ($1, $2, $3, $4, 'PENDING', $5)
+        RETURNING *`,
+        [requestId, request_type, data_subject_email || null, data_subject_name || null, compliance_requirement || null]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating compliance request:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating compliance request",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/compliance/requests/:requestId",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const requestId = req.params.requestId;
+      const { request_status, processed_by, response_data } = req.body;
+
+      const updates = [];
+      const params = [];
+      let paramCount = 0;
+
+      if (request_status !== undefined) {
+        paramCount++;
+        updates.push(`request_status = $${paramCount}`);
+        params.push(request_status);
+      }
+
+      if (processed_by !== undefined) {
+        paramCount++;
+        updates.push(`processed_by = $${paramCount}`);
+        params.push(processed_by);
+      }
+
+      if (response_data !== undefined) {
+        paramCount++;
+        updates.push(`response_data = $${paramCount}`);
+        params.push(response_data);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: "No fields to update" });
+      }
+
+      paramCount++;
+      updates.push(`updated_at = NOW()`);
+      paramCount++;
+      params.push(requestId);
+      updates.push(`WHERE request_id = $${paramCount}`);
+
+      const result = await pool.query(
+        `UPDATE metadata.data_subject_requests 
+       SET ${updates.slice(0, -1).join(", ")} ${updates[updates.length - 1]}
+       RETURNING *`,
+        params
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating compliance request:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating compliance request",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/compliance/requests/:requestId/process-right-to-be-forgotten",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const requestId = req.params.requestId;
+      const user = req.user?.username || "system";
+
+      const requestResult = await pool.query(
+        `SELECT * FROM metadata.data_subject_requests WHERE request_id = $1`,
+        [requestId]
+      );
+
+      if (requestResult.rows.length === 0) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const request = requestResult.rows[0];
+      if (request.request_type !== "RIGHT_TO_BE_FORGOTTEN") {
+        return res.status(400).json({ error: "Invalid request type for this operation" });
+      }
+
+      await pool.query(
+        `UPDATE metadata.data_subject_requests 
+       SET request_status = 'IN_PROGRESS', processed_by = $1, updated_at = NOW()
+       WHERE request_id = $2`,
+        [user, requestId]
+      );
+
+      res.json({ 
+        message: "Right to be forgotten processing initiated",
+        request_id: requestId,
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error processing right to be forgotten:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error processing right to be forgotten",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/compliance/requests/:requestId/process-data-portability",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const requestId = req.params.requestId;
+      const user = req.user?.username || "system";
+
+      const requestResult = await pool.query(
+        `SELECT * FROM metadata.data_subject_requests WHERE request_id = $1`,
+        [requestId]
+      );
+
+      if (requestResult.rows.length === 0) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const request = requestResult.rows[0];
+      if (request.request_type !== "PORTABILITY") {
+        return res.status(400).json({ error: "Invalid request type for this operation" });
+      }
+
+      await pool.query(
+        `UPDATE metadata.data_subject_requests 
+       SET request_status = 'IN_PROGRESS', processed_by = $1, updated_at = NOW()
+       WHERE request_id = $2`,
+        [user, requestId]
+      );
+
+      res.json({ 
+        message: "Data portability processing initiated",
+        request_id: requestId,
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error processing data portability:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error processing data portability",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/compliance/requests/:requestId/process-access-request",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const requestId = req.params.requestId;
+      const user = req.user?.username || "system";
+
+      const requestResult = await pool.query(
+        `SELECT * FROM metadata.data_subject_requests WHERE request_id = $1`,
+        [requestId]
+      );
+
+      if (requestResult.rows.length === 0) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const request = requestResult.rows[0];
+      if (request.request_type !== "ACCESS") {
+        return res.status(400).json({ error: "Invalid request type for this operation" });
+      }
+
+      await pool.query(
+        `UPDATE metadata.data_subject_requests 
+       SET request_status = 'IN_PROGRESS', processed_by = $1, updated_at = NOW()
+       WHERE request_id = $2`,
+        [user, requestId]
+      );
+
+      res.json({ 
+        message: "Access request processing initiated",
+        request_id: requestId,
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error processing access request:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error processing access request",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/compliance/consents", requireAuth, async (req, res) => {
+  try {
+    const { data_subject_id, schema_name, table_name, consent_status } = req.query;
+    let query = `
+      SELECT id, schema_name, table_name, data_subject_id, consent_type,
+             consent_status, legal_basis, purpose, retention_period,
+             created_at, updated_at
+      FROM metadata.consent_records
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (data_subject_id) {
+      paramCount++;
+      query += ` AND data_subject_id = $${paramCount}`;
+      params.push(data_subject_id);
+    }
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (table_name) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table_name);
+    }
+
+    if (consent_status) {
+      paramCount++;
+      query += ` AND consent_status = $${paramCount}`;
+      params.push(consent_status);
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting consent records:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting consent records",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/compliance/consents",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const {
+        schema_name,
+        table_name,
+        data_subject_id,
+        consent_type,
+        consent_status,
+        legal_basis,
+        purpose,
+        retention_period,
+      } = req.body;
+
+      if (!schema_name || !table_name || !data_subject_id || !consent_type) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name, data_subject_id, consent_type",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.consent_records 
+        (schema_name, table_name, data_subject_id, consent_type, consent_status,
+         legal_basis, purpose, retention_period)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *`,
+        [
+          schema_name,
+          table_name,
+          data_subject_id,
+          consent_type,
+          consent_status || "GRANTED",
+          legal_basis || null,
+          purpose || null,
+          retention_period || null,
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating consent record:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating consent record",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/compliance/consents/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const consentId = parseInt(req.params.id);
+      if (isNaN(consentId)) {
+        return res.status(400).json({ error: "Invalid consent ID" });
+      }
+
+      await pool.query(
+        `UPDATE metadata.consent_records 
+       SET consent_status = 'WITHDRAWN', updated_at = NOW()
+       WHERE id = $1`,
+        [consentId]
+      );
+
+      res.json({ message: "Consent withdrawn successfully" });
+    } catch (err) {
+      console.error("Error withdrawing consent:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error withdrawing consent",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/compliance/breaches", requireAuth, async (req, res) => {
+  try {
+    const { status, schema_name, table_name } = req.query;
+    let query = `
+      SELECT id, schema_name, table_name, breach_type, detected_at,
+             notified_at, notification_details, status, created_at
+      FROM metadata.breach_notifications
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (status) {
+      paramCount++;
+      query += ` AND status = $${paramCount}`;
+      params.push(status);
+    }
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (table_name) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table_name);
+    }
+
+    query += ` ORDER BY detected_at DESC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting breach notifications:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting breach notifications",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/compliance/breaches/check",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, breach_type } = req.body;
+
+      if (!schema_name || !table_name) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.breach_notifications 
+        (schema_name, table_name, breach_type, status)
+        VALUES ($1, $2, $3, 'DETECTED')
+        RETURNING *`,
+        [schema_name, table_name, breach_type || "SECURITY_INCIDENT"]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error checking breach:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error checking breach",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Data Retention API Endpoints
+app.get("/api/data-retention/jobs", requireAuth, async (req, res) => {
+  try {
+    const { status, schema_name, table_name } = req.query;
+    let query = `
+      SELECT id, schema_name, table_name, job_type, retention_policy,
+             scheduled_date, status, rows_affected, error_message,
+             created_at, executed_at
+      FROM metadata.retention_jobs
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (status) {
+      paramCount++;
+      query += ` AND status = $${paramCount}`;
+      params.push(status);
+    }
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (table_name) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table_name);
+    }
+
+    query += ` ORDER BY scheduled_date DESC, created_at DESC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting retention jobs:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting retention jobs",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/data-retention/jobs/schedule",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, job_type, retention_policy, scheduled_date } = req.body;
+
+      if (!schema_name || !table_name || !job_type || !retention_policy) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name, job_type, retention_policy",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.retention_jobs 
+        (schema_name, table_name, job_type, retention_policy, scheduled_date, status)
+        VALUES ($1, $2, $3, $4, $5, 'PENDING')
+        RETURNING *`,
+        [schema_name, table_name, job_type, retention_policy, scheduled_date || null]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error scheduling retention job:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error scheduling retention job",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/data-retention/jobs/:id/execute",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      if (isNaN(jobId)) {
+        return res.status(400).json({ error: "Invalid job ID" });
+      }
+
+      await pool.query(
+        `UPDATE metadata.retention_jobs 
+       SET status = 'RUNNING', executed_at = NOW()
+       WHERE id = $1`,
+        [jobId]
+      );
+
+      res.json({ message: "Retention job execution initiated", job_id: jobId });
+    } catch (err) {
+      console.error("Error executing retention job:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error executing retention job",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/data-retention/policies", requireAuth, async (req, res) => {
+  try {
+    const { schema_name, table_name } = req.query;
+    let query = `
+      SELECT schema_name, table_name, retention_period, archival_location,
+             policy_type, created_at, updated_at
+      FROM metadata.retention_policies
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (table_name) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table_name);
+    }
+
+    query += ` ORDER BY schema_name, table_name`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting retention policies:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting retention policies",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/data-retention/policies",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, retention_period, archival_location, policy_type } = req.body;
+
+      if (!schema_name || !table_name || !retention_period) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name, retention_period",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.retention_policies 
+        (schema_name, table_name, retention_period, archival_location, policy_type)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (schema_name, table_name) DO UPDATE SET
+          retention_period = EXCLUDED.retention_period,
+          archival_location = EXCLUDED.archival_location,
+          policy_type = EXCLUDED.policy_type,
+          updated_at = NOW()
+        RETURNING *`,
+        [schema_name, table_name, retention_period, archival_location || null, policy_type || "TIME_BASED"]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating retention policy:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating retention policy",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/data-retention/policies",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, retention_period, archival_location, policy_type } = req.body;
+
+      if (!schema_name || !table_name) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name",
+        });
+      }
+
+      const result = await pool.query(
+        `UPDATE metadata.retention_policies 
+       SET retention_period = $1, archival_location = $2, policy_type = $3, updated_at = NOW()
+       WHERE schema_name = $4 AND table_name = $5
+       RETURNING *`,
+        [retention_period, archival_location || null, policy_type || "TIME_BASED", schema_name, table_name]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Retention policy not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating retention policy:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating retention policy",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/data-retention/enforce/:schema/:table",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const schemaName = req.params.schema;
+      const tableName = req.params.table;
+
+      const policyResult = await pool.query(
+        `SELECT * FROM metadata.retention_policies 
+       WHERE schema_name = $1 AND table_name = $2`,
+        [schemaName, tableName]
+      );
+
+      if (policyResult.rows.length === 0) {
+        return res.status(404).json({ error: "Retention policy not found for this table" });
+      }
+
+      res.json({ 
+        message: "Retention policy enforcement initiated",
+        schema_name: schemaName,
+        table_name: tableName
+      });
+    } catch (err) {
+      console.error("Error enforcing retention policy:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error enforcing retention policy",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/data-retention/legal-holds", requireAuth, async (req, res) => {
+  try {
+    const { schema_name, table_name } = req.query;
+    let query = `
+      SELECT id, schema_name, table_name, reason, hold_until,
+             created_by, created_at, released_at, released_by
+      FROM metadata.legal_holds
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (table_name) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table_name);
+    }
+
+    query += ` AND released_at IS NULL ORDER BY created_at DESC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting legal holds:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting legal holds",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/data-retention/legal-holds",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, reason, hold_until } = req.body;
+      const user = req.user?.username || "system";
+
+      if (!schema_name || !table_name || !reason) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name, reason",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.legal_holds 
+        (schema_name, table_name, reason, hold_until, created_by)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (schema_name, table_name) DO UPDATE SET
+          reason = EXCLUDED.reason,
+          hold_until = EXCLUDED.hold_until,
+          created_by = EXCLUDED.created_by
+        RETURNING *`,
+        [schema_name, table_name, reason, hold_until || null, user]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating legal hold:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating legal hold",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/data-retention/legal-holds/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const holdId = parseInt(req.params.id);
+      if (isNaN(holdId)) {
+        return res.status(400).json({ error: "Invalid legal hold ID" });
+      }
+
+      const user = req.user?.username || "system";
+
+      await pool.query(
+        `UPDATE metadata.legal_holds 
+       SET released_at = NOW(), released_by = $1
+       WHERE id = $2`,
+        [user, holdId]
+      );
+
+      res.json({ message: "Legal hold released successfully" });
+    } catch (err) {
+      console.error("Error releasing legal hold:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error releasing legal hold",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/data-retention/archive",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, archival_location } = req.body;
+
+      if (!schema_name || !table_name || !archival_location) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name, archival_location",
+        });
+      }
+
+      res.json({ 
+        message: "Archive operation initiated",
+        schema_name,
+        table_name,
+        archival_location
+      });
+    } catch (err) {
+      console.error("Error archiving table:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error archiving table",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Data Classifier API Endpoints
+app.get("/api/data-classifier/rules", requireAuth, async (req, res) => {
+  try {
+    const { rule_type, active } = req.query;
+    let query = `
+      SELECT id, rule_name, rule_type, patterns, priority, active,
+             created_at, updated_at
+      FROM metadata.classification_rules
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (rule_type) {
+      paramCount++;
+      query += ` AND rule_type = $${paramCount}`;
+      params.push(rule_type);
+    }
+
+    if (active !== undefined) {
+      paramCount++;
+      query += ` AND active = $${paramCount}`;
+      params.push(active === "true");
+    }
+
+    query += ` ORDER BY priority ASC, rule_name ASC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting classification rules:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting classification rules",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/data-classifier/rules",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { rule_name, rule_type, patterns, priority, active } = req.body;
+
+      if (!rule_name || !rule_type || !patterns) {
+        return res.status(400).json({
+          error: "Missing required fields: rule_name, rule_type, patterns",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.classification_rules 
+        (rule_name, rule_type, patterns, priority, active)
+        VALUES ($1, $2, $3::jsonb, $4, $5)
+        RETURNING *`,
+        [
+          rule_name,
+          rule_type,
+          JSON.stringify(patterns),
+          priority || 100,
+          active !== undefined ? active : true,
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating classification rule:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating classification rule",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/data-classifier/rules/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const ruleId = parseInt(req.params.id);
+      if (isNaN(ruleId)) {
+        return res.status(400).json({ error: "Invalid rule ID" });
+      }
+
+      const { rule_name, rule_type, patterns, priority, active } = req.body;
+
+      const result = await pool.query(
+        `UPDATE metadata.classification_rules 
+       SET rule_name = $1, rule_type = $2, patterns = $3::jsonb, 
+           priority = $4, active = $5, updated_at = NOW()
+       WHERE id = $6
+       RETURNING *`,
+        [
+          rule_name,
+          rule_type,
+          JSON.stringify(patterns),
+          priority,
+          active,
+          ruleId,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Classification rule not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating classification rule:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating classification rule",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/data-classifier/rules/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const ruleId = parseInt(req.params.id);
+      if (isNaN(ruleId)) {
+        return res.status(400).json({ error: "Invalid rule ID" });
+      }
+
+      await pool.query(`DELETE FROM metadata.classification_rules WHERE id = $1`, [ruleId]);
+
+      res.json({ message: "Classification rule deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting classification rule:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error deleting classification rule",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/data-classifier/classify",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { schema_name, table_name, column_name } = req.body;
+
+      if (!schema_name || !table_name) {
+        return res.status(400).json({
+          error: "Missing required fields: schema_name, table_name",
+        });
+      }
+
+      res.json({ 
+        message: "Classification initiated",
+        schema_name,
+        table_name,
+        column_name: column_name || null
+      });
+    } catch (err) {
+      console.error("Error classifying data:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error classifying data",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/data-classifier/results", requireAuth, async (req, res) => {
+  try {
+    const { schema_name, table_name, column_name } = req.query;
+    let query = `
+      SELECT id, schema_name, table_name, column_name, data_category,
+             business_domain, sensitivity_level, data_classification,
+             rule_id, classified_at
+      FROM metadata.classification_results
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (table_name) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table_name);
+    }
+
+    if (column_name) {
+      paramCount++;
+      query += ` AND column_name = $${paramCount}`;
+      params.push(column_name);
+    }
+
+    query += ` ORDER BY classified_at DESC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting classification results:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting classification results",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/data-classifier/batch-classify",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { schema_name } = req.body;
+
+      if (!schema_name) {
+        return res.status(400).json({
+          error: "Missing required field: schema_name",
+        });
+      }
+
+      res.json({ 
+        message: "Batch classification initiated",
+        schema_name
+      });
+    } catch (err) {
+      console.error("Error batch classifying:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error batch classifying",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+// Schema Change Auditor API Endpoints
+app.get("/api/schema-changes/audit", requireAuth, async (req, res) => {
+  try {
+    const { db_engine, schema_name, change_type, object_type } = req.query;
+    let query = `
+      SELECT id, db_engine, server_name, database_name, schema_name,
+             object_name, object_type, change_type, ddl_statement,
+             executed_by, before_state, after_state,
+             affected_columns, rollback_sql, is_rollback_possible,
+             COALESCE(detected_at, execution_timestamp) as detected_at, created_at
+      FROM metadata.schema_change_audit
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (db_engine) {
+      paramCount++;
+      query += ` AND db_engine = $${paramCount}`;
+      params.push(db_engine);
+    }
+
+    if (schema_name) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema_name);
+    }
+
+    if (change_type) {
+      paramCount++;
+      query += ` AND change_type = $${paramCount}`;
+      params.push(change_type);
+    }
+
+    if (object_type) {
+      paramCount++;
+      query += ` AND object_type = $${paramCount}`;
+      params.push(object_type);
+    }
+
+    query += ` ORDER BY detected_at DESC LIMIT 100`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting schema change audit:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting schema change audit",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/schema-changes/audit/:id", requireAuth, async (req, res) => {
+  try {
+    const auditId = parseInt(req.params.id);
+    if (isNaN(auditId)) {
+      return res.status(400).json({ error: "Invalid audit ID" });
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM metadata.schema_change_audit WHERE id = $1`,
+      [auditId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Audit record not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting schema change audit detail:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting schema change audit detail",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/schema-changes/capture/setup",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { db_engine, connection_string, enabled, capture_triggers } = req.body;
+
+      if (!db_engine || !connection_string) {
+        return res.status(400).json({
+          error: "Missing required fields: db_engine, connection_string",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.ddl_capture_config 
+        (db_engine, connection_string, enabled, capture_triggers)
+        VALUES ($1, $2, $3, $4::jsonb)
+        ON CONFLICT (db_engine, connection_string) DO UPDATE SET
+          enabled = EXCLUDED.enabled,
+          capture_triggers = EXCLUDED.capture_triggers,
+          updated_at = NOW()
+        RETURNING *`,
+        [
+          db_engine,
+          connection_string,
+          enabled !== undefined ? enabled : true,
+          JSON.stringify(capture_triggers || {}),
+        ]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error setting up DDL capture:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error setting up DDL capture",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/schema-changes/capture/config", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM metadata.ddl_capture_config ORDER BY db_engine, connection_string`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting DDL capture config:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting DDL capture config",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/schema-changes/rollback/:id",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const auditId = parseInt(req.params.id);
+      if (isNaN(auditId)) {
+        return res.status(400).json({ error: "Invalid audit ID" });
+      }
+
+      const auditResult = await pool.query(
+        `SELECT * FROM metadata.schema_change_audit WHERE id = $1`,
+        [auditId]
+      );
+
+      if (auditResult.rows.length === 0) {
+        return res.status(404).json({ error: "Audit record not found" });
+      }
+
+      const audit = auditResult.rows[0];
+      if (!audit.is_rollback_possible || !audit.rollback_sql) {
+        return res.status(400).json({ error: "Rollback is not possible for this change" });
+      }
+
+      res.json({ 
+        message: "Rollback initiated",
+        audit_id: auditId,
+        rollback_sql: audit.rollback_sql
+      });
+    } catch (err) {
+      console.error("Error rolling back schema change:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error rolling back schema change",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/schema-changes/stats", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        COUNT(*) as total_changes,
+        COUNT(*) FILTER (WHERE change_type = 'CREATE') as creates,
+        COUNT(*) FILTER (WHERE change_type = 'ALTER') as alters,
+        COUNT(*) FILTER (WHERE change_type = 'DROP') as drops,
+        COUNT(*) FILTER (WHERE is_rollback_possible = true) as rollback_possible,
+        MAX(detected_at) as last_change
+      FROM metadata.schema_change_audit`
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting schema change stats:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting schema change stats",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Catalog Cleaner API Endpoints
+app.post(
+  "/api/catalog-cleaner/clean-non-existent-tables",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      res.json({ 
+        message: "Clean non-existent tables operation initiated",
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning non-existent tables:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning non-existent tables",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/catalog-cleaner/clean-orphaned-tables",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      res.json({ 
+        message: "Clean orphaned tables operation initiated",
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning orphaned tables:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning orphaned tables",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/catalog-cleaner/clean-old-logs",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const { retention_hours } = req.body;
+      const hours = retention_hours || 720; // Default 30 days
+
+      res.json({ 
+        message: "Clean old logs operation initiated",
+        retention_hours: hours,
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning old logs:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning old logs",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/catalog-cleaner/clean-orphaned-governance",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      res.json({ 
+        message: "Clean orphaned governance data operation initiated",
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning orphaned governance data:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning orphaned governance data",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/catalog-cleaner/clean-orphaned-quality",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      res.json({ 
+        message: "Clean orphaned quality data operation initiated",
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning orphaned quality data:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning orphaned quality data",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/catalog-cleaner/clean-orphaned-maintenance",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      res.json({ 
+        message: "Clean orphaned maintenance data operation initiated",
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning orphaned maintenance data:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning orphaned maintenance data",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/catalog-cleaner/clean-orphaned-lineage",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      res.json({ 
+        message: "Clean orphaned lineage data operation initiated",
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning orphaned lineage data:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning orphaned lineage data",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/catalog-cleaner/clean-all",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      res.json({ 
+        message: "Clean all operation initiated",
+        status: "IN_PROGRESS"
+      });
+    } catch (err) {
+      console.error("Error cleaning all:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error cleaning all",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/catalog-cleaner/preview", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    res.json({ 
+      preview: {
+        non_existent_tables: 0,
+        orphaned_tables: 0,
+        old_logs: 0,
+        orphaned_governance: 0,
+        orphaned_quality: 0,
+        orphaned_maintenance: 0,
+        orphaned_lineage: 0
+      }
+    });
+  } catch (err) {
+    console.error("Error getting cleanup preview:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting cleanup preview",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Event Triggers API Endpoints (improvements)
+app.get("/api/event-triggers", requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT workflow_name, event_type, event_config, active
+       FROM metadata.workflow_event_triggers
+       ORDER BY workflow_name`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting event triggers:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting event triggers",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/event-triggers/:workflowName", requireAuth, async (req, res) => {
+  try {
+    const workflowName = req.params.workflowName;
+    const result = await pool.query(
+      `SELECT * FROM metadata.workflow_event_triggers WHERE workflow_name = $1`,
+      [workflowName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Event trigger not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error getting event trigger:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting event trigger",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.put(
+  "/api/event-triggers/:workflowName",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const workflowName = req.params.workflowName;
+      const { event_type, event_config, active } = req.body;
+
+      const result = await pool.query(
+        `UPDATE metadata.workflow_event_triggers 
+       SET event_type = $1, event_config = $2::jsonb, active = $3
+       WHERE workflow_name = $4
+       RETURNING *`,
+        [event_type, JSON.stringify(event_config || {}), active !== undefined ? active : true, workflowName]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Event trigger not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating event trigger:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating event trigger",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.post(
+  "/api/event-triggers/:workflowName/test",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const workflowName = req.params.workflowName;
+      res.json({ 
+        message: "Event trigger test initiated",
+        workflow_name: workflowName,
+        status: "TESTING"
+      });
+    } catch (err) {
+      console.error("Error testing event trigger:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error testing event trigger",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/event-triggers/file-watchers", requireAuth, async (req, res) => {
+  try {
+    res.json({ 
+      watchers: [],
+      message: "File watchers information"
+    });
+  } catch (err) {
+    console.error("Error getting file watchers:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting file watchers",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Transformations API Endpoints
+app.get("/api/transformations", requireAuth, async (req, res) => {
+  try {
+    const { transformation_type } = req.query;
+    let query = `
+      SELECT id, name, description, transformation_type, config,
+             created_by, created_at, updated_at
+      FROM metadata.transformations
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+
+    if (transformation_type) {
+      paramCount++;
+      query += ` AND transformation_type = $${paramCount}`;
+      params.push(transformation_type);
+    }
+
+    query += ` ORDER BY name ASC`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting transformations:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting transformations",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post(
+  "/api/transformations",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const { name, description, transformation_type, config } = req.body;
+      const user = req.user?.username || "system";
+
+      if (!name || !transformation_type || !config) {
+        return res.status(400).json({
+          error: "Missing required fields: name, transformation_type, config",
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO metadata.transformations 
+        (name, description, transformation_type, config, created_by)
+        VALUES ($1, $2, $3, $4::jsonb, $5)
+        RETURNING *`,
+        [name, description || null, transformation_type, JSON.stringify(config), user]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error creating transformation:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error creating transformation",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.put(
+  "/api/transformations/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const transformationId = parseInt(req.params.id);
+      if (isNaN(transformationId)) {
+        return res.status(400).json({ error: "Invalid transformation ID" });
+      }
+
+      const { name, description, transformation_type, config } = req.body;
+
+      const result = await pool.query(
+        `UPDATE metadata.transformations 
+       SET name = $1, description = $2, transformation_type = $3,
+           config = $4::jsonb, updated_at = NOW()
+       WHERE id = $5
+       RETURNING *`,
+        [name, description || null, transformation_type, JSON.stringify(config), transformationId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Transformation not found" });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error("Error updating transformation:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error updating transformation",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.delete(
+  "/api/transformations/:id",
+  requireAuth,
+  requireRole("admin", "user"),
+  async (req, res) => {
+    try {
+      const transformationId = parseInt(req.params.id);
+      if (isNaN(transformationId)) {
+        return res.status(400).json({ error: "Invalid transformation ID" });
+      }
+
+      await pool.query(`DELETE FROM metadata.transformations WHERE id = $1`, [transformationId]);
+
+      res.json({ message: "Transformation deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting transformation:", err);
+      const safeError = sanitizeError(
+        err,
+        "Error deleting transformation",
+        process.env.NODE_ENV === "production"
+      );
+      res.status(500).json({ error: safeError });
+    }
+  }
+);
+
+app.get("/api/transformations/:id/usage", requireAuth, async (req, res) => {
+  try {
+    const transformationId = parseInt(req.params.id);
+    if (isNaN(transformationId)) {
+      return res.status(400).json({ error: "Invalid transformation ID" });
+    }
+
+    const result = await pool.query(
+      `SELECT job_name, usage_count, last_used_at
+       FROM metadata.transformation_usage
+       WHERE transformation_id = $1
+       ORDER BY last_used_at DESC`,
+      [transformationId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error getting transformation usage:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error getting transformation usage",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
 
 app.get("/api/alert-rules", requireAuth, async (req, res) => {
   try {

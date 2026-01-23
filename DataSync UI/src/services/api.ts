@@ -1240,6 +1240,7 @@ export const logsApi = {
     params: {
       lines?: number;
       level?: string;
+      levels?: string[];
       category?: string;
       function?: string;
       search?: string;
@@ -1249,10 +1250,23 @@ export const logsApi = {
       deleteDebug?: boolean;
       deleteDuplicates?: boolean;
       deleteOlderThan?: number;
+      distinct?: boolean;
     } = {}
   ) => {
     try {
-      const response = await api.get<LogsResponse>("/logs", { params });
+      // Convert levels array to comma-separated string for query parameter
+      const queryParams: any = { ...params };
+      if (params.levels && params.levels.length > 0) {
+        queryParams.levels = params.levels.join(',');
+        // Remove single level if levels array is provided
+        delete queryParams.level;
+      }
+      // Convert distinct boolean to string for query parameter
+      if (params.distinct !== undefined) {
+        queryParams.distinct = params.distinct.toString();
+      }
+      
+      const response = await api.get<LogsResponse>("/logs", { params: queryParams });
       return response.data;
     } catch (error) {
       console.error("Error fetching logs:", error);
@@ -6430,3 +6444,803 @@ export interface DBTSource {
   created_at?: string;
   updated_at?: string;
 }
+
+// Business Glossary API
+export const businessGlossaryApi = {
+  getTerms: async (params?: { domain?: string; category?: string; search?: string }) => {
+    try {
+      const response = await api.get("/business-glossary/terms", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting glossary terms:", error);
+      throw error;
+    }
+  },
+
+  searchTerms: async (query: string) => {
+    try {
+      const response = await api.get("/business-glossary/terms/search", { params: { q: query } });
+      return response.data;
+    } catch (error) {
+      console.error("Error searching glossary terms:", error);
+      throw error;
+    }
+  },
+
+  getTermsByDomain: async (domain: string) => {
+    try {
+      const response = await api.get(`/business-glossary/terms/by-domain/${encodeURIComponent(domain)}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting terms by domain:", error);
+      throw error;
+    }
+  },
+
+  createTerm: async (term: {
+    term: string;
+    definition: string;
+    category?: string;
+    business_domain?: string;
+    owner?: string;
+    steward?: string;
+    related_tables?: string;
+    tags?: string;
+  }) => {
+    try {
+      const response = await api.post("/business-glossary/terms", term);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating glossary term:", error);
+      throw error;
+    }
+  },
+
+  updateTerm: async (id: number, term: {
+    term: string;
+    definition: string;
+    category?: string;
+    business_domain?: string;
+    owner?: string;
+    steward?: string;
+    related_tables?: string;
+    tags?: string;
+  }) => {
+    try {
+      const response = await api.put(`/business-glossary/terms/${id}`, term);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating glossary term:", error);
+      throw error;
+    }
+  },
+
+  deleteTerm: async (id: number) => {
+    try {
+      await api.delete(`/business-glossary/terms/${id}`);
+    } catch (error) {
+      console.error("Error deleting glossary term:", error);
+      throw error;
+    }
+  },
+
+  getDictionary: async (params?: { schema_name?: string; table_name?: string; search?: string }) => {
+    try {
+      const response = await api.get("/business-glossary/dictionary", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting data dictionary:", error);
+      throw error;
+    }
+  },
+
+  createDictionaryEntry: async (entry: {
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    business_description?: string;
+    business_name?: string;
+    data_type_business?: string;
+    business_rules?: string;
+    examples?: string;
+    glossary_term?: string;
+    owner?: string;
+    steward?: string;
+  }) => {
+    try {
+      const response = await api.post("/business-glossary/dictionary", entry);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating dictionary entry:", error);
+      throw error;
+    }
+  },
+
+  updateDictionaryEntry: async (entry: {
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    business_description?: string;
+    business_name?: string;
+    data_type_business?: string;
+    business_rules?: string;
+    examples?: string;
+    glossary_term?: string;
+    owner?: string;
+    steward?: string;
+  }) => {
+    try {
+      const response = await api.put("/business-glossary/dictionary", entry);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating dictionary entry:", error);
+      throw error;
+    }
+  },
+
+  linkTermToTable: async (termId: number, schemaName: string, tableName: string) => {
+    try {
+      const response = await api.post(`/business-glossary/terms/${termId}/link-table`, {
+        schema_name: schemaName,
+        table_name: tableName,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error linking term to table:", error);
+      throw error;
+    }
+  },
+
+  getTablesForTerm: async (termId: number) => {
+    try {
+      const response = await api.get(`/business-glossary/terms/${termId}/tables`);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting tables for term:", error);
+      throw error;
+    }
+  },
+};
+
+// Compliance Manager API
+export const complianceApi = {
+  getRequests: async (params?: { status?: string; request_type?: string; compliance_requirement?: string }) => {
+    try {
+      const response = await api.get("/compliance/requests", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting compliance requests:", error);
+      throw error;
+    }
+  },
+
+  createRequest: async (request: {
+    request_type: string;
+    data_subject_email?: string;
+    data_subject_name?: string;
+    compliance_requirement?: string;
+  }) => {
+    try {
+      const response = await api.post("/compliance/requests", request);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating compliance request:", error);
+      throw error;
+    }
+  },
+
+  updateRequest: async (requestId: string, data: {
+    request_status?: string;
+    processed_by?: string;
+    response_data?: string;
+  }) => {
+    try {
+      const response = await api.put(`/compliance/requests/${requestId}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating compliance request:", error);
+      throw error;
+    }
+  },
+
+  processRightToBeForgotten: async (requestId: string) => {
+    try {
+      const response = await api.post(`/compliance/requests/${requestId}/process-right-to-be-forgotten`);
+      return response.data;
+    } catch (error) {
+      console.error("Error processing right to be forgotten:", error);
+      throw error;
+    }
+  },
+
+  processDataPortability: async (requestId: string) => {
+    try {
+      const response = await api.post(`/compliance/requests/${requestId}/process-data-portability`);
+      return response.data;
+    } catch (error) {
+      console.error("Error processing data portability:", error);
+      throw error;
+    }
+  },
+
+  processAccessRequest: async (requestId: string) => {
+    try {
+      const response = await api.post(`/compliance/requests/${requestId}/process-access-request`);
+      return response.data;
+    } catch (error) {
+      console.error("Error processing access request:", error);
+      throw error;
+    }
+  },
+
+  getConsents: async (params?: { data_subject_id?: string; schema_name?: string; table_name?: string; consent_status?: string }) => {
+    try {
+      const response = await api.get("/compliance/consents", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting consents:", error);
+      throw error;
+    }
+  },
+
+  createConsent: async (consent: {
+    schema_name: string;
+    table_name: string;
+    data_subject_id: string;
+    consent_type: string;
+    consent_status?: string;
+    legal_basis?: string;
+    purpose?: string;
+    retention_period?: string;
+  }) => {
+    try {
+      const response = await api.post("/compliance/consents", consent);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating consent:", error);
+      throw error;
+    }
+  },
+
+  withdrawConsent: async (id: number) => {
+    try {
+      await api.delete(`/compliance/consents/${id}`);
+    } catch (error) {
+      console.error("Error withdrawing consent:", error);
+      throw error;
+    }
+  },
+
+  getBreaches: async (params?: { status?: string; schema_name?: string; table_name?: string }) => {
+    try {
+      const response = await api.get("/compliance/breaches", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting breaches:", error);
+      throw error;
+    }
+  },
+
+  checkBreach: async (data: {
+    schema_name: string;
+    table_name: string;
+    breach_type?: string;
+  }) => {
+    try {
+      const response = await api.post("/compliance/breaches/check", data);
+      return response.data;
+    } catch (error) {
+      console.error("Error checking breach:", error);
+      throw error;
+    }
+  },
+};
+
+// Data Retention API
+export const dataRetentionApi = {
+  getJobs: async (params?: { status?: string; schema_name?: string; table_name?: string }) => {
+    try {
+      const response = await api.get("/data-retention/jobs", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting retention jobs:", error);
+      throw error;
+    }
+  },
+
+  scheduleJob: async (job: {
+    schema_name: string;
+    table_name: string;
+    job_type: string;
+    retention_policy: string;
+    scheduled_date?: string;
+  }) => {
+    try {
+      const response = await api.post("/data-retention/jobs/schedule", job);
+      return response.data;
+    } catch (error) {
+      console.error("Error scheduling retention job:", error);
+      throw error;
+    }
+  },
+
+  executeJob: async (id: number) => {
+    try {
+      const response = await api.post(`/data-retention/jobs/${id}/execute`);
+      return response.data;
+    } catch (error) {
+      console.error("Error executing retention job:", error);
+      throw error;
+    }
+  },
+
+  getPolicies: async (params?: { schema_name?: string; table_name?: string }) => {
+    try {
+      const response = await api.get("/data-retention/policies", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting retention policies:", error);
+      throw error;
+    }
+  },
+
+  createPolicy: async (policy: {
+    schema_name: string;
+    table_name: string;
+    retention_period: string;
+    archival_location?: string;
+    policy_type?: string;
+  }) => {
+    try {
+      const response = await api.post("/data-retention/policies", policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating retention policy:", error);
+      throw error;
+    }
+  },
+
+  updatePolicy: async (policy: {
+    schema_name: string;
+    table_name: string;
+    retention_period: string;
+    archival_location?: string;
+    policy_type?: string;
+  }) => {
+    try {
+      const response = await api.put("/data-retention/policies", policy);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating retention policy:", error);
+      throw error;
+    }
+  },
+
+  enforcePolicy: async (schemaName: string, tableName: string) => {
+    try {
+      const response = await api.post(`/data-retention/enforce/${encodeURIComponent(schemaName)}/${encodeURIComponent(tableName)}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error enforcing retention policy:", error);
+      throw error;
+    }
+  },
+
+  getLegalHolds: async (params?: { schema_name?: string; table_name?: string }) => {
+    try {
+      const response = await api.get("/data-retention/legal-holds", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting legal holds:", error);
+      throw error;
+    }
+  },
+
+  createLegalHold: async (hold: {
+    schema_name: string;
+    table_name: string;
+    reason: string;
+    hold_until?: string;
+  }) => {
+    try {
+      const response = await api.post("/data-retention/legal-holds", hold);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating legal hold:", error);
+      throw error;
+    }
+  },
+
+  releaseLegalHold: async (id: number) => {
+    try {
+      await api.delete(`/data-retention/legal-holds/${id}`);
+    } catch (error) {
+      console.error("Error releasing legal hold:", error);
+      throw error;
+    }
+  },
+
+  archiveTable: async (data: {
+    schema_name: string;
+    table_name: string;
+    archival_location: string;
+  }) => {
+    try {
+      const response = await api.post("/data-retention/archive", data);
+      return response.data;
+    } catch (error) {
+      console.error("Error archiving table:", error);
+      throw error;
+    }
+  },
+};
+
+// Data Classifier API
+export const dataClassifierApi = {
+  getRules: async (params?: { rule_type?: string; active?: string }) => {
+    try {
+      const response = await api.get("/data-classifier/rules", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting classification rules:", error);
+      throw error;
+    }
+  },
+
+  createRule: async (rule: {
+    rule_name: string;
+    rule_type: string;
+    patterns: any;
+    priority?: number;
+    active?: boolean;
+  }) => {
+    try {
+      const response = await api.post("/data-classifier/rules", rule);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating classification rule:", error);
+      throw error;
+    }
+  },
+
+  updateRule: async (id: number, rule: {
+    rule_name: string;
+    rule_type: string;
+    patterns: any;
+    priority: number;
+    active: boolean;
+  }) => {
+    try {
+      const response = await api.put(`/data-classifier/rules/${id}`, rule);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating classification rule:", error);
+      throw error;
+    }
+  },
+
+  deleteRule: async (id: number) => {
+    try {
+      await api.delete(`/data-classifier/rules/${id}`);
+    } catch (error) {
+      console.error("Error deleting classification rule:", error);
+      throw error;
+    }
+  },
+
+  classify: async (data: {
+    schema_name: string;
+    table_name: string;
+    column_name?: string;
+  }) => {
+    try {
+      const response = await api.post("/data-classifier/classify", data);
+      return response.data;
+    } catch (error) {
+      console.error("Error classifying data:", error);
+      throw error;
+    }
+  },
+
+  getResults: async (params?: { schema_name?: string; table_name?: string; column_name?: string }) => {
+    try {
+      const response = await api.get("/data-classifier/results", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting classification results:", error);
+      throw error;
+    }
+  },
+
+  batchClassify: async (data: {
+    schema_name: string;
+  }) => {
+    try {
+      const response = await api.post("/data-classifier/batch-classify", data);
+      return response.data;
+    } catch (error) {
+      console.error("Error batch classifying:", error);
+      throw error;
+    }
+  },
+};
+
+// Schema Change Auditor API
+export const schemaChangeApi = {
+  getAudit: async (params?: { db_engine?: string; schema_name?: string; change_type?: string; object_type?: string }) => {
+    try {
+      const response = await api.get("/schema-changes/audit", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting schema change audit:", error);
+      throw error;
+    }
+  },
+
+  getAuditDetail: async (id: number) => {
+    try {
+      const response = await api.get(`/schema-changes/audit/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting schema change audit detail:", error);
+      throw error;
+    }
+  },
+
+  setupDDLCapture: async (config: {
+    db_engine: string;
+    connection_string: string;
+    enabled?: boolean;
+    capture_triggers?: any;
+  }) => {
+    try {
+      const response = await api.post("/schema-changes/capture/setup", config);
+      return response.data;
+    } catch (error) {
+      console.error("Error setting up DDL capture:", error);
+      throw error;
+    }
+  },
+
+  getDDLCaptureConfig: async () => {
+    try {
+      const response = await api.get("/schema-changes/capture/config");
+      return response.data;
+    } catch (error) {
+      console.error("Error getting DDL capture config:", error);
+      throw error;
+    }
+  },
+
+  rollback: async (id: number) => {
+    try {
+      const response = await api.post(`/schema-changes/rollback/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error rolling back schema change:", error);
+      throw error;
+    }
+  },
+
+  getStats: async () => {
+    try {
+      const response = await api.get("/schema-changes/stats");
+      return response.data;
+    } catch (error) {
+      console.error("Error getting schema change stats:", error);
+      throw error;
+    }
+  },
+};
+
+// Catalog Cleaner API
+export const catalogCleanerApi = {
+  cleanNonExistentTables: async () => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-non-existent-tables");
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning non-existent tables:", error);
+      throw error;
+    }
+  },
+
+  cleanOrphanedTables: async () => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-orphaned-tables");
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning orphaned tables:", error);
+      throw error;
+    }
+  },
+
+  cleanOldLogs: async (retentionHours?: number) => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-old-logs", { retention_hours: retentionHours });
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning old logs:", error);
+      throw error;
+    }
+  },
+
+  cleanOrphanedGovernance: async () => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-orphaned-governance");
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning orphaned governance data:", error);
+      throw error;
+    }
+  },
+
+  cleanOrphanedQuality: async () => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-orphaned-quality");
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning orphaned quality data:", error);
+      throw error;
+    }
+  },
+
+  cleanOrphanedMaintenance: async () => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-orphaned-maintenance");
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning orphaned maintenance data:", error);
+      throw error;
+    }
+  },
+
+  cleanOrphanedLineage: async () => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-orphaned-lineage");
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning orphaned lineage data:", error);
+      throw error;
+    }
+  },
+
+  cleanAll: async () => {
+    try {
+      const response = await api.post("/catalog-cleaner/clean-all");
+      return response.data;
+    } catch (error) {
+      console.error("Error cleaning all:", error);
+      throw error;
+    }
+  },
+
+  getPreview: async () => {
+    try {
+      const response = await api.get("/catalog-cleaner/preview");
+      return response.data;
+    } catch (error) {
+      console.error("Error getting cleanup preview:", error);
+      throw error;
+    }
+  },
+};
+
+// Event Triggers API
+export const eventTriggerApi = {
+  getTriggers: async () => {
+    try {
+      const response = await api.get("/event-triggers");
+      return response.data;
+    } catch (error) {
+      console.error("Error getting event triggers:", error);
+      throw error;
+    }
+  },
+
+  getTrigger: async (workflowName: string) => {
+    try {
+      const response = await api.get(`/event-triggers/${encodeURIComponent(workflowName)}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting event trigger:", error);
+      throw error;
+    }
+  },
+
+  updateTrigger: async (workflowName: string, data: {
+    event_type: string;
+    event_config: any;
+    active?: boolean;
+  }) => {
+    try {
+      const response = await api.put(`/event-triggers/${encodeURIComponent(workflowName)}`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating event trigger:", error);
+      throw error;
+    }
+  },
+
+  testTrigger: async (workflowName: string) => {
+    try {
+      const response = await api.post(`/event-triggers/${encodeURIComponent(workflowName)}/test`);
+      return response.data;
+    } catch (error) {
+      console.error("Error testing event trigger:", error);
+      throw error;
+    }
+  },
+
+  getFileWatchers: async () => {
+    try {
+      const response = await api.get("/event-triggers/file-watchers");
+      return response.data;
+    } catch (error) {
+      console.error("Error getting file watchers:", error);
+      throw error;
+    }
+  },
+};
+
+// Transformations API
+export const transformationsApi = {
+  getTransformations: async (params?: { transformation_type?: string }) => {
+    try {
+      const response = await api.get("/transformations", { params });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting transformations:", error);
+      throw error;
+    }
+  },
+
+  createTransformation: async (transformation: {
+    name: string;
+    description?: string;
+    transformation_type: string;
+    config: any;
+  }) => {
+    try {
+      const response = await api.post("/transformations", transformation);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating transformation:", error);
+      throw error;
+    }
+  },
+
+  updateTransformation: async (id: number, transformation: {
+    name: string;
+    description?: string;
+    transformation_type: string;
+    config: any;
+  }) => {
+    try {
+      const response = await api.put(`/transformations/${id}`, transformation);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating transformation:", error);
+      throw error;
+    }
+  },
+
+  deleteTransformation: async (id: number) => {
+    try {
+      await api.delete(`/transformations/${id}`);
+    } catch (error) {
+      console.error("Error deleting transformation:", error);
+      throw error;
+    }
+  },
+
+  getUsage: async (id: number) => {
+    try {
+      const response = await api.get(`/transformations/${id}/usage`);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting transformation usage:", error);
+      throw error;
+    }
+  },
+};
