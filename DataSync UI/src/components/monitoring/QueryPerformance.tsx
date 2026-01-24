@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
-import { queryPerformanceApi } from '../../services/api';
+import { queryPerformanceApi, monitoringApi } from '../../services/api';
 import { Container, Header, Select, FiltersContainer, Input, Pagination, PageButton, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { extractApiError } from '../../utils/errorHandler';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
+import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
+import { theme } from '../../theme/theme';
 import QueryPerformanceTreeView from './QueryPerformanceTreeView';
 
 const MetricsGrid = styled.div`
@@ -183,11 +185,17 @@ const QueryText = styled.pre`
  */
 const QueryPerformance = () => {
   const isMountedRef = useRef(true);
+  const [activeTab, setActiveTab] = useState<'queries' | 'analysis' | 'regressions' | 'suggestions'>('queries');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queries, setQueries] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({});
   const [openQueryId, setOpenQueryId] = useState<number | null>(null);
+  const [selectedQueryForAnalysis, setSelectedQueryForAnalysis] = useState<any>(null);
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [regressions, setRegressions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
   const [pagination, setPagination] = useState({
     total: 0,
     totalPages: 0,
@@ -287,11 +295,96 @@ const QueryPerformance = () => {
     return numVal.toString();
   }, []);
 
+  const handleAnalyzeQuery = useCallback(async (query: any) => {
+    try {
+      setAnalyzing(true);
+      setError(null);
+      const result = await monitoringApi.analyzeQuery(query.queryid || query.id, query.query_text);
+      setAnalysisData(result);
+      setSelectedQueryForAnalysis(query);
+      setActiveTab('analysis');
+    } catch (err) {
+      setError(extractApiError(err));
+    } finally {
+      setAnalyzing(false);
+    }
+  }, []);
+
+  const fetchRegressions = useCallback(async () => {
+    try {
+      const data = await monitoringApi.getRegressions({ days: 7 });
+      setRegressions(data.regressions || data || []);
+    } catch (err) {
+      setError(extractApiError(err));
+    }
+  }, []);
+
+  const fetchSuggestions = useCallback(async () => {
+    try {
+      const data = await monitoringApi.getSuggestions();
+      setSuggestions(data || []);
+    } catch (err) {
+      setError(extractApiError(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'regressions') {
+      fetchRegressions();
+    } else if (activeTab === 'suggestions') {
+      fetchSuggestions();
+    }
+  }, [activeTab, fetchRegressions, fetchSuggestions]);
+
   return (
     <Container>
       <Header>Query Performance</Header>
       
       {error && <ErrorMessage>{error}</ErrorMessage>}
+
+      {/* Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: theme.spacing.sm,
+        marginBottom: theme.spacing.lg,
+        borderBottom: `2px solid ${asciiColors.border}`,
+        paddingBottom: theme.spacing.sm
+      }}>
+        {(['queries', 'analysis', 'regressions', 'suggestions'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+              border: 'none',
+              background: activeTab === tab ? asciiColors.accent : 'transparent',
+              color: activeTab === tab ? '#ffffff' : asciiColors.foreground,
+              borderRadius: `${2} ${2} 0 0`,
+              cursor: 'pointer',
+              fontWeight: activeTab === tab ? 600 : 500,
+              transition: 'all 0.15s ease',
+              textTransform: 'capitalize',
+              fontFamily: 'Consolas, monospace',
+              fontSize: 12
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== tab) {
+                e.currentTarget.style.background = asciiColors.backgroundSoft;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== tab) {
+                e.currentTarget.style.background = 'transparent';
+              }
+            }}
+          >
+            {tab === 'queries' && 'Queries'}
+            {tab === 'analysis' && 'Analysis'}
+            {tab === 'regressions' && 'Regressions'}
+            {tab === 'suggestions' && 'Suggestions'}
+          </button>
+        ))}
+      </div>
       
       <MetricsGrid>
         <MetricCard>
@@ -380,10 +473,220 @@ const QueryPerformance = () => {
         />
       </FiltersContainer>
 
-      <QueryPerformanceTreeView
-        queries={queries}
-        onQueryClick={(query) => toggleQuery(query.id)}
-      />
+      {activeTab === 'queries' && (
+        <>
+          <QueryPerformanceTreeView
+            queries={queries}
+            onQueryClick={(query) => {
+              toggleQuery(query.id);
+              setSelectedQueryForAnalysis(query);
+            }}
+          />
+          {selectedQueryForAnalysis && (
+            <div style={{ marginTop: theme.spacing.md }}>
+              <AsciiButton
+                label={analyzing ? "Analyzing..." : "Analyze Query"}
+                onClick={() => handleAnalyzeQuery(selectedQueryForAnalysis)}
+                disabled={analyzing}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'analysis' && analysisData && (
+        <AsciiPanel>
+          <div style={{ padding: theme.spacing.lg }}>
+            <h3 style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: asciiColors.foreground,
+              marginBottom: theme.spacing.md
+            }}>
+              Query Analysis
+            </h3>
+            {selectedQueryForAnalysis && (
+              <div style={{
+                padding: theme.spacing.md,
+                background: asciiColors.backgroundSoft,
+                borderRadius: 2,
+                marginBottom: theme.spacing.md,
+                fontFamily: 'Consolas, monospace',
+                fontSize: 11
+              }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {selectedQueryForAnalysis.query_text}
+                </pre>
+              </div>
+            )}
+            {analysisData.issues && analysisData.issues.length > 0 && (
+              <div style={{ marginBottom: theme.spacing.md }}>
+                <h4 style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: theme.spacing.sm
+                }}>
+                  Issues Detected:
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: theme.spacing.lg, fontSize: 11 }}>
+                  {analysisData.issues.map((issue: string, idx: number) => (
+                    <li key={idx} style={{ marginBottom: theme.spacing.xs, color: asciiColors.error }}>
+                      {issue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {analysisData.recommendations && analysisData.recommendations.length > 0 && (
+              <div>
+                <h4 style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: asciiColors.foreground,
+                  marginBottom: theme.spacing.sm
+                }}>
+                  Recommendations:
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: theme.spacing.lg, fontSize: 11 }}>
+                  {analysisData.recommendations.map((rec: string, idx: number) => (
+                    <li key={idx} style={{ marginBottom: theme.spacing.xs, color: asciiColors.foreground }}>
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </AsciiPanel>
+      )}
+
+      {activeTab === 'regressions' && (
+        <AsciiPanel>
+          <div style={{ padding: theme.spacing.lg }}>
+            <h3 style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: asciiColors.foreground,
+              marginBottom: theme.spacing.md
+            }}>
+              Performance Regressions
+            </h3>
+            {regressions.length === 0 ? (
+              <div style={{
+                padding: theme.spacing.xl,
+                textAlign: 'center',
+                color: asciiColors.muted
+              }}>
+                No regressions detected
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gap: theme.spacing.md
+              }}>
+                {regressions.map((regression: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: theme.spacing.md,
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: theme.spacing.xs }}>
+                      Query Fingerprint: {regression.query_fingerprint?.substring(0, 16)}...
+                    </div>
+                    <div style={{ fontSize: 11, color: asciiColors.muted }}>
+                      Previous: {regression.previous_avg_time?.toFixed(2)}ms | 
+                      Current: {regression.current_avg_time?.toFixed(2)}ms | 
+                      Regression: {regression.regression_percent?.toFixed(1)}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </AsciiPanel>
+      )}
+
+      {activeTab === 'suggestions' && (
+        <AsciiPanel>
+          <div style={{ padding: theme.spacing.lg }}>
+            <h3 style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: asciiColors.foreground,
+              marginBottom: theme.spacing.md
+            }}>
+              Optimization Suggestions
+            </h3>
+            {suggestions.length === 0 ? (
+              <div style={{
+                padding: theme.spacing.xl,
+                textAlign: 'center',
+                color: asciiColors.muted
+              }}>
+                No suggestions available
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gap: theme.spacing.md
+              }}>
+                {suggestions.map((suggestion: any) => (
+                  <div
+                    key={suggestion.suggestion_id}
+                    style={{
+                      padding: theme.spacing.md,
+                      border: `1px solid ${asciiColors.border}`,
+                      borderRadius: 2
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: theme.spacing.sm
+                    }}>
+                      <span style={{
+                        fontSize: 11,
+                        padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+                        background: asciiColors.accent,
+                        color: '#ffffff',
+                        borderRadius: 2,
+                        textTransform: 'uppercase'
+                      }}>
+                        {suggestion.type}
+                      </span>
+                      <span style={{ fontSize: 11, color: asciiColors.muted }}>
+                        {suggestion.estimated_improvement?.toFixed(1)}% improvement
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, marginBottom: theme.spacing.xs }}>
+                      {suggestion.description}
+                    </div>
+                    {suggestion.sql_suggestion && (
+                      <div style={{
+                        padding: theme.spacing.sm,
+                        background: asciiColors.backgroundSoft,
+                        borderRadius: 2,
+                        fontFamily: 'Consolas, monospace',
+                        fontSize: 11,
+                        marginTop: theme.spacing.sm
+                      }}>
+                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                          {suggestion.sql_suggestion}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </AsciiPanel>
+      )}
 
       {loading && queries.length === 0 && (
         <LoadingOverlay>Loading query performance data...</LoadingOverlay>

@@ -8543,6 +8543,377 @@ export const securityApi = {
   }
 };
 
+export const monitoringApi = {
+  // Distributed Tracing
+  getTraces: async (params?: { service_name?: string; limit?: number }) => {
+    try {
+      const response = await api.get("/monitoring/tracing/traces", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting traces:", error);
+      throw error;
+    }
+  },
+
+  getTrace: async (traceId: string) => {
+    try {
+      const response = await api.get(`/monitoring/tracing/traces/${traceId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting trace:", error);
+      throw error;
+    }
+  },
+
+  startSpan: async (params: {
+    trace_id?: string;
+    parent_span_id?: string;
+    operation_name: string;
+    service_name?: string;
+  }) => {
+    try {
+      const response = await api.post("/monitoring/tracing/spans/start", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error starting span:", error);
+      throw error;
+    }
+  },
+
+  endSpan: async (params: {
+    span_id: string;
+    status?: string;
+    error_message?: string;
+  }) => {
+    try {
+      const response = await api.post("/monitoring/tracing/spans/end", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error ending span:", error);
+      throw error;
+    }
+  },
+
+  // APM
+  getAPMMetrics: async (params?: { operation_name?: string; time_window?: string }) => {
+    try {
+      const response = await api.get("/monitoring/apm/metrics", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting APM metrics:", error);
+      throw error;
+    }
+  },
+
+  getAPMBaselines: async () => {
+    try {
+      const response = await api.get("/monitoring/apm/baselines");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting APM baselines:", error);
+      throw error;
+    }
+  },
+
+  getAPMHealth: async () => {
+    try {
+      const response = await api.get("/monitoring/apm/health");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting APM health:", error);
+      throw error;
+    }
+  },
+
+  calculateBaseline: async (params: {
+    operation_name: string;
+    service_name: string;
+    days?: number;
+  }) => {
+    try {
+      const response = await api.post("/monitoring/apm/baselines/calculate", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error calculating baseline:", error);
+      throw error;
+    }
+  },
+
+  // Bottleneck Detection
+  getCurrentBottlenecks: async () => {
+    try {
+      const response = await api.get("/monitoring/bottlenecks/current");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting bottlenecks:", error);
+      throw error;
+    }
+  },
+
+  getBottleneckHistory: async (params?: { days?: number }) => {
+    try {
+      const response = await api.get("/monitoring/bottlenecks/history", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting bottleneck history:", error);
+      throw error;
+    }
+  },
+
+  analyzeBottlenecks: async () => {
+    try {
+      const response = await api.post("/monitoring/bottlenecks/analyze");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error analyzing bottlenecks:", error);
+      throw error;
+    }
+  },
+
+  // Resource Tracking
+  getCurrentResources: async () => {
+    try {
+      const response = await api.get("/monitoring/resources/current");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting current resources:", error);
+      throw error;
+    }
+  },
+
+  getResourceHistory: async (params?: { hours?: number }) => {
+    try {
+      const response = await api.get("/monitoring/resources/history", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting resource history:", error);
+      throw error;
+    }
+  },
+
+  getResourcesByWorkflow: async (workflowId: string) => {
+    try {
+      const response = await api.get(`/monitoring/resources/by-workflow/${workflowId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting workflow resources:", error);
+      throw error;
+    }
+  },
+
+  getResourcePredictions: async () => {
+    try {
+      const response = await api.get("/monitoring/resources/predictions");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting resource predictions:", error);
+      throw error;
+    }
+  },
+
+  // Cost Tracking
+  getCostSummary: async (params?: { days?: number }) => {
+    try {
+      const response = await api.get("/monitoring/costs/summary", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting cost summary:", error);
+      throw error;
+    }
+  },
+
+  getCostsByWorkflow: async (workflowId: string, params?: { days?: number }) => {
+    try {
+      const response = await api.get(`/monitoring/costs/by-workflow/${workflowId}`, { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting workflow costs:", error);
+      throw error;
+    }
+  },
+
+  getBudgets: async () => {
+    try {
+      const response = await api.get("/monitoring/costs/budgets");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting budgets:", error);
+      throw error;
+    }
+  },
+
+  setBudget: async (budget: {
+    budget_id: string;
+    name: string;
+    scope: string;
+    scope_id?: string;
+    amount: number;
+    period: string;
+    alert_on_exceed?: boolean;
+    alert_threshold?: number;
+  }) => {
+    try {
+      const response = await api.post("/monitoring/costs/budgets", budget);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error setting budget:", error);
+      throw error;
+    }
+  },
+
+  getCostEstimates: async () => {
+    try {
+      const response = await api.get("/monitoring/costs/estimates");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting cost estimates:", error);
+      throw error;
+    }
+  },
+
+  // Log Aggregation
+  getLogAggregationConfig: async () => {
+    try {
+      const response = await api.get("/monitoring/log-aggregation/config");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting log aggregation config:", error);
+      throw error;
+    }
+  },
+
+  setLogAggregationConfig: async (config: {
+    config_id: string;
+    type: string;
+    endpoint?: string;
+    index_name?: string;
+    token?: string;
+    username?: string;
+    password?: string;
+    enabled?: boolean;
+    batch_size?: number;
+    batch_interval_seconds?: number;
+  }) => {
+    try {
+      const response = await api.post("/monitoring/log-aggregation/config", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error setting log aggregation config:", error);
+      throw error;
+    }
+  },
+
+  exportLogs: async (params: { config_id: string; limit?: number }) => {
+    try {
+      const response = await api.post("/monitoring/log-aggregation/export", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error exporting logs:", error);
+      throw error;
+    }
+  },
+
+  getLogAggregationStatus: async (params?: { config_id?: string }) => {
+    try {
+      const response = await api.get("/monitoring/log-aggregation/status", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting log aggregation status:", error);
+      throw error;
+    }
+  },
+
+  // Advanced Alerting
+  getAlertingIntegrations: async () => {
+    try {
+      const response = await api.get("/monitoring/alerting/integrations");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting alerting integrations:", error);
+      throw error;
+    }
+  },
+
+  createAlertingIntegration: async (integration: {
+    integration_id: string;
+    type: string;
+    name: string;
+    integration_key?: string;
+    api_key?: string;
+    service_id?: string;
+    team_id?: string;
+    enabled?: boolean;
+    severity_mapping?: Record<string, string>;
+  }) => {
+    try {
+      const response = await api.post("/monitoring/alerting/integrations", integration);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating alerting integration:", error);
+      throw error;
+    }
+  },
+
+  triggerAlert: async (params: {
+    integration_id: string;
+    alert_id?: number;
+    title: string;
+    message?: string;
+    source?: string;
+  }) => {
+    try {
+      const response = await api.post("/monitoring/alerting/trigger", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error triggering alert:", error);
+      throw error;
+    }
+  },
+
+  getIncidents: async (params?: { integration_id?: string }) => {
+    try {
+      const response = await api.get("/monitoring/alerting/incidents", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting incidents:", error);
+      throw error;
+    }
+  },
+
+  // Query Performance Analysis
+  analyzeQuery: async (queryId: string, queryText: string) => {
+    try {
+      const response = await api.get(`/monitoring/query-performance/analyze/${queryId}`, {
+        params: { query_text: queryText }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error analyzing query:", error);
+      throw error;
+    }
+  },
+
+  getRegressions: async (params?: { days?: number }) => {
+    try {
+      const response = await api.get("/monitoring/query-performance/regressions", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting regressions:", error);
+      throw error;
+    }
+  },
+
+  getSuggestions: async (params?: { query_fingerprint?: string }) => {
+    try {
+      const response = await api.get("/monitoring/query-performance/suggestions", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting suggestions:", error);
+      throw error;
+    }
+  }
+};
+
 // Export all APIs
 export default {
   authApi,
@@ -8558,7 +8929,8 @@ export default {
   streamProcessingApi,
   performanceApi,
   metadataApi,
-  securityApi
+  securityApi,
+  monitoringApi
 };
       if (error?.response?.status === 404) {
         return null;

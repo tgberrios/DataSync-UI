@@ -7,10 +7,18 @@ import RouteTransition from "./components/shared/RouteTransition";
 const Dashboard = lazy(() => import("./components/dashboard/Dashboard"));
 const Catalog = lazy(() => import("./components/catalog/Catalog"));
 const UnifiedMonitor = lazy(() => import("./components/monitoring/UnifiedMonitor"));
+const DistributedTracingView = lazy(() => import("./components/monitoring/DistributedTracingView"));
+const APMDashboard = lazy(() => import("./components/monitoring/APMDashboard"));
+const BottleneckDetection = lazy(() => import("./components/monitoring/BottleneckDetection"));
+const ResourceTracking = lazy(() => import("./components/monitoring/ResourceTracking"));
+const CostTracking = lazy(() => import("./components/monitoring/CostTracking"));
+const LogAggregationConfig = lazy(() => import("./components/monitoring/LogAggregationConfig"));
+const AdvancedAlerting = lazy(() => import("./components/monitoring/AdvancedAlerting"));
 const Quality = lazy(() => import("./components/quality/Quality"));
 const Governance = lazy(() => import("./components/governance/Governance"));
 const Security = lazy(() => import("./components/security/Security"));
 const LogsViewer = lazy(() => import("./components/monitoring/LogsViewer"));
+const QueryPerformance = lazy(() => import("./components/monitoring/QueryPerformance"));
 const Config = lazy(() => import("./components/config/Config"));
 const Maintenance = lazy(() => import("./components/maintenance/Maintenance"));
 const ColumnCatalog = lazy(() => import("./components/catalog/ColumnCatalog"));
@@ -360,7 +368,77 @@ function App() {
             element={
               <ProtectedRoute>
                 <Suspense fallback={null}>
-                  <UnifiedMonitor />
+                  <QueryPerformance />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="monitoring/tracing"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <DistributedTracingView />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="monitoring/apm"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <APMDashboard />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="monitoring/bottlenecks"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <BottleneckDetection />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="monitoring/resources"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <ResourceTracking />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="monitoring/costs"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <CostTracking />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="monitoring/log-aggregation"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <LogAggregationConfig />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="monitoring/alerting"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <AdvancedAlerting />
                 </Suspense>
               </ProtectedRoute>
             }

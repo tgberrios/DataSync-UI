@@ -225,6 +225,7 @@ const Layout = () => {
     quality: false,
     operations: false,
     system: false,
+    monitoring: false,
   });
 
   const toggleGroup = (group: string) => {
@@ -250,9 +251,46 @@ const Layout = () => {
           ■ Dashboard
         </NavItem>
 
-        <NavItem to="/monitor">
-          ■ Monitor
-        </NavItem>
+        <NavGroup>
+          <NavGroupHeader 
+            $isOpen={openGroups.monitoring || false} 
+            onClick={() => toggleGroup('monitoring')}
+          >
+            Monitoring & Observability
+          </NavGroupHeader>
+          <NavGroupContent $isOpen={openGroups.monitoring || false}>
+            <NavSubItem to="/monitor">
+              ■ Unified Monitor
+            </NavSubItem>
+            <NavSubItem to="/query-performance">
+              ■ Query Performance
+            </NavSubItem>
+            <NavSubItem to="/monitoring/tracing">
+              ■ Distributed Tracing
+            </NavSubItem>
+            <NavSubItem to="/monitoring/apm">
+              ■ APM Dashboard
+            </NavSubItem>
+            <NavSubItem to="/monitoring/bottlenecks">
+              ■ Bottleneck Detection
+            </NavSubItem>
+            <NavSubItem to="/monitoring/resources">
+              ■ Resource Tracking
+            </NavSubItem>
+            <NavSubItem to="/monitoring/costs">
+              ■ Cost Tracking
+            </NavSubItem>
+            <NavSubItem to="/monitoring/log-aggregation">
+              ■ Log Aggregation
+            </NavSubItem>
+            <NavSubItem to="/monitoring/alerting">
+              ■ Advanced Alerting
+            </NavSubItem>
+            <NavSubItem to="/logs">
+              ■ Logs Viewer
+            </NavSubItem>
+          </NavGroupContent>
+        </NavGroup>
 
         <NavGroup>
           <NavGroupHeader 
