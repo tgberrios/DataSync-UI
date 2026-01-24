@@ -8063,6 +8063,144 @@ export const performanceApi = {
   }
 };
 
+// Metadata and Documentation API
+export const metadataApi = {
+  // Impact Analysis
+  analyzeImpact: async (params: {
+    schema: string;
+    table: string;
+    column?: string;
+    changeType?: string;
+  }) => {
+    try {
+      const response = await api.post("/metadata/impact-analysis/analyze", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error analyzing impact:", error);
+      throw error;
+    }
+  },
+
+  getImpactAnalysis: async (schema: string, table: string, column?: string) => {
+    try {
+      const response = await api.get("/metadata/impact-analysis", {
+        params: { schema, table, column }
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting impact analysis:", error);
+      throw error;
+    }
+  },
+
+  // Lineage Graph
+  getLineageGraph: async (params?: {
+    resourceType?: string;
+    schema?: string;
+    table?: string;
+    maxDepth?: number;
+  }) => {
+    try {
+      const response = await api.get("/metadata/lineage/graph", {
+        params
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return { nodes: [], edges: [] };
+      }
+      console.error("Error getting lineage graph:", error);
+      throw error;
+    }
+  },
+
+  // Column Lineage
+  getColumnLineage: async (schema: string, table: string, column: string) => {
+    try {
+      const response = await api.get("/metadata/lineage/column", {
+        params: { schema, table, column }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting column lineage:", error);
+      throw error;
+    }
+  },
+
+  // Transformation Lineage
+  getTransformationLineage: async (params?: {
+    schema?: string;
+    table?: string;
+    workflow?: string;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get("/metadata/transformation-lineage", {
+        params
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting transformation lineage:", error);
+      throw error;
+    }
+  },
+
+  // Pipeline Documentation
+  getPipelineDocumentation: async (workflowName: string, format: string = "markdown") => {
+    try {
+      const response = await api.get(`/metadata/pipeline-documentation/${workflowName}`, {
+        params: { format }
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting pipeline documentation:", error);
+      throw error;
+    }
+  },
+
+  generatePipelineDocumentation: async (params: {
+    workflowName: string;
+    format?: string;
+    includeExecutionStats?: boolean;
+    includeTransformations?: boolean;
+  }) => {
+    try {
+      const response = await api.post("/metadata/pipeline-documentation/generate", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error generating pipeline documentation:", error);
+      throw error;
+    }
+  },
+
+  // Dictionary Generation
+  generateDictionary: async (params: {
+    schema: string;
+    table?: string;
+    overwrite?: boolean;
+  }) => {
+    try {
+      const response = await api.post("/metadata/dictionary/generate", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error generating dictionary:", error);
+      throw error;
+    }
+  }
+};
+
 // Export all APIs
 export default {
   authApi,
@@ -8076,7 +8214,8 @@ export default {
   dbtApi,
   bigDataApi,
   streamProcessingApi,
-  performanceApi
+  performanceApi,
+  metadataApi
 };
       if (error?.response?.status === 404) {
         return null;

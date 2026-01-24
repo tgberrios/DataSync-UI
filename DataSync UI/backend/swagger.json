@@ -1,0 +1,270 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "DataSync API",
+    "version": "1.0.0",
+    "description": "RESTful API for DataSync - Data Integration and Synchronization Platform"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:9876",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/metadata/impact-analysis": {
+      "get": {
+        "summary": "Get impact analysis",
+        "tags": ["Metadata"],
+        "parameters": [
+          {
+            "name": "schema",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "table",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "column",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Impact analysis result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metadata/impact-analysis/analyze": {
+      "post": {
+        "summary": "Execute impact analysis",
+        "tags": ["Metadata"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "schema_name": {"type": "string"},
+                  "table_name": {"type": "string"},
+                  "column_name": {"type": "string"},
+                  "change_type": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Analysis completed"
+          }
+        }
+      }
+    },
+    "/api/metadata/lineage/graph": {
+      "get": {
+        "summary": "Get complete lineage graph",
+        "tags": ["Metadata"],
+        "responses": {
+          "200": {
+            "description": "Lineage graph data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {"type": "array"},
+                    "edges": {"type": "array"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metadata/lineage/column": {
+      "get": {
+        "summary": "Get column-level lineage",
+        "tags": ["Metadata"],
+        "parameters": [
+          {
+            "name": "schema",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "table",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "column",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Column lineage data"
+          }
+        }
+      }
+    },
+    "/api/metadata/transformation-lineage": {
+      "get": {
+        "summary": "Get transformation lineage",
+        "tags": ["Metadata"],
+        "parameters": [
+          {
+            "name": "schema",
+            "in": "query",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "table",
+            "in": "query",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "workflow",
+            "in": "query",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transformation lineage data"
+          }
+        }
+      }
+    },
+    "/api/metadata/pipeline-documentation/{workflowName}": {
+      "get": {
+        "summary": "Get pipeline documentation",
+        "tags": ["Metadata"],
+        "parameters": [
+          {
+            "name": "workflowName",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["markdown", "html", "json"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pipeline documentation"
+          }
+        }
+      }
+    },
+    "/api/metadata/pipeline-documentation/generate": {
+      "post": {
+        "summary": "Generate pipeline documentation",
+        "tags": ["Metadata"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workflow_name": {"type": "string"},
+                  "format": {"type": "string"},
+                  "file_path": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documentation generated"
+          }
+        }
+      }
+    },
+    "/api/metadata/dictionary/generate": {
+      "post": {
+        "summary": "Generate data dictionary automatically",
+        "tags": ["Metadata"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "schema_name": {"type": "string"},
+                  "table_name": {"type": "string"},
+                  "overwrite_existing": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dictionary generated"
+          }
+        }
+      }
+    }
+  }
+}

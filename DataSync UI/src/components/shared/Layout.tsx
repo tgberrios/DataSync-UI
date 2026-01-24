@@ -292,6 +292,9 @@ const Layout = () => {
             <NavSubItem to="/performance">
               ■ Performance Optimization
             </NavSubItem>
+            <NavSubItem to="/metadata">
+              ■ Metadata & Documentation
+            </NavSubItem>
             <NavSubItem to="/workflows">
               ■ Data Integration - Workflow Orchestration (DAGs)
             </NavSubItem>
