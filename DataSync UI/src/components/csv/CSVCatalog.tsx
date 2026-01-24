@@ -415,6 +415,31 @@ const CSVCatalog = () => {
             <option value="MSSQL">MSSQL</option>
             <option value="MongoDB">MongoDB</option>
             <option value="Oracle">Oracle</option>
+            <option value="DB2">DB2</option>
+            <option value="Salesforce">Salesforce</option>
+            <option value="SAP">SAP</option>
+            <option value="Teradata">Teradata</option>
+            <option value="Netezza">Netezza</option>
+            <option value="Hive">Hive</option>
+            <option value="Cassandra">Cassandra</option>
+            <option value="DynamoDB">DynamoDB</option>
+            <option value="AS400">AS/400</option>
+            <option value="S3">S3</option>
+            <option value="AzureBlob">Azure Blob</option>
+            <option value="GCS">Google Cloud Storage</option>
+            <option value="FTP">FTP</option>
+            <option value="SFTP">SFTP</option>
+            <option value="Email">Email</option>
+            <option value="SOAP">SOAP</option>
+            <option value="GraphQL">GraphQL</option>
+            <option value="Excel">Excel</option>
+            <option value="FixedWidth">Fixed Width</option>
+            <option value="EBCDIC">EBCDIC</option>
+            <option value="XML">XML</option>
+            <option value="Avro">Avro</option>
+            <option value="Parquet">Parquet</option>
+            <option value="ORC">ORC</option>
+            <option value="Compressed">Compressed</option>
           </select>
 
           <select

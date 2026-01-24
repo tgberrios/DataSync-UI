@@ -652,7 +652,12 @@ app.post(
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
       req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
 
@@ -1493,7 +1498,12 @@ app.patch(
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
       req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
     const active = validateBoolean(req.body.active);
@@ -1535,7 +1545,12 @@ app.post(
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
       req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
 
@@ -1576,7 +1591,12 @@ app.post(
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
       req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
     const connection_string = req.body.connection_string;
@@ -1659,7 +1679,12 @@ app.put("/api/catalog", requireAuth, requireRole("admin", "user"), async (req, r
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
       req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
     const connection_string = req.body.connection_string;
@@ -1773,7 +1798,12 @@ app.delete("/api/catalog", requireAuth, requireRole("admin", "user"), async (req
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
       req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
 
@@ -1936,7 +1966,12 @@ app.patch(
     const table_name = validateIdentifier(req.body.table_name);
     const db_engine = validateEnum(
       req.body.db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
 
@@ -8485,7 +8520,12 @@ app.post(
 
     const validTargetEngine = validateEnum(
       target_db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
     if (!validTargetEngine) {
@@ -8616,7 +8656,12 @@ app.put(
 
     const validTargetEngine = target_db_engine ? validateEnum(
       target_db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     ) : null;
     if (target_db_engine && !validTargetEngine) {
@@ -11431,7 +11476,12 @@ app.post(
       const description = sanitizeSearch(req.body.description, 500);
       const source_db_engine = validateEnum(
         req.body.source_db_engine,
-        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
         null
       );
       const source_connection_string = sanitizeSearch(
@@ -11441,7 +11491,12 @@ app.post(
       const query_sql = sanitizeSearch(req.body.query_sql, 10000);
       const target_db_engine = validateEnum(
         req.body.target_db_engine,
-        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
         null
       );
       const target_connection_string = sanitizeSearch(
@@ -11562,7 +11617,12 @@ app.put(
       const query_sql = sanitizeSearch(req.body.query_sql, 10000);
       const target_db_engine = validateEnum(
         req.body.target_db_engine,
-        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
         null
       );
       const target_connection_string = sanitizeSearch(
@@ -12550,7 +12610,12 @@ app.post(
       );
       const source_db_engine = validateEnum(
         req.body.source_db_engine,
-        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
         null
       );
       const source_connection_string = sanitizeSearch(
@@ -12665,7 +12730,12 @@ app.put(
       );
       const source_db_engine = validateEnum(
         req.body.source_db_engine,
-        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
         null
       );
       const source_connection_string = sanitizeSearch(
@@ -13161,7 +13231,12 @@ app.post(
       const description = sanitizeSearch(req.body.description, 500);
       const source_db_engine = validateEnum(
         req.body.source_db_engine,
-        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
         null
       );
       const source_connection_string = sanitizeSearch(
@@ -13267,7 +13342,12 @@ app.put(
       const description = sanitizeSearch(req.body.description, 500);
       const source_db_engine = validateEnum(
         req.body.source_db_engine,
-        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+        ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
         null
       );
       const source_connection_string = sanitizeSearch(
@@ -13903,7 +13983,12 @@ app.post(
 
     const validTargetEngine = validateEnum(
       target_db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
     if (!validTargetEngine) {
@@ -14064,7 +14149,12 @@ app.put(
       if (target_db_engine !== undefined) {
         const validTargetEngine = validateEnum(
           target_db_engine,
-          ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+          ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
           null
         );
         if (!validTargetEngine) {
@@ -14694,7 +14784,12 @@ app.post(
 
     const validTargetEngine = validateEnum(
       target_db_engine,
-      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+      ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
       null
     );
     if (!validTargetEngine) {
@@ -15221,7 +15316,12 @@ app.put(
       if (target_db_engine !== undefined) {
         const validTargetEngine = validateEnum(
           target_db_engine,
-          ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle"],
+          ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", 
+       "Salesforce", "SAP", "Teradata", "Netezza", "Hive", 
+       "Cassandra", "DynamoDB", "AS400", "S3", "AzureBlob", 
+       "GCS", "FTP", "SFTP", "Email", "SOAP", "GraphQL",
+       "Excel", "FixedWidth", "EBCDIC", "XML", "Avro", 
+       "Parquet", "ORC", "Compressed"],
           null
         );
         if (!validTargetEngine) {

@@ -1,6 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors } from '../../ui/theme/asciiTheme';
+import { S3ConnectionConfig } from './S3ConnectionConfig';
+import { FTPConnectionConfig } from './FTPConnectionConfig';
+import { EmailConnectionConfig } from './EmailConnectionConfig';
+import { AzureBlobConnectionConfig } from './AzureBlobConnectionConfig';
+import { GCSConnectionConfig } from './GCSConnectionConfig';
 
 interface AsciiConnectionStringSelectorProps {
   value: string;
@@ -20,6 +25,85 @@ interface Connection {
   connection_string_masked: string;
 }
 
+const SPECIALIZED_ENGINES = ['S3', 'FTP', 'SFTP', 'Email', 'AzureBlob', 'GCS'];
+
+const parseConnectionString = (connStr: string, engine: string): any => {
+  if (!connStr) return null;
+  
+  try {
+    if (engine === 'S3') {
+      const params = new URLSearchParams(connStr);
+      return {
+        access_key_id: params.get('access_key_id') || '',
+        secret_access_key: params.get('secret_access_key') || '',
+        region: params.get('region') || 'us-east-1',
+        bucket_name: params.get('bucket_name') || '',
+        endpoint: params.get('endpoint') || '',
+        use_ssl: params.get('use_ssl') !== 'false'
+      };
+    } else if (engine === 'FTP' || engine === 'SFTP') {
+      const params = new URLSearchParams(connStr);
+      return {
+        protocol: engine === 'SFTP' ? 'SFTP' : 'FTP',
+        host: params.get('host') || '',
+        port: parseInt(params.get('port') || (engine === 'SFTP' ? '22' : '21')),
+        username: params.get('username') || '',
+        password: params.get('password') || '',
+        remote_path: params.get('remote_path') || '/',
+        use_passive: params.get('use_passive') !== 'false',
+        use_ssl: params.get('use_ssl') === 'true'
+      };
+    } else if (engine === 'Email') {
+      const params = new URLSearchParams(connStr);
+      return {
+        protocol: params.get('protocol') === 'POP3' ? 'POP3' : 'IMAP',
+        server: params.get('server') || '',
+        port: parseInt(params.get('port') || '993'),
+        username: params.get('username') || '',
+        password: params.get('password') || '',
+        folder: params.get('folder') || 'INBOX',
+        use_ssl: params.get('use_ssl') !== 'false',
+        max_emails: parseInt(params.get('max_emails') || '100'),
+        download_attachments: params.get('download_attachments') === 'true'
+      };
+    } else if (engine === 'AzureBlob') {
+      const params = new URLSearchParams(connStr);
+      return {
+        account_name: params.get('account_name') || '',
+        account_key: params.get('account_key') || '',
+        container_name: params.get('container_name') || '',
+        endpoint_suffix: params.get('endpoint_suffix') || 'core.windows.net',
+        use_https: params.get('use_https') !== 'false'
+      };
+    } else if (engine === 'GCS') {
+      const params = new URLSearchParams(connStr);
+      return {
+        project_id: params.get('project_id') || '',
+        credentials_json: params.get('credentials_json') || '',
+        bucket_name: params.get('bucket_name') || '',
+        use_https: params.get('use_https') !== 'false'
+      };
+    }
+  } catch (e) {
+    console.error('Error parsing connection string:', e);
+  }
+  return null;
+};
+
+const buildConnectionString = (config: any, engine: string): string => {
+  if (!config) return '';
+  
+  const params = new URLSearchParams();
+  
+  Object.entries(config).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      params.set(key, String(val));
+    }
+  });
+  
+  return params.toString();
+};
+
 export const AsciiConnectionStringSelector: React.FC<AsciiConnectionStringSelectorProps> = ({
   value,
   onChange,
@@ -34,6 +118,106 @@ export const AsciiConnectionStringSelector: React.FC<AsciiConnectionStringSelect
   const [availableConnections, setAvailableConnections] = useState<Connection[]>([]);
   const [loadingConnections, setLoadingConnections] = useState(false);
   const [useCustom, setUseCustom] = useState(false);
+  
+  const requiresSpecializedConfig = useMemo(() => {
+    return SPECIALIZED_ENGINES.includes(dbEngine);
+  }, [dbEngine]);
+  
+  const specializedConfig = useMemo(() => {
+    if (!requiresSpecializedConfig || !value) {
+      return null;
+    }
+    return parseConnectionString(value, dbEngine);
+  }, [value, dbEngine, requiresSpecializedConfig]);
+  
+  const defaultConfig = useMemo(() => {
+    if (!requiresSpecializedConfig) return null;
+    
+    if (dbEngine === 'S3') {
+      return {
+        access_key_id: '',
+        secret_access_key: '',
+        region: 'us-east-1',
+        bucket_name: '',
+        endpoint: '',
+        use_ssl: true
+      };
+    } else if (dbEngine === 'FTP' || dbEngine === 'SFTP') {
+      return {
+        protocol: dbEngine === 'SFTP' ? 'SFTP' : 'FTP',
+        host: '',
+        port: dbEngine === 'SFTP' ? 22 : 21,
+        username: '',
+        password: '',
+        remote_path: '/',
+        use_passive: true,
+        use_ssl: dbEngine === 'SFTP'
+      };
+    } else if (dbEngine === 'Email') {
+      return {
+        protocol: 'IMAP',
+        server: '',
+        port: 993,
+        username: '',
+        password: '',
+        folder: 'INBOX',
+        use_ssl: true,
+        max_emails: 100,
+        download_attachments: false
+      };
+    } else if (dbEngine === 'AzureBlob') {
+      return {
+        account_name: '',
+        account_key: '',
+        container_name: '',
+        endpoint_suffix: 'core.windows.net',
+        use_https: true
+      };
+    } else if (dbEngine === 'GCS') {
+      return {
+        project_id: '',
+        credentials_json: '',
+        bucket_name: '',
+        use_https: true
+      };
+    }
+    return null;
+  }, [dbEngine, requiresSpecializedConfig]);
+  
+  const [currentConfig, setCurrentConfig] = useState<any>(defaultConfig);
+  const initializedRef = useRef<Record<string, boolean>>({});
+  
+  useEffect(() => {
+    if (requiresSpecializedConfig) {
+      const parsed = specializedConfig || defaultConfig;
+      if (JSON.stringify(parsed) !== JSON.stringify(currentConfig)) {
+        setCurrentConfig(parsed);
+      }
+      // Solo inicializar connection string una vez por engine cuando no hay valor
+      if (!specializedConfig && defaultConfig && !value && !initializedRef.current[dbEngine]) {
+        const initialConnStr = buildConnectionString(defaultConfig, dbEngine);
+        if (initialConnStr) {
+          initializedRef.current[dbEngine] = true;
+          onChange(initialConnStr);
+        }
+      }
+      if (dbEngine && !initializedRef.current[dbEngine] && value) {
+        initializedRef.current[dbEngine] = true;
+      }
+    } else {
+      setCurrentConfig(null);
+      // Reset initialized flag when switching away from specialized engine
+      if (dbEngine) {
+        delete initializedRef.current[dbEngine];
+      }
+    }
+  }, [requiresSpecializedConfig, specializedConfig, defaultConfig, dbEngine, value]);
+  
+  const handleSpecializedConfigChange = (newConfig: any) => {
+    setCurrentConfig(newConfig);
+    const connStr = buildConnectionString(newConfig, dbEngine);
+    onChange(connStr);
+  };
 
   console.log(`[AsciiConnectionStringSelector:${label}] Render - dbEngine:`, dbEngine, 'value:', value, 'useCustom:', useCustom, 'availableConnections:', availableConnections.length);
 
@@ -77,14 +261,19 @@ export const AsciiConnectionStringSelector: React.FC<AsciiConnectionStringSelect
 
   useEffect(() => {
     console.log(`[AsciiConnectionStringSelector:${label}] useEffect[dbEngine] - dbEngine:`, dbEngine, 'fetchConnections exists:', !!fetchConnections);
-    if (dbEngine) {
+    if (requiresSpecializedConfig) {
+      // Para engines especializados, no buscar conexiones existentes
+      console.log(`[AsciiConnectionStringSelector:${label}] useEffect[dbEngine] - Specialized engine, skipping connection fetch`);
+      setAvailableConnections([]);
+      setUseCustom(true);
+    } else if (dbEngine) {
       fetchConnections();
     } else {
       console.log(`[AsciiConnectionStringSelector:${label}] useEffect[dbEngine] - No dbEngine, clearing connections`);
       setAvailableConnections([]);
       setUseCustom(false);
     }
-  }, [dbEngine, fetchConnections, label]);
+  }, [dbEngine, fetchConnections, label, requiresSpecializedConfig]);
 
   useEffect(() => {
     console.log(`[AsciiConnectionStringSelector:${label}] useEffect[value,availableConnections] - value:`, value, 'availableConnections.length:', availableConnections.length);
@@ -118,10 +307,10 @@ export const AsciiConnectionStringSelector: React.FC<AsciiConnectionStringSelect
     // useCustom solo debe cambiar cuando el usuario explícitamente elige "+ Add new connection..."
   };
 
-  // Siempre mostrar el selector cuando hay conexiones disponibles (excepto cuando useCustom es true explícitamente)
-  const showSelector = availableConnections.length > 0 && !loadingConnections && !useCustom;
-  // Mostrar textarea solo cuando useCustom es true (usuario eligió "+ Add new connection...") o cuando no hay conexiones
-  const showTextarea = useCustom || (availableConnections.length === 0 && !loadingConnections);
+  // Siempre mostrar el selector cuando hay conexiones disponibles (excepto cuando useCustom es true explícitamente o es engine especializado)
+  const showSelector = !requiresSpecializedConfig && availableConnections.length > 0 && !loadingConnections && !useCustom;
+  // Mostrar textarea solo cuando useCustom es true (usuario eligió "+ Add new connection...") o cuando no hay conexiones (y no es engine especializado)
+  const showTextarea = !requiresSpecializedConfig && (useCustom || (availableConnections.length === 0 && !loadingConnections));
 
   console.log(`[AsciiConnectionStringSelector:${label}] Render calculation - showSelector:`, showSelector, 'showTextarea:', showTextarea, 'useCustom:', useCustom, 'availableConnections.length:', availableConnections.length, 'loadingConnections:', loadingConnections);
 
@@ -193,7 +382,7 @@ export const AsciiConnectionStringSelector: React.FC<AsciiConnectionStringSelect
         </select>
       )}
 
-      {showTextarea && (
+      {showTextarea && !requiresSpecializedConfig && (
         <textarea
           value={value}
           onChange={handleTextareaChange}
@@ -219,6 +408,64 @@ export const AsciiConnectionStringSelector: React.FC<AsciiConnectionStringSelect
             e.currentTarget.style.borderColor = asciiColors.border;
           }}
         />
+      )}
+      
+      {requiresSpecializedConfig && currentConfig && (
+        <div style={{ 
+          border: `1px solid ${asciiColors.border}`,
+          borderRadius: 2,
+          padding: 12,
+          backgroundColor: asciiColors.backgroundSoft
+        }}>
+          {dbEngine === 'S3' && (
+            <S3ConnectionConfig
+              config={currentConfig}
+              onChange={handleSpecializedConfigChange}
+              onTest={onTestConnection}
+              isTesting={isTesting}
+            />
+          )}
+          {dbEngine === 'FTP' && (
+            <FTPConnectionConfig
+              config={currentConfig}
+              onChange={handleSpecializedConfigChange}
+              onTest={onTestConnection}
+              isTesting={isTesting}
+            />
+          )}
+          {dbEngine === 'SFTP' && (
+            <FTPConnectionConfig
+              config={{ ...currentConfig, protocol: 'SFTP' }}
+              onChange={handleSpecializedConfigChange}
+              onTest={onTestConnection}
+              isTesting={isTesting}
+            />
+          )}
+          {dbEngine === 'Email' && (
+            <EmailConnectionConfig
+              config={currentConfig}
+              onChange={handleSpecializedConfigChange}
+              onTest={onTestConnection}
+              isTesting={isTesting}
+            />
+          )}
+          {dbEngine === 'AzureBlob' && (
+            <AzureBlobConnectionConfig
+              config={currentConfig}
+              onChange={handleSpecializedConfigChange}
+              onTest={onTestConnection}
+              isTesting={isTesting}
+            />
+          )}
+          {dbEngine === 'GCS' && (
+            <GCSConnectionConfig
+              config={currentConfig}
+              onChange={handleSpecializedConfigChange}
+              onTest={onTestConnection}
+              isTesting={isTesting}
+            />
+          )}
+        </div>
       )}
 
       {!useCustom && availableConnections.length > 0 && showSelector && (

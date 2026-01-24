@@ -264,7 +264,16 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
       return;
     }
 
-    if (formData.db_engine === 'MongoDB') {
+    const specializedEngines = ['S3', 'FTP', 'SFTP', 'Email', 'AzureBlob', 'GCS', 'SOAP', 'GraphQL', 'Excel', 'FixedWidth', 'EBCDIC', 'XML', 'Avro', 'Parquet', 'ORC', 'Compressed'];
+    
+    if (specializedEngines.includes(formData.db_engine)) {
+      // Para engines especializados, la validación se hace en el componente especializado
+      // Solo verificar que haya algún valor
+      if (!formData.connection_string.trim()) {
+        setError('Please configure the connection using the form above');
+        return;
+      }
+    } else if (formData.db_engine === 'MongoDB') {
       if (!formData.connection_string.startsWith('mongodb://') && 
           !formData.connection_string.startsWith('mongodb+srv://')) {
         setError('MongoDB connection string must start with mongodb:// or mongodb+srv://');
@@ -480,16 +489,40 @@ const AddTableModal: React.FC<AddTableModalProps> = ({ onClose, onSave }) => {
               onChange={(e) => handleEngineChange(e.target.value)}
             >
               <option value="">Select Engine</option>
+              <option value="PostgreSQL">PostgreSQL</option>
               <option value="MariaDB">MariaDB</option>
               <option value="MSSQL">MSSQL</option>
               <option value="MongoDB">MongoDB</option>
               <option value="Oracle">Oracle</option>
-              <option value="PostgreSQL">PostgreSQL</option>
               <option value="DB2">DB2</option>
+              <option value="Salesforce">Salesforce</option>
+              <option value="SAP">SAP</option>
+              <option value="Teradata">Teradata</option>
+              <option value="Netezza">Netezza</option>
+              <option value="Hive">Hive</option>
+              <option value="Cassandra">Cassandra</option>
+              <option value="DynamoDB">DynamoDB</option>
+              <option value="AS400">AS/400</option>
+              <option value="S3">S3</option>
+              <option value="AzureBlob">Azure Blob</option>
+              <option value="GCS">Google Cloud Storage</option>
+              <option value="FTP">FTP</option>
+              <option value="SFTP">SFTP</option>
+              <option value="Email">Email</option>
+              <option value="SOAP">SOAP</option>
+              <option value="GraphQL">GraphQL</option>
+              <option value="Excel">Excel</option>
+              <option value="FixedWidth">Fixed Width</option>
+              <option value="EBCDIC">EBCDIC</option>
+              <option value="XML">XML</option>
+              <option value="Avro">Avro</option>
+              <option value="Parquet">Parquet</option>
+              <option value="ORC">ORC</option>
+              <option value="Compressed">Compressed</option>
             </Select>
           </FormGroup>
 
-          {formData.db_engine && (
+          {formData.db_engine && !['S3', 'FTP', 'SFTP', 'Email', 'AzureBlob', 'GCS'].includes(formData.db_engine) && (
             <>
               <FormGroup>
                 <Label>Connection String Format</Label>
