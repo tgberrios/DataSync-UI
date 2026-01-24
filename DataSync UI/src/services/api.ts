@@ -7488,3 +7488,370 @@ export const bigDataApi = {
     }
   },
 };
+
+// Stream Processing API
+export interface StreamConfig {
+  streamType: 'KAFKA' | 'RABBITMQ' | 'REDIS_STREAMS';
+  topic?: string;
+  queue?: string;
+  stream?: string;
+  consumerGroup: string;
+  consumerName: string;
+  serializationFormat: 'AVRO' | 'PROTOBUF' | 'JSON_SCHEMA' | 'JSON';
+  schemaRegistryUrl?: string;
+  engineConfig: Record<string, any>;
+}
+
+export interface Consumer {
+  consumerId: string;
+  consumerGroup: string;
+  consumerName: string;
+  status: 'ACTIVE' | 'STOPPED' | 'ERROR';
+  threadId?: string;
+  startedAt: string;
+  stoppedAt?: string;
+  errorMessage?: string;
+}
+
+export interface WindowConfig {
+  windowId?: string;
+  windowType: 'TUMBLING' | 'SLIDING' | 'SESSION';
+  windowSizeSeconds: number;
+  slideIntervalSeconds?: number;
+  sessionTimeoutSeconds?: number;
+  startTime?: string;
+  endTime?: string;
+  eventCount?: number;
+  isClosed?: boolean;
+  aggregatedData?: Record<string, any>;
+}
+
+export interface StatefulState {
+  key: string;
+  value: any;
+  lastUpdated: string;
+  updateCount: number;
+}
+
+export interface CEPRule {
+  ruleId: string;
+  name: string;
+  description?: string;
+  pattern: any;
+  conditions?: any;
+  actions?: any;
+  enabled: boolean;
+  windowSeconds: number;
+}
+
+export interface CEPMatch {
+  matchId: string;
+  ruleId: string;
+  matchedEvents: any[];
+  matchTime: string;
+  metadata?: Record<string, any>;
+}
+
+export interface NativeCDCConfig {
+  id?: number;
+  dbEngine: string;
+  connectionString: string;
+  cdcType: 'BINLOG' | 'WAL' | 'TRANSACTION_LOG' | 'REDO_LOG' | 'CHANGE_STREAMS';
+  databaseName?: string;
+  tableName?: string;
+  position?: string;
+  status: 'RUNNING' | 'STOPPED' | 'ERROR';
+  errorMessage?: string;
+  startedAt?: string;
+  stoppedAt?: string;
+}
+
+export const streamProcessingApi = {
+  // Stream Configuration
+  getStreamConfig: async () => {
+    try {
+      const response = await api.get("/stream-processing/config");
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting stream config:", error);
+      throw error;
+    }
+  },
+
+  updateStreamConfig: async (config: StreamConfig) => {
+    try {
+      const response = await api.put("/stream-processing/config", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating stream config:", error);
+      throw error;
+    }
+  },
+
+  testConnection: async (config: StreamConfig) => {
+    try {
+      const response = await api.post("/stream-processing/config/test-connection", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error testing connection:", error);
+      throw error;
+    }
+  },
+
+  // Stream Consumers
+  getConsumers: async () => {
+    try {
+      const response = await api.get("/stream-processing/consumers");
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting consumers:", error);
+      throw error;
+    }
+  },
+
+  createConsumer: async (streamConfigId: number, consumerGroup: string, consumerName: string) => {
+    try {
+      const response = await api.post("/stream-processing/consumers", {
+        streamConfigId,
+        consumerGroup,
+        consumerName
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating consumer:", error);
+      throw error;
+    }
+  },
+
+  stopConsumer: async (consumerId: string) => {
+    try {
+      const response = await api.delete(`/stream-processing/consumers/${consumerId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error stopping consumer:", error);
+      throw error;
+    }
+  },
+
+  getConsumerStats: async (consumerId: string) => {
+    try {
+      const response = await api.get(`/stream-processing/consumers/${consumerId}/stats`);
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting consumer stats:", error);
+      throw error;
+    }
+  },
+
+  // Windowing
+  getWindows: async () => {
+    try {
+      const response = await api.get("/stream-processing/windows");
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting windows:", error);
+      throw error;
+    }
+  },
+
+  getWindow: async (windowId: string) => {
+    try {
+      const response = await api.get(`/stream-processing/windows/${windowId}`);
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting window:", error);
+      throw error;
+    }
+  },
+
+  createWindow: async (config: WindowConfig) => {
+    try {
+      const response = await api.post("/stream-processing/windows", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating window:", error);
+      throw error;
+    }
+  },
+
+  // Stateful Processing
+  getState: async (key: string) => {
+    try {
+      const response = await api.get(`/stream-processing/state/${key}`);
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting state:", error);
+      throw error;
+    }
+  },
+
+  updateState: async (key: string, value: any) => {
+    try {
+      const response = await api.put(`/stream-processing/state/${key}`, { value });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating state:", error);
+      throw error;
+    }
+  },
+
+  clearState: async (key: string) => {
+    try {
+      const response = await api.delete(`/stream-processing/state/${key}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error clearing state:", error);
+      throw error;
+    }
+  },
+
+  // CEP Rules
+  getCEPRules: async () => {
+    try {
+      const response = await api.get("/stream-processing/cep/rules");
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting CEP rules:", error);
+      throw error;
+    }
+  },
+
+  createCEPRule: async (rule: CEPRule) => {
+    try {
+      const response = await api.post("/stream-processing/cep/rules", rule);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating CEP rule:", error);
+      throw error;
+    }
+  },
+
+  updateCEPRule: async (ruleId: string, rule: Partial<CEPRule>) => {
+    try {
+      const response = await api.put(`/stream-processing/cep/rules/${ruleId}`, rule);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating CEP rule:", error);
+      throw error;
+    }
+  },
+
+  deleteCEPRule: async (ruleId: string) => {
+    try {
+      const response = await api.delete(`/stream-processing/cep/rules/${ruleId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error deleting CEP rule:", error);
+      throw error;
+    }
+  },
+
+  getCEPMatches: async (ruleId?: string) => {
+    try {
+      const response = await api.get("/stream-processing/cep/matches", {
+        params: ruleId ? { ruleId } : {}
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting CEP matches:", error);
+      throw error;
+    }
+  },
+
+  // Native CDC
+  getNativeCDCConfig: async () => {
+    try {
+      const response = await api.get("/stream-processing/native-cdc/config");
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting native CDC config:", error);
+      throw error;
+    }
+  },
+
+  updateNativeCDCConfig: async (config: NativeCDCConfig) => {
+    try {
+      const response = await api.put("/stream-processing/native-cdc/config", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating native CDC config:", error);
+      throw error;
+    }
+  },
+
+  startNativeCDC: async (id: number) => {
+    try {
+      const response = await api.post("/stream-processing/native-cdc/start", { id });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error starting native CDC:", error);
+      throw error;
+    }
+  },
+
+  stopNativeCDC: async (id: number) => {
+    try {
+      const response = await api.post("/stream-processing/native-cdc/stop", { id });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error stopping native CDC:", error);
+      throw error;
+    }
+  },
+
+  getCDCPosition: async (id: number) => {
+    try {
+      const response = await api.get("/stream-processing/native-cdc/position", {
+        params: { id }
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting CDC position:", error);
+      throw error;
+    }
+  },
+
+  // Statistics
+  getStats: async () => {
+    try {
+      const response = await api.get("/stream-processing/stats");
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting stream processing stats:", error);
+      throw error;
+    }
+  },
+};
