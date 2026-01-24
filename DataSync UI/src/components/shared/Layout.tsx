@@ -289,6 +289,9 @@ const Layout = () => {
             <NavSubItem to="/stream-processing">
               ■ Stream Processing
             </NavSubItem>
+            <NavSubItem to="/performance">
+              ■ Performance Optimization
+            </NavSubItem>
             <NavSubItem to="/workflows">
               ■ Data Integration - Workflow Orchestration (DAGs)
             </NavSubItem>

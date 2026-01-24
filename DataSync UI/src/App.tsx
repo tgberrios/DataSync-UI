@@ -37,6 +37,7 @@ const DataWarehouse = lazy(() => import("./components/data-warehouse/DataWarehou
 const DataVault = lazy(() => import("./components/data-vault/DataVault"));
 const BigDataProcessing = lazy(() => import("./components/big-data/BigDataProcessing"));
 const StreamProcessing = lazy(() => import("./components/stream-processing/StreamProcessing"));
+const PerformanceOptimization = lazy(() => import("./components/performance/PerformanceOptimization"));
 const Workflows = lazy(() => import("./components/workflows/Workflows"));
 const DBTModels = lazy(() => import("./components/dbt/DBTModels"));
 const DBTMacros = lazy(() => import("./components/dbt/DBTMacros"));
@@ -248,6 +249,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={null}>
                   <StreamProcessing />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="performance"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <PerformanceOptimization />
                 </Suspense>
               </ProtectedRoute>
             }

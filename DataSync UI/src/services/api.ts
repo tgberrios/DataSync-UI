@@ -7853,5 +7853,236 @@ export const streamProcessingApi = {
       console.error("Error getting stream processing stats:", error);
       throw error;
     }
+  }
+};
+
+// Performance Optimization API
+export const performanceApi = {
+  // Partitioning
+  getPartitioningConfig: async (schema: string, table: string) => {
+    try {
+      const response = await api.get("/performance/partitioning/config", {
+        params: { schema, table }
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting partitioning config:", error);
+      throw error;
+    }
+  },
+
+  updatePartitioningConfig: async (config: any) => {
+    try {
+      const response = await api.put("/performance/partitioning/config", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating partitioning config:", error);
+      throw error;
+    }
+  },
+
+  getPartitioningStats: async (schema?: string, table?: string) => {
+    try {
+      const response = await api.get("/performance/partitioning/stats", {
+        params: { schema, table }
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return { total_partitions: 0, total_rows: 0, total_size_bytes: 0 };
+      }
+      console.error("Error getting partitioning stats:", error);
+      throw error;
+    }
+  },
+
+  createPartition: async (partitionData: any) => {
+    try {
+      const response = await api.post("/performance/partitioning/create", partitionData);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating partition:", error);
+      throw error;
+    }
+  },
+
+  // Cache
+  getCacheConfig: async () => {
+    try {
+      const response = await api.get("/performance/cache/config");
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting cache config:", error);
+      throw error;
+    }
+  },
+
+  updateCacheConfig: async (config: any) => {
+    try {
+      const response = await api.put("/performance/cache/config", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating cache config:", error);
+      throw error;
+    }
+  },
+
+  getCacheStats: async () => {
+    try {
+      const response = await api.get("/performance/cache/stats");
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting cache stats:", error);
+      throw error;
+    }
+  },
+
+  clearCache: async (cacheType?: string) => {
+    try {
+      const response = await api.post("/performance/cache/clear", { cache_type: cacheType });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error clearing cache:", error);
+      throw error;
+    }
+  },
+
+  // Compression
+  getCompressionConfig: async (schema?: string, table?: string) => {
+    try {
+      const response = await api.get("/performance/compression/config", {
+        params: { schema, table }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting compression config:", error);
+      throw error;
+    }
+  },
+
+  updateCompressionConfig: async (config: any) => {
+    try {
+      const response = await api.put("/performance/compression/config", config);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating compression config:", error);
+      throw error;
+    }
+  },
+
+  // Memory
+  getMemoryStats: async (limit: number = 100) => {
+    try {
+      const response = await api.get("/performance/memory/stats", {
+        params: { limit }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting memory stats:", error);
+      throw error;
+    }
+  },
+
+  // Partition Pruning Stats
+  getPartitionPruningStats: async (schema?: string, table?: string, limit: number = 50) => {
+    try {
+      const response = await api.get("/performance/partition-pruning/stats", {
+        params: { schema, table, limit }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting partition pruning stats:", error);
+      throw error;
+    }
+  },
+
+  // Pushdown Stats
+  getPushdownStats: async (dbEngine?: string, limit: number = 50) => {
+    try {
+      const response = await api.get("/performance/pushdown/stats", {
+        params: { db_engine: dbEngine, limit }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting pushdown stats:", error);
+      throw error;
+    }
+  },
+
+  // Join Optimization Stats
+  getJoinOptimizationStats: async (limit: number = 50) => {
+    try {
+      const response = await api.get("/performance/join-optimization/stats", {
+        params: { limit }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting join optimization stats:", error);
+      throw error;
+    }
+  },
+
+  // Columnar Storage
+  getColumnarStorage: async (schema?: string, table?: string) => {
+    try {
+      const response = await api.get("/performance/columnar-storage", {
+        params: { schema, table }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting columnar storage:", error);
+      throw error;
+    }
+  }
+};
+
+// Export all APIs
+export default {
+  authApi,
+  connectionApi,
+  catalogApi,
+  syncApi,
+  transformationApi,
+  workflowApi,
+  dataWarehouseApi,
+  dataVaultApi,
+  dbtApi,
+  bigDataApi,
+  streamProcessingApi,
+  performanceApi
+};
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      console.error("Error getting stream processing stats:", error);
+      throw error;
+    }
   },
 };
