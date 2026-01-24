@@ -283,6 +283,9 @@ const Layout = () => {
             <NavSubItem to="/data-vault">
               ■ Data Integration - Data Vault 2.0
             </NavSubItem>
+            <NavSubItem to="/big-data">
+              ■ Big Data Processing
+            </NavSubItem>
             <NavSubItem to="/workflows">
               ■ Data Integration - Workflow Orchestration (DAGs)
             </NavSubItem>

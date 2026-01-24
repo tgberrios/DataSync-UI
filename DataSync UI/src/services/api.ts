@@ -7244,3 +7244,247 @@ export const transformationsApi = {
     }
   },
 };
+
+// Big Data Processing API
+export interface SparkConfig {
+  masterUrl: string;
+  appName: string;
+  sparkHome?: string;
+  connectUrl?: string;
+  executorMemoryMB?: number;
+  executorCores?: number;
+  maxRetries?: number;
+  retryDelaySeconds?: number;
+  sparkConf?: Record<string, string>;
+}
+
+export interface DistributedProcessingConfig {
+  distributedThresholdRows?: number;
+  distributedThresholdSizeMB?: number;
+  broadcastJoinThresholdMB?: number;
+  forceMode?: 'AUTO' | 'LOCAL_ONLY' | 'DISTRIBUTED_ONLY';
+  complexityScore?: number;
+  sparkConfig?: SparkConfig;
+}
+
+export interface PartitioningConfig {
+  enabled: boolean;
+  autoDetect: boolean;
+  partitionTypes?: ('DATE' | 'REGION' | 'RANGE' | 'HASH' | 'LIST')[];
+  dateColumnPattern?: string;
+  regionColumnPattern?: string;
+}
+
+export interface MergeStrategyConfig {
+  defaultStrategy?: 'UPSERT' | 'SCD_TYPE_4' | 'SCD_TYPE_6' | 'INCREMENTAL';
+  useDistributed?: boolean;
+  enableHistoryTable?: boolean;
+  enableHybrid?: boolean;
+}
+
+export interface DistributedJob {
+  jobId: string;
+  taskId: string;
+  taskType: string;
+  executionMode: 'local' | 'distributed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  rowsProcessed?: number;
+  outputPath?: string;
+  errorMessage?: string;
+  startTime?: string;
+  endTime?: string;
+  duration?: number;
+  metadata?: any;
+}
+
+export const bigDataApi = {
+  // Spark Configuration
+  getSparkConfig: async () => {
+    try {
+      const response = await api.get("/big-data/spark/config");
+      return response.data;
+    } catch (error: any) {
+      // Don't log 404 errors - endpoints may not exist yet
+      if (error?.response?.status !== 404) {
+        console.error("Error getting Spark config:", error);
+      }
+      throw error;
+    }
+  },
+
+  updateSparkConfig: async (config: SparkConfig) => {
+    try {
+      const response = await api.put("/big-data/spark/config", config);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating Spark config:", error);
+      throw error;
+    }
+  },
+
+  testSparkConnection: async (config: SparkConfig) => {
+    try {
+      const response = await api.post("/big-data/spark/test-connection", config);
+      return response.data;
+    } catch (error) {
+      console.error("Error testing Spark connection:", error);
+      throw error;
+    }
+  },
+
+  // Distributed Processing Configuration
+  getDistributedProcessingConfig: async () => {
+    try {
+      const response = await api.get("/big-data/distributed/config");
+      return response.data;
+    } catch (error: any) {
+      // Don't log 404 errors - endpoints may not exist yet
+      if (error?.response?.status !== 404) {
+        console.error("Error getting distributed processing config:", error);
+      }
+      throw error;
+    }
+  },
+
+  updateDistributedProcessingConfig: async (config: DistributedProcessingConfig) => {
+    try {
+      const response = await api.put("/big-data/distributed/config", config);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating distributed processing config:", error);
+      throw error;
+    }
+  },
+
+  // Partitioning Configuration
+  getPartitioningConfig: async (tableId?: string) => {
+    try {
+      const response = await api.get("/big-data/partitioning/config", {
+        params: tableId ? { table_id: tableId } : {}
+      });
+      return response.data;
+    } catch (error: any) {
+      // Don't log 404 errors - endpoints may not exist yet
+      if (error?.response?.status !== 404) {
+        console.error("Error getting partitioning config:", error);
+      }
+      throw error;
+    }
+  },
+
+  updatePartitioningConfig: async (config: PartitioningConfig, tableId?: string) => {
+    try {
+      const response = await api.put("/big-data/partitioning/config", config, {
+        params: tableId ? { table_id: tableId } : {}
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating partitioning config:", error);
+      throw error;
+    }
+  },
+
+  // Merge Strategies Configuration
+  getMergeStrategyConfig: async (tableId?: string) => {
+    try {
+      const response = await api.get("/big-data/merge-strategies/config", {
+        params: tableId ? { table_id: tableId } : {}
+      });
+      return response.data;
+    } catch (error: any) {
+      // Don't log 404 errors - endpoints may not exist yet
+      if (error?.response?.status !== 404) {
+        console.error("Error getting merge strategy config:", error);
+      }
+      throw error;
+    }
+  },
+
+  updateMergeStrategyConfig: async (config: MergeStrategyConfig, tableId?: string) => {
+    try {
+      const response = await api.put("/big-data/merge-strategies/config", config, {
+        params: tableId ? { table_id: tableId } : {}
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error updating merge strategy config:", error);
+      throw error;
+    }
+  },
+
+  // Distributed Jobs Monitoring
+  getDistributedJobs: async (params?: {
+    status?: string;
+    executionMode?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+  }) => {
+    try {
+      const response = await api.get("/big-data/jobs", { params });
+      return response.data;
+    } catch (error: any) {
+      // Don't log 404 errors - endpoints may not exist yet
+      if (error?.response?.status !== 404) {
+        console.error("Error getting distributed jobs:", error);
+      }
+      throw error;
+    }
+  },
+
+  getDistributedJob: async (jobId: string) => {
+    try {
+      const response = await api.get(`/big-data/jobs/${jobId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting distributed job:", error);
+      throw error;
+    }
+  },
+
+  cancelDistributedJob: async (jobId: string) => {
+    try {
+      const response = await api.post(`/big-data/jobs/${jobId}/cancel`);
+      return response.data;
+    } catch (error) {
+      console.error("Error cancelling distributed job:", error);
+      throw error;
+    }
+  },
+
+  getDistributedJobLogs: async (jobId: string, lines?: number) => {
+    try {
+      const response = await api.get(`/big-data/jobs/${jobId}/logs`, {
+        params: lines ? { lines } : {}
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error getting distributed job logs:", error);
+      throw error;
+    }
+  },
+
+  getDistributedJobMetrics: async (jobId: string) => {
+    try {
+      const response = await api.get(`/big-data/jobs/${jobId}/metrics`);
+      return response.data;
+    } catch (error) {
+      console.error("Error getting distributed job metrics:", error);
+      throw error;
+    }
+  },
+
+  // Statistics
+  getDistributedProcessingStats: async () => {
+    try {
+      const response = await api.get("/big-data/stats");
+      return response.data;
+    } catch (error: any) {
+      // Don't log 404 errors - endpoints may not exist yet
+      if (error?.response?.status !== 404) {
+        console.error("Error getting distributed processing stats:", error);
+      }
+      throw error;
+    }
+  },
+};
