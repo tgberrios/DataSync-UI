@@ -14,6 +14,9 @@ const ResourceTracking = lazy(() => import("./components/monitoring/ResourceTrac
 const CostTracking = lazy(() => import("./components/monitoring/CostTracking"));
 const LogAggregationConfig = lazy(() => import("./components/monitoring/LogAggregationConfig"));
 const AdvancedAlerting = lazy(() => import("./components/monitoring/AdvancedAlerting"));
+const DataLakeMapping = lazy(() => import("./components/catalog/DataLakeMapping"));
+const CDCCleanup = lazy(() => import("./components/maintenance/CDCCleanup"));
+const UnusedObjects = lazy(() => import("./components/catalog/UnusedObjects"));
 const Quality = lazy(() => import("./components/quality/Quality"));
 const Governance = lazy(() => import("./components/governance/Governance"));
 const Security = lazy(() => import("./components/security/Security"));
@@ -444,11 +447,41 @@ function App() {
             }
           />
           <Route
+            path="datalake-mapping"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <DataLakeMapping />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="unused-objects"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <UnusedObjects />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="maintenance"
             element={
               <ProtectedRoute>
                 <Suspense fallback={null}>
                   <Maintenance />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="cdc-cleanup"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <CDCCleanup />
                 </Suspense>
               </ProtectedRoute>
             }

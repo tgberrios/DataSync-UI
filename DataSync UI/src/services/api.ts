@@ -8914,6 +8914,178 @@ export const monitoringApi = {
   }
 };
 
+export const datalakeApi = {
+  // DataLake Mapping
+  getMappings: async (params?: { source_system?: string; refresh_rate_type?: string }) => {
+    try {
+      const response = await api.get("/datalake/mapping", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting mappings:", error);
+      throw error;
+    }
+  },
+
+  getMapping: async (schema: string, table: string) => {
+    try {
+      const response = await api.get(`/datalake/mapping/${schema}/${table}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting mapping:", error);
+      throw error;
+    }
+  },
+
+  createMapping: async (mapping: {
+    target_schema: string;
+    target_table: string;
+    source_system: string;
+    source_connection?: string;
+    source_schema?: string;
+    source_table?: string;
+    refresh_rate_type: string;
+    refresh_schedule?: string;
+  }) => {
+    try {
+      const response = await api.post("/datalake/mapping", mapping);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating mapping:", error);
+      throw error;
+    }
+  },
+
+  getMappingStats: async () => {
+    try {
+      const response = await api.get("/datalake/mapping/stats");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting mapping stats:", error);
+      throw error;
+    }
+  },
+
+  // CDC Cleanup
+  getCleanupPolicies: async (params?: { enabled_only?: boolean }) => {
+    try {
+      const response = await api.get("/cdc/cleanup/policies", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting cleanup policies:", error);
+      throw error;
+    }
+  },
+
+  createCleanupPolicy: async (policy: {
+    connection_string: string;
+    db_engine: string;
+    retention_days: number;
+    batch_size: number;
+    enabled?: boolean;
+  }) => {
+    try {
+      const response = await api.post("/cdc/cleanup/policies", policy);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating cleanup policy:", error);
+      throw error;
+    }
+  },
+
+  executeCleanup: async (params: {
+    policy_id?: number;
+    connection_string?: string;
+    db_engine?: string;
+  }) => {
+    try {
+      const response = await api.post("/cdc/cleanup/execute", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error executing cleanup:", error);
+      throw error;
+    }
+  },
+
+  getCleanupHistory: async (params?: { connection_string?: string; limit?: number }) => {
+    try {
+      const response = await api.get("/cdc/cleanup/history", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting cleanup history:", error);
+      throw error;
+    }
+  },
+
+  getCleanupStats: async () => {
+    try {
+      const response = await api.get("/cdc/cleanup/stats");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting cleanup stats:", error);
+      throw error;
+    }
+  },
+
+  // Unused Objects
+  detectUnusedObjects: async (params: { days_threshold?: number; generated_by?: string }) => {
+    try {
+      const response = await api.get("/unused-objects/detect", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error detecting unused objects:", error);
+      throw error;
+    }
+  },
+
+  getUnusedObjectsReport: async (reportId: number) => {
+    try {
+      const response = await api.get(`/unused-objects/report/${reportId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting report:", error);
+      throw error;
+    }
+  },
+
+  getUnusedObjectsReports: async (params?: { limit?: number }) => {
+    try {
+      const response = await api.get("/unused-objects/reports", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting reports:", error);
+      throw error;
+    }
+  },
+
+  getObjectUsage: async (schema: string, object: string, objectType: string = "table") => {
+    try {
+      const response = await api.get(`/unused-objects/usage/${schema}/${object}`, {
+        params: { object_type: objectType }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting object usage:", error);
+      throw error;
+    }
+  },
+
+  trackAccess: async (params: {
+    object_type: string;
+    schema_name: string;
+    object_name: string;
+    access_type: string;
+    user_name?: string;
+  }) => {
+    try {
+      const response = await api.post("/unused-objects/track-access", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error tracking access:", error);
+      throw error;
+    }
+  }
+};
+
 // Export all APIs
 export default {
   authApi,
@@ -8930,7 +9102,8 @@ export default {
   performanceApi,
   metadataApi,
   securityApi,
-  monitoringApi
+  monitoringApi,
+  datalakeApi
 };
       if (error?.response?.status === 404) {
         return null;

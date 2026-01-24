@@ -20367,6 +20367,104 @@ async function executeSecurityCommand(operation, requestData) {
 }
 
 // Helper function to execute C++ monitoring commands
+async function executeCatalogCommand(operation, requestData) {
+  const { spawn } = await import("child_process");
+  
+  if (!fs.existsSync(DataSyncPath)) {
+    throw new Error(`DataSync executable not found at: ${DataSyncPath}`);
+  }
+
+  const requestJson = JSON.stringify({ operation, ...requestData });
+  
+  const cppProcess = spawn(DataSyncPath, ["--catalog"], {
+    cwd: path.join(process.cwd(), "..", "DataSync"),
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  let stdout = "";
+  let stderr = "";
+
+  cppProcess.stdout.on("data", (data) => {
+    stdout += data.toString();
+  });
+
+  cppProcess.stderr.on("data", (data) => {
+    stderr += data.toString();
+  });
+
+  cppProcess.stdin.write(requestJson);
+  cppProcess.stdin.end();
+
+  return new Promise((resolve, reject) => {
+    cppProcess.on("error", (err) => {
+      reject(new Error(`Failed to start DataSync process: ${err.message}`));
+    });
+
+    cppProcess.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`DataSync process exited with code ${code}. stderr: ${stderr}`));
+        return;
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (parseError) {
+        reject(new Error(`Failed to parse DataSync output: ${parseError.message}. stdout: ${stdout}`));
+      }
+    });
+  });
+}
+
+async function executeMaintenanceCommand(operation, requestData) {
+  const { spawn } = await import("child_process");
+  
+  if (!fs.existsSync(DataSyncPath)) {
+    throw new Error(`DataSync executable not found at: ${DataSyncPath}`);
+  }
+
+  const requestJson = JSON.stringify({ operation, ...requestData });
+  
+  const cppProcess = spawn(DataSyncPath, ["--maintenance"], {
+    cwd: path.join(process.cwd(), "..", "DataSync"),
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  let stdout = "";
+  let stderr = "";
+
+  cppProcess.stdout.on("data", (data) => {
+    stdout += data.toString();
+  });
+
+  cppProcess.stderr.on("data", (data) => {
+    stderr += data.toString();
+  });
+
+  cppProcess.stdin.write(requestJson);
+  cppProcess.stdin.end();
+
+  return new Promise((resolve, reject) => {
+    cppProcess.on("error", (err) => {
+      reject(new Error(`Failed to start DataSync process: ${err.message}`));
+    });
+
+    cppProcess.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`DataSync process exited with code ${code}. stderr: ${stderr}`));
+        return;
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (parseError) {
+        reject(new Error(`Failed to parse DataSync output: ${parseError.message}. stdout: ${stdout}`));
+      }
+    });
+  });
+}
+
 async function executeMonitoringCommand(operation, requestData) {
   const { spawn } = await import("child_process");
   
@@ -27470,6 +27568,232 @@ app.get("/api/monitoring/query-performance/suggestions", requireAuth, async (req
     }
   } catch (err) {
     const safeError = sanitizeError(err, "Error getting suggestions", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// DataLake Mapping Endpoints
+app.get("/api/datalake/mapping", requireAuth, async (req, res) => {
+  try {
+    const { source_system, refresh_rate_type } = req.query;
+    const result = await executeCatalogCommand("list_mappings", {
+      source_system: source_system || "",
+      refresh_rate_type: refresh_rate_type || ""
+    });
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error listing mappings", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/datalake/mapping/:schema/:table", requireAuth, async (req, res) => {
+  try {
+    const { schema, table } = req.params;
+    const result = await executeCatalogCommand("get_mapping", {
+      target_schema: schema,
+      target_table: table
+    });
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting mapping", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/datalake/mapping", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const result = await executeCatalogCommand("create_mapping", req.body);
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error creating mapping", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/datalake/mapping/stats", requireAuth, async (req, res) => {
+  try {
+    // Stats are calculated from mappings, return aggregated data
+    const result = await executeCatalogCommand("list_mappings", {});
+    if (result.success && result.mappings) {
+      const stats = {
+        total_mappings: result.mappings.length,
+        by_source_system: {},
+        by_refresh_type: {}
+      };
+      result.mappings.forEach(m => {
+        stats.by_source_system[m.source_system] = (stats.by_source_system[m.source_system] || 0) + 1;
+        stats.by_refresh_type[m.refresh_rate_type] = (stats.by_refresh_type[m.refresh_rate_type] || 0) + 1;
+      });
+      res.json({ success: true, stats });
+    } else {
+      res.json({ success: true, stats: { total_mappings: 0 } });
+    }
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting mapping stats", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// CDC Cleanup Endpoints
+app.get("/api/cdc/cleanup/policies", requireAuth, async (req, res) => {
+  try {
+    // Get policies from database directly
+    const pool = require("./db").pool;
+    let query = "SELECT * FROM metadata.cdc_cleanup_policies";
+    if (req.query.enabled_only === "true") {
+      query += " WHERE enabled = true";
+    }
+    query += " ORDER BY connection_string, db_engine";
+    const result = await pool.query(query);
+    res.json({ success: true, policies: result.rows });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error listing cleanup policies", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/cdc/cleanup/policies", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const result = await executeMaintenanceCommand("create_cleanup_policy", req.body);
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error creating cleanup policy", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/cdc/cleanup/execute", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const result = await executeMaintenanceCommand("execute_cleanup", req.body);
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error executing cleanup", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/cdc/cleanup/history", requireAuth, async (req, res) => {
+  try {
+    const { connection_string, limit = 100 } = req.query;
+    const pool = require("./db").pool;
+    let query = "SELECT * FROM metadata.cdc_cleanup_history";
+    const params = [];
+    if (connection_string) {
+      query += " WHERE connection_string = $1";
+      params.push(connection_string);
+      query += " ORDER BY started_at DESC LIMIT $2";
+      params.push(parseInt(limit));
+    } else {
+      query += " ORDER BY started_at DESC LIMIT $1";
+      params.push(parseInt(limit));
+    }
+    const result = await pool.query(query, params);
+    res.json({ success: true, history: result.rows });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting cleanup history", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/cdc/cleanup/stats", requireAuth, async (req, res) => {
+  try {
+    // Get stats from database directly
+    const pool = require("./db").pool;
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_policies,
+        COUNT(CASE WHEN enabled THEN 1 END) as enabled_policies,
+        COALESCE(SUM(rows_deleted), 0) as total_rows_deleted,
+        COALESCE(SUM(tables_cleaned), 0) as total_tables_cleaned,
+        COALESCE(SUM(space_freed_mb), 0) as total_space_freed_mb,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as successful_cleanups,
+        COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_cleanups
+      FROM metadata.cdc_cleanup_history
+    `);
+    res.json({ success: true, stats: result.rows[0] || {} });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting cleanup stats", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Unused Objects Endpoints
+app.get("/api/unused-objects/detect", requireAuth, async (req, res) => {
+  try {
+    const { days_threshold = 90, generated_by = "" } = req.query;
+    const result = await executeCatalogCommand("detect_unused", {
+      days_threshold: parseInt(days_threshold),
+      generated_by: generated_by || ""
+    });
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error detecting unused objects", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/unused-objects/report/:reportId", requireAuth, async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    // Load from database directly
+    const pool = require("./db").pool;
+    const result = await pool.query(
+      "SELECT * FROM metadata.unused_objects_report WHERE report_id = $1",
+      [reportId]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: "Report not found" });
+    } else {
+      res.json({ success: true, report: result.rows[0] });
+    }
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting report", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/unused-objects/reports", requireAuth, async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    const pool = require("./db").pool;
+    const result = await pool.query(
+      "SELECT * FROM metadata.unused_objects_report ORDER BY generated_at DESC LIMIT $1",
+      [parseInt(limit)]
+    );
+    res.json({ success: true, reports: result.rows });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error listing reports", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/unused-objects/usage/:schema/:object", requireAuth, async (req, res) => {
+  try {
+    const { schema, object } = req.params;
+    const { object_type = "table" } = req.query;
+    const pool = require("./db").pool;
+    const result = await pool.query(
+      "SELECT * FROM metadata.object_usage_tracking WHERE object_type = $1 AND schema_name = $2 AND object_name = $3",
+      [object_type, schema, object]
+    );
+    if (result.rows.length === 0) {
+      res.json({ success: true, usage: null });
+    } else {
+      res.json({ success: true, usage: result.rows[0] });
+    }
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting object usage", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/unused-objects/track-access", requireAuth, async (req, res) => {
+  try {
+    const result = await executeCatalogCommand("track_access", req.body);
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error tracking access", process.env.NODE_ENV === "production");
     res.status(500).json({ error: safeError });
   }
 });

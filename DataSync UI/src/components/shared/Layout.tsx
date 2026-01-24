@@ -226,6 +226,8 @@ const Layout = () => {
     operations: false,
     system: false,
     monitoring: false,
+    catalog: false,
+    maintenance: false,
   });
 
   const toggleGroup = (group: string) => {
@@ -344,6 +346,12 @@ const Layout = () => {
             </NavSubItem>
             <NavSubItem to="/dbt-models">
               ■ Data Integration - dbt Models
+            </NavSubItem>
+            <NavSubItem to="/datalake-mapping">
+              ■ DataLake Mapping
+            </NavSubItem>
+            <NavSubItem to="/unused-objects">
+              ■ Unused Objects
             </NavSubItem>
           </NavGroupContent>
         </NavGroup>
@@ -464,6 +472,9 @@ const Layout = () => {
             </NavSubItem>
             <NavSubItem to="/security">
               ■ Security
+            </NavSubItem>
+            <NavSubItem to="/cdc-cleanup">
+              ■ CDC Cleanup
             </NavSubItem>
           </NavGroupContent>
         </NavGroup>
