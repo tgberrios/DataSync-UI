@@ -20313,6 +20313,59 @@ if (!fs.existsSync(backupsDir)) {
 
 const DataSyncPath = path.join(process.cwd(), "..", "DataSync", "DataSync");
 
+// Helper function to execute C++ security commands
+async function executeSecurityCommand(operation, requestData) {
+  const { spawn } = await import("child_process");
+  
+  if (!fs.existsSync(DataSyncPath)) {
+    throw new Error(`DataSync executable not found at: ${DataSyncPath}`);
+  }
+
+  const requestJson = JSON.stringify({ operation, ...requestData });
+  
+  const cppProcess = spawn(DataSyncPath, ["--security"], {
+    cwd: path.join(process.cwd(), "..", "DataSync"),
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  let stdout = "";
+  let stderr = "";
+
+  cppProcess.stdout.on("data", (data) => {
+    stdout += data.toString();
+  });
+
+  cppProcess.stderr.on("data", (data) => {
+    stderr += data.toString();
+  });
+
+  cppProcess.stdin.write(requestJson);
+  cppProcess.stdin.end();
+
+  return new Promise((resolve, reject) => {
+    cppProcess.on("error", (err) => {
+      reject(new Error(`Failed to start DataSync process: ${err.message}`));
+    });
+
+    cppProcess.on("close", (code) => {
+      if (code === 0) {
+        try {
+          const output = JSON.parse(stdout);
+          if (output.success) {
+            resolve(output);
+          } else {
+            reject(new Error(output.error || "Command failed"));
+          }
+        } catch (parseErr) {
+          reject(new Error(`Failed to parse output: ${parseErr.message}. Output: ${stdout}`));
+        }
+      } else {
+        reject(new Error(`Process exited with code ${code}. Stderr: ${stderr || stdout}`));
+      }
+    });
+  });
+}
+
 function matchesCronField(field, currentValue) {
   if (field === "*") {
     return true;
@@ -26257,6 +26310,660 @@ app.post("/api/metadata/dictionary/generate", requireAuth, requireRole("admin", 
     res.json({ success: true, message: "Dictionary generated", entries_created: 0 });
   } catch (err) {
     const safeError = sanitizeError(err, "Error generating dictionary", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// ============================================================================
+// Security Advanced API Endpoints
+// ============================================================================
+
+// Dynamic Masking
+app.post("/api/security/masking/apply", requireAuth, async (req, res) => {
+  try {
+    const { value, schema_name, table_name, column_name } = req.body;
+    const username = req.user?.username || "anonymous";
+    const userRoles = req.user?.roles || [];
+
+    if (!value || !schema_name || !table_name || !column_name) {
+      return res.status(400).json({ error: "value, schema_name, table_name, and column_name required" });
+    }
+
+    const result = await executeSecurityCommand("masking_apply", {
+      value,
+      schema_name,
+      table_name,
+      column_name,
+      username,
+      user_roles: userRoles
+    });
+    
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error applying masking", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/masking/policies", requireAuth, async (req, res) => {
+  try {
+    const { schema, table, column } = req.query;
+    
+    let query = "SELECT * FROM metadata.masking_policies WHERE 1=1";
+    const params = [];
+    let paramCount = 0;
+
+    if (schema) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema);
+    }
+    if (table) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table);
+    }
+    if (column) {
+      paramCount++;
+      query += ` AND column_name = $${paramCount}`;
+      params.push(column);
+    }
+
+    query += " ORDER BY policy_name";
+
+    const result = await pool.query(query, params);
+    res.json(result.rows || []);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting masking policies", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/masking/policies", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const { policy_name, schema_name, table_name, column_name, masking_type, masking_function, masking_params, role_whitelist, active = true } = req.body;
+
+    if (!policy_name || !schema_name || !table_name || !column_name || !masking_type) {
+      return res.status(400).json({ error: "policy_name, schema_name, table_name, column_name, and masking_type required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO metadata.masking_policies 
+       (policy_name, schema_name, table_name, column_name, masking_type, masking_function, masking_params, role_whitelist, active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::text[], $9, NOW(), NOW())
+       RETURNING *`,
+      [policy_name, schema_name, table_name, column_name, masking_type, masking_function || null, JSON.stringify(masking_params || {}), role_whitelist || [], active]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error creating masking policy", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.put("/api/security/masking/policies/:id", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const policyId = parseInt(req.params.id);
+    const { policy_name, masking_type, masking_function, masking_params, role_whitelist, active } = req.body;
+
+    const result = await pool.query(
+      `UPDATE metadata.masking_policies 
+       SET policy_name = COALESCE($1, policy_name),
+           masking_type = COALESCE($2, masking_type),
+           masking_function = COALESCE($3, masking_function),
+           masking_params = COALESCE($4::jsonb, masking_params),
+           role_whitelist = COALESCE($5::text[], role_whitelist),
+           active = COALESCE($6, active),
+           updated_at = NOW()
+       WHERE policy_id = $7
+       RETURNING *`,
+      [policy_name, masking_type, masking_function, masking_params ? JSON.stringify(masking_params) : null, role_whitelist, active, policyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Policy not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error updating masking policy", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.delete("/api/security/masking/policies/:id", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const policyId = parseInt(req.params.id);
+
+    const result = await pool.query(
+      `DELETE FROM metadata.masking_policies WHERE policy_id = $1 RETURNING *`,
+      [policyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Policy not found" });
+    }
+
+    res.json({ message: "Policy deleted successfully", policy: result.rows[0] });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error deleting masking policy", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Tokenization
+app.post("/api/security/tokenization/tokenize", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const { value, schema_name, table_name, column_name, reversible = true, token_type = "REVERSIBLE" } = req.body;
+
+    if (!value || !schema_name || !table_name || !column_name) {
+      return res.status(400).json({ error: "value, schema_name, table_name, and column_name required" });
+    }
+
+    const tokenType = req.body.token_type || "reversible";
+    const result = await executeSecurityCommand("tokenize", {
+      value,
+      token_type: tokenType,
+      schema_name,
+      table_name,
+      column_name
+    });
+    
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error tokenizing value", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/tokenization/detokenize", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const { token, schema_name, table_name, column_name, reason } = req.body;
+    const username = req.user?.username || "anonymous";
+
+    if (!token || !schema_name || !table_name || !column_name) {
+      return res.status(400).json({ error: "token, schema_name, table_name, and column_name required" });
+    }
+
+    const username = req.user?.username || "anonymous";
+    const result = await executeSecurityCommand("detokenize", {
+      token,
+      username
+    });
+    
+    res.json(result);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error detokenizing", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/tokenization/tokens", requireAuth, async (req, res) => {
+  try {
+    const { schema, table, column, limit = 100 } = req.query;
+    
+    let query = "SELECT token_id, schema_name, table_name, column_name, token_value, token_type, created_at, access_count FROM metadata.tokenization_tokens WHERE 1=1";
+    const params = [];
+    let paramCount = 0;
+
+    if (schema) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema);
+    }
+    if (table) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table);
+    }
+    if (column) {
+      paramCount++;
+      query += ` AND column_name = $${paramCount}`;
+      params.push(column);
+    }
+
+    paramCount++;
+    query += ` ORDER BY created_at DESC LIMIT $${paramCount}`;
+    params.push(parseInt(limit));
+
+    const result = await pool.query(query, params);
+    res.json(result.rows || []);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting tokens", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/tokenization/rotate", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const { schema_name, table_name, column_name } = req.body;
+
+    if (!schema_name || !table_name || !column_name) {
+      return res.status(400).json({ error: "schema_name, table_name, and column_name required" });
+    }
+
+    await executeSecurityCommand("rotate_tokens", {
+      schema_name,
+      table_name,
+      column_name
+    });
+    
+    res.json({ success: true, message: "Tokens rotated successfully" });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error rotating tokens", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/tokenization/keys", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT key_id, algorithm, created_at, rotated_at, active FROM metadata.tokenization_keys ORDER BY created_at DESC"
+    );
+    res.json(result.rows || []);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting encryption keys", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/tokenization/keys/rotate", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const { key_id } = req.body;
+
+    await executeSecurityCommand("rotate_encryption_keys", {
+      key_id: key_id || ""
+    });
+    
+    res.json({ success: true, message: "Encryption keys rotated successfully" });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error rotating encryption keys", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Anonymization
+app.post("/api/security/anonymization/anonymize", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const { dataset, profile_name } = req.body;
+
+    if (!dataset || !profile_name) {
+      return res.status(400).json({ error: "dataset and profile_name required" });
+    }
+
+    const result = await executeSecurityCommand("anonymize", {
+      profile_name: profile_name,
+      data: dataset
+    });
+    
+    const anonymizedData = result.anonymized_data || [];
+    res.json({
+      anonymized_dataset: anonymizedData,
+      original_count: Array.isArray(dataset) ? dataset.length : 0,
+      anonymized_count: Array.isArray(anonymizedData) ? anonymizedData.length : 0,
+      information_loss: result.information_loss || 0
+    });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error anonymizing dataset", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/anonymization/profiles", requireAuth, async (req, res) => {
+  try {
+    const { schema, table } = req.query;
+    
+    let query = "SELECT * FROM metadata.anonymization_profiles WHERE active = true";
+    const params = [];
+    let paramCount = 0;
+
+    if (schema) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema);
+    }
+    if (table) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table);
+    }
+
+    query += " ORDER BY profile_name";
+
+    const result = await pool.query(query, params);
+    res.json(result.rows || []);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting anonymization profiles", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/anonymization/profiles", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const { profile_name, schema_name, table_name, anonymization_type, k_value, l_value, t_value, epsilon, quasi_identifiers, sensitive_attributes, generalization_levels, suppression_threshold, active = true } = req.body;
+
+    if (!profile_name || !schema_name || !table_name || !anonymization_type || !quasi_identifiers) {
+      return res.status(400).json({ error: "profile_name, schema_name, table_name, anonymization_type, and quasi_identifiers required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO metadata.anonymization_profiles 
+       (profile_name, schema_name, table_name, anonymization_type, k_value, l_value, t_value, epsilon, 
+        quasi_identifiers, sensitive_attributes, generalization_levels, suppression_threshold, active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text[], $10::text[], $11::jsonb, $12, $13, NOW(), NOW())
+       RETURNING *`,
+      [profile_name, schema_name, table_name, anonymization_type, k_value || null, l_value || null, t_value || null, epsilon || null,
+       quasi_identifiers, sensitive_attributes || [], JSON.stringify(generalization_levels || {}), suppression_threshold || 0.0, active]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error creating anonymization profile", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.put("/api/security/anonymization/profiles/:id", requireAuth, requireRole("admin", "user"), async (req, res) => {
+  try {
+    const profileId = parseInt(req.params.id);
+    const { profile_name, anonymization_type, k_value, l_value, t_value, epsilon, quasi_identifiers, sensitive_attributes, generalization_levels, suppression_threshold, active } = req.body;
+
+    const result = await pool.query(
+      `UPDATE metadata.anonymization_profiles 
+       SET profile_name = COALESCE($1, profile_name),
+           anonymization_type = COALESCE($2, anonymization_type),
+           k_value = COALESCE($3, k_value),
+           l_value = COALESCE($4, l_value),
+           t_value = COALESCE($5, t_value),
+           epsilon = COALESCE($6, epsilon),
+           quasi_identifiers = COALESCE($7::text[], quasi_identifiers),
+           sensitive_attributes = COALESCE($8::text[], sensitive_attributes),
+           generalization_levels = COALESCE($9::jsonb, generalization_levels),
+           suppression_threshold = COALESCE($10, suppression_threshold),
+           active = COALESCE($11, active),
+           updated_at = NOW()
+       WHERE profile_id = $12
+       RETURNING *`,
+      [profile_name, anonymization_type, k_value, l_value, t_value, epsilon, quasi_identifiers, sensitive_attributes,
+       generalization_levels ? JSON.stringify(generalization_levels) : null, suppression_threshold, active, profileId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error updating anonymization profile", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/anonymization/validate", requireAuth, async (req, res) => {
+  try {
+    const { dataset, k, l, quasi_identifiers, sensitive_attribute } = req.body;
+
+    if (!dataset || !quasi_identifiers) {
+      return res.status(400).json({ error: "dataset and quasi_identifiers required" });
+    }
+
+    const result = await executeSecurityCommand("validate_anonymization", {
+      dataset,
+      k: k || 0,
+      l: l || 0,
+      quasi_identifiers: quasi_identifiers || [],
+      sensitive_attribute: sensitive_attribute || ""
+    });
+    
+    res.json({
+      k_anonymity_achieved: result.k_anonymity_achieved || false,
+      l_diversity_achieved: result.l_diversity_achieved || false
+    });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error validating anonymization", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+// Fine-Grained Permissions
+app.get("/api/security/permissions/policies", requireAuth, async (req, res) => {
+  try {
+    const { schema, table, policy_type } = req.query;
+    
+    let query = "SELECT * FROM metadata.permission_policies WHERE 1=1";
+    const params = [];
+    let paramCount = 0;
+
+    if (schema) {
+      paramCount++;
+      query += ` AND schema_name = $${paramCount}`;
+      params.push(schema);
+    }
+    if (table) {
+      paramCount++;
+      query += ` AND table_name = $${paramCount}`;
+      params.push(table);
+    }
+    if (policy_type) {
+      paramCount++;
+      query += ` AND policy_type = $${paramCount}`;
+      params.push(policy_type);
+    }
+
+    query += " ORDER BY priority DESC, policy_id";
+
+    const result = await pool.query(query, params);
+    res.json(result.rows || []);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting permission policies", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/permissions/policies", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const { policy_name, policy_type, schema_name, table_name, column_name, role_name, username, operation, condition_expression, attribute_conditions, priority = 0, active = true } = req.body;
+
+    if (!policy_name || !policy_type || !operation) {
+      return res.status(400).json({ error: "policy_name, policy_type, and operation required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO metadata.permission_policies 
+       (policy_name, policy_type, schema_name, table_name, column_name, role_name, username, 
+        operation, condition_expression, attribute_conditions, priority, active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, NOW(), NOW())
+       RETURNING *`,
+      [policy_name, policy_type, schema_name || null, table_name || null, column_name || null, role_name || null, username || null,
+       operation, condition_expression || null, JSON.stringify(attribute_conditions || {}), priority, active]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error creating permission policy", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.put("/api/security/permissions/policies/:id", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const policyId = parseInt(req.params.id);
+    const { policy_name, policy_type, schema_name, table_name, column_name, role_name, username, operation, condition_expression, attribute_conditions, priority, active } = req.body;
+
+    const result = await pool.query(
+      `UPDATE metadata.permission_policies 
+       SET policy_name = COALESCE($1, policy_name),
+           policy_type = COALESCE($2, policy_type),
+           schema_name = COALESCE($3, schema_name),
+           table_name = COALESCE($4, table_name),
+           column_name = COALESCE($5, column_name),
+           role_name = COALESCE($6, role_name),
+           username = COALESCE($7, username),
+           operation = COALESCE($8, operation),
+           condition_expression = COALESCE($9, condition_expression),
+           attribute_conditions = COALESCE($10::jsonb, attribute_conditions),
+           priority = COALESCE($11, priority),
+           active = COALESCE($12, active),
+           updated_at = NOW()
+       WHERE policy_id = $13
+       RETURNING *`,
+      [policy_name, policy_type, schema_name, table_name, column_name, role_name, username, operation,
+       condition_expression, attribute_conditions ? JSON.stringify(attribute_conditions) : null, priority, active, policyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Policy not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error updating permission policy", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.delete("/api/security/permissions/policies/:id", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const policyId = parseInt(req.params.id);
+
+    const result = await pool.query(
+      `DELETE FROM metadata.permission_policies WHERE policy_id = $1 RETURNING *`,
+      [policyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Policy not found" });
+    }
+
+    res.json({ message: "Policy deleted successfully", policy: result.rows[0] });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error deleting permission policy", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/permissions/check", requireAuth, async (req, res) => {
+  try {
+    const { schema_name, table_name, column_name, operation } = req.query;
+    const username = req.user?.username || "anonymous";
+    const userRoles = req.user?.roles || [];
+
+    if (!schema_name || !table_name || !operation) {
+      return res.status(400).json({ error: "schema_name, table_name, and operation required" });
+    }
+
+    const username = req.user?.username || "anonymous";
+    const userRoles = req.user?.roles || [];
+    const columnName = req.query.column_name || "";
+    
+    const result = await executeSecurityCommand("check_permission", {
+      username,
+      user_roles: userRoles,
+      schema_name,
+      table_name,
+      column_name: columnName,
+      operation_type: operation
+    });
+    
+    res.json({ allowed: result.allowed });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error checking permissions", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/permissions/accessible-columns", requireAuth, async (req, res) => {
+  try {
+    const { schema_name, table_name } = req.query;
+    const username = req.user?.username || "anonymous";
+    const userRoles = req.user?.roles || [];
+
+    if (!schema_name || !table_name) {
+      return res.status(400).json({ error: "schema_name and table_name required" });
+    }
+
+    const username = req.user?.username || "anonymous";
+    const userRoles = req.user?.roles || [];
+    
+    const result = await executeSecurityCommand("get_accessible_columns", {
+      username,
+      user_roles: userRoles,
+      schema_name,
+      table_name
+    });
+    
+    res.json({ columns: result.columns });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting accessible columns", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/permissions/row-filter", requireAuth, async (req, res) => {
+  try {
+    const { schema_name, table_name } = req.query;
+    const username = req.user?.username || "anonymous";
+    const userRoles = req.user?.roles || [];
+
+    if (!schema_name || !table_name) {
+      return res.status(400).json({ error: "schema_name and table_name required" });
+    }
+
+    const username = req.user?.username || "anonymous";
+    const userRoles = req.user?.roles || [];
+    
+    const result = await executeSecurityCommand("get_row_filter", {
+      username,
+      user_roles: userRoles,
+      schema_name,
+      table_name
+    });
+    
+    res.json({ filter: result.filter });
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting row filter", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.get("/api/security/permissions/user-attributes", requireAuth, async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    const userId = user_id || req.user?.username || "anonymous";
+
+    const result = await pool.query(
+      "SELECT * FROM metadata.user_attributes WHERE user_id = $1",
+      [userId]
+    );
+
+    res.json(result.rows || []);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error getting user attributes", process.env.NODE_ENV === "production");
+    res.status(500).json({ error: safeError });
+  }
+});
+
+app.post("/api/security/permissions/user-attributes", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const { user_id, attribute_name, attribute_value } = req.body;
+
+    if (!user_id || !attribute_name || !attribute_value) {
+      return res.status(400).json({ error: "user_id, attribute_name, and attribute_value required" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO metadata.user_attributes (user_id, attribute_name, attribute_value, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT (user_id, attribute_name)
+       DO UPDATE SET attribute_value = EXCLUDED.attribute_value, updated_at = NOW()
+       RETURNING *`,
+      [user_id, attribute_name, attribute_value]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    const safeError = sanitizeError(err, "Error setting user attribute", process.env.NODE_ENV === "production");
     res.status(500).json({ error: safeError });
   }
 });

@@ -80,6 +80,11 @@ interface MaskingPolicy {
   masking_type: string;
   masking_function?: string;
   masking_params?: Record<string, any>;
+  masking_algorithm?: string;
+  preserve_format?: boolean;
+  mask_char?: string;
+  visible_chars?: number;
+  hash_algorithm?: string;
   role_whitelist?: string[];
   active: boolean;
   created_at?: string;
@@ -188,6 +193,11 @@ const DataMasking = () => {
       table_name: '',
       column_name: '',
       masking_type: 'FULL',
+      masking_algorithm: 'random',
+      preserve_format: false,
+      mask_char: '*',
+      visible_chars: 0,
+      hash_algorithm: 'SHA256',
       active: true,
     });
     setIsModalOpen(true);

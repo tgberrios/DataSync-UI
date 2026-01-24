@@ -418,6 +418,9 @@ const Layout = () => {
             <NavSubItem to="/row-level-security">
               ■ Row-Level Security
             </NavSubItem>
+            <NavSubItem to="/security-advanced">
+              ■ Security Advanced
+            </NavSubItem>
             <NavSubItem to="/audit-trail">
               ■ Audit Trail
             </NavSubItem>

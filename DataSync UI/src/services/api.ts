@@ -8201,6 +8201,348 @@ export const metadataApi = {
   }
 };
 
+// Security Advanced API
+export const securityApi = {
+  // Dynamic Masking
+  applyMasking: async (params: {
+    value: string;
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+  }) => {
+    try {
+      const response = await api.post("/security/masking/apply", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error applying masking:", error);
+      throw error;
+    }
+  },
+
+  getMaskingPolicies: async (params?: {
+    schema?: string;
+    table?: string;
+    column?: string;
+  }) => {
+    try {
+      const response = await api.get("/security/masking/policies", { params });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting masking policies:", error);
+      throw error;
+    }
+  },
+
+  createMaskingPolicy: async (policy: any) => {
+    try {
+      const response = await api.post("/security/masking/policies", policy);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating masking policy:", error);
+      throw error;
+    }
+  },
+
+  updateMaskingPolicy: async (id: number, policy: any) => {
+    try {
+      const response = await api.put(`/security/masking/policies/${id}`, policy);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating masking policy:", error);
+      throw error;
+    }
+  },
+
+  deleteMaskingPolicy: async (id: number) => {
+    try {
+      const response = await api.delete(`/security/masking/policies/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error deleting masking policy:", error);
+      throw error;
+    }
+  },
+
+  // Tokenization
+  tokenize: async (params: {
+    value: string;
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    reversible?: boolean;
+    token_type?: string;
+  }) => {
+    try {
+      const response = await api.post("/security/tokenization/tokenize", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error tokenizing:", error);
+      throw error;
+    }
+  },
+
+  detokenize: async (params: {
+    token: string;
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    reason?: string;
+  }) => {
+    try {
+      const response = await api.post("/security/tokenization/detokenize", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error detokenizing:", error);
+      throw error;
+    }
+  },
+
+  getTokens: async (params?: {
+    schema?: string;
+    table?: string;
+    column?: string;
+    limit?: number;
+  }) => {
+    try {
+      const response = await api.get("/security/tokenization/tokens", { params });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting tokens:", error);
+      throw error;
+    }
+  },
+
+  rotateTokens: async (params: {
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+  }) => {
+    try {
+      const response = await api.post("/security/tokenization/rotate", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error rotating tokens:", error);
+      throw error;
+    }
+  },
+
+  getEncryptionKeys: async () => {
+    try {
+      const response = await api.get("/security/tokenization/keys");
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting encryption keys:", error);
+      throw error;
+    }
+  },
+
+  rotateEncryptionKeys: async (keyId?: string) => {
+    try {
+      const response = await api.post("/security/tokenization/keys/rotate", { key_id: keyId });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error rotating encryption keys:", error);
+      throw error;
+    }
+  },
+
+  // Anonymization
+  anonymizeDataset: async (params: {
+    dataset: any[];
+    profile_name: string;
+  }) => {
+    try {
+      const response = await api.post("/security/anonymization/anonymize", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error anonymizing dataset:", error);
+      throw error;
+    }
+  },
+
+  getAnonymizationProfiles: async (params?: {
+    schema?: string;
+    table?: string;
+  }) => {
+    try {
+      const response = await api.get("/security/anonymization/profiles", { params });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting anonymization profiles:", error);
+      throw error;
+    }
+  },
+
+  createAnonymizationProfile: async (profile: any) => {
+    try {
+      const response = await api.post("/security/anonymization/profiles", profile);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating anonymization profile:", error);
+      throw error;
+    }
+  },
+
+  updateAnonymizationProfile: async (id: number, profile: any) => {
+    try {
+      const response = await api.put(`/security/anonymization/profiles/${id}`, profile);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating anonymization profile:", error);
+      throw error;
+    }
+  },
+
+  validateAnonymization: async (params: {
+    dataset: any[];
+    k?: number;
+    l?: number;
+    quasi_identifiers: string[];
+    sensitive_attribute?: string;
+  }) => {
+    try {
+      const response = await api.post("/security/anonymization/validate", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error validating anonymization:", error);
+      throw error;
+    }
+  },
+
+  // Fine-Grained Permissions
+  getPermissionPolicies: async (params?: {
+    schema?: string;
+    table?: string;
+    policy_type?: string;
+  }) => {
+    try {
+      const response = await api.get("/security/permissions/policies", { params });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting permission policies:", error);
+      throw error;
+    }
+  },
+
+  createPermissionPolicy: async (policy: any) => {
+    try {
+      const response = await api.post("/security/permissions/policies", policy);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating permission policy:", error);
+      throw error;
+    }
+  },
+
+  updatePermissionPolicy: async (id: number, policy: any) => {
+    try {
+      const response = await api.put(`/security/permissions/policies/${id}`, policy);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating permission policy:", error);
+      throw error;
+    }
+  },
+
+  deletePermissionPolicy: async (id: number) => {
+    try {
+      const response = await api.delete(`/security/permissions/policies/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error deleting permission policy:", error);
+      throw error;
+    }
+  },
+
+  checkPermission: async (params: {
+    schema_name: string;
+    table_name: string;
+    column_name?: string;
+    operation: string;
+  }) => {
+    try {
+      const response = await api.get("/security/permissions/check", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error checking permission:", error);
+      throw error;
+    }
+  },
+
+  getAccessibleColumns: async (params: {
+    schema_name: string;
+    table_name: string;
+  }) => {
+    try {
+      const response = await api.get("/security/permissions/accessible-columns", { params });
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return { columns: [] };
+      }
+      console.error("Error getting accessible columns:", error);
+      throw error;
+    }
+  },
+
+  getRowFilter: async (params: {
+    schema_name: string;
+    table_name: string;
+  }) => {
+    try {
+      const response = await api.get("/security/permissions/row-filter", { params });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error getting row filter:", error);
+      throw error;
+    }
+  },
+
+  getUserAttributes: async (userId?: string) => {
+    try {
+      const response = await api.get("/security/permissions/user-attributes", {
+        params: { user_id: userId }
+      });
+      return response.data || [];
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      console.error("Error getting user attributes:", error);
+      throw error;
+    }
+  },
+
+  setUserAttribute: async (params: {
+    user_id: string;
+    attribute_name: string;
+    attribute_value: string;
+  }) => {
+    try {
+      const response = await api.post("/security/permissions/user-attributes", params);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error setting user attribute:", error);
+      throw error;
+    }
+  }
+};
+
 // Export all APIs
 export default {
   authApi,
@@ -8215,7 +8557,8 @@ export default {
   bigDataApi,
   streamProcessingApi,
   performanceApi,
-  metadataApi
+  metadataApi,
+  securityApi
 };
       if (error?.response?.status === 404) {
         return null;

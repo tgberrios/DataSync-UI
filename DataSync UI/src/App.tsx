@@ -39,6 +39,7 @@ const BigDataProcessing = lazy(() => import("./components/big-data/BigDataProces
 const StreamProcessing = lazy(() => import("./components/stream-processing/StreamProcessing"));
 const PerformanceOptimization = lazy(() => import("./components/performance/PerformanceOptimization"));
 const MetadataDocumentation = lazy(() => import("./components/metadata/MetadataDocumentation"));
+const SecurityAdvanced = lazy(() => import("./components/security/SecurityAdvanced"));
 const Workflows = lazy(() => import("./components/workflows/Workflows"));
 const DBTModels = lazy(() => import("./components/dbt/DBTModels"));
 const DBTMacros = lazy(() => import("./components/dbt/DBTMacros"));
@@ -270,6 +271,16 @@ function App() {
               <ProtectedRoute>
                 <Suspense fallback={null}>
                   <MetadataDocumentation />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="security-advanced"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <SecurityAdvanced />
                 </Suspense>
               </ProtectedRoute>
             }
