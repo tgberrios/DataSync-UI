@@ -26637,7 +26637,6 @@ app.post("/api/security/tokenization/detokenize", requireAuth, requireRole("admi
       return res.status(400).json({ error: "token, schema_name, table_name, and column_name required" });
     }
 
-    const username = req.user?.username || "anonymous";
     const result = await executeSecurityCommand("detokenize", {
       token,
       username
@@ -27004,8 +27003,6 @@ app.get("/api/security/permissions/check", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "schema_name, table_name, and operation required" });
     }
 
-    const username = req.user?.username || "anonymous";
-    const userRoles = req.user?.roles || [];
     const columnName = req.query.column_name || "";
     
     const result = await executeSecurityCommand("check_permission", {
@@ -27033,9 +27030,6 @@ app.get("/api/security/permissions/accessible-columns", requireAuth, async (req,
     if (!schema_name || !table_name) {
       return res.status(400).json({ error: "schema_name and table_name required" });
     }
-
-    const username = req.user?.username || "anonymous";
-    const userRoles = req.user?.roles || [];
     
     const result = await executeSecurityCommand("get_accessible_columns", {
       username,
@@ -27060,9 +27054,6 @@ app.get("/api/security/permissions/row-filter", requireAuth, async (req, res) =>
     if (!schema_name || !table_name) {
       return res.status(400).json({ error: "schema_name and table_name required" });
     }
-
-    const username = req.user?.username || "anonymous";
-    const userRoles = req.user?.roles || [];
     
     const result = await executeSecurityCommand("get_row_filter", {
       username,

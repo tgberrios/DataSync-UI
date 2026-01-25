@@ -226,7 +226,6 @@ const Layout = () => {
     operations: false,
     system: false,
     monitoring: false,
-    catalog: false,
     maintenance: false,
   });
 

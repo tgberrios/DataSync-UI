@@ -1376,25 +1376,6 @@ export const logsApi = {
   },
 };
 
-export const securityApi = {
-  getSecurityData: async () => {
-    try {
-      const response = await api.get("/security/data");
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching security data:", error);
-      if (axios.isAxiosError(error) && error.response) {
-        throw new Error(
-          error.response.data.details ||
-            error.response.data.error ||
-            error.message
-        );
-      }
-      throw error;
-    }
-  },
-};
-
 export const queryPerformanceApi = {
   getQueries: async (params: {
     page?: number;
@@ -8540,6 +8521,23 @@ export const securityApi = {
       console.error("Error setting user attribute:", error);
       throw error;
     }
+  },
+
+  getSecurityData: async () => {
+    try {
+      const response = await api.get("/security/data");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching security data:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
   }
 };
 
@@ -9089,10 +9087,8 @@ export const datalakeApi = {
 // Export all APIs
 export default {
   authApi,
-  connectionApi,
   catalogApi,
-  syncApi,
-  transformationApi,
+  transformationsApi,
   workflowApi,
   dataWarehouseApi,
   dataVaultApi,
@@ -9104,12 +9100,4 @@ export default {
   securityApi,
   monitoringApi,
   datalakeApi
-};
-      if (error?.response?.status === 404) {
-        return null;
-      }
-      console.error("Error getting stream processing stats:", error);
-      throw error;
-    }
-  },
 };
