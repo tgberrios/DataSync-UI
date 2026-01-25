@@ -1,0 +1,1 @@
+const s=e=>{var n;if(e&&typeof e=="object"&&"response"in e){const t=e;if((n=t.response)!=null&&n.data)return t.response.data.details||t.response.data.error||"An error occurred"}return e instanceof Error?e.message:typeof e=="string"?e:"An unexpected error occurred"};export{s as e};
