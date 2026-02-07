@@ -58,11 +58,17 @@ const ResourceTracking = () => {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const getUsageColor = (percent: number) => {
+  const getUsageColor = (percent: number | null | undefined) => {
+    if (percent == null || Number.isNaN(percent)) return asciiColors.muted;
     if (percent > 90) return asciiColors.error;
     if (percent > 80) return asciiColors.warning;
     return asciiColors.success;
   };
+
+  const formatPercent = (n: number | null | undefined) =>
+    n != null && !Number.isNaN(n) ? n.toFixed(1) : '—';
+  const formatNumber = (n: number | null | undefined, decimals = 0) =>
+    n != null && !Number.isNaN(n) ? n.toFixed(decimals) : '—';
 
   if (loading && !currentResources) {
     return <SkeletonLoader />;
@@ -137,7 +143,7 @@ const ResourceTracking = () => {
                     fontWeight: 600,
                     color: getUsageColor(currentResources.cpu_percent)
                   }}>
-                    {currentResources.cpu_percent.toFixed(1)}%
+                    {formatPercent(currentResources.cpu_percent)}%
                   </div>
                 </div>
                 <div style={{
@@ -153,10 +159,10 @@ const ResourceTracking = () => {
                     fontWeight: 600,
                     color: getUsageColor(currentResources.memory_percent)
                   }}>
-                    {currentResources.memory_percent.toFixed(1)}%
+                    {formatPercent(currentResources.memory_percent)}%
                   </div>
                   <div style={{ fontSize: 10, color: asciiColors.muted, marginTop: theme.spacing.xs }}>
-                    {currentResources.memory_used_mb.toFixed(0)} MB / {currentResources.memory_total_mb.toFixed(0)} MB
+                    {formatNumber(currentResources.memory_used_mb)} MB / {formatNumber(currentResources.memory_total_mb)} MB
                   </div>
                 </div>
                 <div style={{
@@ -168,7 +174,7 @@ const ResourceTracking = () => {
                     DB Connections
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 600, color: asciiColors.foreground }}>
-                    {currentResources.db_connections}
+                    {currentResources.db_connections != null ? currentResources.db_connections : '—'}
                   </div>
                 </div>
                 <div style={{
@@ -182,9 +188,9 @@ const ResourceTracking = () => {
                   <div style={{
                     fontSize: 20,
                     fontWeight: 600,
-                    color: currentResources.db_locks > 10 ? asciiColors.error : asciiColors.foreground
+                    color: (currentResources.db_locks ?? 0) > 10 ? asciiColors.error : asciiColors.foreground
                   }}>
-                    {currentResources.db_locks}
+                    {currentResources.db_locks != null ? currentResources.db_locks : '—'}
                   </div>
                 </div>
                 <div style={{
@@ -198,9 +204,9 @@ const ResourceTracking = () => {
                   <div style={{
                     fontSize: 20,
                     fontWeight: 600,
-                    color: currentResources.db_cache_hit_ratio < 80 ? asciiColors.warning : asciiColors.success
+                    color: (currentResources.db_cache_hit_ratio ?? 0) < 80 ? asciiColors.warning : asciiColors.success
                   }}>
-                    {currentResources.db_cache_hit_ratio.toFixed(1)}%
+                    {formatPercent(currentResources.db_cache_hit_ratio)}%
                   </div>
                 </div>
               </div>
@@ -250,7 +256,7 @@ const ResourceTracking = () => {
                       )}
                     </div>
                     <div style={{ fontSize: 12, color: asciiColors.muted }}>
-                      Current: {pred.current_usage.toFixed(1)}% | Predicted: {pred.predicted_usage.toFixed(1)}% | Confidence: {pred.confidence.toFixed(1)}%
+                      Current: {formatPercent(pred.current_usage)}% | Predicted: {formatPercent(pred.predicted_usage)}% | Confidence: {formatPercent(pred.confidence)}%
                     </div>
                   </div>
                 ))}

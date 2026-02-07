@@ -1,37 +1,6 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { Pool } from "pg";
-import path from "path";
-import fs from "fs";
-
-function loadConfig() {
-  try {
-    const configPath = path.join(process.cwd(), "..", "config", "config.json");
-    const configData = fs.readFileSync(configPath, "utf8");
-    return JSON.parse(configData);
-  } catch (error) {
-    return {
-      database: {
-        postgres: {
-          host: process.env.POSTGRES_HOST || "localhost",
-          port: parseInt(process.env.POSTGRES_PORT || "5432", 10),
-          database: process.env.POSTGRES_DATABASE || "DataLake",
-          user: process.env.POSTGRES_USER || "postgres",
-          password: process.env.POSTGRES_PASSWORD || "",
-        },
-      },
-    };
-  }
-}
-
-const config = loadConfig();
-const pool = new Pool({
-  host: config.database.postgres.host,
-  port: config.database.postgres.port,
-  database: config.database.postgres.database,
-  user: config.database.postgres.user,
-  password: config.database.postgres.password,
-});
+import { pool } from "../services/database.service.js";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "datasync-secret-key-change-in-production";
@@ -39,6 +8,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
 
 async function initializeUsersTable() {
   try {
+    console.log("Initializing users table...");
     await pool.query(`
       CREATE TABLE IF NOT EXISTS metadata.users (
         id SERIAL PRIMARY KEY,
@@ -52,6 +22,7 @@ async function initializeUsersTable() {
         last_login TIMESTAMP
       )
     `);
+    console.log("Users table created/verified successfully");
     
     try {
       const constraintExists = await pool.query(`
@@ -95,6 +66,7 @@ async function initializeUsersTable() {
     );
 
     if (existingAdmin.rows.length === 0) {
+      console.log("Creating default admin user...");
       const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || "ADMIN";
       const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
@@ -104,24 +76,40 @@ async function initializeUsersTable() {
            VALUES ($1, $2, $3, $4, $5)`,
           ["ADMIN", "admin@datasync.local", passwordHash, "admin", true]
         );
+        console.log("Default admin user created");
       } catch (insertError) {
         if (insertError.code === '23505') {
+          console.log("Admin user already exists");
         } else {
+          console.error("Error creating admin user:", insertError);
           throw insertError;
         }
       }
+    } else {
+      console.log("Admin user already exists");
     }
+    
+    console.log("Users table initialization completed successfully");
   } catch (error) {
     console.error("Error initializing users table:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+      stack: error.stack
+    });
     throw error;
   }
 }
 
 async function authenticateUser(username, password) {
+  console.log("authenticateUser called for username:", username);
+  
   const HARDCODED_ADMIN_USERNAME = "admin";
   const HARDCODED_ADMIN_PASSWORD = "admin123";
 
   if (username === HARDCODED_ADMIN_USERNAME && password === HARDCODED_ADMIN_PASSWORD) {
+    console.log("Using hardcoded admin credentials");
     const token = jwt.sign(
       {
         userId: 0,
@@ -145,10 +133,12 @@ async function authenticateUser(username, password) {
   }
 
   try {
+    console.log("Querying database for user:", username);
     const result = await pool.query(
       "SELECT id, username, email, password_hash, role, active FROM metadata.users WHERE username = $1 OR email = $1",
       [username]
     );
+    console.log("Database query result:", result.rows.length > 0 ? "User found" : "User not found");
 
     if (!result || !result.rows || result.rows.length === 0) {
       return { success: false, error: "Invalid credentials" };
@@ -206,8 +196,14 @@ async function authenticateUser(username, password) {
     };
   } catch (error) {
     console.error("Error authenticating user:", error);
-    console.error("Error stack:", error.stack);
-    return { success: false, error: "Authentication failed" };
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+      stack: error.stack
+    });
+    // Re-throw the error so it can be caught by the route handler
+    throw error;
   }
 }
 

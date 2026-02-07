@@ -860,6 +860,8 @@ const UnifiedMonitor: React.FC = () => {
   const [dbHealth, setDbHealth] = useState<any>({});
   
   const [performanceTierFilter, setPerformanceTierFilter] = useState<string>('');
+  const [performanceSortBy, setPerformanceSortBy] = useState<'mean_time_ms' | 'dbname' | 'performance_tier' | 'query_efficiency_score' | 'calls' | 'query_text'>('mean_time_ms');
+  const [performanceSortOrder, setPerformanceSortOrder] = useState<'asc' | 'desc'>('desc');
   const [liveEventTypeFilter, setLiveEventTypeFilter] = useState<string>('');
   const [liveEventStatusFilter, setLiveEventStatusFilter] = useState<string>('');
   const [transferStatusFilter, setTransferStatusFilter] = useState<string>('');
@@ -1138,6 +1140,25 @@ const UnifiedMonitor: React.FC = () => {
       return databases;
     }
   }, [activeTab, activeQueries, processingLogs, queryPerformance, transferMetrics, performanceTierFilter, liveEventTypeFilter, liveEventStatusFilter, transferStatusFilter, transferTypeFilter, transferEngineFilter]);
+
+  const sortedPerformanceQueries = useMemo(() => {
+    const filtered = performanceTierFilter
+      ? queryPerformance.filter((q: any) => q.performance_tier === performanceTierFilter)
+      : [...queryPerformance];
+    const order = performanceSortOrder === 'desc' ? 1 : -1;
+    return [...filtered].sort((a: any, b: any) => {
+      let aVal: string | number = a[performanceSortBy];
+      let bVal: string | number = b[performanceSortBy];
+      if (performanceSortBy === 'mean_time_ms' || performanceSortBy === 'query_efficiency_score' || performanceSortBy === 'calls') {
+        aVal = Number(aVal) ?? 0;
+        bVal = Number(bVal) ?? 0;
+        return order * (aVal - bVal);
+      }
+      const aStr = String(aVal ?? '').toLowerCase();
+      const bStr = String(bVal ?? '').toLowerCase();
+      return order * (aStr < bStr ? -1 : aStr > bStr ? 1 : 0);
+    });
+  }, [queryPerformance, performanceTierFilter, performanceSortBy, performanceSortOrder]);
 
   const toggleNode = useCallback((key: string) => {
     setExpandedNodes(prev => {
@@ -1516,6 +1537,287 @@ const UnifiedMonitor: React.FC = () => {
         </div>
       );
     });
+  };
+
+  const getPerformanceTierBadgeColor = useCallback((status: string) => {
+    const upperStatus = (status || '').toUpperCase();
+    if (upperStatus.includes('ERROR') || upperStatus.includes('FAILED') || upperStatus === 'POOR') {
+      return asciiColors.foreground;
+    }
+    if (upperStatus.includes('WARNING') || upperStatus === 'FAIR') {
+      return asciiColors.muted;
+    }
+    if (upperStatus.includes('SUCCESS') || upperStatus === 'EXCELLENT' || upperStatus === 'GOOD') {
+      return asciiColors.accent;
+    }
+    return asciiColors.muted;
+  }, []);
+
+  const togglePerformanceSort = useCallback((col: typeof performanceSortBy) => {
+    setPerformanceSortBy(col);
+    setPerformanceSortOrder(prev => (performanceSortBy === col && prev === 'desc' ? 'asc' : 'desc'));
+  }, [performanceSortBy]);
+
+  const renderPerformanceCompactList = () => {
+    if (sortedPerformanceQueries.length === 0) {
+      return (
+        <div style={{
+          padding: 40,
+          textAlign: "center",
+          color: asciiColors.muted,
+          fontSize: 12
+        }}>
+          {ascii.dot} No queries match the current filter
+        </div>
+      );
+    }
+    const SortLink = ({ label, col }: { label: string; col: typeof performanceSortBy }) => (
+      <button
+        type="button"
+        onClick={() => togglePerformanceSort(col)}
+        style={{
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          fontFamily: "Consolas",
+          fontSize: 10,
+          fontWeight: performanceSortBy === col ? 600 : 500,
+          color: performanceSortBy === col ? asciiColors.accent : asciiColors.muted,
+          cursor: "pointer",
+          transition: "all 0.15s ease"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = asciiColors.accent;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = performanceSortBy === col ? asciiColors.accent : asciiColors.muted;
+        }}
+      >
+        {label}{performanceSortBy === col ? (performanceSortOrder === 'desc' ? ' ↓' : ' ↑') : ''}
+      </button>
+    );
+    return (
+      <div style={{ fontFamily: "Consolas", fontSize: 12 }}>
+        <div style={{
+          display: "flex",
+          gap: 12,
+          padding: "8px 0",
+          marginBottom: 8,
+          borderBottom: `1px solid ${asciiColors.border}`,
+          flexWrap: "wrap"
+        }}>
+          <SortLink label="Time" col="mean_time_ms" />
+          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
+          <SortLink label="DB" col="dbname" />
+          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
+          <SortLink label="Tier" col="performance_tier" />
+          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
+          <SortLink label="Efficiency" col="query_efficiency_score" />
+          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
+          <SortLink label="Calls" col="calls" />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {sortedPerformanceQueries.map((item: any, idx: number) => {
+            const isSelected = selectedItem === item;
+            const timeStr = formatTime(item.mean_time_ms || item.query_duration_ms);
+            const tier = item.performance_tier || 'N/A';
+            const snippet = item.query_text ? (item.query_text.length > 50 ? `${item.query_text.substring(0, 50)}…` : item.query_text) : 'N/A';
+            return (
+              <div
+                key={item.queryid ?? idx}
+                onClick={() => setSelectedItem(item)}
+                title={item.query_text || ''}
+                style={{
+                  cursor: "pointer",
+                  padding: "6px 10px",
+                  borderRadius: 2,
+                  backgroundColor: isSelected ? asciiColors.backgroundSoft : "transparent",
+                  borderLeft: `2px solid ${isSelected ? asciiColors.accent : "transparent"}`,
+                  transition: "all 0.15s ease",
+                  fontSize: 11,
+                  color: asciiColors.foreground,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                <span style={{ fontWeight: 600, color: asciiColors.foreground, marginRight: 8 }}>{timeStr}</span>
+                <span style={{ color: asciiColors.border, marginRight: 8 }}>{ascii.dot}</span>
+                <span style={{
+                  padding: "1px 4px",
+                  borderRadius: 2,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  border: `1px solid ${getPerformanceTierBadgeColor(tier)}`,
+                  color: getPerformanceTierBadgeColor(tier),
+                  backgroundColor: "transparent",
+                  marginRight: 8
+                }}>
+                  {tier}
+                </span>
+                <span style={{ color: asciiColors.border, marginRight: 8 }}>{ascii.dot}</span>
+                <span style={{ color: asciiColors.muted }}>{snippet}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const PERFORMANCE_CHART_SIZE = { w: 480, h: 220 };
+  const PERFORMANCE_BAR_TOP_N = 15;
+
+  /** Time-bucketed series: bucket by hour, Y = sum(calls) per bucket (or count of queries if no calls) to show query volume peaks. */
+  const performanceTimeSeries = useMemo(() => {
+    const data = sortedPerformanceQueries;
+    if (data.length === 0) return [];
+    const byBucket = new Map<number, number>();
+    for (const q of data) {
+      const raw = q.captured_at || q.query_start;
+      if (!raw) continue;
+      const t = new Date(raw).getTime();
+      if (isNaN(t)) continue;
+      const bucketMs = 60 * 60 * 1000; // 1 hour
+      const bucket = Math.floor(t / bucketMs) * bucketMs;
+      const volume = Number(q.calls) ?? 1; // use 1 per row if calls missing so we still see peaks
+      byBucket.set(bucket, (byBucket.get(bucket) || 0) + volume);
+    }
+    const sorted = Array.from(byBucket.entries())
+      .map(([ts, volume]) => ({ ts, volume }))
+      .sort((a, b) => a.ts - b.ts);
+    return sorted;
+  }, [sortedPerformanceQueries]);
+
+  const renderPerformanceAreaChart = () => {
+    const series = performanceTimeSeries;
+    if (series.length === 0) return (
+      <div style={{ padding: 24, textAlign: "center", color: asciiColors.muted, fontSize: 11 }}>
+        No time data (captured_at). Load more history to see query volume over time.
+      </div>
+    );
+    const padding = { top: 20, right: 24, bottom: 32, left: 44 };
+    const w = PERFORMANCE_CHART_SIZE.w;
+    const h = PERFORMANCE_CHART_SIZE.h;
+    const innerW = w - padding.left - padding.right;
+    const innerH = h - padding.top - padding.bottom;
+    const minT = Math.min(...series.map((d) => d.ts));
+    const maxT = Math.max(...series.map((d) => d.ts));
+    const rangeT = Math.max(1, maxT - minT);
+    const maxVol = Math.max(1, ...series.map((d) => d.volume));
+    const scaleX = (ts: number) => padding.left + ((ts - minT) / rangeT) * innerW;
+    const scaleY = (v: number) => padding.top + innerH - (v / maxVol) * innerH;
+    const baselineY = padding.top + innerH;
+    const points = series.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(" ");
+    const areaPoints = `${padding.left},${baselineY} ${points} ${padding.left + innerW},${baselineY}`;
+    const linePoints = series.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(" ");
+    const formatTick = (ts: number) => {
+      const d = new Date(ts);
+      return series.length > 6 ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    };
+    const gridLines = 4;
+    const isLocalPeak = (i: number) => {
+      if (series.length <= 1) return true;
+      const v = series[i].volume;
+      if (i === 0) return v >= series[1].volume;
+      if (i === series.length - 1) return v >= series[series.length - 2].volume;
+      return v >= series[i - 1].volume && v >= series[i + 1].volume;
+    };
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
+          Query volume over time
+        </div>
+        <svg width={w} height={h} style={{ display: "block", border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background }}>
+          {/* Horizontal grid */}
+          {Array.from({ length: gridLines + 1 }).map((_, i) => {
+            const y = padding.top + (innerH * i) / gridLines;
+            const val = maxVol - (maxVol * i) / gridLines;
+            return (
+              <g key={i}>
+                <line x1={padding.left} y1={y} x2={w - padding.right} y2={y} stroke={asciiColors.border} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />
+                {i < gridLines + 1 && (
+                  <text x={padding.left - 6} y={y + 4} textAnchor="end" fontSize={9} fill={asciiColors.muted}>{i === 0 ? maxVol : Math.round(val)}</text>
+                )}
+              </g>
+            );
+          })}
+          <line x1={padding.left} y1={padding.top} x2={padding.left} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+          <line x1={padding.left} y1={h - padding.bottom} x2={w - padding.right} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+          {/* X-axis labels (thin out if many points) */}
+          {series.map((d, i) => {
+            const step = series.length > 10 ? Math.max(1, Math.floor(series.length / 6)) : 1;
+            if (step > 1 && i % step !== 0 && i !== series.length - 1) return null;
+            return (
+              <text key={d.ts} x={scaleX(d.ts)} y={h - padding.bottom + 14} textAnchor="middle" fontSize={9} fill={asciiColors.muted}>{formatTick(d.ts)}</text>
+            );
+          })}
+          {/* Area under line */}
+          <polygon points={areaPoints} fill={asciiColors.backgroundSoft} stroke="none" />
+          {/* Line on top */}
+          <polyline points={linePoints} fill="none" stroke={asciiColors.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          {/* Values at peaks (like the daily chart with numbers on top) */}
+          {series.map((d, i) => {
+            if (!isLocalPeak(i)) return null;
+            const px = scaleX(d.ts);
+            const py = scaleY(d.volume);
+            const labelY = py - 8;
+            return (
+              <text key={`peak-${d.ts}`} x={px} y={labelY < padding.top + 10 ? py + 14 : labelY} textAnchor="middle" fontSize={10} fontWeight={600} fill={asciiColors.foreground}>
+                {d.volume >= 1000 ? `${(d.volume / 1000).toFixed(1)}k` : d.volume}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
+    );
+  };
+
+  const renderPerformanceBarChart = () => {
+    const topN = [...sortedPerformanceQueries]
+      .map((q: any) => ({ ...q, _mean: Number(q.mean_time_ms) || 0 }))
+      .filter((q: any) => q._mean > 0)
+      .sort((a: any, b: any) => b._mean - a._mean)
+      .slice(0, PERFORMANCE_BAR_TOP_N);
+    if (topN.length === 0) return (
+      <div style={{ padding: 24, textAlign: "center", color: asciiColors.muted, fontSize: 11 }}>No data</div>
+    );
+    const maxTime = Math.max(1, ...topN.map((q: any) => q._mean));
+    const barH = 18;
+    const gap = 4;
+    const labelW = 140;
+    const barW = 200;
+    const totalH = topN.length * (barH + gap) - gap;
+    const h = Math.max(120, totalH + 24);
+    const w = labelW + barW + 60;
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>Top {PERFORMANCE_BAR_TOP_N} slowest (mean time)</div>
+        <svg width={w} height={h} style={{ display: "block", border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
+          {topN.map((q: any, i: number) => {
+            const y = 16 + i * (barH + gap);
+            const width = (q._mean / maxTime) * barW;
+            const fill = getPerformanceTierBadgeColor(q.performance_tier || 'N/A');
+            const isSelected = selectedItem === q;
+            const label = (q.query_text || '').substring(0, 22);
+            return (
+              <g key={q.queryid ?? i} onClick={() => setSelectedItem(q)} style={{ cursor: "pointer" }}>
+                <text x={4} y={y + barH - 4} fontSize={9} fill={asciiColors.muted} style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}{label.length >= 22 ? '…' : ''}</text>
+                <rect x={labelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                <rect x={labelW} y={y} width={width} height={barH - 2} fill={fill} rx={2} opacity={0.85} stroke={isSelected ? asciiColors.foreground : "none"} strokeWidth={isSelected ? 2 : 0} />
+                <text x={labelW + barW + 6} y={y + barH - 4} fontSize={9} fill={asciiColors.foreground}>{formatTime(q._mean)}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    );
   };
 
   const renderCharts = () => {
@@ -2944,7 +3246,8 @@ const UnifiedMonitor: React.FC = () => {
       data: number[],
       color: string,
       icon: string,
-      maxValue?: number
+      maxValue?: number,
+      decimalPlaces: number = 1
     ) => {
       const currentValue = data.length > 0 ? data[data.length - 1] : 0;
       const displayValue = value || currentValue;
@@ -2999,7 +3302,7 @@ const UnifiedMonitor: React.FC = () => {
               color: color,
               fontFamily: "Consolas"
             }}>
-              {displayValue.toFixed(1)}{unit}
+              {displayValue.toFixed(decimalPlaces)}{unit}
             </div>
           </div>
           
@@ -3036,8 +3339,8 @@ const UnifiedMonitor: React.FC = () => {
               marginTop: 2,
               fontFamily: "Consolas"
             }}>
-              <span>Min: {minValue.toFixed(1)}{unit}</span>
-              <span>Max: {maxValueData.toFixed(1)}{unit}</span>
+              <span>Min: {minValue.toFixed(decimalPlaces)}{unit}</span>
+              <span>Max: {maxValueData.toFixed(decimalPlaces)}{unit}</span>
             </div>
           )}
         </div>
@@ -3109,7 +3412,9 @@ const UnifiedMonitor: React.FC = () => {
               " RPS",
               resourceHistory.throughput,
               asciiColors.accent,
-              ascii.dot
+              ascii.dot,
+              undefined,
+              2
             )}
           </div>
         </div>
@@ -3154,7 +3459,9 @@ const UnifiedMonitor: React.FC = () => {
               "",
               resourceHistory.dbQueriesPerSecond,
               asciiColors.accent,
-              ascii.blockSemi
+              ascii.blockSemi,
+              undefined,
+              3
             )}
           </div>
         </div>
@@ -3854,31 +4161,55 @@ const UnifiedMonitor: React.FC = () => {
           minHeight: 600,
           marginTop: activeTab === 'transfer' ? 24 : 0
         }}>
-          <AsciiPanel title="TREE VIEW">
+          <AsciiPanel title={activeTab === 'performance' ? 'QUERY LIST' : 'TREE VIEW'}>
             <div style={{
               fontFamily: "Consolas",
               fontSize: 12,
               maxHeight: "calc(100vh - 400px)",
               overflowY: "auto",
-              overflowX: "hidden",
+              overflowX: "auto",
               scrollbarWidth: "thin",
               scrollbarColor: `${asciiColors.border} transparent`
             }}
             className="tree-view-container"
             >
-              {renderTree()}
+              {activeTab === 'performance' ? renderPerformanceCompactList() : renderTree()}
             </div>
           </AsciiPanel>
           
-          <AsciiPanel title="DETAILS">
-            <div style={{
-              maxHeight: "calc(100vh - 400px)",
-              overflowY: "auto",
-              transition: "opacity 0.15s ease"
-            }}>
-              {renderDetails()}
+          {activeTab === 'performance' ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+              <AsciiPanel title="QUERY VOLUME OVER TIME — Area / line (picos = más queries)">
+                <div style={{ overflowX: "auto" }}>
+                  {renderPerformanceAreaChart()}
+                </div>
+              </AsciiPanel>
+              <AsciiPanel title="TOP SLOWEST — Bar chart">
+                <div style={{ overflowX: "auto" }}>
+                  {renderPerformanceBarChart()}
+                </div>
+              </AsciiPanel>
+              <AsciiPanel title="DETAILS">
+                <div style={{
+                  maxHeight: 280,
+                  overflowY: "auto",
+                  transition: "opacity 0.15s ease"
+                }}>
+                  {renderDetails()}
+                </div>
+              </AsciiPanel>
             </div>
-          </AsciiPanel>
+          ) : (
+            <AsciiPanel title="DETAILS">
+              <div style={{
+                maxHeight: "calc(100vh - 400px)",
+                overflowY: "auto",
+                transition: "opacity 0.15s ease"
+              }}>
+                {renderDetails()}
+              </div>
+            </AsciiPanel>
+          )}
         </div>
       )}
       <style>{`
@@ -3958,7 +4289,7 @@ const UnifiedMonitor: React.FC = () => {
                       <span style={{ color: asciiColors.muted }}>├─</span> <strong>Live Changes:</strong> Monitor Change Data Capture (CDC) events and full load operations in real-time
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Query Performance:</strong> Analyze query performance metrics with tier classification (EXCELLENT, GOOD, FAIR, POOR)
+                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Query Performance:</strong> Sortable table of queries with mean time, tier (EXCELLENT, GOOD, FAIR, POOR), efficiency, and calls; click a row for full details
                     </div>
                     <div style={{ marginBottom: 8 }}>
                       <span style={{ color: asciiColors.muted }}>├─</span> <strong>Transfer Metrics:</strong> Track data transfer operations across all database engines and sources

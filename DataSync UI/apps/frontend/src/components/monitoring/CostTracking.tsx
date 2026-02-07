@@ -89,8 +89,16 @@ const CostTracking = () => {
   }, [fetchData]);
 
   const getBudgetUsagePercent = (budget: Budget) => {
-    return (budget.current_spend / budget.amount) * 100;
+    const amount = budget?.amount;
+    const spend = budget?.current_spend;
+    if (amount == null || amount === 0 || spend == null) return 0;
+    return (spend / amount) * 100;
   };
+
+  const formatCurrency = (n: number | null | undefined) =>
+    n != null && !Number.isNaN(n) ? n.toFixed(2) : '0.00';
+  const formatPercent = (n: number | null | undefined) =>
+    n != null && !Number.isNaN(n) ? n.toFixed(1) : '0';
 
   if (loading && !summary) {
     return <SkeletonLoader />;
@@ -187,7 +195,7 @@ const CostTracking = () => {
                     Total Cost
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 600, color: asciiColors.foreground }}>
-                    ${summary.total_cost.toFixed(2)}
+                    ${formatCurrency(summary.total_cost)}
                   </div>
                 </div>
                 <div style={{
@@ -199,7 +207,7 @@ const CostTracking = () => {
                     Compute
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.foreground }}>
-                    ${summary.compute_cost.toFixed(2)}
+                    ${formatCurrency(summary.compute_cost)}
                   </div>
                 </div>
                 <div style={{
@@ -211,7 +219,7 @@ const CostTracking = () => {
                     Storage
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.foreground }}>
-                    ${summary.storage_cost.toFixed(2)}
+                    ${formatCurrency(summary.storage_cost)}
                   </div>
                 </div>
                 <div style={{
@@ -223,7 +231,7 @@ const CostTracking = () => {
                     Network
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.foreground }}>
-                    ${summary.network_cost.toFixed(2)}
+                    ${formatCurrency(summary.network_cost)}
                   </div>
                 </div>
                 <div style={{
@@ -235,7 +243,7 @@ const CostTracking = () => {
                     Operations
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 600, color: asciiColors.foreground }}>
-                    {summary.operation_count}
+                    {summary.operation_count != null ? summary.operation_count : '—'}
                   </div>
                 </div>
               </div>
@@ -298,7 +306,7 @@ const CostTracking = () => {
                           fontWeight: 600,
                           color: exceedsThreshold ? asciiColors.error : asciiColors.foreground
                         }}>
-                          {usagePercent.toFixed(1)}%
+                          {formatPercent(usagePercent)}%
                         </span>
                       </div>
                       <div style={{
@@ -316,7 +324,7 @@ const CostTracking = () => {
                         }} />
                       </div>
                       <div style={{ fontSize: 11, color: asciiColors.muted }}>
-                        ${budget.current_spend.toFixed(2)} / ${budget.amount.toFixed(2)}
+                        ${formatCurrency(budget.current_spend)} / ${formatCurrency(budget.amount)}
                       </div>
                     </div>
                   );
