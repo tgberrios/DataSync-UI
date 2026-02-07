@@ -14,6 +14,7 @@ import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import ColumnCatalogTreeView from './ColumnCatalogTreeView';
 import ColumnCatalogCharts from './ColumnCatalogCharts';
+import { LineageMetricsDashboard } from '../data-lineage/LineageSummaryCards';
 
 
 
@@ -159,6 +160,24 @@ const ColumnCatalog = () => {
     clearFilters();
   }, [clearFilters]);
 
+  const metricsDashboardCards = useMemo(() => [
+    {
+      title: 'Columns',
+      rows: [
+        { label: 'Total Columns', value: formatNumber(metrics.total_columns) },
+        { label: 'PII Columns', value: formatNumber(metrics.pii_columns) },
+        { label: 'PHI Columns', value: formatNumber(metrics.phi_columns) },
+        { label: 'High Sensitivity', value: formatNumber(metrics.high_sensitivity) },
+      ],
+    },
+    {
+      title: 'Keys & indexes',
+      rows: [
+        { label: 'Primary Keys', value: formatNumber(metrics.primary_keys) },
+        { label: 'Indexed Columns', value: formatNumber(metrics.indexed_columns) },
+      ],
+    },
+  ], [metrics, formatNumber]);
 
   if (loadingTree && allColumns.length === 0) {
     return (
@@ -227,44 +246,8 @@ const ColumnCatalog = () => {
           </AsciiPanel>
         </div>
       )}
-      
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: 12, 
-        marginBottom: 24 
-      }}>
-        <AsciiPanel title="Total Columns">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.total_columns)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="PII Columns">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.pii_columns)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="PHI Columns">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.phi_columns)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="High Sensitivity">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.high_sensitivity)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Primary Keys">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.primary_keys)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Indexed Columns">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.indexed_columns)}
-          </div>
-        </AsciiPanel>
-      </div>
+
+      <LineageMetricsDashboard cards={metricsDashboardCards} />
 
       {showMetricsPlaybook && (
         <div style={{

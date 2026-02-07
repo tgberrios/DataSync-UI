@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import Layout from "./components/shared/Layout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -9,11 +9,8 @@ const Catalog = lazy(() => import("./components/catalog/Catalog"));
 const UnifiedMonitor = lazy(() => import("./components/monitoring/UnifiedMonitor"));
 const DistributedTracingView = lazy(() => import("./components/monitoring/DistributedTracingView"));
 const APMDashboard = lazy(() => import("./components/monitoring/APMDashboard"));
-const BottleneckDetection = lazy(() => import("./components/monitoring/BottleneckDetection"));
-const ResourceTracking = lazy(() => import("./components/monitoring/ResourceTracking"));
 const CostTracking = lazy(() => import("./components/monitoring/CostTracking"));
 const LogAggregationConfig = lazy(() => import("./components/monitoring/LogAggregationConfig"));
-const AdvancedAlerting = lazy(() => import("./components/monitoring/AdvancedAlerting"));
 const DataLakeMapping = lazy(() => import("./components/catalog/DataLakeMapping"));
 const CDCCleanup = lazy(() => import("./components/maintenance/CDCCleanup"));
 const UnusedObjects = lazy(() => import("./components/catalog/UnusedObjects"));
@@ -76,7 +73,7 @@ const Login = lazy(() => import("./components/auth/Login"));
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={
           <RouteTransition minDelay={750}>
@@ -397,26 +394,6 @@ function App() {
             }
           />
           <Route
-            path="monitoring/bottlenecks"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={null}>
-                  <BottleneckDetection />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="monitoring/resources"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={null}>
-                  <ResourceTracking />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="monitoring/costs"
             element={
               <ProtectedRoute>
@@ -436,16 +413,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="monitoring/alerting"
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={null}>
-                  <AdvancedAlerting />
-                </Suspense>
-              </ProtectedRoute>
-            }
-          />
+          <Route path="monitoring/alerting" element={<Navigate to="/webhooks" replace />} />
           <Route
             path="datalake-mapping"
             element={

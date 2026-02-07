@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import {
   Container,
@@ -17,6 +17,7 @@ import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceTreeView from './GovernanceTreeView';
 import GovernanceCharts from './GovernanceCharts';
 import SkeletonLoader from '../shared/SkeletonLoader';
+import { LineageMetricsDashboard } from '../data-lineage/LineageSummaryCards';
 
 const fadeIn = keyframes`
   from {
@@ -288,8 +289,25 @@ const Governance = () => {
     return num.toLocaleString();
   }, []);
 
-
-
+  const metricsDashboardCards = useMemo(() => [
+    {
+      title: 'Overview',
+      rows: [
+        { label: 'Total Tables', value: formatNumber(metrics.total_tables) },
+        { label: 'Total Size', value: formatBytes(metrics.total_size_mb) },
+        { label: 'Total Rows', value: formatNumber(metrics.total_rows) },
+        { label: 'Unique Engines', value: formatNumber(metrics.unique_engines) },
+      ],
+    },
+    {
+      title: 'Health',
+      rows: [
+        { label: 'Healthy', value: formatNumber(metrics.healthy_count) },
+        { label: 'Warning', value: formatNumber(metrics.warning_count) },
+        { label: 'Critical', value: formatNumber(metrics.critical_count) },
+      ],
+    },
+  ], [metrics, formatNumber, formatBytes]);
 
   const getCategoryDescription = useCallback((category: string) => {
     const descriptions: { [key: string]: string } = {
@@ -1045,48 +1063,7 @@ const Governance = () => {
         </div>
       )}
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: theme.spacing.md, 
-        marginBottom: theme.spacing.lg 
-      }}>
-        <AsciiPanel title="Total Tables">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.total_tables)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Total Size">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatBytes(metrics.total_size_mb)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Total Rows">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.total_rows)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Healthy">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.healthy_count)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Warning">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.warning_count)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Critical">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.critical_count)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Unique Engines">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.unique_engines)}
-          </div>
-        </AsciiPanel>
-      </div>
+      <LineageMetricsDashboard cards={metricsDashboardCards} />
 
       <AsciiPanel title="FILTERS">
         <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>

@@ -401,6 +401,155 @@ router.get("/functions", async (_req, res) => {
   }
 });
 
+// Chart data from metadata.logs: time series by category, counts by level/category/function
+// period: 1h | 7h | 24h | 7d. levels: optional filter (comma or array).
+router.get("/chart-data", async (req, res) => {
+  try {
+    const periodParam = req.query.period;
+    const periodMap = {
+      "1h": { interval: "1 hour", bucket: "5min", numBuckets: 12 },
+      "7h": { interval: "7 hours", bucket: "hour", numBuckets: 7 },
+      "24h": { interval: "24 hours", bucket: "hour", numBuckets: 24 },
+      "7d": { interval: "7 days", bucket: "day", numBuckets: 7 },
+    };
+    const periodConfig = periodMap[periodParam] || periodMap["24h"];
+    const period = periodConfig.interval;
+    const bucket = periodConfig.bucket;
+    const numBuckets = periodConfig.numBuckets;
+
+    const validLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
+    let levelFilter = [];
+    const levelParam = req.query.levels || req.query.level;
+    if (levelParam) {
+      const arr = Array.isArray(levelParam)
+        ? levelParam
+        : String(levelParam).split(",").map((l) => l.trim()).filter(Boolean);
+      levelFilter = arr.map((l) => l.toUpperCase()).filter((l) => validLevels.includes(l));
+    }
+    const levelWhere =
+      levelFilter.length > 0
+        ? ` AND level IN (${levelFilter.map((_, i) => `$${i + 2}`).join(",")})`
+        : "";
+    const levelParams = levelFilter.length > 0 ? levelFilter : [];
+
+    const bucketExpr =
+      bucket === "day"
+        ? "date_trunc('day', ts)"
+        : bucket === "hour"
+          ? "date_trunc('hour', ts)"
+          : "to_timestamp(floor(extract(epoch from ts) / 300) * 300)::timestamptz";
+
+    const timeSeriesByCategoryResult = await pool.query(
+      `SELECT ${bucketExpr} AS bucket,
+              UPPER(COALESCE(NULLIF(TRIM(category), ''), 'SYSTEM')) AS category,
+              COUNT(*)::int AS cnt
+       FROM metadata.logs
+       WHERE ts >= NOW() - $1::interval${levelWhere}
+       GROUP BY 1, 2
+       ORDER BY 1`,
+      [period, ...levelParams]
+    );
+
+    const baseWhere = levelFilter.length > 0 ? `WHERE level IN (${levelFilter.map((_, i) => `$${i + 1}`).join(",")})` : "";
+    const byLevelResult = await pool.query(
+      levelFilter.length > 0
+        ? `SELECT UPPER(TRIM(level)) AS level, COUNT(*) AS cnt FROM metadata.logs ${baseWhere} GROUP BY UPPER(TRIM(level))`
+        : `SELECT UPPER(TRIM(level)) AS level, COUNT(*) AS cnt FROM metadata.logs GROUP BY UPPER(TRIM(level))`,
+      levelFilter
+    );
+    const byCategoryResult = await pool.query(
+      levelFilter.length > 0
+        ? `SELECT UPPER(COALESCE(NULLIF(TRIM(category), ''), 'SYSTEM')) AS category, COUNT(*) AS cnt
+           FROM metadata.logs ${baseWhere} GROUP BY 1 ORDER BY cnt DESC LIMIT 15`
+        : `SELECT UPPER(COALESCE(NULLIF(TRIM(category), ''), 'SYSTEM')) AS category, COUNT(*) AS cnt
+           FROM metadata.logs GROUP BY 1 ORDER BY cnt DESC LIMIT 15`,
+      levelFilter
+    );
+    const byFunctionResult = await pool.query(
+      levelFilter.length > 0
+        ? `SELECT COALESCE(NULLIF(TRIM(function), ''), '(empty)') AS name, COUNT(*) AS cnt
+           FROM metadata.logs ${baseWhere} GROUP BY 1 ORDER BY cnt DESC LIMIT 10`
+        : `SELECT COALESCE(NULLIF(TRIM(function), ''), '(empty)') AS name, COUNT(*) AS cnt
+           FROM metadata.logs GROUP BY 1 ORDER BY cnt DESC LIMIT 10`,
+      levelFilter
+    );
+
+    const categoryNames = byCategoryResult.rows.map((r) => (r.category || "SYSTEM").toUpperCase());
+
+    const categoryBucketMap = new Map();
+    for (const row of timeSeriesByCategoryResult.rows) {
+      const raw = row.bucket;
+      const key = raw ? new Date(raw).toISOString().replace(/\.\d{3}Z$/, "Z") : "";
+      if (!key) continue;
+      if (!categoryBucketMap.has(key)) {
+        const obj = { bucket: key };
+        categoryNames.forEach((c) => (obj[c] = 0));
+        categoryBucketMap.set(key, obj);
+      }
+      const cat = (row.category || "SYSTEM").toUpperCase();
+      if (categoryNames.includes(cat)) categoryBucketMap.get(key)[cat] = parseInt(row.cnt, 10) || 0;
+    }
+
+    const timeSeries = [];
+    const now = new Date();
+    for (let i = numBuckets - 1; i >= 0; i--) {
+      let d;
+      if (bucket === "day") {
+        d = new Date(now);
+        d.setUTCDate(d.getUTCDate() - i);
+        d.setUTCHours(0, 0, 0, 0);
+      } else if (bucket === "hour") {
+        d = new Date(now);
+        d.setUTCHours(d.getUTCHours() - i, 0, 0, 0);
+      } else {
+        const base = new Date(now);
+        base.setUTCMinutes(Math.floor(base.getUTCMinutes() / 5) * 5, 0, 0);
+        d = new Date(base.getTime() - (numBuckets - 1 - i) * 5 * 60 * 1000);
+      }
+      const key = d.toISOString().replace(/\.\d{3}Z$/, "Z");
+      const obj = categoryBucketMap.get(key) || { bucket: key };
+      categoryNames.forEach((c) => {
+        if (obj[c] === undefined) obj[c] = 0;
+      });
+      timeSeries.push(obj);
+    }
+
+    const byLevel = {};
+    validLevels.forEach((l) => (byLevel[l] = 0));
+    for (const row of byLevelResult.rows) {
+      const up = (row.level || "").toUpperCase().trim();
+      if (validLevels.includes(up)) byLevel[up] = parseInt(row.cnt, 10) || 0;
+    }
+
+    const byCategory = byCategoryResult.rows.map((r) => ({
+      category: (r.category || "SYSTEM").toUpperCase(),
+      count: parseInt(r.cnt, 10) || 0,
+    }));
+    const byFunction = byFunctionResult.rows.map((r) => ({
+      name: r.name || "(empty)",
+      count: parseInt(r.cnt, 10) || 0,
+    }));
+
+    res.json({
+      timeSeries,
+      categoryNames,
+      byLevel,
+      byCategory,
+      byFunction,
+      period,
+      bucket,
+    });
+  } catch (err) {
+    console.error("Error getting log chart data:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener datos para gráficos de logs",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
 // Endpoint para obtener estadísticas de logs
 router.get("/stats", async (req, res) => {
   try {

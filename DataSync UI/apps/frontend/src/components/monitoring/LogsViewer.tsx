@@ -40,23 +40,52 @@ const SectionTitle = styled.h2`
 
 const Controls = styled.div`
   display: flex;
+  flex-direction: column;
   gap: ${theme.spacing.lg};
   margin-bottom: ${theme.spacing.lg};
-  padding: ${theme.spacing.lg};
+  padding: ${theme.spacing.md};
   background-color: ${asciiColors.background};
   border: 1px solid ${asciiColors.border};
   border-radius: 2;
-  flex-wrap: wrap;
-  align-items: end;
   font-family: 'Consolas';
   font-size: 12px;
+`;
+
+const ControlSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${theme.spacing.sm};
+`;
+
+const ControlSectionTitle = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${asciiColors.muted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: ${theme.spacing.xs};
+  border-bottom: 1px solid ${asciiColors.border};
+  margin-bottom: ${theme.spacing.xs};
+`;
+
+const ControlRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: ${theme.spacing.sm};
+  align-items: end;
+`;
+
+const ControlRowSingle = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${theme.spacing.xs};
 `;
 
 const ControlGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${theme.spacing.sm};
-  min-width: 120px;
+  gap: ${theme.spacing.xs};
+  min-width: 0;
 `;
 
 const Label = styled.label`
@@ -90,7 +119,9 @@ const Input = styled.input`
   border-radius: 2;
   font-family: 'Consolas';
   font-size: 12px;
-  width: 100px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   transition: border-color 0.15s ease;
   outline: none;
 
@@ -463,7 +494,19 @@ const LogsViewer = () => {
   const [allLogs, setAllLogs] = useState<LogEntry[]>([]);
   const [showLogsPlaybook, setShowLogsPlaybook] = useState(false);
   const [newLogIds, setNewLogIds] = useState<Set<number>>(new Set());
-  
+  const [chartData, setChartData] = useState<{
+    timeSeries: Array<{ bucket: string; [key: string]: string | number | undefined }>;
+    categoryNames: string[];
+    byLevel: Record<string, number>;
+    byCategory: Array<{ category: string; count: number }>;
+    byFunction: Array<{ name: string; count: number }>;
+  } | null>(null);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<'1h' | '7h' | '24h' | '7d'>('24h');
+  const [chartLevels, setChartLevels] = useState<string[]>([]);
+  const [chartHiddenCategories, setChartHiddenCategories] = useState<string[]>([]);
+  const [activeLogsTab, setActiveLogsTab] = useState<'entries' | 'charts'>('entries');
+
   const logsEndRef = useRef<HTMLDivElement>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
@@ -591,6 +634,25 @@ const LogsViewer = () => {
     };
     loadFilters();
   }, []);
+
+  const fetchChartData = useCallback(async () => {
+    try {
+      setChartLoading(true);
+      const data = await logsApi.getLogChartData({
+        period: chartPeriod,
+        levels: chartLevels.length > 0 ? chartLevels : undefined,
+      });
+      if (isMountedRef.current) setChartData(data);
+    } catch (err) {
+      if (isMountedRef.current) setChartData(null);
+    } finally {
+      if (isMountedRef.current) setChartLoading(false);
+    }
+  }, [chartPeriod, chartLevels]);
+
+  useEffect(() => {
+    fetchChartData();
+  }, [fetchChartData]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -933,6 +995,45 @@ const LogsViewer = () => {
             onClick={() => setShowLogsPlaybook(true)}
             variant="ghost"
           />
+        </div>
+
+        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${asciiColors.border}`, marginBottom: theme.spacing.lg }}>
+          <button
+            type="button"
+            onClick={() => setActiveLogsTab('entries')}
+            style={{
+              padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              fontWeight: activeLogsTab === 'entries' ? 600 : 400,
+              color: activeLogsTab === 'entries' ? asciiColors.foreground : asciiColors.muted,
+              background: activeLogsTab === 'entries' ? asciiColors.backgroundSoft : 'transparent',
+              border: 'none',
+              borderBottom: activeLogsTab === 'entries' ? `2px solid ${asciiColors.accent}` : '2px solid transparent',
+              cursor: 'pointer',
+              marginBottom: -1
+            }}
+          >
+            Log entries
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveLogsTab('charts')}
+            style={{
+              padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+              fontFamily: 'Consolas',
+              fontSize: 12,
+              fontWeight: activeLogsTab === 'charts' ? 600 : 400,
+              color: activeLogsTab === 'charts' ? asciiColors.foreground : asciiColors.muted,
+              background: activeLogsTab === 'charts' ? asciiColors.backgroundSoft : 'transparent',
+              border: 'none',
+              borderBottom: activeLogsTab === 'charts' ? `2px solid ${asciiColors.accent}` : '2px solid transparent',
+              cursor: 'pointer',
+              marginBottom: -1
+            }}
+          >
+            Charts
+          </button>
         </div>
 
         {showLogsPlaybook && (
@@ -1415,167 +1516,404 @@ const LogsViewer = () => {
             </AsciiPanel>
           </div>
         )}
-      
+
+        {activeLogsTab === 'charts' && (
+          <div style={{ marginBottom: theme.spacing.lg, minHeight: 400 }}>
+            <AsciiPanel title="LOG CHARTS">
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: theme.spacing.md, marginBottom: theme.spacing.lg }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: asciiColors.foreground, fontFamily: 'Consolas' }}>
+                  Period:
+                  <select
+                    value={chartPeriod}
+                    onChange={(e) => setChartPeriod(e.target.value as '1h' | '7h' | '24h' | '7d')}
+                    style={{
+                      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+                      fontSize: 12,
+                      border: `1px solid ${asciiColors.border}`,
+                      background: asciiColors.background,
+                      color: asciiColors.foreground,
+                      fontFamily: 'Consolas',
+                      borderRadius: 2
+                    }}
+                  >
+                    <option value="1h">Last 1 hour</option>
+                    <option value="7h">Last 7 hours</option>
+                    <option value="24h">Last 24 hours</option>
+                    <option value="7d">Last 7 days</option>
+                  </select>
+                </label>
+                <span style={{ fontSize: 12, color: asciiColors.muted, fontFamily: 'Consolas' }}>Level filter:</span>
+                <LevelBadgesContainer>
+                  {['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].map((lvl) => {
+                    const isSelected = chartLevels.length === 0 || chartLevels.includes(lvl);
+                    return (
+                      <LevelBadge
+                        key={lvl}
+                        type="button"
+                        $level={lvl}
+                        $selected={isSelected}
+                        onClick={() => {
+                          if (chartLevels.length === 0) {
+                            setChartLevels(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].filter((l) => l !== lvl));
+                          } else if (isSelected) {
+                            setChartLevels(chartLevels.filter((l) => l !== lvl));
+                          } else {
+                            setChartLevels([...chartLevels, lvl]);
+                          }
+                        }}
+                        title={isSelected ? `Exclude ${lvl} from chart` : `Include ${lvl} in chart`}
+                      >
+                        {lvl}
+                      </LevelBadge>
+                    );
+                  })}
+                </LevelBadgesContainer>
+                <AsciiButton label="Refresh charts" onClick={fetchChartData} variant="ghost" disabled={chartLoading} />
+              </div>
+              {chartLoading && !chartData ? (
+                <div style={{ padding: theme.spacing.xxl, textAlign: 'center', color: asciiColors.muted, fontSize: 12, fontFamily: 'Consolas' }}>Loading chart data…</div>
+              ) : chartData ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xl }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>Logs over time (by category)</div>
+                    {chartData.timeSeries.length === 0 || !chartData.categoryNames?.length ? (
+                      <div style={{ padding: 48, textAlign: 'center', color: asciiColors.muted, fontSize: 12, border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>No data in period</div>
+                    ) : (() => {
+                      const categories = chartData.categoryNames || [];
+                      const hiddenSet = new Set(chartHiddenCategories);
+                      const visibleCategories = categories.filter((c) => !hiddenSet.has(c));
+                      const toggleCategory = (cat: string) => {
+                        setChartHiddenCategories((prev) =>
+                          prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+                        );
+                      };
+                      const CATEGORY_COLORS = [asciiColors.accent, asciiColors.foreground, '#6b7280', '#4b5563', '#9ca3af', '#374151', '#1f2937', asciiColors.muted];
+                      const getCategoryColor = (i: number) => CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+                      const padding = { top: 24, right: 140, bottom: 36, left: 48 };
+                      const chartW = 900;
+                      const chartH = 320;
+                      const innerW = chartW - padding.left - padding.right;
+                      const innerH = chartH - padding.top - padding.bottom;
+                      const maxCount = Math.max(1, ...chartData.timeSeries.flatMap((d) => visibleCategories.map((c) => (d[c] as number) || 0)));
+                      const buckets = chartData.timeSeries.map((d) => d.bucket);
+                      const numPoints = chartData.timeSeries.length;
+                      const scaleX = (i: number) => padding.left + (numPoints <= 1 ? 0 : (i / (numPoints - 1)) * innerW);
+                      const scaleY = (v: number) => padding.top + innerH - (maxCount > 0 ? (v / maxCount) * innerH : 0);
+                      const formatTick = (bucket: string) => {
+                        const d = new Date(bucket);
+                        return chartPeriod === '7d' ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                      };
+                      const yTicks = 5;
+                      return (
+                        <svg width="100%" height={chartH} viewBox={`0 0 ${chartW} ${chartH}`} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background, maxWidth: chartW }}>
+                          {Array.from({ length: yTicks + 1 }).map((_, i) => {
+                            const y = padding.top + (innerH * i) / yTicks;
+                            const val = i === 0 ? maxCount : Math.round(maxCount * (1 - i / yTicks));
+                            return (
+                              <g key={i}>
+                                <line x1={padding.left} y1={y} x2={chartW - padding.right} y2={y} stroke={asciiColors.border} strokeWidth={1} strokeDasharray="2 2" opacity={0.6} />
+                                <text x={padding.left - 6} y={y + 4} textAnchor="end" fontSize={10} fill={asciiColors.muted}>{val}</text>
+                              </g>
+                            );
+                          })}
+                          <line x1={padding.left} y1={padding.top} x2={padding.left} y2={chartH - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                          <line x1={padding.left} y1={chartH - padding.bottom} x2={chartW - padding.right} y2={chartH - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                          {visibleCategories.map((cat, catIdx) => {
+                            const points = chartData.timeSeries.map((d, i) => {
+                              const v = (d[cat] as number) || 0;
+                              return `${scaleX(i)},${scaleY(v)}`;
+                            }).join(' ');
+                            return (
+                              <polyline
+                                key={cat}
+                                points={points}
+                                fill="none"
+                                stroke={getCategoryColor(categories.indexOf(cat))}
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            );
+                          })}
+                          {buckets.map((bucket, idx) => {
+                            const step = buckets.length <= 10 ? 1 : Math.max(1, Math.floor(buckets.length / 8));
+                            if (idx % step !== 0 && idx !== buckets.length - 1) return null;
+                            return (
+                              <text key={`${bucket}-${idx}`} x={scaleX(idx)} y={chartH - padding.bottom + 14} textAnchor="middle" fontSize={10} fill={asciiColors.muted}>{formatTick(bucket)}</text>
+                            );
+                          })}
+                          <g transform={`translate(${chartW - padding.right - 120}, ${padding.top})`}>
+                            {categories.map((cat, i) => {
+                              const isHidden = hiddenSet.has(cat);
+                              return (
+                                <g
+                                  key={cat}
+                                  onClick={() => toggleCategory(cat)}
+                                  style={{ cursor: 'pointer', opacity: isHidden ? 0.4 : 1 }}
+                                  title={isHidden ? `Show ${cat}` : `Hide ${cat}`}
+                                >
+                                  <line x1={0} y1={i * 18} x2={12} y2={i * 18} stroke={getCategoryColor(i)} strokeWidth={2} strokeDasharray={isHidden ? '4 2' : undefined} />
+                                  <text x={16} y={i * 18 + 4} fontSize={10} fill={asciiColors.foreground} style={{ textDecoration: isHidden ? 'line-through' : undefined }}>{cat.length > 12 ? cat.slice(0, 10) + '…' : cat}</text>
+                                </g>
+                              );
+                            })}
+                          </g>
+                        </svg>
+                      );
+                    })()}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.xl }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>Count by level</div>
+                      {(() => {
+                        const LEVEL_COLORS: Record<string, string> = {
+                          DEBUG: asciiColors.muted,
+                          INFO: asciiColors.accent,
+                          WARNING: '#6b7280',
+                          ERROR: asciiColors.foreground,
+                          CRITICAL: asciiColors.foreground
+                        };
+                        const levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
+                        const entries = levels.map((l) => ({ level: l, count: chartData.byLevel[l] || 0 })).filter((e) => e.count > 0);
+                        const maxCount = Math.max(1, ...entries.map((e) => e.count));
+                        const barH = 28;
+                        const gap = 6;
+                        const labelW = 80;
+                        const barW = 220;
+                        const totalH = Math.max(120, entries.length * (barH + gap) - gap + 24);
+                        const w = labelW + barW + 56;
+                        return (
+                          <svg width="100%" viewBox={`0 0 ${w} ${totalH}`} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background, maxWidth: 400 }}>
+                            {entries.length === 0 ? (
+                              <text x={w / 2} y={totalH / 2} textAnchor="middle" fontSize={12} fill={asciiColors.muted}>No data</text>
+                            ) : (
+                              entries.map((e, i) => {
+                                const y = 16 + i * (barH + gap);
+                                const width = (e.count / maxCount) * barW;
+                                return (
+                                  <g key={e.level}>
+                                    <text x={4} y={y + barH - 8} fontSize={11} fill={asciiColors.foreground}>{e.level}</text>
+                                    <rect x={labelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                                    <rect x={labelW} y={y} width={width} height={barH - 2} fill={LEVEL_COLORS[e.level] || asciiColors.muted} rx={2} />
+                                    <text x={labelW + barW + 8} y={y + barH - 8} fontSize={11} fill={asciiColors.foreground}>{e.count}</text>
+                                  </g>
+                                );
+                              })
+                            )}
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.accent, marginBottom: theme.spacing.sm, fontFamily: 'Consolas' }}>Top categories</div>
+                      {(!chartData.byCategory || chartData.byCategory.length === 0) ? (
+                        <div style={{ padding: 48, textAlign: 'center', color: asciiColors.muted, fontSize: 12, border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>No data</div>
+                      ) : (() => {
+                        const top = chartData.byCategory.slice(0, 10);
+                        const maxCount = Math.max(1, ...top.map((e) => e.count));
+                        const barH = 24;
+                        const gap = 6;
+                        const labelW = 110;
+                        const barW = 200;
+                        const totalH = top.length * (barH + gap) - gap + 24;
+                        const w = labelW + barW + 56;
+                        return (
+                          <svg width="100%" viewBox={`0 0 ${w} ${totalH}`} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background, maxWidth: 400 }}>
+                            {top.map((e, i) => {
+                              const y = 16 + i * (barH + gap);
+                              const width = (e.count / maxCount) * barW;
+                              const label = (e.category || '').length > 16 ? (e.category || '').slice(0, 14) + '…' : (e.category || '');
+                              return (
+                                <g key={e.category}>
+                                  <text x={4} y={y + barH - 6} fontSize={10} fill={asciiColors.foreground}>{label}</text>
+                                  <rect x={labelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                                  <rect x={labelW} y={y} width={width} height={barH - 2} fill={asciiColors.accent} rx={2} opacity={0.85} />
+                                  <text x={labelW + barW + 8} y={y + barH - 6} fontSize={10} fill={asciiColors.foreground}>{e.count}</text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: theme.spacing.xl, color: asciiColors.muted, fontSize: 12, fontFamily: 'Consolas' }}>Chart data unavailable.</div>
+              )}
+            </AsciiPanel>
+          </div>
+        )}
+
+        {activeLogsTab === 'entries' && (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        gap: theme.spacing.lg,
+        alignItems: 'flex-start',
+        flex: 1,
+        minHeight: 0,
+        width: '100%'
+      }}>
+        <div style={{
+          width: 420,
+          minWidth: 420,
+          flexShrink: 0,
+          position: 'sticky',
+          top: theme.spacing.lg,
+          maxHeight: 'calc(100vh - 100px)',
+          overflowY: 'auto'
+        }}>
       <AsciiPanel title="LOG CONTROLS">
         <Controls>
-          <ControlGroup>
-            <Label>Lines to show:</Label>
-            <Input
-              type="number"
-              value={lines}
-              onChange={(e) => setLines(Math.max(10, parseInt(e.target.value) || 10000))}
-              min="10"
-              max="100000"
-            />
-          </ControlGroup>
-          
-          <ControlGroup style={{ minWidth: 'auto', width: '100%' }}>
-            <Label style={{ marginBottom: theme.spacing.xs }}>Log Levels:</Label>
-            <LevelBadgesContainer>
-              {['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].map((lvl) => {
-                const isSelected = selectedLevels.includes(lvl);
-                return (
-                  <LevelBadge
-                    key={lvl}
-                    type="button"
-                    $level={lvl}
-                    $selected={isSelected}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedLevels(selectedLevels.filter(l => l !== lvl));
-                      } else {
-                        setSelectedLevels([...selectedLevels, lvl]);
-                      }
-                    }}
-                    title={`${isSelected ? 'Deselect' : 'Select'} ${lvl} level logs`}
-                  >
-                    {lvl}
-                  </LevelBadge>
-                );
-              })}
-            </LevelBadgesContainer>
-          </ControlGroup>
-          
-          <ControlGroup>
-            <Label>Distinct Messages:</Label>
-            <CheckboxLabel>
-              <CheckboxInput
-                type="checkbox"
-                checked={distinctMessages}
-                onChange={(e) => setDistinctMessages(e.target.checked)}
-              />
-              Show only unique messages (most recent)
-            </CheckboxLabel>
-          </ControlGroup>
-          
-          <ControlGroup>
-            <Label>Category:</Label>
-            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-              {categoriesList.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </Select>
-          </ControlGroup>
-
-          <ControlGroup>
-            <Label>Function:</Label>
-            <Select value={func} onChange={(e) => setFunc(e.target.value)}>
-              {functionsList.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </Select>
-          </ControlGroup>
-          
-          <ControlGroup>
-            <Label>Search:</Label>
-            <Input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search in logs..."
-              style={{ width: '150px' }}
-            />
-          </ControlGroup>
-          
-          <ControlGroup>
-            <Label>Start Date:</Label>
-            <Input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{ width: '180px' }}
-            />
-          </ControlGroup>
-          
-          <ControlGroup>
-            <Label>End Date:</Label>
-            <Input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{ width: '180px' }}
-            />
-          </ControlGroup>
-          
-          <ControlGroup>
-            <Label>Auto Refresh:</Label>
-            <AsciiButton
-              label={autoRefresh ? 'ON' : 'OFF'}
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              variant={autoRefresh ? 'primary' : 'ghost'}
-            />
-          </ControlGroup>
-          
-          {autoRefresh && (
+          <ControlSection>
+            <ControlSectionTitle>Fetch & levels</ControlSectionTitle>
             <ControlGroup>
-              <Label>Next Refresh:</Label>
-              <div style={{
-                padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-                border: `1px solid ${asciiColors.border}`,
-                borderRadius: 2,
-                backgroundColor: asciiColors.background,
-                textAlign: 'center',
-                fontFamily: 'Consolas',
-                fontSize: 12,
-                color: asciiColors.foreground,
-                minWidth: '60px'
-              }}>
-                {refreshCountdown}s
-              </div>
+              <Label>Lines to show</Label>
+              <Input
+                type="number"
+                value={lines}
+                onChange={(e) => setLines(Math.max(10, parseInt(e.target.value) || 10000))}
+                min="10"
+                max="100000"
+              />
             </ControlGroup>
-          )}
+            <ControlRowSingle>
+              <Label>Log Levels</Label>
+              <LevelBadgesContainer>
+                {['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].map((lvl) => {
+                  const isSelected = selectedLevels.includes(lvl);
+                  return (
+                    <LevelBadge
+                      key={lvl}
+                      type="button"
+                      $level={lvl}
+                      $selected={isSelected}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedLevels(selectedLevels.filter(l => l !== lvl));
+                        } else {
+                          setSelectedLevels([...selectedLevels, lvl]);
+                        }
+                      }}
+                      title={`${isSelected ? 'Deselect' : 'Select'} ${lvl} level logs`}
+                    >
+                      {lvl}
+                    </LevelBadge>
+                  );
+                })}
+              </LevelBadgesContainer>
+            </ControlRowSingle>
+            <ControlGroup>
+              <CheckboxLabel>
+                <CheckboxInput
+                  type="checkbox"
+                  checked={distinctMessages}
+                  onChange={(e) => setDistinctMessages(e.target.checked)}
+                />
+                Distinct messages (most recent only)
+              </CheckboxLabel>
+            </ControlGroup>
+          </ControlSection>
 
-          <ControlGroup>
-            <Label>Auto Cleanup:</Label>
-            <AsciiButton
-              label={autoCleanup ? 'ON' : 'OFF'}
-              onClick={() => setAutoCleanup(!autoCleanup)}
-              variant={autoCleanup ? 'primary' : 'ghost'}
-            />
-          </ControlGroup>
-
-          {autoCleanup && (
-            <>
+          <ControlSection>
+            <ControlSectionTitle>Filters</ControlSectionTitle>
+            <ControlRow>
               <ControlGroup>
-                <Label>Delete DEBUG:</Label>
-                <AsciiButton
-                  label={deleteDebug ? 'YES' : 'NO'}
-                  onClick={() => setDeleteDebug(!deleteDebug)}
-                  variant={deleteDebug ? 'primary' : 'ghost'}
+                <Label>Category</Label>
+                <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+                  {categoriesList.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </Select>
+              </ControlGroup>
+              <ControlGroup>
+                <Label>Function</Label>
+                <Select value={func} onChange={(e) => setFunc(e.target.value)}>
+                  {functionsList.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </Select>
+              </ControlGroup>
+            </ControlRow>
+            <ControlGroup>
+              <Label>Search</Label>
+              <Input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search in logs..."
+              />
+            </ControlGroup>
+          </ControlSection>
+
+          <ControlSection>
+            <ControlSectionTitle>Date range</ControlSectionTitle>
+            <ControlRow>
+              <ControlGroup>
+                <Label>Start</Label>
+                <Input
+                  type="datetime-local"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
                 />
               </ControlGroup>
-
               <ControlGroup>
-                <Label>Delete Duplicates:</Label>
-                <AsciiButton
-                  label={deleteDuplicates ? 'YES' : 'NO'}
-                  onClick={() => setDeleteDuplicates(!deleteDuplicates)}
-                  variant={deleteDuplicates ? 'primary' : 'ghost'}
+                <Label>End</Label>
+                <Input
+                  type="datetime-local"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
                 />
               </ControlGroup>
+            </ControlRow>
+          </ControlSection>
 
+          <ControlSection>
+            <ControlSectionTitle>Refresh & cleanup</ControlSectionTitle>
+            <ControlRow>
               <ControlGroup>
-                <Label>Delete Older (days):</Label>
+                <Label>Auto Refresh</Label>
+                <AsciiButton
+                  label={autoRefresh ? 'ON' : 'OFF'}
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  variant={autoRefresh ? 'primary' : 'ghost'}
+                />
+              </ControlGroup>
+            </ControlRow>
+            <ControlRow>
+              <ControlGroup>
+                <Label>Auto Cleanup</Label>
+                <AsciiButton
+                  label={autoCleanup ? 'ON' : 'OFF'}
+                  onClick={() => setAutoCleanup(!autoCleanup)}
+                  variant={autoCleanup ? 'primary' : 'ghost'}
+                />
+              </ControlGroup>
+            </ControlRow>
+            {autoCleanup && (
+              <ControlRow>
+                <ControlGroup>
+                  <Label>Delete DEBUG</Label>
+                  <AsciiButton
+                    label={deleteDebug ? 'YES' : 'NO'}
+                    onClick={() => setDeleteDebug(!deleteDebug)}
+                    variant={deleteDebug ? 'primary' : 'ghost'}
+                  />
+                </ControlGroup>
+                <ControlGroup>
+                  <Label>Delete duplicates</Label>
+                  <AsciiButton
+                    label={deleteDuplicates ? 'YES' : 'NO'}
+                    onClick={() => setDeleteDuplicates(!deleteDuplicates)}
+                    variant={deleteDuplicates ? 'primary' : 'ghost'}
+                  />
+                </ControlGroup>
+              </ControlRow>
+            )}
+            {autoCleanup && (
+              <ControlGroup>
+                <Label>Delete older than (days)</Label>
                 <Input
                   type="number"
                   value={deleteOlderThan || ''}
@@ -1585,50 +1923,41 @@ const LogsViewer = () => {
                   }}
                   placeholder="Optional"
                   min="1"
-                  style={{ width: '100px' }}
                 />
               </ControlGroup>
-            </>
-          )}
-          
-          <AsciiButton 
-            label={isRefreshing ? 'Refreshing...' : 'Refresh Now'}
-            onClick={fetchLogs} 
-            disabled={isRefreshing}
-            variant="primary"
-          />
-          
-          <AsciiButton 
-            label="Clear Filters"
-            onClick={clearFilters}
-            variant="ghost"
-          />
-          
-          <AsciiButton 
-            label="Scroll to Bottom"
-            onClick={scrollToBottom}
-            variant="ghost"
-          />
-          
-          <AsciiButton 
-            label="Go to Latest"
-            onClick={() => goToPage(1)}
-            variant="ghost"
-          />
-          
-          <AsciiButton 
-            label={isCopying ? 'Copying...' : 'Copy Logs'}
-            onClick={handleCopyAllLogs}
-            disabled={isCopying || isRefreshing}
-            variant="ghost"
-          />
-          
-          <AsciiButton 
-            label={isClearing ? 'Clearing...' : 'Clear Logs'}
-            onClick={() => setShowClearDialog(true)}
-            disabled={isClearing || isRefreshing}
-            variant="ghost"
-          />
+            )}
+          </ControlSection>
+
+          <ControlSection>
+            <ControlSectionTitle>Actions</ControlSectionTitle>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: theme.spacing.sm
+            }}>
+              <AsciiButton
+                label={isRefreshing ? 'Refreshing...' : 'Refresh Now'}
+                onClick={fetchLogs}
+                disabled={isRefreshing}
+                variant="primary"
+              />
+              <AsciiButton label="Clear Filters" onClick={clearFilters} variant="ghost" />
+              <AsciiButton label="Scroll to Bottom" onClick={scrollToBottom} variant="ghost" />
+              <AsciiButton label="Go to Latest" onClick={() => goToPage(1)} variant="ghost" />
+              <AsciiButton
+                label={isCopying ? 'Copying...' : 'Copy Logs'}
+                onClick={handleCopyAllLogs}
+                disabled={isCopying || isRefreshing}
+                variant="ghost"
+              />
+              <AsciiButton
+                label={isClearing ? 'Clearing...' : 'Clear Logs'}
+                onClick={() => setShowClearDialog(true)}
+                disabled={isClearing || isRefreshing}
+                variant="ghost"
+              />
+            </div>
+          </ControlSection>
         </Controls>
         
         {copySuccess && (
@@ -1657,7 +1986,14 @@ const LogsViewer = () => {
           </AsciiPanel>
         )}
       </AsciiPanel>
+        </div>
 
+        <div style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
         <AsciiPanel title="LOG ENTRIES (DB)">
           <LogsArea $isTransitioning={isPageTransitioning}>
             {logs.map((log, index) => {
@@ -1756,6 +2092,9 @@ const LogsViewer = () => {
           </Pagination>
         )}
       </AsciiPanel>
+        </div>
+      </div>
+        )}
 
       {showClearDialog && (
         <ModalOverlay>

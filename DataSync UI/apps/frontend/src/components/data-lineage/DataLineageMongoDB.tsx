@@ -11,6 +11,7 @@ import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import DataLineageMongoDBTreeView from './DataLineageMongoDBTreeView';
 import LineageCharts from './LineageCharts';
+import { LineageMetricsDashboard } from './LineageSummaryCards';
 import SkeletonLoader from '../shared/SkeletonLoader';
 
 const DataLineageMongoDB = () => {
@@ -153,49 +154,41 @@ const DataLineageMongoDB = () => {
   }, [setFilter]);
 
 
-  const renderMetricCard = useCallback((title: string, value: number | string | null | undefined, subtitle?: string) => {
-    const displayValue = value === null || value === undefined ? 'N/A' : 
-      typeof value === 'string' ? value : Number(value).toLocaleString();
-    return (
-      <div style={{
-        padding: '16px',
-        backgroundColor: asciiColors.background,
-        border: `1px solid ${asciiColors.border}`,
-        borderRadius: 2,
-        minWidth: '150px',
-        fontFamily: 'Consolas'
-      }}>
-        <div style={{
-          fontSize: 11,
-          color: asciiColors.muted,
-          marginBottom: 8,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          fontFamily: 'Consolas'
-        }}>
-          {title}
-        </div>
-        <div style={{
-          fontSize: 24,
-          fontWeight: 700,
-          color: asciiColors.foreground,
-          fontFamily: 'Consolas',
-          marginBottom: subtitle ? 4 : 0
-        }}>
-          {displayValue}
-        </div>
-        {subtitle && (
-          <div style={{
-            fontSize: 10,
-            color: asciiColors.muted,
-            fontFamily: 'Consolas'
-          }}>
-            {subtitle}
-          </div>
-        )}
-      </div>
-    );
-  }, []);
+  const metricsDashboardCards = React.useMemo(() => {
+    const totalR = Number(metrics.total_relationships) || 1;
+    const pctHigh = totalR ? `${(((Number(metrics.high_confidence) || 0) / totalR) * 100).toFixed(1)}% of total` : undefined;
+    const pctLow = totalR ? `${(((Number(metrics.low_confidence) || 0) / totalR) * 100).toFixed(1)}% of total` : undefined;
+    const avgConf = metrics.avg_confidence != null ? `${(Number(metrics.avg_confidence) * 100).toFixed(1)}%` : undefined;
+    return [
+      {
+        title: 'Objects & topology',
+        rows: [
+          { label: 'Unique Objects', value: metrics.unique_objects },
+          { label: 'Unique Servers', value: metrics.unique_servers },
+          { label: 'Unique Databases', value: metrics.unique_databases },
+        ],
+      },
+      {
+        title: 'Relationships',
+        rows: [{ label: 'Relationship Types', value: metrics.unique_relationship_types }],
+      },
+      {
+        title: 'Confidence',
+        rows: [
+          { label: 'High Confidence', value: metrics.high_confidence, subtitle: pctHigh },
+          { label: 'Low Confidence', value: metrics.low_confidence, subtitle: pctLow },
+          { label: 'Avg Confidence', value: avgConf, subtitle: 'Score (0-100%)' },
+        ],
+      },
+      {
+        title: 'Discovery',
+        rows: [
+          { label: 'Discovered (24h)', value: metrics.discovered_last_24h },
+          { label: 'Discovery Methods', value: metrics.unique_discovery_methods },
+        ],
+      },
+    ];
+  }, [metrics]);
 
   if (loadingTree && allEdges.length === 0) {
     return <SkeletonLoader variant="table" />;
@@ -425,23 +418,7 @@ const DataLineageMongoDB = () => {
         </div>
       )}
       
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: 12, 
-        marginBottom: 24 
-      }}>
-        {renderMetricCard('Total Relationships', metrics.total_relationships)}
-        {renderMetricCard('Unique Objects', metrics.unique_objects)}
-        {renderMetricCard('Unique Servers', metrics.unique_servers)}
-        {renderMetricCard('Unique Databases', metrics.unique_databases)}
-        {renderMetricCard('Relationship Types', metrics.unique_relationship_types)}
-        {renderMetricCard('High Confidence', metrics.high_confidence, metrics.total_relationships ? `${((Number(metrics.high_confidence) || 0) / (Number(metrics.total_relationships) || 1) * 100).toFixed(1)}% of total` : undefined)}
-        {renderMetricCard('Low Confidence', metrics.low_confidence, metrics.total_relationships ? `${((Number(metrics.low_confidence) || 0) / (Number(metrics.total_relationships) || 1) * 100).toFixed(1)}% of total` : undefined)}
-        {renderMetricCard('Avg Confidence', metrics.avg_confidence ? `${(Number(metrics.avg_confidence) * 100).toFixed(1)}%` : 'N/A', 'Score (0-100%)')}
-        {renderMetricCard('Discovered (24h)', metrics.discovered_last_24h)}
-        {renderMetricCard('Discovery Methods', metrics.unique_discovery_methods)}
-      </div>
+      <LineageMetricsDashboard cards={metricsDashboardCards} />
 
       <AsciiPanel title="FILTERS">
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>

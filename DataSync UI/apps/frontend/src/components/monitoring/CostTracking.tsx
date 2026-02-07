@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
@@ -34,6 +35,7 @@ const CostTracking = () => {
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState<number>(30);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showCostPlaybook, setShowCostPlaybook] = useState(false);
   const [newBudget, setNewBudget] = useState<Partial<Budget>>({
     budget_id: '',
     name: '',
@@ -109,20 +111,37 @@ const CostTracking = () => {
       <AsciiPanel>
         <div style={{ marginBottom: theme.spacing.lg }}>
           <h1 style={{
-            fontSize: 18,
+            fontSize: 14,
             fontWeight: 600,
+            margin: 0,
             color: asciiColors.foreground,
-            marginBottom: theme.spacing.md
+            textTransform: 'uppercase',
+            fontFamily: 'Consolas'
           }}>
-            Cost Tracking
+            <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+            COST TRACKING
           </h1>
-          <p style={{
-            color: asciiColors.muted,
-            fontSize: 12,
-            marginBottom: theme.spacing.lg
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: theme.spacing.lg,
+            flexWrap: 'wrap',
+            gap: theme.spacing.md
           }}>
-            Track costs by operation and workflow, manage budgets and alerts
-          </p>
+            <p style={{
+              color: asciiColors.muted,
+              fontSize: 12,
+              margin: 0
+            }}>
+              Track costs by operation and workflow, manage budgets and alerts
+            </p>
+            <AsciiButton
+              label="Playbook & How to use"
+              onClick={() => setShowCostPlaybook(true)}
+              variant="ghost"
+            />
+          </div>
 
           <div style={{
             display: 'flex',
@@ -168,6 +187,136 @@ const CostTracking = () => {
             }}>
               {error}
             </div>
+          )}
+
+          {showCostPlaybook && createPortal(
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10000
+              }}
+              onClick={() => setShowCostPlaybook(false)}
+            >
+              <div
+                style={{
+                  width: '90%',
+                  maxWidth: 1000,
+                  maxHeight: '90vh',
+                  minHeight: 400,
+                  overflowY: 'auto',
+                  flexShrink: 0
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <AsciiPanel title="COST TRACKING - PLAYBOOK & HOW TO USE" animated={false}>
+                  <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                        {ascii.blockFull} OVERVIEW
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        Cost Tracking shows estimated spend for compute, storage, and network over a selected period.
+                        You can define budgets (global, per workflow, or per project) and get alerts when spend approaches
+                        or exceeds your limits. Use this view to control costs and plan capacity.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                        {ascii.blockFull} HOW TO USE
+                      </div>
+                      <div style={{ marginLeft: 16 }}>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>1. View cost summary</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Use the period dropdown (7, 30, or 90 days) to see total cost, compute, storage, network, and operation count for that range.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>2. Create budgets</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Click &quot;Create Budget&quot; to set a budget: choose scope (global, workflow, project), amount, period (daily/weekly/monthly), and alert threshold. You get notified when spend reaches the threshold.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>3. Monitor budgets</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Each budget shows current spend vs limit and a usage bar. When usage exceeds the alert threshold, the bar and border highlight so you can act before overspending.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>4. Refresh data</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Use &quot;Refresh&quot; to reload the cost summary and budget list from the backend.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                        {ascii.blockFull} KEY CONCEPTS
+                      </div>
+                      <div style={{ marginLeft: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Compute / Storage / Network</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Costs are estimated from resource utilization (CPU, memory, I/O, network). Values depend on the DataSync monitoring pipeline and may be approximations.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Budget scope</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Global applies to all spend; workflow and project let you cap costs for specific workflows or projects.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Alert threshold</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Percentage of the budget at which you want to be warned (e.g. 80% = alert when spend reaches 80% of the limit).
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      marginTop: 16,
+                      padding: 12,
+                      background: asciiColors.backgroundSoft,
+                      borderRadius: 2,
+                      border: `1px solid ${asciiColors.border}`
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                        {ascii.blockSemi} Best Practices
+                      </div>
+                      <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                        • Set budgets for critical workflows or projects to avoid cost surprises.<br/>
+                        • Use 7-day view to spot recent spikes; use 30/90-day for trends and planning.<br/>
+                        • Combine with Resource Tracking and Bottleneck Detection to link cost to utilization and optimize before scaling.<br/>
+                        • If costs show as zero, ensure the DataSync binary is running with monitoring and that resource metrics are being collected.
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 16, textAlign: 'right' }}>
+                      <AsciiButton
+                        label="Close"
+                        onClick={() => setShowCostPlaybook(false)}
+                        variant="ghost"
+                      />
+                    </div>
+                  </div>
+                </AsciiPanel>
+              </div>
+            </div>,
+            document.body
           )}
 
           {/* Cost Summary */}

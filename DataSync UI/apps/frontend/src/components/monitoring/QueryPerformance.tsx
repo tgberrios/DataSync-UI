@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import { queryPerformanceApi, monitoringApi } from '../../services/api';
-import { Container, Header, Select, FiltersContainer, Input, Pagination, PageButton, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
+import { Container, Select, FiltersContainer, Input, Pagination, PageButton, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
 import { usePagination } from '../../hooks/usePagination';
 import { useTableFilters } from '../../hooks/useTableFilters';
 import { extractApiError } from '../../utils/errorHandler';
@@ -11,42 +11,62 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { theme } from '../../theme/theme';
 import QueryPerformanceTreeView from './QueryPerformanceTreeView';
 
-const MetricsGrid = styled.div`
+/* Summary cards — horizontal layout like dashboard (white, title + blue square, list with square + value in blue) */
+const SummaryCardsRow = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin-bottom: 30px;
-  animation: slideUp 0.25s ease-out;
-  animation-delay: 0.1s;
-  animation-fill-mode: both;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
 `;
 
-const MetricCard = styled.div`
-  border: 1px solid #ddd;
+const SummaryCard = styled.div`
+  background: #ffffff;
+  padding: 16px;
   border-radius: 6px;
-  padding: 15px;
-  background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
-  
-  &:hover {
-    border-color: rgba(10, 25, 41, 0.3);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
 `;
 
-const MetricLabel = styled.div`
-  font-size: 0.85em;
-  color: #666;
-  margin-bottom: 8px;
-  font-weight: 500;
+const SummaryCardTitle = styled.div`
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 `;
 
-const MetricValue = styled.div`
-  font-size: 1.5em;
-  font-weight: bold;
-  color: #0d1b2a;
+const SummaryCardTitleIcon = styled.span`
+  width: 8px;
+  height: 8px;
+  background: ${asciiColors.accent};
+  border-radius: 1px;
+  flex-shrink: 0;
+`;
+
+const SummaryCardRow = styled.div<{ $highlight?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+  color: #374151;
+`;
+
+const SummaryCardRowIcon = styled.span<{ $active?: boolean }>`
+  width: 8px;
+  height: 8px;
+  background: ${(p) => (p.$active ? asciiColors.accent : '#9ca3af')};
+  border-radius: 1px;
+  flex-shrink: 0;
+`;
+
+const SummaryCardValue = styled.span<{ $active?: boolean }>`
+  font-weight: 600;
+  min-width: 72px;
+  text-align: right;
+  color: ${(p) => (p.$active ? asciiColors.accent : '#6b7280')};
 `;
 
 
@@ -185,11 +205,16 @@ const QueryText = styled.pre`
  */
 const QueryPerformance = () => {
   const isMountedRef = useRef(true);
+  const chartsColRef = useRef<HTMLDivElement>(null);
+  const [chartsColWidth, setChartsColWidth] = useState(520);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queries, setQueries] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({});
   const [volumeOverTime, setVolumeOverTime] = useState<{ bucket_ts: string; count: number }[]>([]);
+  const [volumeInterval, setVolumeInterval] = useState<'minute' | 'hour' | 'day'>('hour');
+  const [topSlowestLimit, setTopSlowestLimit] = useState(15);
+  const [topSlowestHours, setTopSlowestHours] = useState<1 | 24 | 168>(24);
   const [topSlowest, setTopSlowest] = useState<any[]>([]);
   const [openQueryId, setOpenQueryId] = useState<number | null>(null);
   const [selectedQueryForAnalysis, setSelectedQueryForAnalysis] = useState<any>(null);
@@ -232,8 +257,11 @@ const QueryPerformance = () => {
           search: filters.search as string
         }),
         queryPerformanceApi.getMetrics(),
-        queryPerformanceApi.getVolumeOverTime({ hours: 24 }).catch(() => ({ data: [] })),
-        queryPerformanceApi.getTopSlowest(15).catch(() => ({ data: [] }))
+        queryPerformanceApi.getVolumeOverTime({
+          hours: volumeInterval === 'day' ? 168 : 24,
+          interval: volumeInterval
+        }).catch(() => ({ data: [] })),
+        queryPerformanceApi.getTopSlowest(topSlowestLimit, topSlowestHours).catch(() => ({ data: [] }))
       ]);
       
       if (isMountedRef.current) {
@@ -257,7 +285,7 @@ const QueryPerformance = () => {
         setLoading(false);
       }
     }
-  }, [page, filters.performance_tier, filters.operation_type, filters.source_type, filters.search]);
+  }, [page, filters.performance_tier, filters.operation_type, filters.source_type, filters.search, volumeInterval, topSlowestLimit, topSlowestHours]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -269,6 +297,18 @@ const QueryPerformance = () => {
       clearInterval(interval);
     };
   }, [fetchData]);
+
+  useEffect(() => {
+    const el = chartsColRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry?.contentRect?.width) setChartsColWidth(Math.max(320, entry.contentRect.width));
+    });
+    ro.observe(el);
+    setChartsColWidth(Math.max(320, el.getBoundingClientRect().width));
+    return () => ro.disconnect();
+  }, []);
 
   /**
    * Alterna la expansión de una consulta
@@ -310,7 +350,6 @@ const QueryPerformance = () => {
   }, []);
 
   const CHART_SIZE = { w: 520, h: 220 };
-  const TOP_SLOWEST_N = 15;
 
   const volumeSeries = useMemo(() => {
     return volumeOverTime
@@ -363,247 +402,182 @@ const QueryPerformance = () => {
 
   return (
     <Container>
-      <Header>Query Performance</Header>
-      
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg
+      }}>
+        <h1 style={{
+          fontSize: 14,
+          fontWeight: 600,
+          margin: 0,
+          color: asciiColors.foreground,
+          textTransform: 'uppercase',
+          fontFamily: 'Consolas'
+        }}>
+          <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+          QUERY PERFORMANCE
+        </h1>
+      </div>
+
       {error && <ErrorMessage>{error}</ErrorMessage>}
 
-      <MetricsGrid>
-        <MetricCard>
-          <MetricLabel>Total Queries</MetricLabel>
-          <MetricValue>{formatNumber(metrics.total_queries)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Excellent</MetricLabel>
-          <MetricValue>{formatNumber(metrics.excellent_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Good</MetricLabel>
-          <MetricValue>{formatNumber(metrics.good_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Fair</MetricLabel>
-          <MetricValue>{formatNumber(metrics.fair_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Poor</MetricLabel>
-          <MetricValue>{formatNumber(metrics.poor_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Long Running</MetricLabel>
-          <MetricValue>{formatNumber(metrics.long_running_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Blocking</MetricLabel>
-          <MetricValue>{formatNumber(metrics.blocking_count)}</MetricValue>
-        </MetricCard>
-        <MetricCard>
-          <MetricLabel>Avg Efficiency</MetricLabel>
-          <MetricValue>{metrics.avg_efficiency ? `${Number(metrics.avg_efficiency).toFixed(1)}%` : 'N/A'}</MetricValue>
-        </MetricCard>
-      </MetricsGrid>
+      {/* Row 1: DETAILS (full width) — where the cards were */}
+      <div style={{ marginBottom: 20 }}>
+        <AsciiPanel title="DETAILS">
+          <SummaryCardsRow>
+            <SummaryCard>
+              <SummaryCardTitle>
+                <SummaryCardTitleIcon />
+                DISTRIBUTION BY TIER
+              </SummaryCardTitle>
+              {['EXCELLENT', 'GOOD', 'FAIR', 'POOR'].map((tier) => {
+                const key = `${tier.toLowerCase()}_count` as keyof typeof metrics;
+                const count = Number(metrics[key] ?? 0) || 0;
+                const total = Number(metrics.total_queries) || 1;
+                const percentage = total > 0 ? (count / total) * 100 : 0;
+                const active = count > 0;
+                return (
+                  <SummaryCardRow key={tier}>
+                    <SummaryCardRowIcon $active={active} />
+                    <span style={{ flex: 1 }}>{tier}</span>
+                    <SummaryCardValue $active={active}>{count} ({percentage.toFixed(1)}%)</SummaryCardValue>
+                  </SummaryCardRow>
+                );
+              })}
+            </SummaryCard>
+            <SummaryCard>
+              <SummaryCardTitle>
+                <SummaryCardTitleIcon />
+                BLOCKING VS NON-BLOCKING
+              </SummaryCardTitle>
+              {[
+                { label: 'Blocking', count: Number(metrics.blocking_count) || 0 },
+                { label: 'Non-Blocking', count: Math.max(0, (Number(metrics.total_queries) || 0) - (Number(metrics.blocking_count) || 0)) },
+              ].map(({ label, count }) => {
+                const total = Number(metrics.total_queries) || 1;
+                const percentage = total > 0 ? (count / total) * 100 : 0;
+                return (
+                  <SummaryCardRow key={label}>
+                    <SummaryCardRowIcon $active={count > 0} />
+                    <span style={{ flex: 1 }}>{label}</span>
+                    <SummaryCardValue $active={count > 0}>{count} ({percentage.toFixed(1)}%)</SummaryCardValue>
+                  </SummaryCardRow>
+                );
+              })}
+            </SummaryCard>
+            <SummaryCard>
+              <SummaryCardTitle>
+                <SummaryCardTitleIcon />
+                DISTRIBUTION BY STATE
+              </SummaryCardTitle>
+              {[
+                { label: 'Long Running', count: Number(metrics.long_running_count) || 0 },
+                { label: 'Normal', count: Math.max(0, (Number(metrics.total_queries) || 0) - (Number(metrics.long_running_count) || 0)) },
+              ].map(({ label, count }) => {
+                const total = Number(metrics.total_queries) || 1;
+                const percentage = total > 0 ? (count / total) * 100 : 0;
+                return (
+                  <SummaryCardRow key={label}>
+                    <SummaryCardRowIcon $active={count > 0} />
+                    <span style={{ flex: 1 }}>{label}</span>
+                    <SummaryCardValue $active={count > 0}>{count} ({percentage.toFixed(1)}%)</SummaryCardValue>
+                  </SummaryCardRow>
+                );
+              })}
+            </SummaryCard>
+            <SummaryCard>
+              <SummaryCardTitle>
+                <SummaryCardTitleIcon />
+                TOTALS
+              </SummaryCardTitle>
+              <SummaryCardRow>
+                <SummaryCardRowIcon $active />
+                <span style={{ flex: 1 }}>Total Queries</span>
+                <SummaryCardValue $active>{formatNumber(metrics.total_queries)}</SummaryCardValue>
+              </SummaryCardRow>
+              <SummaryCardRow>
+                <SummaryCardRowIcon $active />
+                <span style={{ flex: 1 }}>Avg Efficiency</span>
+                <SummaryCardValue $active>{metrics.avg_efficiency != null ? `${Number(metrics.avg_efficiency).toFixed(1)}%` : 'N/A'}</SummaryCardValue>
+              </SummaryCardRow>
+              <SummaryCardRow>
+                <SummaryCardRowIcon $active />
+                <span style={{ flex: 1 }}>Avg Execution Time</span>
+                <SummaryCardValue $active>{formatTime(metrics.avg_mean_time_ms ?? metrics.avg_mean_time)}</SummaryCardValue>
+              </SummaryCardRow>
+            </SummaryCard>
+          </SummaryCardsRow>
+        </AsciiPanel>
+      </div>
 
-      {/* QUERY VOLUME OVER TIME — Area / line */}
-      <AsciiPanel title="QUERY VOLUME OVER TIME — Area / line (picos = más queries)">
-        <div style={{ overflowX: 'auto' }}>
-          {volumeSeries.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>
-              No time-series data. Volume is grouped by hour for the last 24h.
-            </div>
-          ) : (() => {
-            const padding = { top: 20, right: 24, bottom: 32, left: 44 };
-            const w = CHART_SIZE.w;
-            const h = CHART_SIZE.h;
-            const innerW = w - padding.left - padding.right;
-            const innerH = h - padding.top - padding.bottom;
-            const minT = Math.min(...volumeSeries.map((d) => d.ts));
-            const maxT = Math.max(...volumeSeries.map((d) => d.ts));
-            const rangeT = Math.max(1, maxT - minT);
-            const maxVol = Math.max(1, ...volumeSeries.map((d) => d.volume));
-            const scaleX = (ts: number) => padding.left + ((ts - minT) / rangeT) * innerW;
-            const scaleY = (v: number) => padding.top + innerH - (v / maxVol) * innerH;
-            const baselineY = padding.top + innerH;
-            const points = volumeSeries.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(' ');
-            const areaPoints = `${padding.left},${baselineY} ${points} ${padding.left + innerW},${baselineY}`;
-            const linePoints = volumeSeries.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(' ');
-            const formatTick = (ts: number) => {
-              const d = new Date(ts);
-              return volumeSeries.length > 6 ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit' }) : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-            };
-            const gridLines = 4;
-            return (
-              <svg width={w} height={h} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background }}>
-                {Array.from({ length: gridLines + 1 }).map((_, i) => {
-                  const y = padding.top + (innerH * i) / gridLines;
-                  const val = maxVol - (maxVol * i) / gridLines;
-                  return (
-                    <g key={i}>
-                      <line x1={padding.left} y1={y} x2={w - padding.right} y2={y} stroke={asciiColors.border} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />
-                      <text x={padding.left - 6} y={y + 4} textAnchor="end" fontSize={9} fill={asciiColors.muted}>{i === 0 ? maxVol : Math.round(val)}</text>
-                    </g>
-                  );
-                })}
-                <line x1={padding.left} y1={padding.top} x2={padding.left} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
-                <line x1={padding.left} y1={h - padding.bottom} x2={w - padding.right} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
-                {volumeSeries.map((d, i) => {
-                  const step = volumeSeries.length > 10 ? Math.max(1, Math.floor(volumeSeries.length / 6)) : 1;
-                  if (step > 1 && i % step !== 0 && i !== volumeSeries.length - 1) return null;
-                  return (
-                    <text key={`vol-tick-${i}-${d.ts}`} x={scaleX(d.ts)} y={h - padding.bottom + 14} textAnchor="middle" fontSize={9} fill={asciiColors.muted}>{formatTick(d.ts)}</text>
-                  );
-                })}
-                <polygon points={areaPoints} fill={asciiColors.backgroundSoft} stroke="none" />
-                <polyline points={linePoints} fill="none" stroke={asciiColors.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            );
-          })()}
-        </div>
-      </AsciiPanel>
-
-      {/* TOP SLOWEST — Bar chart */}
-      <AsciiPanel title="TOP SLOWEST — Bar chart">
-        <div style={{ overflowX: 'auto' }}>
-          {topSlowest.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>No data</div>
-          ) : (() => {
-            const topN = topSlowest.slice(0, TOP_SLOWEST_N).map((q: any) => ({ ...q, _mean: Number(q.mean_time_ms) || 0 })).filter((q: any) => q._mean > 0);
-            if (topN.length === 0) return <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>No timing data</div>;
-            const maxTime = Math.max(1, ...topN.map((q: any) => q._mean));
-            const barH = 18;
-            const gap = 4;
-            const labelW = 160;
-            const barW = 220;
-            const totalH = topN.length * (barH + gap) - gap;
-            const h = Math.max(120, totalH + 24);
-            const w = labelW + barW + 72;
-            return (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>Top {TOP_SLOWEST_N} slowest (mean time)</div>
-                <svg width={w} height={h} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
-                {topN.map((q: any, i: number) => {
-                  const y = 16 + i * (barH + gap);
-                  const width = (q._mean / maxTime) * barW;
-                  const fill = getTierColor(q.performance_tier || '');
-                  const label = (q.query_text || '').substring(0, 28);
-                  return (
-                    <g key={`slowest-${i}`}>
-                      <text x={4} y={y + barH - 4} fontSize={9} fill={asciiColors.muted}>{label}{label.length >= 28 ? '…' : ''}</text>
-                      <rect x={labelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
-                      <rect x={labelW} y={y} width={width} height={barH - 2} fill={fill} rx={2} opacity={0.85} />
-                      <text x={labelW + barW + 6} y={y + barH - 4} fontSize={9} fill={asciiColors.foreground}>{formatTime(q._mean)}</text>
-                    </g>
-                  );
-                })}
-                </svg>
-              </div>
-            );
-          })()}
-        </div>
-      </AsciiPanel>
-
-      {/* DETAILS — Distribution by tier, Blocking vs non-blocking, Avg execution time */}
-      <AsciiPanel title="DETAILS">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
-          <div style={{ border: `1px solid ${asciiColors.border}`, borderRadius: 2, padding: 16, backgroundColor: asciiColors.backgroundSoft }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.accent, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${asciiColors.border}` }}>
-              {ascii.blockFull} DISTRIBUTION BY TIER
-            </div>
-            {['EXCELLENT', 'GOOD', 'FAIR', 'POOR'].map((tier, idx, arr) => {
-              const key = `${tier.toLowerCase()}_count` as keyof typeof metrics;
-              const count = Number(metrics[key] ?? 0) || 0;
-              const total = Number(metrics.total_queries) || 1;
-              const percentage = total > 0 ? (count / total) * 100 : 0;
-              const isLast = idx === arr.length - 1;
-              return (
-                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
-                  <span style={{ color: asciiColors.muted, width: 20 }}>{isLast ? ascii.bl : ascii.v}</span>
-                  <span style={{ color: getTierColor(tier), width: 12 }}>{ascii.blockFull}</span>
-                  <span style={{ flex: 1, color: asciiColors.foreground }}>{tier}</span>
-                  <span style={{ fontWeight: 600, color: getTierColor(tier), minWidth: '64px', textAlign: 'right' }}>{count} ({percentage.toFixed(1)}%)</span>
-                </div>
-              );
-            })}
+      {/* Row 2: Filters full width — 3 dropdowns + search, beneath DETAILS */}
+      <div style={{ width: '100%', marginBottom: 20 }}>
+        <FiltersContainer style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <Select
+              value={filters.performance_tier as string}
+              onChange={(e) => {
+                setFilter('performance_tier', e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Tiers</option>
+              <option value="EXCELLENT">Excellent</option>
+              <option value="GOOD">Good</option>
+              <option value="FAIR">Fair</option>
+              <option value="POOR">Poor</option>
+            </Select>
+            <Select
+              value={filters.operation_type as string}
+              onChange={(e) => {
+                setFilter('operation_type', e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Operations</option>
+              <option value="SELECT">SELECT</option>
+              <option value="INSERT">INSERT</option>
+              <option value="UPDATE">UPDATE</option>
+              <option value="DELETE">DELETE</option>
+            </Select>
+            <Select
+              value={filters.source_type as string}
+              onChange={(e) => {
+                setFilter('source_type', e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Sources</option>
+              <option value="snapshot">Snapshot</option>
+              <option value="activity">Activity</option>
+            </Select>
           </div>
-          <div style={{ border: `1px solid ${asciiColors.border}`, borderRadius: 2, padding: 16, backgroundColor: asciiColors.backgroundSoft }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.accent, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${asciiColors.border}` }}>
-              {ascii.blockFull} BLOCKING VS NON-BLOCKING
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
-                <span style={{ color: asciiColors.muted, width: 20 }}>{ascii.v}</span>
-                <span style={{ color: asciiColors.foreground, width: 12 }}>{ascii.blockFull}</span>
-                <span style={{ flex: 1, color: asciiColors.foreground }}>Blocking</span>
-                <span style={{ fontWeight: 600, color: asciiColors.foreground, minWidth: '30px', textAlign: 'right' }}>{Number(metrics.blocking_count) || 0}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
-                <span style={{ color: asciiColors.muted, width: 20 }}>{ascii.bl}</span>
-                <span style={{ color: asciiColors.accent, width: 12 }}>{ascii.blockFull}</span>
-                <span style={{ flex: 1, color: asciiColors.foreground }}>Non-Blocking</span>
-                <span style={{ fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>{Math.max(0, (Number(metrics.total_queries) || 0) - (Number(metrics.blocking_count) || 0))}</span>
-              </div>
-            </div>
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${asciiColors.border}` }}>
-              <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>{ascii.v} Avg Execution Time</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
-                {formatTime(metrics.avg_mean_time_ms ?? metrics.avg_mean_time)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </AsciiPanel>
+          <Input
+            type="text"
+            placeholder="Search query text..."
+            value={filters.search as string}
+            onChange={(e) => {
+              setFilter('search', e.target.value);
+              setPage(1);
+            }}
+            style={{ width: '100%', maxWidth: 480 }}
+          />
+        </FiltersContainer>
+      </div>
 
-      <FiltersContainer>
-        <Select
-          value={filters.performance_tier as string}
-          onChange={(e) => {
-            setFilter('performance_tier', e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Tiers</option>
-          <option value="EXCELLENT">Excellent</option>
-          <option value="GOOD">Good</option>
-          <option value="FAIR">Fair</option>
-          <option value="POOR">Poor</option>
-        </Select>
-        
-        <Select
-          value={filters.operation_type as string}
-          onChange={(e) => {
-            setFilter('operation_type', e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Operations</option>
-          <option value="SELECT">SELECT</option>
-          <option value="INSERT">INSERT</option>
-          <option value="UPDATE">UPDATE</option>
-          <option value="DELETE">DELETE</option>
-        </Select>
-        
-        <Select
-          value={filters.source_type as string}
-          onChange={(e) => {
-            setFilter('source_type', e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Sources</option>
-          <option value="snapshot">Snapshot</option>
-          <option value="activity">Activity</option>
-        </Select>
-        
-        <Input
-          type="text"
-          placeholder="Search query text..."
-          value={filters.search as string}
-          onChange={(e) => {
-            setFilter('search', e.target.value);
-            setPage(1);
-          }}
-        />
-      </FiltersContainer>
-
-      <QueryPerformanceTreeView
+      {/* Row 3: Two columns — Col1 = Tree, Col2 = Bar chart then Query volume */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '540px 1fr',
+        gap: 20,
+        minHeight: 'calc(100vh - 380px)',
+        alignContent: 'start'
+      }}>
+        {/* Col 1: Tree list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+          <QueryPerformanceTreeView
             queries={queries}
             onQueryClick={(query) => {
               toggleQuery(query.id);
@@ -619,6 +593,156 @@ const QueryPerformance = () => {
               />
             </div>
           )}
+        </div>
+
+        {/* Col 2: TOP SLOWEST (bar chart) then QUERY VOLUME OVER TIME (below) — fills available width */}
+        <div ref={chartsColRef} style={{ display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto', width: '100%', minWidth: 0, alignItems: 'stretch' }}>
+          <AsciiPanel title="TOP SLOWEST — Bar chart">
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: asciiColors.foreground }}>
+                Mostrar:
+                <Select
+                  value={topSlowestLimit}
+                  onChange={(e) => setTopSlowestLimit(Number(e.target.value))}
+                  style={{ padding: '4px 8px', fontSize: 11, minWidth: 90 }}
+                >
+                  <option value={5}>Top 5</option>
+                  <option value={10}>Top 10</option>
+                  <option value={15}>Top 15</option>
+                  <option value={20}>Top 20</option>
+                  <option value={25}>Top 25</option>
+                  <option value={30}>Top 30</option>
+                </Select>
+              </label>
+              <span style={{ fontSize: 10, color: asciiColors.muted }}>|</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: asciiColors.foreground }}>
+                Período:
+                <Select
+                  value={topSlowestHours}
+                  onChange={(e) => setTopSlowestHours(Number(e.target.value) as 1 | 24 | 168)}
+                  style={{ padding: '4px 8px', fontSize: 11, minWidth: 120 }}
+                >
+                  <option value={1}>Última hora</option>
+                  <option value={24}>Últimas 24 h</option>
+                  <option value={168}>Últimos 7 días</option>
+                </Select>
+              </label>
+            </div>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              {topSlowest.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>No data</div>
+              ) : (() => {
+                const topN = topSlowest.slice(0, topSlowestLimit).map((q: any) => ({ ...q, _mean: Number(q.mean_time_ms) || 0 })).filter((q: any) => q._mean > 0);
+                if (topN.length === 0) return <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>No timing data</div>;
+                const maxTime = Math.max(1, ...topN.map((q: any) => q._mean));
+                const barH = 18;
+                const gap = 4;
+                const labelW = 160;
+                const barW = Math.max(120, chartsColWidth - labelW - 72);
+                const totalH = topN.length * (barH + gap) - gap;
+                const h = Math.max(120, totalH + 24);
+                const w = labelW + barW + 72;
+                return (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>Top {topSlowestLimit} slowest (mean time)</div>
+                    <svg width={w} height={h} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, maxWidth: '100%' }}>
+                      {topN.map((q: any, i: number) => {
+                        const y = 16 + i * (barH + gap);
+                        const width = (q._mean / maxTime) * barW;
+                        const fill = getTierColor(q.performance_tier || '');
+                        const label = (q.query_text || '').substring(0, 28);
+                        return (
+                          <g key={`slowest-${i}`}>
+                            <text x={4} y={y + barH - 4} fontSize={9} fill={asciiColors.muted}>{label}{label.length >= 28 ? '…' : ''}</text>
+                            <rect x={labelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                            <rect x={labelW} y={y} width={width} height={barH - 2} fill={fill} rx={2} opacity={0.85} />
+                            <text x={labelW + barW + 6} y={y + barH - 4} fontSize={9} fill={asciiColors.foreground}>{formatTime(q._mean)}</text>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                );
+              })()}
+            </div>
+          </AsciiPanel>
+
+          <AsciiPanel title="QUERY VOLUME OVER TIME — Area / line (picos = más queries)">
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <span style={{ fontSize: 10, color: asciiColors.muted }}>Source: metadata.query_performance</span>
+              <span style={{ fontSize: 10, color: asciiColors.muted }}>|</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: asciiColors.foreground }}>
+                Agrupar por:
+                <Select
+                  value={volumeInterval}
+                  onChange={(e) => setVolumeInterval(e.target.value as 'minute' | 'hour' | 'day')}
+                  style={{ padding: '4px 8px', fontSize: 11, minWidth: 100 }}
+                >
+                  <option value="minute">Minutos</option>
+                  <option value="hour">Horas</option>
+                  <option value="day">Días</option>
+                </Select>
+              </label>
+              <span style={{ fontSize: 10, color: asciiColors.muted }}>
+                {volumeInterval === 'day' ? '(últimos 7 días)' : '(últimas 24 h)'}
+              </span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              {volumeSeries.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>
+                  No time-series data. Volume is grouped by {volumeInterval === 'day' ? 'day' : volumeInterval === 'hour' ? 'hour' : 'minute'}.
+                </div>
+              ) : (() => {
+                const padding = { top: 20, right: 24, bottom: 32, left: 44 };
+                const w = Math.max(320, chartsColWidth);
+                const h = CHART_SIZE.h;
+                const innerW = w - padding.left - padding.right;
+                const innerH = h - padding.top - padding.bottom;
+                const minT = Math.min(...volumeSeries.map((d) => d.ts));
+                const maxT = Math.max(...volumeSeries.map((d) => d.ts));
+                const rangeT = Math.max(1, maxT - minT);
+                const maxVol = Math.max(1, ...volumeSeries.map((d) => d.volume));
+                const scaleX = (ts: number) => padding.left + ((ts - minT) / rangeT) * innerW;
+                const scaleY = (v: number) => padding.top + innerH - (v / maxVol) * innerH;
+                const baselineY = padding.top + innerH;
+                const points = volumeSeries.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(' ');
+                const areaPoints = `${padding.left},${baselineY} ${points} ${padding.left + innerW},${baselineY}`;
+                const linePoints = volumeSeries.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(' ');
+                const formatTick = (ts: number) => {
+                  const d = new Date(ts);
+                  return volumeSeries.length > 6 ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit' }) : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                };
+                const gridLines = 4;
+                return (
+                  <svg width={w} height={h} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background }}>
+                    {Array.from({ length: gridLines + 1 }).map((_, i) => {
+                      const y = padding.top + (innerH * i) / gridLines;
+                      const val = maxVol - (maxVol * i) / gridLines;
+                      return (
+                        <g key={i}>
+                          <line x1={padding.left} y1={y} x2={w - padding.right} y2={y} stroke={asciiColors.border} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />
+                          <text x={padding.left - 6} y={y + 4} textAnchor="end" fontSize={9} fill={asciiColors.muted}>{i === 0 ? maxVol : Math.round(val)}</text>
+                        </g>
+                      );
+                    })}
+                    <line x1={padding.left} y1={padding.top} x2={padding.left} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                    <line x1={padding.left} y1={h - padding.bottom} x2={w - padding.right} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                    {volumeSeries.map((d, i) => {
+                      const step = volumeSeries.length > 10 ? Math.max(1, Math.floor(volumeSeries.length / 6)) : 1;
+                      if (step > 1 && i % step !== 0 && i !== volumeSeries.length - 1) return null;
+                      return (
+                        <text key={`vol-tick-${i}-${d.ts}`} x={scaleX(d.ts)} y={h - padding.bottom + 14} textAnchor="middle" fontSize={9} fill={asciiColors.muted}>{formatTick(d.ts)}</text>
+                      );
+                    })}
+                    <polygon points={areaPoints} fill={asciiColors.backgroundSoft} stroke="none" />
+                    <polyline points={linePoints} fill="none" stroke={asciiColors.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                );
+              })()}
+            </div>
+          </AsciiPanel>
+        </div>
+      </div>
 
       {/* Analysis result modal */}
       {analysisModalOpen && analysisData && selectedQueryForAnalysis && (

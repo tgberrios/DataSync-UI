@@ -14,7 +14,7 @@ export const AsciiPanel: React.FC<Props> = ({ title, children, animated = true }
         style={{
           display: "flex",
           flexDirection: "column",
-          height: "100%",
+          flexShrink: 0,
           animation: animated ? "fadeInUp 0.4s ease-out" : "none",
           transition: "transform 0.2s ease, box-shadow 0.2s ease"
         }}

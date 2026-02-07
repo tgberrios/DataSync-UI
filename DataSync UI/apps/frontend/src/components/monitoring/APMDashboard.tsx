@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
@@ -43,6 +44,7 @@ const APMDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeWindow, setTimeWindow] = useState<string>('1min');
+  const [showAPMPlaybook, setShowAPMPlaybook] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -87,20 +89,37 @@ const APMDashboard = () => {
       <AsciiPanel>
         <div style={{ marginBottom: theme.spacing.lg }}>
           <h1 style={{
-            fontSize: 18,
+            fontSize: 14,
             fontWeight: 600,
+            margin: 0,
             color: asciiColors.foreground,
-            marginBottom: theme.spacing.md
+            textTransform: 'uppercase',
+            fontFamily: 'Consolas'
           }}>
-            APM Dashboard
+            <span style={{ color: asciiColors.accent, marginRight: 8 }}>{ascii.blockFull}</span>
+            APM DASHBOARD
           </h1>
-          <p style={{
-            color: asciiColors.muted,
-            fontSize: 12,
-            marginBottom: theme.spacing.lg
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: theme.spacing.lg,
+            flexWrap: 'wrap',
+            gap: theme.spacing.md
           }}>
-            Application Performance Monitoring with metrics, baselines, and health checks
-          </p>
+            <p style={{
+              color: asciiColors.muted,
+              fontSize: 12,
+              margin: 0
+            }}>
+              Application Performance Monitoring with metrics, baselines, and health checks
+            </p>
+            <AsciiButton
+              label="Playbook & How to use"
+              onClick={() => setShowAPMPlaybook(true)}
+              variant="ghost"
+            />
+          </div>
 
           <div style={{
             display: 'flex',
@@ -130,6 +149,148 @@ const APMDashboard = () => {
               onClick={fetchData}
             />
           </div>
+
+          {showAPMPlaybook && createPortal(
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10000
+              }}
+              onClick={() => setShowAPMPlaybook(false)}
+            >
+              <div
+                style={{
+                  width: '90%',
+                  maxWidth: 1000,
+                  maxHeight: '90vh',
+                  minHeight: 400,
+                  overflowY: 'auto',
+                  flexShrink: 0
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <AsciiPanel title="APM DASHBOARD - PLAYBOOK & HOW TO USE" animated={false}>
+                  <div style={{ padding: 16, fontFamily: 'Consolas', fontSize: 12, lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                        {ascii.blockFull} OVERVIEW
+                      </div>
+                      <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
+                        APM (Application Performance Monitoring) shows how your services and operations perform over time.
+                        The dashboard combines live metrics (latency, throughput, error rate), stored baselines for comparison,
+                        and health checks for key components. Use it to spot regressions, capacity issues, and failing dependencies.
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                        {ascii.blockFull} HOW TO USE
+                      </div>
+                      <div style={{ marginLeft: 16 }}>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>1. Choose time window</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Select 1 Minute, 5 Minutes, or 1 Hour to see metrics for that period. Data refreshes automatically every 30 seconds; use &quot;Refresh&quot; for an immediate update.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>2. Check Health Checks</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            The top section shows component health (e.g. DB, API). Green = healthy, yellow = degraded, red = unhealthy. Use this to see if a dependency is down before digging into metrics.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>3. Read Performance Metrics</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            The table lists each operation and service with P50/P95/P99 latency, throughput (req/s), and error rate (%). Rows highlighted in red exceed their baseline (latency or error rate &gt; 1.5× baseline).
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>4. Use baselines</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Baselines are calculated from historical data. When current metrics go far above baseline, the row is highlighted so you can prioritize investigations.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
+                        {ascii.blockFull} KEY CONCEPTS
+                      </div>
+                      <div style={{ marginLeft: 16 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>P50 / P95 / P99</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Latency percentiles in ms: 50% of requests faster than P50, 95% faster than P95, 99% faster than P99. P95 and P99 show tail latency and spikes.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Throughput</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Requests per second (req/s) for that operation; indicates load and capacity.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Error rate</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Percentage of requests that failed; high values point to bugs, timeouts, or dependency failures.
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Baseline</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Expected “normal” performance per operation; used to detect regressions when current metrics exceed it by a factor (e.g. 1.5×).
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: asciiColors.accent, fontWeight: 600 }}>Health (healthy / degraded / unhealthy)</span>
+                          <span style={{ color: asciiColors.foreground, marginLeft: 8, fontSize: 11 }}>
+                            Status of monitored components; helps you see at a glance if a dependency is failing before checking detailed metrics.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      marginTop: 16,
+                      padding: 12,
+                      background: asciiColors.backgroundSoft,
+                      borderRadius: 2,
+                      border: `1px solid ${asciiColors.border}`
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.muted, marginBottom: 4 }}>
+                        {ascii.blockSemi} Best Practices
+                      </div>
+                      <div style={{ fontSize: 11, color: asciiColors.foreground }}>
+                        • Start with Health Checks when something is wrong; then drill into metrics for the affected service or operation.<br/>
+                        • Use a shorter time window (1 min) for live debugging and longer (1 h) for trend view.<br/>
+                        • Investigate highlighted rows first—they indicate operations that have regressed vs. baseline.<br/>
+                        • Recalculate baselines periodically (via backend/API) after traffic or code changes so comparisons stay meaningful.
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 16, textAlign: 'right' }}>
+                      <AsciiButton
+                        label="Close"
+                        onClick={() => setShowAPMPlaybook(false)}
+                        variant="ghost"
+                      />
+                    </div>
+                  </div>
+                </AsciiPanel>
+              </div>
+            </div>,
+            document.body
+          )}
 
           {error && (
             <div style={{

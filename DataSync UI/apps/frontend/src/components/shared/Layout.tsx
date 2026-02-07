@@ -377,20 +377,11 @@ const Layout = () => {
             <NavSubItem to="/monitoring/apm">
               ■ APM Dashboard
             </NavSubItem>
-            <NavSubItem to="/monitoring/bottlenecks">
-              ■ Bottleneck Detection
-            </NavSubItem>
-            <NavSubItem to="/monitoring/resources">
-              ■ Resource Tracking
-            </NavSubItem>
             <NavSubItem to="/monitoring/costs">
               ■ Cost Tracking
             </NavSubItem>
             <NavSubItem to="/monitoring/log-aggregation">
               ■ Log Aggregation
-            </NavSubItem>
-            <NavSubItem to="/monitoring/alerting">
-              ■ Advanced Alerting
             </NavSubItem>
             <NavSubItem to="/logs">
               ■ Logs Viewer

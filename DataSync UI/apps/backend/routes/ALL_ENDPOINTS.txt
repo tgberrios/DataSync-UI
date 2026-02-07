@@ -151,6 +151,7 @@
 /api/governance/metrics
 /api/governance/stats
 /api/logs
+/api/logs/chart-data
 /api/logs/categories
 /api/logs/errors
 /api/logs/errors/info

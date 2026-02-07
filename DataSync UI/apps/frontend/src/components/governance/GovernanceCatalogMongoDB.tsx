@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import {
   Container,
@@ -18,6 +18,7 @@ import { AsciiButton } from '../../ui/controls/AsciiButton';
 import GovernanceCatalogMongoDBTreeView from './GovernanceCatalogMongoDBTreeView';
 import GovernanceCatalogCharts from './GovernanceCatalogCharts';
 import SkeletonLoader from '../shared/SkeletonLoader';
+import { LineageMetricsDashboard } from '../data-lineage/LineageSummaryCards';
 
 const fadeIn = keyframes`
   from {
@@ -233,6 +234,26 @@ const GovernanceCatalogMongoDB = () => {
     }
     setPage(1);
   }, [setFilter, setPage]);
+
+  const metricsDashboardCards = useMemo(() => [
+    {
+      title: 'Overview',
+      rows: [
+        { label: 'Total Collections', value: metrics.total_collections ?? 0 },
+        { label: 'Total Size', value: formatBytes(metrics.total_size_mb) },
+        { label: 'Total Documents', value: formatNumber(metrics.total_documents) },
+        { label: 'Unique Servers', value: metrics.unique_servers ?? 0 },
+      ],
+    },
+    {
+      title: 'Health',
+      rows: [
+        { label: 'Healthy', value: metrics.healthy_count ?? 0 },
+        { label: 'Warning', value: metrics.warning_count ?? 0 },
+        { label: 'Critical', value: metrics.critical_count ?? 0 },
+      ],
+    },
+  ], [metrics, formatBytes, formatNumber]);
 
   const renderOverviewTab = useCallback((item: any) => {
     return (
@@ -574,49 +595,8 @@ const GovernanceCatalogMongoDB = () => {
           </AsciiPanel>
         </div>
       )}
-      
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: theme.spacing.md, 
-        marginBottom: theme.spacing.lg 
-      }}>
-        <AsciiPanel title="Total Collections">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.total_collections || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Total Size">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatBytes(metrics.total_size_mb)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Total Documents">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatNumber(metrics.total_documents)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Healthy">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.healthy_count || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Warning">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.warning_count || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Critical">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.critical_count || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Unique Servers">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.unique_servers || 0}
-          </div>
-        </AsciiPanel>
-      </div>
+
+      <LineageMetricsDashboard cards={metricsDashboardCards} />
 
       <AsciiPanel title="FILTERS">
         <div style={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>

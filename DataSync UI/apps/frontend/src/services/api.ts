@@ -1298,6 +1298,23 @@ export const logsApi = {
     }
   },
 
+  getLogChartData: async (params?: { period?: "1h" | "7h" | "24h" | "7d"; levels?: string[] }) => {
+    const response = await api.get<{
+      timeSeries: Array<{ bucket: string; [key: string]: string | number | undefined }>;
+      categoryNames: string[];
+      byLevel: Record<string, number>;
+      byCategory: Array<{ category: string; count: number }>;
+      byFunction: Array<{ name: string; count: number }>;
+      period: string;
+      bucket: string;
+    }>("/logs/chart-data", {
+      params: params?.levels?.length
+        ? { period: params.period, levels: params.levels }
+        : { period: params?.period },
+    });
+    return response.data;
+  },
+
   clearLogs: async () => {
     try {
       const response = await api.delete("/logs?deleteAll=true");
@@ -1418,7 +1435,7 @@ export const queryPerformanceApi = {
     }
   },
 
-  getVolumeOverTime: async (params?: { hours?: number }) => {
+  getVolumeOverTime: async (params?: { hours?: number; interval?: 'minute' | 'hour' | 'day' }) => {
     try {
       const response = await api.get("/query-performance/volume-over-time", { params: params || {} });
       return response.data;
@@ -1435,9 +1452,11 @@ export const queryPerformanceApi = {
     }
   },
 
-  getTopSlowest: async (limit?: number) => {
+  getTopSlowest: async (limit?: number, hours?: number) => {
     try {
-      const response = await api.get("/query-performance/top-slowest", { params: { limit: limit ?? 10 } });
+      const response = await api.get("/query-performance/top-slowest", {
+        params: { limit: limit ?? 10, hours: hours ?? 24 }
+      });
       return response.data;
     } catch (error) {
       console.error("Error fetching top slowest queries:", error);

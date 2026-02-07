@@ -151,20 +151,46 @@ const SYSTEM_QUERY_FILTER = `
   AND operation_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
 `;
 
+const SYSTEM_QUERY_FILTER_WITHOUT_TIME = `
+  query_text NOT ILIKE '%information_schema%'
+  AND query_text NOT ILIKE '%pg_stat%'
+  AND query_text NOT ILIKE '%pg_catalog%'
+  AND query_text NOT ILIKE '%pg_class%'
+  AND query_text NOT ILIKE '%pg_namespace%'
+  AND query_text NOT ILIKE '%pg_extension%'
+  AND query_text NOT ILIKE '%pg_depend%'
+  AND query_text NOT ILIKE '%pg_attribute%'
+  AND query_text NOT ILIKE '%pg_index%'
+  AND query_text NOT ILIKE '%pg_settings%'
+  AND query_text NOT ILIKE '%pg_database%'
+  AND query_text NOT ILIKE '%pg_user%'
+  AND query_text NOT ILIKE '%pg_roles%'
+  AND query_text NOT ILIKE '%pg_postmaster%'
+  AND query_text NOT ILIKE '%pg_statio%'
+  AND query_text NOT ILIKE '%current_database()%'
+  AND operation_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+`;
+
+const VOLUME_INTERVALS = ["minute", "hour", "day"];
+
 router.get("/volume-over-time", async (req, res) => {
   try {
     const hours = Math.min(168, Math.max(1, parseInt(req.query.hours) || 24));
+    const intervalParam = (req.query.interval || "hour").toLowerCase();
+    const interval = VOLUME_INTERVALS.includes(intervalParam) ? intervalParam : "hour";
+    const timeCondition = `captured_at > NOW() - INTERVAL '${hours} hours'`;
+    const whereFilter = `${timeCondition} AND ${SYSTEM_QUERY_FILTER_WITHOUT_TIME.replace(/^\s+/gm, "").trim()}`;
+    // date_trunc first argument must be a literal in PostgreSQL, so we use validated interval only
     const result = await pool.query(
       `
       SELECT 
-        date_trunc('hour', captured_at) AS bucket_ts,
+        date_trunc('${interval}', captured_at) AS bucket_ts,
         COUNT(*)::int AS count
       FROM metadata.query_performance
-      WHERE ${SYSTEM_QUERY_FILTER.replace(/^\s+/gm, "").trim()}
-      GROUP BY date_trunc('hour', captured_at)
+      WHERE ${whereFilter}
+      GROUP BY date_trunc('${interval}', captured_at)
       ORDER BY bucket_ts ASC
-      `,
-      []
+      `
     );
     const data = (result.rows || []).map((r) => ({
       bucket_ts: r.bucket_ts ? new Date(r.bucket_ts).toISOString() : null,
@@ -185,13 +211,16 @@ router.get("/volume-over-time", async (req, res) => {
 router.get("/top-slowest", async (req, res) => {
   try {
     const limit = Math.min(50, Math.max(5, parseInt(req.query.limit) || 10));
+    const hours = Math.min(168, Math.max(1, parseInt(req.query.hours) || 24));
+    const timeCondition = `captured_at > NOW() - INTERVAL '${hours} hours'`;
+    const whereFilter = `${timeCondition} AND ${SYSTEM_QUERY_FILTER_WITHOUT_TIME.replace(/^\s+/gm, "").trim()}`;
     // One row per distinct query_text (the one with highest mean_time_ms), then top N by time
     const result = await pool.query(
       `
       SELECT * FROM (
         SELECT DISTINCT ON (query_text) *
         FROM metadata.query_performance
-        WHERE ${SYSTEM_QUERY_FILTER.replace(/^\s+/gm, "").trim()}
+        WHERE ${whereFilter}
         ORDER BY query_text, mean_time_ms DESC NULLS LAST
       ) sub
       ORDER BY mean_time_ms DESC NULLS LAST
