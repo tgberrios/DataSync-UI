@@ -708,11 +708,16 @@ const AsciiSparkline: React.FC<{
           <div style={{ color: asciiColors.accent, fontWeight: 600, marginBottom: 2 }}>
             {sparklineData[hoveredIndex].toFixed(2)}
           </div>
-          {sparklineLabels[hoveredIndex] && (
-            <div style={{ color: asciiColors.muted, fontSize: 9 }}>
-              {new Date(sparklineLabels[hoveredIndex]).toLocaleTimeString()}
-            </div>
-          )}
+          {sparklineLabels[hoveredIndex] && (() => {
+            const label = sparklineLabels[hoveredIndex];
+            const d = new Date(label);
+            const timeStr = Number.isNaN(d.getTime()) ? label : d.toLocaleTimeString();
+            return (
+              <div style={{ color: asciiColors.muted, fontSize: 9 }}>
+                {timeStr}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -3482,100 +3487,95 @@ const UnifiedMonitor: React.FC = () => {
           }}>
             {ascii.blockFull} DATABASE HEALTH
           </div>
-          <div style={{ 
-            fontFamily: "Consolas",
-            fontSize: 11,
-            lineHeight: 1.8,
-            color: asciiColors.foreground
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Active Connections:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.activeConnections || '0/0'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Connection Usage:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.connectionPercentage || '0.0'}%</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Response Time:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.responseTime || '< 1ms'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Buffer Hit Rate:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.bufferHitRate || '0.0'}%</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Cache Hit Rate:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.cacheHitRate || '0.0'}%</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Status:</span>
-              <span style={{ marginLeft: '20px' }}>
-                <span style={{
-                  padding: "2px 8px",
-                  borderRadius: 2,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  border: `1px solid ${dbHealth.status === 'Healthy' ? asciiColors.accent : asciiColors.muted}`,
-                  color: dbHealth.status === 'Healthy' ? asciiColors.accent : asciiColors.muted,
-                  backgroundColor: "transparent"
+          <div style={{ fontFamily: "Consolas", fontSize: 11, color: asciiColors.foreground }}>
+            {(() => {
+              const connPct = parseFloat(String(dbHealth.connectionPercentage || 0)) || 0;
+              const bufferPct = parseFloat(String(dbHealth.bufferHitRate || 0)) || 0;
+              const cachePct = parseFloat(String(dbHealth.cacheHitRate || 0)) || 0;
+              const efficiencyPct = typeof dbHealth.queryEfficiencyScore === 'number'
+                ? dbHealth.queryEfficiencyScore
+                : parseFloat(String(dbHealth.queryEfficiencyScore || 0)) || 0;
+              const renderDbHealthBar = (label: string, value: number, max = 100) => {
+                const pct = Math.min(max, Math.max(0, value));
+                const barPct = max > 0 ? (pct / max) * 100 : 0;
+                return (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: asciiColors.muted }}>{label}</span>
+                      <span style={{ fontWeight: 600, color: asciiColors.foreground }}>{pct.toFixed(1)}%</span>
+                    </div>
+                    <div style={{
+                      height: 6,
+                      backgroundColor: asciiColors.backgroundSoft,
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      border: `1px solid ${asciiColors.border}`
+                    }}>
+                      <div style={{
+                        width: `${barPct}%`,
+                        height: '100%',
+                        backgroundColor: asciiColors.accent,
+                        borderRadius: 1,
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                  </div>
+                );
+              };
+              const renderDbHealthStat = (label: string, value: string | number) => (
+                <div style={{
+                  padding: '8px 10px',
+                  backgroundColor: asciiColors.background,
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2
                 }}>
-                  {dbHealth.status || 'Unknown'}
-                </span>
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Uptime:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>
-                {dbHealth.uptimeSeconds 
-                  ? `${Math.floor(dbHealth.uptimeSeconds / 86400)}d ${Math.floor((dbHealth.uptimeSeconds % 86400) / 3600)}h ${Math.floor((dbHealth.uptimeSeconds % 3600) / 60)}m`
-                  : 'N/A'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Active Queries:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.activeQueries || 0}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Waiting Queries:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.waitingQueries || 0}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Avg Query Duration:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>
-                {dbHealth.avgQueryDuration && typeof dbHealth.avgQueryDuration === 'number' 
-                  ? `${dbHealth.avgQueryDuration.toFixed(2)}s` 
-                  : 'N/A'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Query Efficiency:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>
-                {dbHealth.queryEfficiencyScore && typeof dbHealth.queryEfficiencyScore === 'number'
-                  ? `${dbHealth.queryEfficiencyScore.toFixed(1)}%`
-                  : '0.0%'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Long Running Queries:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.longRunningQueries || 0}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Blocking Queries:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.blockingQueries || 0}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: asciiColors.muted }}>├─ Total Queries (24h):</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>{dbHealth.totalQueries24h || 0}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: asciiColors.muted }}>└─ Database Size:</span>
-              <span style={{ fontWeight: 500, marginLeft: '20px' }}>
-                {dbHealth.databaseSizeBytes 
-                  ? `${(dbHealth.databaseSizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
-                  : 'N/A'}
-              </span>
-            </div>
+                  <div style={{ fontSize: 9, color: asciiColors.muted, marginBottom: 2 }}>{label}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.foreground }}>{value}</div>
+                </div>
+              );
+              return (
+                <>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+                    <span style={{
+                      padding: "4px 10px",
+                      borderRadius: 2,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      border: `1px solid ${dbHealth.status === 'Healthy' ? asciiColors.accent : asciiColors.muted}`,
+                      color: dbHealth.status === 'Healthy' ? asciiColors.accent : asciiColors.muted,
+                      backgroundColor: "transparent"
+                    }}>
+                      {dbHealth.status || 'Unknown'}
+                    </span>
+                    <span style={{ color: asciiColors.muted }}>Uptime:</span>
+                    <span style={{ fontWeight: 600 }}>
+                      {dbHealth.uptimeSeconds
+                        ? `${Math.floor(dbHealth.uptimeSeconds / 86400)}d ${Math.floor((dbHealth.uptimeSeconds % 86400) / 3600)}h ${Math.floor((dbHealth.uptimeSeconds % 3600) / 60)}m`
+                        : 'N/A'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                    {renderDbHealthBar('Connection usage', connPct)}
+                    {renderDbHealthBar('Buffer hit rate', bufferPct)}
+                    {renderDbHealthBar('Cache hit rate', cachePct)}
+                    {renderDbHealthBar('Query efficiency', efficiencyPct)}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
+                    {renderDbHealthStat('Connections', dbHealth.activeConnections || '0/0')}
+                    {renderDbHealthStat('Response', dbHealth.responseTime || '< 1ms')}
+                    {renderDbHealthStat('Active', String(dbHealth.activeQueries ?? 0))}
+                    {renderDbHealthStat('Waiting', String(dbHealth.waitingQueries ?? 0))}
+                    {renderDbHealthStat('Avg duration', dbHealth.avgQueryDuration != null && typeof dbHealth.avgQueryDuration === 'number'
+                      ? `${dbHealth.avgQueryDuration.toFixed(2)}s` : 'N/A')}
+                    {renderDbHealthStat('Long run', String(dbHealth.longRunningQueries ?? 0))}
+                    {renderDbHealthStat('Blocking', String(dbHealth.blockingQueries ?? 0))}
+                    {renderDbHealthStat('Queries 24h', String(dbHealth.totalQueries24h ?? 0))}
+                    {renderDbHealthStat('DB size', dbHealth.databaseSizeBytes
+                      ? `${(dbHealth.databaseSizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB` : 'N/A')}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
