@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import { queryPerformanceApi, monitoringApi } from '../../services/api';
 import { Container, Header, Select, FiltersContainer, Input, Pagination, PageButton, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
@@ -189,6 +189,8 @@ const QueryPerformance = () => {
   const [error, setError] = useState<string | null>(null);
   const [queries, setQueries] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({});
+  const [volumeOverTime, setVolumeOverTime] = useState<{ bucket_ts: string; count: number }[]>([]);
+  const [topSlowest, setTopSlowest] = useState<any[]>([]);
   const [openQueryId, setOpenQueryId] = useState<number | null>(null);
   const [selectedQueryForAnalysis, setSelectedQueryForAnalysis] = useState<any>(null);
   const [analysisData, setAnalysisData] = useState<any>(null);
@@ -220,7 +222,7 @@ const QueryPerformance = () => {
     try {
       setLoading(true);
       setError(null);
-      const [queriesData, metricsData] = await Promise.all([
+      const [queriesData, metricsData, volumeData, slowestData] = await Promise.all([
         queryPerformanceApi.getQueries({
           page,
           limit: 20,
@@ -229,7 +231,9 @@ const QueryPerformance = () => {
           source_type: filters.source_type as string,
           search: filters.search as string
         }),
-        queryPerformanceApi.getMetrics()
+        queryPerformanceApi.getMetrics(),
+        queryPerformanceApi.getVolumeOverTime({ hours: 24 }).catch(() => ({ data: [] })),
+        queryPerformanceApi.getTopSlowest(15).catch(() => ({ data: [] }))
       ]);
       
       if (isMountedRef.current) {
@@ -241,6 +245,8 @@ const QueryPerformance = () => {
           limit: 20
         });
         setMetrics(metricsData || {});
+        setVolumeOverTime(Array.isArray(volumeData?.data) ? volumeData.data : []);
+        setTopSlowest(Array.isArray(slowestData?.data) ? slowestData.data : []);
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -294,6 +300,24 @@ const QueryPerformance = () => {
     if (numVal >= 1000) return `${(numVal / 1000).toFixed(2)}K`;
     return numVal.toString();
   }, []);
+
+  /** Monochromatic tier color for charts (accent, foreground, muted only). */
+  const getTierColor = useCallback((tier: string) => {
+    const u = (tier || '').toUpperCase();
+    if (u === 'POOR' || u === 'FAIR') return asciiColors.muted;
+    if (u === 'EXCELLENT' || u === 'GOOD') return asciiColors.accent;
+    return asciiColors.foreground;
+  }, []);
+
+  const CHART_SIZE = { w: 520, h: 220 };
+  const TOP_SLOWEST_N = 15;
+
+  const volumeSeries = useMemo(() => {
+    return volumeOverTime
+      .filter((d) => d.bucket_ts)
+      .map((d) => ({ ts: new Date(d.bucket_ts).getTime(), volume: d.count }))
+      .sort((a, b) => a.ts - b.ts);
+  }, [volumeOverTime]);
 
   const handleAnalyzeQuery = useCallback(async (query: any) => {
     try {
@@ -377,6 +401,155 @@ const QueryPerformance = () => {
           <MetricValue>{metrics.avg_efficiency ? `${Number(metrics.avg_efficiency).toFixed(1)}%` : 'N/A'}</MetricValue>
         </MetricCard>
       </MetricsGrid>
+
+      {/* QUERY VOLUME OVER TIME — Area / line */}
+      <AsciiPanel title="QUERY VOLUME OVER TIME — Area / line (picos = más queries)">
+        <div style={{ overflowX: 'auto' }}>
+          {volumeSeries.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>
+              No time-series data. Volume is grouped by hour for the last 24h.
+            </div>
+          ) : (() => {
+            const padding = { top: 20, right: 24, bottom: 32, left: 44 };
+            const w = CHART_SIZE.w;
+            const h = CHART_SIZE.h;
+            const innerW = w - padding.left - padding.right;
+            const innerH = h - padding.top - padding.bottom;
+            const minT = Math.min(...volumeSeries.map((d) => d.ts));
+            const maxT = Math.max(...volumeSeries.map((d) => d.ts));
+            const rangeT = Math.max(1, maxT - minT);
+            const maxVol = Math.max(1, ...volumeSeries.map((d) => d.volume));
+            const scaleX = (ts: number) => padding.left + ((ts - minT) / rangeT) * innerW;
+            const scaleY = (v: number) => padding.top + innerH - (v / maxVol) * innerH;
+            const baselineY = padding.top + innerH;
+            const points = volumeSeries.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(' ');
+            const areaPoints = `${padding.left},${baselineY} ${points} ${padding.left + innerW},${baselineY}`;
+            const linePoints = volumeSeries.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(' ');
+            const formatTick = (ts: number) => {
+              const d = new Date(ts);
+              return volumeSeries.length > 6 ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit' }) : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            };
+            const gridLines = 4;
+            return (
+              <svg width={w} height={h} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background }}>
+                {Array.from({ length: gridLines + 1 }).map((_, i) => {
+                  const y = padding.top + (innerH * i) / gridLines;
+                  const val = maxVol - (maxVol * i) / gridLines;
+                  return (
+                    <g key={i}>
+                      <line x1={padding.left} y1={y} x2={w - padding.right} y2={y} stroke={asciiColors.border} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />
+                      <text x={padding.left - 6} y={y + 4} textAnchor="end" fontSize={9} fill={asciiColors.muted}>{i === 0 ? maxVol : Math.round(val)}</text>
+                    </g>
+                  );
+                })}
+                <line x1={padding.left} y1={padding.top} x2={padding.left} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                <line x1={padding.left} y1={h - padding.bottom} x2={w - padding.right} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                {volumeSeries.map((d, i) => {
+                  const step = volumeSeries.length > 10 ? Math.max(1, Math.floor(volumeSeries.length / 6)) : 1;
+                  if (step > 1 && i % step !== 0 && i !== volumeSeries.length - 1) return null;
+                  return (
+                    <text key={`vol-tick-${i}-${d.ts}`} x={scaleX(d.ts)} y={h - padding.bottom + 14} textAnchor="middle" fontSize={9} fill={asciiColors.muted}>{formatTick(d.ts)}</text>
+                  );
+                })}
+                <polygon points={areaPoints} fill={asciiColors.backgroundSoft} stroke="none" />
+                <polyline points={linePoints} fill="none" stroke={asciiColors.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            );
+          })()}
+        </div>
+      </AsciiPanel>
+
+      {/* TOP SLOWEST — Bar chart */}
+      <AsciiPanel title="TOP SLOWEST — Bar chart">
+        <div style={{ overflowX: 'auto' }}>
+          {topSlowest.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>No data</div>
+          ) : (() => {
+            const topN = topSlowest.slice(0, TOP_SLOWEST_N).map((q: any) => ({ ...q, _mean: Number(q.mean_time_ms) || 0 })).filter((q: any) => q._mean > 0);
+            if (topN.length === 0) return <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>No timing data</div>;
+            const maxTime = Math.max(1, ...topN.map((q: any) => q._mean));
+            const barH = 18;
+            const gap = 4;
+            const labelW = 160;
+            const barW = 220;
+            const totalH = topN.length * (barH + gap) - gap;
+            const h = Math.max(120, totalH + 24);
+            const w = labelW + barW + 72;
+            return (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>Top {TOP_SLOWEST_N} slowest (mean time)</div>
+                <svg width={w} height={h} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
+                {topN.map((q: any, i: number) => {
+                  const y = 16 + i * (barH + gap);
+                  const width = (q._mean / maxTime) * barW;
+                  const fill = getTierColor(q.performance_tier || '');
+                  const label = (q.query_text || '').substring(0, 28);
+                  return (
+                    <g key={`slowest-${i}`}>
+                      <text x={4} y={y + barH - 4} fontSize={9} fill={asciiColors.muted}>{label}{label.length >= 28 ? '…' : ''}</text>
+                      <rect x={labelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                      <rect x={labelW} y={y} width={width} height={barH - 2} fill={fill} rx={2} opacity={0.85} />
+                      <text x={labelW + barW + 6} y={y + barH - 4} fontSize={9} fill={asciiColors.foreground}>{formatTime(q._mean)}</text>
+                    </g>
+                  );
+                })}
+                </svg>
+              </div>
+            );
+          })()}
+        </div>
+      </AsciiPanel>
+
+      {/* DETAILS — Distribution by tier, Blocking vs non-blocking, Avg execution time */}
+      <AsciiPanel title="DETAILS">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+          <div style={{ border: `1px solid ${asciiColors.border}`, borderRadius: 2, padding: 16, backgroundColor: asciiColors.backgroundSoft }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.accent, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${asciiColors.border}` }}>
+              {ascii.blockFull} DISTRIBUTION BY TIER
+            </div>
+            {['EXCELLENT', 'GOOD', 'FAIR', 'POOR'].map((tier, idx, arr) => {
+              const key = `${tier.toLowerCase()}_count` as keyof typeof metrics;
+              const count = Number(metrics[key] ?? 0) || 0;
+              const total = Number(metrics.total_queries) || 1;
+              const percentage = total > 0 ? (count / total) * 100 : 0;
+              const isLast = idx === arr.length - 1;
+              return (
+                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
+                  <span style={{ color: asciiColors.muted, width: 20 }}>{isLast ? ascii.bl : ascii.v}</span>
+                  <span style={{ color: getTierColor(tier), width: 12 }}>{ascii.blockFull}</span>
+                  <span style={{ flex: 1, color: asciiColors.foreground }}>{tier}</span>
+                  <span style={{ fontWeight: 600, color: getTierColor(tier), minWidth: '64px', textAlign: 'right' }}>{count} ({percentage.toFixed(1)}%)</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ border: `1px solid ${asciiColors.border}`, borderRadius: 2, padding: 16, backgroundColor: asciiColors.backgroundSoft }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: asciiColors.accent, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${asciiColors.border}` }}>
+              {ascii.blockFull} BLOCKING VS NON-BLOCKING
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
+                <span style={{ color: asciiColors.muted, width: 20 }}>{ascii.v}</span>
+                <span style={{ color: asciiColors.foreground, width: 12 }}>{ascii.blockFull}</span>
+                <span style={{ flex: 1, color: asciiColors.foreground }}>Blocking</span>
+                <span style={{ fontWeight: 600, color: asciiColors.foreground, minWidth: '30px', textAlign: 'right' }}>{Number(metrics.blocking_count) || 0}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
+                <span style={{ color: asciiColors.muted, width: 20 }}>{ascii.bl}</span>
+                <span style={{ color: asciiColors.accent, width: 12 }}>{ascii.blockFull}</span>
+                <span style={{ flex: 1, color: asciiColors.foreground }}>Non-Blocking</span>
+                <span style={{ fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>{Math.max(0, (Number(metrics.total_queries) || 0) - (Number(metrics.blocking_count) || 0))}</span>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${asciiColors.border}` }}>
+              <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>{ascii.v} Avg Execution Time</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, fontFamily: 'Consolas' }}>
+                {formatTime(metrics.avg_mean_time_ms ?? metrics.avg_mean_time)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </AsciiPanel>
 
       <FiltersContainer>
         <Select

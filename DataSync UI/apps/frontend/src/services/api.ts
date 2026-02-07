@@ -1417,6 +1417,40 @@ export const queryPerformanceApi = {
       throw error;
     }
   },
+
+  getVolumeOverTime: async (params?: { hours?: number }) => {
+    try {
+      const response = await api.get("/query-performance/volume-over-time", { params: params || {} });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching query volume over time:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
+
+  getTopSlowest: async (limit?: number) => {
+    try {
+      const response = await api.get("/query-performance/top-slowest", { params: { limit: limit ?? 10 } });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching top slowest queries:", error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.details ||
+            error.response.data.error ||
+            error.message
+        );
+      }
+      throw error;
+    }
+  },
 };
 
 export const maintenanceApi = {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { theme } from '../../theme/theme';
-import { monitorApi, queryPerformanceApi, dashboardApi } from '../../services/api';
+import { monitorApi, dashboardApi } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
@@ -783,14 +783,59 @@ const SectionTitle = styled.h3`
   border-bottom: 2px solid ${theme.colors.border.light};
 `;
 
+/** Stable key for a live change log entry (used for animation and list key). */
+function getLiveItemKey(item: any): string {
+  if (item?.id != null) return String(item.id);
+  return `${item?.schema_name ?? ''}|${item?.table_name ?? ''}|${item?.db_engine ?? ''}|${String(item?.processed_at ?? '')}`;
+}
+
+/** Wraps a Live Changes row and runs a short entrance animation when the item is new. */
+const AnimatedLiveRow: React.FC<{
+  isEntering: boolean;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+  onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
+}> = ({ isEntering, children, style, onClick, onMouseEnter, onMouseLeave }) => {
+  const [visible, setVisible] = useState(!isEntering);
+
+  useEffect(() => {
+    if (!isEntering) return;
+    let raf2: number | undefined;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setVisible(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (typeof raf2 === 'number') cancelAnimationFrame(raf2);
+    };
+  }, [isEntering]);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
+        ...style,
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(-10px)',
+        transition: 'opacity 0.35s ease-out, transform 0.35s ease-out',
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
 const UnifiedMonitor: React.FC = () => {
   const location = useLocation();
-  const getInitialTab = (): 'monitor' | 'live' | 'performance' | 'system' | 'transfer' => {
+  const getInitialTab = (): 'monitor' | 'live' | 'system' | 'transfer' => {
     if (location.pathname.includes('live-changes')) return 'live';
-    if (location.pathname.includes('query-performance')) return 'performance';
     return 'monitor';
   };
-  const [activeTab, setActiveTab] = useState<'monitor' | 'live' | 'performance' | 'system' | 'transfer'>(getInitialTab());
+  const [activeTab, setActiveTab] = useState<'monitor' | 'live' | 'system' | 'transfer'>(getInitialTab());
   
   useEffect(() => {
     setActiveTab(getInitialTab());
@@ -821,8 +866,6 @@ const UnifiedMonitor: React.FC = () => {
   }, [activeTab, activeQueries, selectedItem]);
   const [processingLogs, setProcessingLogs] = useState<any[]>([]);
   const [processingStats, setProcessingStats] = useState<any>({});
-  const [queryPerformance, setQueryPerformance] = useState<any[]>([]);
-  const [performanceMetrics, setPerformanceMetrics] = useState<any>({});
   const [transferMetrics, setTransferMetrics] = useState<any[]>([]);
   const [transferStats, setTransferStats] = useState<any>({});
   
@@ -864,17 +907,50 @@ const UnifiedMonitor: React.FC = () => {
   });
   const [dbHealth, setDbHealth] = useState<any>({});
   
-  const [performanceTierFilter, setPerformanceTierFilter] = useState<string>('');
-  const [performanceSortBy, setPerformanceSortBy] = useState<'mean_time_ms' | 'dbname' | 'performance_tier' | 'query_efficiency_score' | 'calls' | 'query_text'>('mean_time_ms');
-  const [performanceSortOrder, setPerformanceSortOrder] = useState<'asc' | 'desc'>('desc');
   const [liveEventTypeFilter, setLiveEventTypeFilter] = useState<string>('');
   const [liveEventStatusFilter, setLiveEventStatusFilter] = useState<string>('');
   const [transferStatusFilter, setTransferStatusFilter] = useState<string>('');
   const [transferTypeFilter, setTransferTypeFilter] = useState<string>('');
   const [transferEngineFilter, setTransferEngineFilter] = useState<string>('');
+  const [transferSearchQuery, setTransferSearchQuery] = useState<string>('');
   const [showMonitorPlaybook, setShowMonitorPlaybook] = useState(false);
-  
+  const [liveEnteringKeys, setLiveEnteringKeys] = useState<Set<string>>(new Set());
+  const seenLiveKeysRef = useRef<Set<string>>(new Set());
+
   const isMountedRef = useRef(true);
+
+  // Detect new live change items and mark them for entrance animation
+  useEffect(() => {
+    if (activeTab !== 'live' || !isMountedRef.current) return;
+    const filtered = processingLogs.filter((log: any) => {
+      const typeMatch = !liveEventTypeFilter || (liveEventTypeFilter === 'N/A' && !log.pk_strategy) || log.pk_strategy === liveEventTypeFilter;
+      const statusMatch = !liveEventStatusFilter || log.status === liveEventStatusFilter;
+      return typeMatch && statusMatch;
+    });
+    const currentKeys = new Set(filtered.map((log: any) => getLiveItemKey(log)));
+    const seen = seenLiveKeysRef.current;
+    if (seen.size === 0 && currentKeys.size > 0) {
+      currentKeys.forEach((k) => seen.add(k));
+      return;
+    }
+    const newKeys = new Set<string>();
+    currentKeys.forEach((k) => {
+      if (!seen.has(k)) {
+        seen.add(k);
+        newKeys.add(k);
+      }
+    });
+    if (newKeys.size === 0) return;
+    setLiveEnteringKeys((prev) => new Set([...prev, ...newKeys]));
+    const t = setTimeout(() => {
+      setLiveEnteringKeys((prev) => {
+        const next = new Set(prev);
+        newKeys.forEach((k) => next.delete(k));
+        return next;
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [processingLogs, activeTab, liveEventTypeFilter, liveEventStatusFilter]);
 
   const extractSchemaTable = useCallback((query: string) => {
     if (!query) return { schema: 'N/A', table: 'N/A' };
@@ -916,24 +992,6 @@ const UnifiedMonitor: React.FC = () => {
       }
     }
   }, [extractSchemaTable]);
-
-  const fetchPerformanceData = useCallback(async () => {
-    if (!isMountedRef.current) return;
-    try {
-      const [queries, metrics] = await Promise.all([
-        queryPerformanceApi.getQueries({ page: 1, limit: 100 }),
-        queryPerformanceApi.getMetrics()
-      ]);
-      if (isMountedRef.current) {
-        setQueryPerformance(queries.data || []);
-        setPerformanceMetrics(metrics || {});
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setError(extractApiError(err));
-      }
-    }
-  }, []);
 
   const fetchTransferMetrics = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -1042,7 +1100,7 @@ const UnifiedMonitor: React.FC = () => {
     setLoading(true);
     
     const loadData = async () => {
-      await Promise.all([fetchMonitorData(), fetchPerformanceData()]);
+      await fetchMonitorData();
       if (activeTab === 'system') {
         await fetchSystemLogsHistory();
       }
@@ -1060,9 +1118,6 @@ const UnifiedMonitor: React.FC = () => {
     const interval = setInterval(() => {
       if (isMountedRef.current) {
         fetchMonitorData();
-        if (activeTab === 'performance') {
-          fetchPerformanceData();
-        }
         if (activeTab === 'system') {
           fetchSystemResources();
         }
@@ -1081,7 +1136,7 @@ const UnifiedMonitor: React.FC = () => {
         clearInterval(systemInterval);
       }
     };
-  }, [fetchMonitorData, fetchPerformanceData, fetchSystemResources, fetchSystemLogsHistory, fetchTransferMetrics, activeTab]);
+  }, [fetchMonitorData, fetchSystemResources, fetchSystemLogsHistory, fetchTransferMetrics, activeTab]);
 
   const treeData = useMemo(() => {
     if (activeTab === 'monitor') {
@@ -1116,11 +1171,13 @@ const UnifiedMonitor: React.FC = () => {
       return databases;
     } else if (activeTab === 'transfer') {
       const databases = new Map<string, any[]>();
+      const searchLower = (transferSearchQuery || '').trim().toLowerCase();
       const filteredMetrics = transferMetrics.filter((metric: any) => {
         const statusMatch = !transferStatusFilter || metric.status === transferStatusFilter;
         const typeMatch = !transferTypeFilter || metric.transfer_type === transferTypeFilter;
         const engineMatch = !transferEngineFilter || metric.db_engine === transferEngineFilter;
-        return statusMatch && typeMatch && engineMatch;
+        const searchMatch = !searchLower || [metric.schema_name, metric.table_name, metric.db_engine].some((s: string) => (s || '').toLowerCase().includes(searchLower));
+        return statusMatch && typeMatch && engineMatch && searchMatch;
       });
       filteredMetrics.forEach(metric => {
         const db = metric.db_engine || 'Unknown';
@@ -1130,40 +1187,9 @@ const UnifiedMonitor: React.FC = () => {
         databases.get(db)!.push(metric);
       });
       return databases;
-    } else {
-      const databases = new Map<string, any[]>();
-      const filteredQueries = performanceTierFilter 
-        ? queryPerformance.filter((q: any) => q.performance_tier === performanceTierFilter)
-        : queryPerformance;
-      filteredQueries.forEach(query => {
-        const db = query.dbname || 'Unknown';
-        if (!databases.has(db)) {
-          databases.set(db, []);
-        }
-        databases.get(db)!.push(query);
-      });
-      return databases;
     }
-  }, [activeTab, activeQueries, processingLogs, queryPerformance, transferMetrics, performanceTierFilter, liveEventTypeFilter, liveEventStatusFilter, transferStatusFilter, transferTypeFilter, transferEngineFilter]);
-
-  const sortedPerformanceQueries = useMemo(() => {
-    const filtered = performanceTierFilter
-      ? queryPerformance.filter((q: any) => q.performance_tier === performanceTierFilter)
-      : [...queryPerformance];
-    const order = performanceSortOrder === 'desc' ? 1 : -1;
-    return [...filtered].sort((a: any, b: any) => {
-      let aVal: string | number = a[performanceSortBy];
-      let bVal: string | number = b[performanceSortBy];
-      if (performanceSortBy === 'mean_time_ms' || performanceSortBy === 'query_efficiency_score' || performanceSortBy === 'calls') {
-        aVal = Number(aVal) ?? 0;
-        bVal = Number(bVal) ?? 0;
-        return order * (aVal - bVal);
-      }
-      const aStr = String(aVal ?? '').toLowerCase();
-      const bStr = String(bVal ?? '').toLowerCase();
-      return order * (aStr < bStr ? -1 : aStr > bStr ? 1 : 0);
-    });
-  }, [queryPerformance, performanceTierFilter, performanceSortBy, performanceSortOrder]);
+    return new Map<string, any[]>();
+  }, [activeTab, activeQueries, processingLogs, transferMetrics, liveEventTypeFilter, liveEventStatusFilter, transferStatusFilter, transferTypeFilter, transferEngineFilter, transferSearchQuery]);
 
   const toggleNode = useCallback((key: string) => {
     setExpandedNodes(prev => {
@@ -1336,40 +1362,22 @@ const UnifiedMonitor: React.FC = () => {
               {items.map((item: any, idx: number) => {
                 const isSelected = selectedItem === item;
                 const isLast = idx === items.length - 1;
-                
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => setSelectedItem(item)}
-                    onMouseEnter={(e) => {
-                      const container = e.currentTarget.closest('.tree-view-container');
-                      if (container) {
-                        container.classList.remove('showing-scrollbar');
-                      }
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                        e.currentTarget.style.borderLeftColor = asciiColors.accent;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.borderLeftColor = asciiColors.border;
-                      }
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      padding: "8px 8px",
-                      marginLeft: 8,
-                      marginBottom: 2,
-                      cursor: "pointer",
-                      borderLeft: `2px solid ${isSelected ? asciiColors.accent : asciiColors.border}`,
-                      backgroundColor: isSelected ? asciiColors.backgroundSoft : "transparent",
-                      transition: "all 0.2s ease",
-                      gap: 8
-                    }}
-                  >
+                const itemKey = activeTab === 'live' ? getLiveItemKey(item) : `item-${idx}`;
+                const isLiveEntering = activeTab === 'live' && liveEnteringKeys.has(getLiveItemKey(item));
+                const rowStyle: React.CSSProperties = {
+                  display: "flex",
+                  alignItems: "flex-start",
+                  padding: "8px 8px",
+                  marginLeft: 8,
+                  marginBottom: 2,
+                  cursor: "pointer",
+                  borderLeft: `2px solid ${isSelected ? asciiColors.accent : asciiColors.border}`,
+                  backgroundColor: isSelected ? asciiColors.backgroundSoft : "transparent",
+                  transition: "all 0.2s ease",
+                  gap: 8
+                };
+                const rowContent = (
+                  <>
                     <span style={{ 
                       color: asciiColors.muted, 
                       fontSize: 10,
@@ -1415,24 +1423,6 @@ const UnifiedMonitor: React.FC = () => {
                             fontFamily: "Consolas"
                           }}>
                             {item.db_engine} {ascii.v} {formatDate(item.processed_at)}
-                          </div>
-                        </>
-                      )}
-                      {activeTab === 'performance' && (
-                        <>
-                          <div style={{ fontWeight: 500, color: asciiColors.foreground, fontSize: 11 }}>
-                            {formatTime(item.mean_time_ms || item.query_duration_ms)}
-                          </div>
-                          <div style={{
-                            fontSize: 10,
-                            color: asciiColors.muted,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            marginTop: 4,
-                            fontFamily: "Consolas"
-                          }}>
-                            {item.query_text?.substring(0, 60)}...
                           </div>
                         </>
                       )}
@@ -1507,19 +1497,6 @@ const UnifiedMonitor: React.FC = () => {
                           {item.status}
                         </span>
                       )}
-                      {activeTab === 'performance' && (
-                        <span style={{
-                          padding: "2px 6px",
-                          borderRadius: 2,
-                          fontSize: 10,
-                          fontWeight: 500,
-                  border: `1px solid ${getStatusColor(item.performance_tier || 'N/A')}`,
-                  color: getStatusColor(item.performance_tier || 'N/A'),
-                  backgroundColor: "transparent"
-                        }}>
-                          {item.performance_tier || 'N/A'}
-                        </span>
-                      )}
                       {activeTab === 'transfer' && (
                         <span style={{
                           padding: "2px 6px",
@@ -1534,6 +1511,42 @@ const UnifiedMonitor: React.FC = () => {
                         </span>
                       )}
                     </div>
+                  </>
+                );
+                const handleRowMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+                  const container = e.currentTarget.closest('.tree-view-container');
+                  if (container) container.classList.remove('showing-scrollbar');
+                  if (!isSelected) {
+                    e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                    e.currentTarget.style.borderLeftColor = asciiColors.accent;
+                  }
+                };
+                const handleRowMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.borderLeftColor = asciiColors.border;
+                  }
+                };
+                return activeTab === 'live' ? (
+                  <AnimatedLiveRow
+                    key={itemKey}
+                    isEntering={isLiveEntering}
+                    style={rowStyle}
+                    onClick={() => setSelectedItem(item)}
+                    onMouseEnter={handleRowMouseEnter}
+                    onMouseLeave={handleRowMouseLeave}
+                  >
+                    {rowContent}
+                  </AnimatedLiveRow>
+                ) : (
+                  <div
+                    key={itemKey}
+                    onClick={() => setSelectedItem(item)}
+                    onMouseEnter={handleRowMouseEnter}
+                    onMouseLeave={handleRowMouseLeave}
+                    style={rowStyle}
+                  >
+                    {rowContent}
                   </div>
                 );
               })}
@@ -1544,452 +1557,7 @@ const UnifiedMonitor: React.FC = () => {
     });
   };
 
-  const getPerformanceTierBadgeColor = useCallback((status: string) => {
-    const upperStatus = (status || '').toUpperCase();
-    if (upperStatus.includes('ERROR') || upperStatus.includes('FAILED') || upperStatus === 'POOR') {
-      return asciiColors.foreground;
-    }
-    if (upperStatus.includes('WARNING') || upperStatus === 'FAIR') {
-      return asciiColors.muted;
-    }
-    if (upperStatus.includes('SUCCESS') || upperStatus === 'EXCELLENT' || upperStatus === 'GOOD') {
-      return asciiColors.accent;
-    }
-    return asciiColors.muted;
-  }, []);
-
-  const togglePerformanceSort = useCallback((col: typeof performanceSortBy) => {
-    setPerformanceSortBy(col);
-    setPerformanceSortOrder(prev => (performanceSortBy === col && prev === 'desc' ? 'asc' : 'desc'));
-  }, [performanceSortBy]);
-
-  const renderPerformanceCompactList = () => {
-    if (sortedPerformanceQueries.length === 0) {
-      return (
-        <div style={{
-          padding: 40,
-          textAlign: "center",
-          color: asciiColors.muted,
-          fontSize: 12
-        }}>
-          {ascii.dot} No queries match the current filter
-        </div>
-      );
-    }
-    const SortLink = ({ label, col }: { label: string; col: typeof performanceSortBy }) => (
-      <button
-        type="button"
-        onClick={() => togglePerformanceSort(col)}
-        style={{
-          padding: 0,
-          border: "none",
-          background: "transparent",
-          fontFamily: "Consolas",
-          fontSize: 10,
-          fontWeight: performanceSortBy === col ? 600 : 500,
-          color: performanceSortBy === col ? asciiColors.accent : asciiColors.muted,
-          cursor: "pointer",
-          transition: "all 0.15s ease"
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = asciiColors.accent;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = performanceSortBy === col ? asciiColors.accent : asciiColors.muted;
-        }}
-      >
-        {label}{performanceSortBy === col ? (performanceSortOrder === 'desc' ? ' ↓' : ' ↑') : ''}
-      </button>
-    );
-    return (
-      <div style={{ fontFamily: "Consolas", fontSize: 12 }}>
-        <div style={{
-          display: "flex",
-          gap: 12,
-          padding: "8px 0",
-          marginBottom: 8,
-          borderBottom: `1px solid ${asciiColors.border}`,
-          flexWrap: "wrap"
-        }}>
-          <SortLink label="Time" col="mean_time_ms" />
-          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
-          <SortLink label="DB" col="dbname" />
-          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
-          <SortLink label="Tier" col="performance_tier" />
-          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
-          <SortLink label="Efficiency" col="query_efficiency_score" />
-          <span style={{ color: asciiColors.border }}>{ascii.v}</span>
-          <SortLink label="Calls" col="calls" />
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {sortedPerformanceQueries.map((item: any, idx: number) => {
-            const isSelected = selectedItem === item;
-            const timeStr = formatTime(item.mean_time_ms || item.query_duration_ms);
-            const tier = item.performance_tier || 'N/A';
-            const snippet = item.query_text ? (item.query_text.length > 50 ? `${item.query_text.substring(0, 50)}…` : item.query_text) : 'N/A';
-            return (
-              <div
-                key={item.queryid ?? idx}
-                onClick={() => setSelectedItem(item)}
-                title={item.query_text || ''}
-                style={{
-                  cursor: "pointer",
-                  padding: "6px 10px",
-                  borderRadius: 2,
-                  backgroundColor: isSelected ? asciiColors.backgroundSoft : "transparent",
-                  borderLeft: `2px solid ${isSelected ? asciiColors.accent : "transparent"}`,
-                  transition: "all 0.15s ease",
-                  fontSize: 11,
-                  color: asciiColors.foreground,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap"
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
-                }}
-              >
-                <span style={{ fontWeight: 600, color: asciiColors.foreground, marginRight: 8 }}>{timeStr}</span>
-                <span style={{ color: asciiColors.border, marginRight: 8 }}>{ascii.dot}</span>
-                <span style={{
-                  padding: "1px 4px",
-                  borderRadius: 2,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  border: `1px solid ${getPerformanceTierBadgeColor(tier)}`,
-                  color: getPerformanceTierBadgeColor(tier),
-                  backgroundColor: "transparent",
-                  marginRight: 8
-                }}>
-                  {tier}
-                </span>
-                <span style={{ color: asciiColors.border, marginRight: 8 }}>{ascii.dot}</span>
-                <span style={{ color: asciiColors.muted }}>{snippet}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  const PERFORMANCE_CHART_SIZE = { w: 480, h: 220 };
-  const PERFORMANCE_BAR_TOP_N = 15;
-
-  /** Time-bucketed series: bucket by hour, Y = sum(calls) per bucket (or count of queries if no calls) to show query volume peaks. */
-  const performanceTimeSeries = useMemo(() => {
-    const data = sortedPerformanceQueries;
-    if (data.length === 0) return [];
-    const byBucket = new Map<number, number>();
-    for (const q of data) {
-      const raw = q.captured_at || q.query_start;
-      if (!raw) continue;
-      const t = new Date(raw).getTime();
-      if (isNaN(t)) continue;
-      const bucketMs = 60 * 60 * 1000; // 1 hour
-      const bucket = Math.floor(t / bucketMs) * bucketMs;
-      const volume = Number(q.calls) ?? 1; // use 1 per row if calls missing so we still see peaks
-      byBucket.set(bucket, (byBucket.get(bucket) || 0) + volume);
-    }
-    const sorted = Array.from(byBucket.entries())
-      .map(([ts, volume]) => ({ ts, volume }))
-      .sort((a, b) => a.ts - b.ts);
-    return sorted;
-  }, [sortedPerformanceQueries]);
-
-  const renderPerformanceAreaChart = () => {
-    const series = performanceTimeSeries;
-    if (series.length === 0) return (
-      <div style={{ padding: 24, textAlign: "center", color: asciiColors.muted, fontSize: 11 }}>
-        No time data (captured_at). Load more history to see query volume over time.
-      </div>
-    );
-    const padding = { top: 20, right: 24, bottom: 32, left: 44 };
-    const w = PERFORMANCE_CHART_SIZE.w;
-    const h = PERFORMANCE_CHART_SIZE.h;
-    const innerW = w - padding.left - padding.right;
-    const innerH = h - padding.top - padding.bottom;
-    const minT = Math.min(...series.map((d) => d.ts));
-    const maxT = Math.max(...series.map((d) => d.ts));
-    const rangeT = Math.max(1, maxT - minT);
-    const maxVol = Math.max(1, ...series.map((d) => d.volume));
-    const scaleX = (ts: number) => padding.left + ((ts - minT) / rangeT) * innerW;
-    const scaleY = (v: number) => padding.top + innerH - (v / maxVol) * innerH;
-    const baselineY = padding.top + innerH;
-    const points = series.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(" ");
-    const areaPoints = `${padding.left},${baselineY} ${points} ${padding.left + innerW},${baselineY}`;
-    const linePoints = series.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(" ");
-    const formatTick = (ts: number) => {
-      const d = new Date(ts);
-      return series.length > 6 ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    };
-    const gridLines = 4;
-    const isLocalPeak = (i: number) => {
-      if (series.length <= 1) return true;
-      const v = series[i].volume;
-      if (i === 0) return v >= series[1].volume;
-      if (i === series.length - 1) return v >= series[series.length - 2].volume;
-      return v >= series[i - 1].volume && v >= series[i + 1].volume;
-    };
-    return (
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>
-          Query volume over time
-        </div>
-        <svg width={w} height={h} style={{ display: "block", border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background }}>
-          {/* Horizontal grid */}
-          {Array.from({ length: gridLines + 1 }).map((_, i) => {
-            const y = padding.top + (innerH * i) / gridLines;
-            const val = maxVol - (maxVol * i) / gridLines;
-            return (
-              <g key={i}>
-                <line x1={padding.left} y1={y} x2={w - padding.right} y2={y} stroke={asciiColors.border} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />
-                {i < gridLines + 1 && (
-                  <text x={padding.left - 6} y={y + 4} textAnchor="end" fontSize={9} fill={asciiColors.muted}>{i === 0 ? maxVol : Math.round(val)}</text>
-                )}
-              </g>
-            );
-          })}
-          <line x1={padding.left} y1={padding.top} x2={padding.left} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
-          <line x1={padding.left} y1={h - padding.bottom} x2={w - padding.right} y2={h - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
-          {/* X-axis labels (thin out if many points) */}
-          {series.map((d, i) => {
-            const step = series.length > 10 ? Math.max(1, Math.floor(series.length / 6)) : 1;
-            if (step > 1 && i % step !== 0 && i !== series.length - 1) return null;
-            return (
-              <text key={d.ts} x={scaleX(d.ts)} y={h - padding.bottom + 14} textAnchor="middle" fontSize={9} fill={asciiColors.muted}>{formatTick(d.ts)}</text>
-            );
-          })}
-          {/* Area under line */}
-          <polygon points={areaPoints} fill={asciiColors.backgroundSoft} stroke="none" />
-          {/* Line on top */}
-          <polyline points={linePoints} fill="none" stroke={asciiColors.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          {/* Values at peaks (like the daily chart with numbers on top) */}
-          {series.map((d, i) => {
-            if (!isLocalPeak(i)) return null;
-            const px = scaleX(d.ts);
-            const py = scaleY(d.volume);
-            const labelY = py - 8;
-            return (
-              <text key={`peak-${d.ts}`} x={px} y={labelY < padding.top + 10 ? py + 14 : labelY} textAnchor="middle" fontSize={10} fontWeight={600} fill={asciiColors.foreground}>
-                {d.volume >= 1000 ? `${(d.volume / 1000).toFixed(1)}k` : d.volume}
-              </text>
-            );
-          })}
-        </svg>
-      </div>
-    );
-  };
-
-  const renderPerformanceBarChart = () => {
-    const topN = [...sortedPerformanceQueries]
-      .map((q: any) => ({ ...q, _mean: Number(q.mean_time_ms) || 0 }))
-      .filter((q: any) => q._mean > 0)
-      .sort((a: any, b: any) => b._mean - a._mean)
-      .slice(0, PERFORMANCE_BAR_TOP_N);
-    if (topN.length === 0) return (
-      <div style={{ padding: 24, textAlign: "center", color: asciiColors.muted, fontSize: 11 }}>No data</div>
-    );
-    const maxTime = Math.max(1, ...topN.map((q: any) => q._mean));
-    const barH = 18;
-    const gap = 4;
-    const labelW = 140;
-    const barW = 200;
-    const totalH = topN.length * (barH + gap) - gap;
-    const h = Math.max(120, totalH + 24);
-    const w = labelW + barW + 60;
-    return (
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, marginBottom: 8 }}>Top {PERFORMANCE_BAR_TOP_N} slowest (mean time)</div>
-        <svg width={w} height={h} style={{ display: "block", border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
-          {topN.map((q: any, i: number) => {
-            const y = 16 + i * (barH + gap);
-            const width = (q._mean / maxTime) * barW;
-            const fill = getPerformanceTierBadgeColor(q.performance_tier || 'N/A');
-            const isSelected = selectedItem === q;
-            const label = (q.query_text || '').substring(0, 22);
-            return (
-              <g key={q.queryid ?? i} onClick={() => setSelectedItem(q)} style={{ cursor: "pointer" }}>
-                <text x={4} y={y + barH - 4} fontSize={9} fill={asciiColors.muted} style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}{label.length >= 22 ? '…' : ''}</text>
-                <rect x={labelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
-                <rect x={labelW} y={y} width={width} height={barH - 2} fill={fill} rx={2} opacity={0.85} stroke={isSelected ? asciiColors.foreground : "none"} strokeWidth={isSelected ? 2 : 0} />
-                <text x={labelW + barW + 6} y={y + barH - 4} fontSize={9} fill={asciiColors.foreground}>{formatTime(q._mean)}</text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-    );
-  };
-
   const renderCharts = () => {
-    if (activeTab === 'performance') {
-      const filteredQueries = performanceTierFilter 
-        ? queryPerformance.filter((q: any) => q.performance_tier === performanceTierFilter)
-        : queryPerformance;
-      
-      const tierDistribution = {
-        EXCELLENT: filteredQueries.filter((q: any) => q.performance_tier === 'EXCELLENT').length,
-        GOOD: filteredQueries.filter((q: any) => q.performance_tier === 'GOOD').length,
-        FAIR: filteredQueries.filter((q: any) => q.performance_tier === 'FAIR').length,
-        POOR: filteredQueries.filter((q: any) => q.performance_tier === 'POOR').length,
-      };
-      
-      const blockingQueries = filteredQueries.filter((q: any) => q.is_blocking).length;
-      const nonBlockingQueries = filteredQueries.length - blockingQueries;
-      
-      const avgTime = filteredQueries.length > 0
-        ? filteredQueries.reduce((sum: number, q: any) => sum + (Number(q.mean_time_ms) || 0), 0) / filteredQueries.length
-        : 0;
-
-      return (
-        <div style={{
-          fontFamily: "Consolas",
-          fontSize: 12,
-          color: asciiColors.foreground,
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 16,
-          marginBottom: 16
-        }}>
-          <div style={{
-            border: `1px solid ${asciiColors.border}`,
-            borderRadius: 2,
-            padding: 16,
-            backgroundColor: asciiColors.backgroundSoft
-          }}>
-            <h2 style={{
-              fontSize: 14,
-              fontFamily: "Consolas",
-              fontWeight: 600,
-              color: asciiColors.accent,
-              margin: 0,
-              marginBottom: 12,
-              paddingBottom: 8,
-              borderBottom: `1px solid ${asciiColors.border}`
-            }}>
-              {ascii.blockFull} DISTRIBUTION BY TIER
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {Object.entries(tierDistribution).map(([tier, count], idx, arr) => {
-                const total = Object.values(tierDistribution).reduce((a: number, b: number) => a + b, 0);
-                const percentage = total > 0 ? (count / total) * 100 : 0;
-                const isLast = idx === arr.length - 1;
-                const tierColors: Record<string, string> = {
-                  EXCELLENT: asciiColors.accent,
-                  GOOD: asciiColors.foreground,
-                  FAIR: asciiColors.muted,
-                  POOR: asciiColors.foreground,
-                };
-                return (
-                  <div key={tier} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '4px 0',
-                    fontFamily: "Consolas",
-                    fontSize: 11
-                  }}>
-                    <span style={{ color: asciiColors.muted, width: 20 }}>
-                      {isLast ? ascii.cornerBl : ascii.v}
-                    </span>
-                    <span style={{ color: tierColors[tier] || asciiColors.accent, width: 12 }}>
-                      {ascii.blockFull}
-                    </span>
-                    <span style={{ flex: 1, color: asciiColors.foreground }}>
-                      {tier}
-                    </span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: tierColors[tier] || asciiColors.accent, minWidth: '60px', textAlign: 'right' }}>
-                      {count} ({percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          
-                <div style={{ 
-            border: `1px solid ${asciiColors.border}`,
-            borderRadius: 2,
-            padding: 16,
-            backgroundColor: asciiColors.backgroundSoft
-                }}>
-                  <h2 style={{
-              fontSize: 14,
-              fontFamily: "Consolas",
-              fontWeight: 600,
-              color: asciiColors.accent,
-              margin: 0,
-              marginBottom: 12,
-              paddingBottom: 8,
-              borderBottom: `1px solid ${asciiColors.border}`
-            }}>
-              {ascii.blockFull} BLOCKING VS NON-BLOCKING
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                  <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '4px 0',
-                fontFamily: "Consolas",
-                fontSize: 11
-              }}>
-                <span style={{ color: asciiColors.muted, width: 20 }}>
-                  {ascii.v}
-                </span>
-                <span style={{ color: asciiColors.foreground, width: 12 }}>
-                  {ascii.blockFull}
-                </span>
-                <span style={{ flex: 1, color: asciiColors.foreground }}>
-                  Blocking
-                </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.foreground, minWidth: '30px', textAlign: 'right' }}>
-                  {blockingQueries}
-                </span>
-                </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '4px 0',
-                fontFamily: "Consolas",
-                fontSize: 11
-              }}>
-                <span style={{ color: asciiColors.muted, width: 20 }}>
-                  {ascii.cornerBl}
-                </span>
-                <span style={{ color: asciiColors.accent, width: 12 }}>
-                  {ascii.blockFull}
-                </span>
-                <span style={{ flex: 1, color: asciiColors.foreground }}>
-                  Non-Blocking
-                </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
-                  {nonBlockingQueries}
-                </span>
-              </div>
-            </div>
-                <div style={{ 
-              marginTop: 12,
-              paddingTop: 12,
-              borderTop: `1px solid ${asciiColors.border}`
-            }}>
-              <div style={{ fontSize: 11, color: asciiColors.muted, marginBottom: 4 }}>
-                {ascii.v} Avg Execution Time
-                </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, fontFamily: "Consolas" }}>
-                {formatTime(avgTime)}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    
     if (activeTab === 'monitor') {
       const queriesByDb = activeQueries.reduce((acc: Record<string, number>, q: any) => {
         const db = q.datname || 'Unknown';
@@ -2003,120 +1571,254 @@ const UnifiedMonitor: React.FC = () => {
         return acc;
       }, {});
 
+      const waitEventsByType = activeQueries.reduce((acc: Record<string, number>, q: any) => {
+        const key = q.wait_event_type || 'None';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+      const waitEventEntries = Object.entries(waitEventsByType)
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .slice(0, 10);
+
+      const durationSeconds = (q: any) => {
+        if (q.duration_seconds != null && Number.isFinite(q.duration_seconds)) return q.duration_seconds;
+        const d = String(q.duration || '');
+        const match = d.match(/^(?:(\d+):)?(?:(\d+):)?(\d+)(?:\.(\d+))?$/);
+        if (match) {
+          const [, h, m, s, ms] = match;
+          return (parseInt(h || '0', 10) * 3600) + (parseInt(m || '0', 10) * 60) + parseInt(s || '0', 10) + (parseFloat(`0.${ms || '0'}`) || 0);
+        }
+        return 0;
+      };
+      const topByDuration = [...activeQueries]
+        .map((q) => ({ ...q, _sec: durationSeconds(q) }))
+        .filter((q) => q._sec > 0)
+        .sort((a, b) => b._sec - a._sec)
+        .slice(0, 10);
+
+      const barLabelW = 80;
+      const barW = 160;
+      const barH = 16;
+      const barGap = 4;
+      const maxDuration = Math.max(1, ...topByDuration.map((q) => q._sec));
+      const maxWaitCount = Math.max(1, ...waitEventEntries.map(([, c]) => c));
+      const durationChartH = Math.max(80, topByDuration.length * (barH + barGap) - barGap + 24);
+      const waitChartH = Math.max(80, waitEventEntries.length * (barH + barGap) - barGap + 24);
+
+      const formatDuration = (sec: number) => {
+        if (sec < 60) return `${sec}s`;
+        if (sec < 3600) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+        return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
+      };
+
       return (
-        <div style={{
-          fontFamily: "Consolas",
-          fontSize: 12,
-          color: asciiColors.foreground,
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 16,
-          marginBottom: 16
-        }}>
+        <>
           <div style={{
-            border: `1px solid ${asciiColors.border}`,
-            borderRadius: 2,
-            padding: 16,
-            backgroundColor: asciiColors.backgroundSoft
+            fontFamily: "Consolas",
+            fontSize: 12,
+            color: asciiColors.foreground,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 16,
+            marginBottom: 16
           }}>
-            <h2 style={{
-              fontSize: 14,
-              fontFamily: "Consolas",
-              fontWeight: 600,
-              color: asciiColors.accent,
-              margin: 0,
-              marginBottom: 12,
-              paddingBottom: 8,
-              borderBottom: `1px solid ${asciiColors.border}`
+            <div style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 16,
+              backgroundColor: asciiColors.backgroundSoft
             }}>
-              {ascii.blockFull} QUERIES BY DATABASE
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {Object.entries(queriesByDb)
-                .sort(([, a], [, b]) => (b as number) - (a as number))
-                .slice(0, 5)
-                .map(([db, count], idx, arr) => {
-                  const max = Math.max(...Object.values(queriesByDb) as number[]);
-                  const isLast = idx === arr.length - 1;
-                  return (
-                    <div key={db} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '4px 0',
-                      fontFamily: "Consolas",
-                      fontSize: 11
-                    }}>
-                      <span style={{ color: asciiColors.muted, width: 20 }}>
-                        {isLast ? ascii.cornerBl : ascii.v}
-                      </span>
-                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {db}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
+              <h2 style={{
+                fontSize: 14,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                color: asciiColors.accent,
+                margin: 0,
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                {ascii.blockFull} QUERIES BY DATABASE
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(queriesByDb)
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .slice(0, 5)
+                  .map(([db, count], idx, arr) => {
+                    const isLast = idx === arr.length - 1;
+                    return (
+                      <div key={db} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '4px 0',
+                        fontFamily: "Consolas",
+                        fontSize: 11
+                      }}>
+                        <span style={{ color: asciiColors.muted, width: 20 }}>
+                          {isLast ? ascii.cornerBl : ascii.v}
+                        </span>
+                        <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {db}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            
+            <div style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 16,
+              backgroundColor: asciiColors.backgroundSoft
+            }}>
+              <h2 style={{
+                fontSize: 14,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                color: asciiColors.accent,
+                margin: 0,
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                {ascii.blockFull} QUERIES BY STATE
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(queriesByState)
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .map(([state, count], idx, arr) => {
+                    const isLast = idx === arr.length - 1;
+                    const stateColors: Record<string, string> = {
+                      'active': asciiColors.accent,
+                      'idle': asciiColors.muted,
+                      'idle in transaction': asciiColors.muted,
+                      'idle in transaction (aborted)': asciiColors.foreground,
+                      'fastpath function call': asciiColors.accent,
+                      'disabled': asciiColors.muted,
+                    };
+                    return (
+                      <div key={state} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '4px 0',
+                        fontFamily: "Consolas",
+                        fontSize: 11
+                      }}>
+                        <span style={{ color: asciiColors.muted, width: 20 }}>
+                          {isLast ? ascii.cornerBl : ascii.v}
+                        </span>
+                        <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {state.toUpperCase()}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: stateColors[state.toLowerCase()] || asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
           </div>
-          
+
           <div style={{
-            border: `1px solid ${asciiColors.border}`,
-            borderRadius: 2,
-            padding: 16,
-            backgroundColor: asciiColors.backgroundSoft
+            fontFamily: "Consolas",
+            fontSize: 12,
+            color: asciiColors.foreground,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 16,
+            marginBottom: 16
           }}>
-            <h2 style={{
-              fontSize: 14,
-              fontFamily: "Consolas",
-              fontWeight: 600,
-              color: asciiColors.accent,
-              margin: 0,
-              marginBottom: 12,
-              paddingBottom: 8,
-              borderBottom: `1px solid ${asciiColors.border}`
+            <div style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 16,
+              backgroundColor: asciiColors.backgroundSoft
             }}>
-              {ascii.blockFull} QUERIES BY STATE
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {Object.entries(queriesByState)
-                .sort(([, a], [, b]) => (b as number) - (a as number))
-                .map(([state, count], idx, arr) => {
-                  const isLast = idx === arr.length - 1;
-                  const stateColors: Record<string, string> = {
-                    'active': asciiColors.accent,
-                    'idle': asciiColors.muted,
-                    'idle in transaction': asciiColors.muted,
-                    'idle in transaction (aborted)': asciiColors.foreground,
-                    'fastpath function call': asciiColors.accent,
-                    'disabled': asciiColors.muted,
-                  };
-                  return (
-                    <div key={state} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '4px 0',
-                      fontFamily: "Consolas",
-                      fontSize: 11
-                    }}>
-                      <span style={{ color: asciiColors.muted, width: 20 }}>
-                        {isLast ? ascii.cornerBl : ascii.v}
-                      </span>
-                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {state.toUpperCase()}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: stateColors[state.toLowerCase()] || asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
+              <h2 style={{
+                fontSize: 14,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                color: asciiColors.accent,
+                margin: 0,
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                {ascii.blockFull} TOP LONGEST RUNNING
+              </h2>
+              {topByDuration.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>
+                  No active queries with duration
+                </div>
+              ) : (
+                <svg width={barLabelW + barW + 70} height={durationChartH} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
+                  {topByDuration.map((q, i) => {
+                    const y = 16 + i * (barH + barGap);
+                    const width = maxDuration > 0 ? (q._sec / maxDuration) * barW : 0;
+                    const label = (q.query || '').substring(0, 18) || `PID ${q.pid}`;
+                    const isSelected = selectedItem === q;
+                    return (
+                      <g key={q.pid} onClick={() => setSelectedItem(q)} style={{ cursor: 'pointer' }}>
+                        <text x={4} y={y + barH - 4} fontSize={9} fill={asciiColors.muted}>{label}{label.length >= 18 ? '…' : ''}</text>
+                        <rect x={barLabelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                        <rect x={barLabelW} y={y} width={width} height={barH - 2} fill={asciiColors.accent} rx={2} opacity={0.85} stroke={isSelected ? asciiColors.foreground : 'none'} strokeWidth={isSelected ? 2 : 0} />
+                        <text x={barLabelW + barW + 6} y={y + barH - 4} fontSize={9} fill={asciiColors.foreground}>{formatDuration(q._sec)}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              )}
+            </div>
+
+            <div style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 16,
+              backgroundColor: asciiColors.backgroundSoft
+            }}>
+              <h2 style={{
+                fontSize: 14,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                color: asciiColors.accent,
+                margin: 0,
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                {ascii.blockFull} WAIT EVENTS
+              </h2>
+              {waitEventEntries.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>
+                  No wait event data
+                </div>
+              ) : (
+                <svg width={barLabelW + barW + 48} height={waitChartH} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
+                  {waitEventEntries.map(([eventType, count], i) => {
+                    const y = 16 + i * (barH + barGap);
+                    const width = maxWaitCount > 0 ? (count / maxWaitCount) * barW : 0;
+                    const label = eventType.length > 12 ? eventType.slice(0, 12) + '…' : eventType;
+                    return (
+                      <g key={eventType}>
+                        <text x={4} y={y + barH - 4} fontSize={10} fill={asciiColors.foreground}>{label}</text>
+                        <rect x={barLabelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                        <rect x={barLabelW} y={y} width={width} height={barH - 2} fill={asciiColors.accent} rx={2} opacity={0.85} />
+                        <text x={barLabelW + barW + 6} y={y + barH - 4} fontSize={10} fill={asciiColors.foreground}>{count}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              )}
             </div>
           </div>
-        </div>
+        </>
       );
     }
     
@@ -2139,21 +1841,176 @@ const UnifiedMonitor: React.FC = () => {
         return acc;
       }, {});
 
+      const eventsByEngine = filteredLogs.reduce((acc: Record<string, number>, log: any) => {
+        const engine = log.db_engine || 'N/A';
+        acc[engine] = (acc[engine] || 0) + 1;
+        return acc;
+      }, {});
+      const engineEntries = Object.entries(eventsByEngine)
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .slice(0, 10);
+
+      const now = Date.now();
+      const bucketMs = 15 * 60 * 1000;
+      const twoHoursMs = 2 * 60 * 60 * 1000;
+      const byBucket = new Map<number, number>();
+      filteredLogs.forEach((log: any) => {
+        const t = log.processed_at ? new Date(log.processed_at).getTime() : 0;
+        if (!t || isNaN(t)) return;
+        if (now - t > twoHoursMs) return;
+        const bucket = Math.floor(t / bucketMs) * bucketMs;
+        byBucket.set(bucket, (byBucket.get(bucket) || 0) + 1);
+      });
+      const timeSeries = Array.from(byBucket.entries())
+        .map(([ts, volume]) => ({ ts, volume }))
+        .sort((a, b) => a.ts - b.ts);
+
+      const chartW = 480;
+      const chartH = 180;
+      const padding = { top: 16, right: 20, bottom: 28, left: 36 };
+      const innerW = chartW - padding.left - padding.right;
+      const innerH = chartH - padding.top - padding.bottom;
+      const minT = timeSeries.length > 0 ? Math.min(...timeSeries.map((d) => d.ts)) : now - twoHoursMs;
+      const maxT = timeSeries.length > 0 ? Math.max(...timeSeries.map((d) => d.ts)) : now;
+      const rangeT = Math.max(1, maxT - minT);
+      const maxVol = Math.max(1, ...timeSeries.map((d) => d.volume));
+      const scaleX = (ts: number) => padding.left + ((ts - minT) / rangeT) * innerW;
+      const scaleY = (v: number) => padding.top + innerH - (v / maxVol) * innerH;
+      const baselineY = padding.top + innerH;
+      const linePoints = timeSeries.map((d) => `${scaleX(d.ts)},${scaleY(d.volume)}`).join(' ');
+      const areaPoints = `${padding.left},${baselineY} ${linePoints} ${padding.left + innerW},${baselineY}`;
+      const formatTimeTick = (ts: number) => {
+        const d = new Date(ts);
+        return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      };
+
+      const barLabelW = 72;
+      const barW = 140;
+      const barH = 16;
+      const barGap = 4;
+      const maxEngineCount = Math.max(1, ...engineEntries.map(([, c]) => c));
+      const engineChartH = Math.max(80, engineEntries.length * (barH + barGap) - barGap + 24);
+
       return (
-        <div style={{
-          fontFamily: "Consolas",
-          fontSize: 12,
-          color: asciiColors.foreground,
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 16,
-          marginBottom: 16
-        }}>
+        <>
+          <div style={{
+            fontFamily: "Consolas",
+            fontSize: 12,
+            color: asciiColors.foreground,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 16,
+            marginBottom: 16
+          }}>
+            <div style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 16,
+              backgroundColor: asciiColors.backgroundSoft
+            }}>
+              <h2 style={{
+                fontSize: 14,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                color: asciiColors.accent,
+                margin: 0,
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                {ascii.blockFull} EVENTS BY TYPE
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(eventsByType)
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .slice(0, 5)
+                  .map(([type, count], idx, arr) => {
+                    const isLast = idx === arr.length - 1;
+                    return (
+                      <div key={type} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '4px 0',
+                        fontFamily: "Consolas",
+                        fontSize: 11
+                      }}>
+                        <span style={{ color: asciiColors.muted, width: 20 }}>
+                          {isLast ? ascii.cornerBl : ascii.v}
+                        </span>
+                        <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {type === 'Unknown' ? 'N/A' : type}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            
+            <div style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 16,
+              backgroundColor: asciiColors.backgroundSoft
+            }}>
+              <h2 style={{
+                fontSize: 14,
+                fontFamily: "Consolas",
+                fontWeight: 600,
+                color: asciiColors.accent,
+                margin: 0,
+                marginBottom: 12,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${asciiColors.border}`
+              }}>
+                {ascii.blockFull} EVENTS BY STATUS
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(eventsByStatus)
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .map(([status, count], idx, arr) => {
+                    const isLast = idx === arr.length - 1;
+                    const statusColors: Record<string, string> = {
+                      'SUCCESS': asciiColors.accent,
+                      'ERROR': asciiColors.foreground,
+                      'PENDING': asciiColors.muted,
+                      'IN_PROGRESS': asciiColors.accent,
+                      'LISTENING_CHANGES': asciiColors.accent,
+                    };
+                    return (
+                      <div key={status} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '4px 0',
+                        fontFamily: "Consolas",
+                        fontSize: 11
+                      }}>
+                        <span style={{ color: asciiColors.muted, width: 20 }}>
+                          {isLast ? ascii.cornerBl : ascii.v}
+                        </span>
+                        <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {status}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: statusColors[status] || asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+
           <div style={{
             border: `1px solid ${asciiColors.border}`,
             borderRadius: 2,
             padding: 16,
-            backgroundColor: asciiColors.backgroundSoft
+            backgroundColor: asciiColors.backgroundSoft,
+            marginBottom: 16
           }}>
             <h2 style={{
               fontSize: 14,
@@ -2165,43 +2022,49 @@ const UnifiedMonitor: React.FC = () => {
               paddingBottom: 8,
               borderBottom: `1px solid ${asciiColors.border}`
             }}>
-              {ascii.blockFull} EVENTS BY TYPE
+              {ascii.blockFull} EVENTOS EN EL TIEMPO (últimas 2h, buckets 15 min)
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {Object.entries(eventsByType)
-                .sort(([, a], [, b]) => (b as number) - (a as number))
-                .slice(0, 5)
-                .map(([type, count], idx, arr) => {
-                  const isLast = idx === arr.length - 1;
+            {timeSeries.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>
+                No hay eventos con timestamp en las últimas 2 horas
+              </div>
+            ) : (
+              <svg width={chartW} height={chartH} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2, backgroundColor: asciiColors.background }}>
+                <line x1={padding.left} y1={padding.top} x2={padding.left} y2={chartH - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                <line x1={padding.left} y1={chartH - padding.bottom} x2={chartW - padding.right} y2={chartH - padding.bottom} stroke={asciiColors.border} strokeWidth={1} />
+                <polygon points={areaPoints} fill={asciiColors.backgroundSoft} stroke="none" />
+                <polyline points={linePoints} fill="none" stroke={asciiColors.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                {timeSeries.map((d, i) => {
+                  const step = timeSeries.length > 8 ? Math.max(1, Math.floor(timeSeries.length / 5)) : 1;
+                  if (step > 1 && i % step !== 0 && i !== timeSeries.length - 1) return null;
                   return (
-                    <div key={type} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '4px 0',
-                      fontFamily: "Consolas",
-                      fontSize: 11
-                    }}>
-                      <span style={{ color: asciiColors.muted, width: 20 }}>
-                        {isLast ? ascii.cornerBl : ascii.v}
-                      </span>
-                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {type === 'Unknown' ? 'N/A' : type}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
-                        {count}
-                      </span>
-                    </div>
+                    <text key={d.ts} x={scaleX(d.ts)} y={chartH - padding.bottom + 14} textAnchor="middle" fontSize={9} fill={asciiColors.muted}>
+                      {formatTimeTick(d.ts)}
+                    </text>
                   );
                 })}
-            </div>
+                {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                  const y = padding.top + innerH * (1 - pct);
+                  const val = Math.round(maxVol * pct);
+                  return (
+                    <g key={i}>
+                      <line x1={padding.left} y1={y} x2={chartW - padding.right} y2={y} stroke={asciiColors.border} strokeWidth={1} strokeDasharray="2 2" opacity={0.6} />
+                      {i > 0 && (
+                        <text x={padding.left - 4} y={y + 3} textAnchor="end" fontSize={9} fill={asciiColors.muted}>{val}</text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+            )}
           </div>
-          
+
           <div style={{
             border: `1px solid ${asciiColors.border}`,
             borderRadius: 2,
             padding: 16,
-            backgroundColor: asciiColors.backgroundSoft
+            backgroundColor: asciiColors.backgroundSoft,
+            marginBottom: 16
           }}>
             <h2 style={{
               fontSize: 14,
@@ -2213,53 +2076,43 @@ const UnifiedMonitor: React.FC = () => {
               paddingBottom: 8,
               borderBottom: `1px solid ${asciiColors.border}`
             }}>
-              {ascii.blockFull} EVENTS BY STATUS
+              {ascii.blockFull} EVENTOS POR MOTOR
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {Object.entries(eventsByStatus)
-                .sort(([, a], [, b]) => (b as number) - (a as number))
-                .map(([status, count], idx, arr) => {
-                  const isLast = idx === arr.length - 1;
-                  const statusColors: Record<string, string> = {
-                    'SUCCESS': asciiColors.accent,
-                    'ERROR': asciiColors.foreground,
-                    'PENDING': asciiColors.muted,
-                    'IN_PROGRESS': asciiColors.accent,
-                    'LISTENING_CHANGES': asciiColors.accent,
-                  };
+            {engineEntries.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: asciiColors.muted, fontSize: 11 }}>
+                No hay datos por motor
+              </div>
+            ) : (
+              <svg width={barLabelW + barW + 48} height={engineChartH} style={{ display: 'block', border: `1px solid ${asciiColors.border}`, borderRadius: 2 }}>
+                {engineEntries.map(([engine, count], i) => {
+                  const y = 16 + i * (barH + barGap);
+                  const width = maxEngineCount > 0 ? (count / maxEngineCount) * barW : 0;
                   return (
-                    <div key={status} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '4px 0',
-                      fontFamily: "Consolas",
-                      fontSize: 11
-                    }}>
-                      <span style={{ color: asciiColors.muted, width: 20 }}>
-                        {isLast ? ascii.cornerBl : ascii.v}
-                      </span>
-                      <span style={{ flex: 1, color: asciiColors.foreground, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {status}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: statusColors[status] || asciiColors.accent, minWidth: '30px', textAlign: 'right' }}>
-                        {count}
-                      </span>
-                    </div>
+                    <g key={engine}>
+                      <text x={4} y={y + barH - 4} fontSize={10} fill={asciiColors.foreground} style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {engine.length > 10 ? engine.slice(0, 10) + '…' : engine}
+                      </text>
+                      <rect x={barLabelW} y={y} width={barW} height={barH - 2} fill={asciiColors.backgroundSoft} stroke={asciiColors.border} rx={2} />
+                      <rect x={barLabelW} y={y} width={width} height={barH - 2} fill={asciiColors.accent} rx={2} opacity={0.85} />
+                      <text x={barLabelW + barW + 6} y={y + barH - 4} fontSize={10} fill={asciiColors.foreground}>{count}</text>
+                    </g>
                   );
                 })}
-            </div>
+              </svg>
+            )}
           </div>
-        </div>
+        </>
       );
     }
     
     if (activeTab === 'transfer') {
+      const searchLower = (transferSearchQuery || '').trim().toLowerCase();
       const filteredMetrics = transferMetrics.filter((metric: any) => {
         const statusMatch = !transferStatusFilter || metric.status === transferStatusFilter;
         const typeMatch = !transferTypeFilter || metric.transfer_type === transferTypeFilter;
         const engineMatch = !transferEngineFilter || metric.db_engine === transferEngineFilter;
-        return statusMatch && typeMatch && engineMatch;
+        const searchMatch = !searchLower || [metric.schema_name, metric.table_name, metric.db_engine].some((s: string) => (s || '').toLowerCase().includes(searchLower));
+        return statusMatch && typeMatch && engineMatch && searchMatch;
       });
       
       const metricsByStatus = filteredMetrics.reduce((acc: Record<string, number>, metric: any) => {
@@ -2599,142 +2452,7 @@ const UnifiedMonitor: React.FC = () => {
         );
       }
 
-      const filteredLogs = processingLogs.filter((log: any) => {
-        const typeMatch = !liveEventTypeFilter || (liveEventTypeFilter === 'N/A' && !log.pk_strategy) || log.pk_strategy === liveEventTypeFilter;
-        const statusMatch = !liveEventStatusFilter || log.status === liveEventStatusFilter;
-        return typeMatch && statusMatch;
-      });
-      
-      const recentEvents = [...filteredLogs]
-        .sort((a, b) => new Date(b.processed_at || 0).getTime() - new Date(a.processed_at || 0).getTime())
-        .slice(0, 20);
-
-      return (
-        <>
-          {renderCharts()}
-          <h2 style={{
-            fontSize: 14,
-            fontFamily: "Consolas",
-            fontWeight: 600,
-            color: asciiColors.accent,
-            margin: 0,
-            marginBottom: 16,
-            paddingBottom: 8,
-            borderBottom: `1px solid ${asciiColors.border}`
-          }}>
-            {ascii.blockFull} CURRENT CHANGES
-          </h2>
-          {recentEvents.length === 0 ? (
-            <div style={{
-              padding: 60,
-              textAlign: "center",
-              color: asciiColors.muted,
-              fontFamily: "Consolas",
-              fontSize: 12
-            }}>
-              {ascii.dot} No recent events available
-            </div>
-          ) : (
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12
-            }}>
-              {recentEvents.map((event, idx) => {
-                const getStatusColor = (status: string) => {
-                  const upperStatus = (status || '').toUpperCase();
-                  if (upperStatus === 'SUCCESS') {
-                    return asciiColors.accent;
-                  }
-                  if (upperStatus === 'ERROR' || upperStatus === 'FAILED') {
-                    return asciiColors.foreground;
-                  }
-                  if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
-                    return asciiColors.muted;
-                  }
-                  return asciiColors.muted;
-                };
-
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => setSelectedItem(event)}
-                    style={{
-                      border: `1px solid ${asciiColors.border}`,
-                      borderRadius: 2,
-                      padding: 12,
-                      backgroundColor: asciiColors.backgroundSoft,
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      fontFamily: "Consolas",
-                      fontSize: 11
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = asciiColors.accent;
-                      e.currentTarget.style.backgroundColor = asciiColors.background;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = asciiColors.border;
-                      e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                    }}
-                  >
-                    <div style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 8
-                    }}>
-                      <span style={{
-                        padding: "2px 8px",
-                        borderRadius: 2,
-                        fontSize: 10,
-                        fontWeight: 500,
-                    border: `1px solid ${getStatusColor(event.status)}`,
-                    color: getStatusColor(event.status),
-                    backgroundColor: "transparent"
-                      }}>
-                        {event.status}
-                      </span>
-                      <span style={{
-                        fontSize: 10,
-                        color: asciiColors.muted,
-                        fontFamily: "Consolas"
-                      }}>
-                        {formatDate(event.processed_at)}
-                      </span>
-                    </div>
-                    <div style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 4,
-                      fontSize: 11,
-                      color: asciiColors.foreground
-                    }}>
-                      <div>
-                        <span style={{ color: asciiColors.muted }}>{ascii.v}</span>
-                        <span style={{ fontWeight: 600, marginLeft: 8 }}>
-                          {event.schema_name || 'N/A'}.{event.table_name || 'N/A'}
-                        </span>
-                        <span style={{ color: asciiColors.muted, marginLeft: 8 }}>
-                          [{event.db_engine || 'N/A'}]
-                        </span>
-                      </div>
-                      <div style={{ paddingLeft: 16, color: asciiColors.muted }}>
-                        {ascii.tRight} Strategy: {event.pk_strategy || 'N/A'}
-                    {event.record_count !== null && event.record_count !== undefined && (
-                          <span style={{ marginLeft: 12 }}>
-                            {ascii.v} Records: {event.record_count.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      );
+      return <>{renderCharts()}</>;
     }
 
     if (activeTab === 'transfer') {
@@ -2751,20 +2469,6 @@ const UnifiedMonitor: React.FC = () => {
           </div>
         );
       }
-
-      const getStatusColor = (status: string) => {
-        const upperStatus = (status || '').toUpperCase();
-        if (upperStatus === 'SUCCESS') {
-          return asciiColors.accent;
-        }
-        if (upperStatus === 'FAILED' || upperStatus === 'ERROR') {
-          return asciiColors.foreground;
-        }
-        if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') {
-          return asciiColors.muted;
-        }
-        return asciiColors.muted;
-      };
 
       return (
         <div style={{
@@ -2804,40 +2508,6 @@ const UnifiedMonitor: React.FC = () => {
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: asciiColors.muted }}>├─ Table:</span>
                 <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.table_name || 'N/A'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Database Engine:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.db_engine || 'N/A'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Status:</span>
-                <span style={{ 
-                  marginLeft: 20,
-                  padding: "2px 8px",
-                  borderRadius: 2,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  border: `1px solid ${getStatusColor(selectedItem.status || 'PENDING')}`,
-                  color: getStatusColor(selectedItem.status || 'PENDING'),
-                  backgroundColor: "transparent"
-                }}>
-                {selectedItem.status || 'PENDING'}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Transfer Type:</span>
-                <span style={{ 
-                  marginLeft: 20,
-                  padding: "2px 8px",
-                  borderRadius: 2,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  border: `1px solid ${asciiColors.accent}`,
-                  color: asciiColors.accent,
-                  backgroundColor: "transparent"
-                }}>
-                {selectedItem.transfer_type || 'UNKNOWN'}
-                </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: asciiColors.muted }}>├─ Records Transferred:</span>
@@ -2970,6 +2640,57 @@ const UnifiedMonitor: React.FC = () => {
                   </span>
                 </div>
               )}
+              {(() => {
+                const list = transferMetrics || [];
+                const maxRecords = Math.max(...list.map((m: any) => Number(m.records_transferred) || 0), 1);
+                const maxBytes = Math.max(...list.map((m: any) => Number(m.bytes_transferred) || 0), 1);
+                const maxMemory = Math.max(...list.map((m: any) => Number(m.memory_used_mb) || 0), 1);
+                const maxIops = Math.max(...list.map((m: any) => Number(m.io_operations_per_second) || 0), 1);
+                const maxThroughput = Math.max(...list.map((m: any) => Number(m.transfer_rate) || Number(m.throughput_rps) || 0), 1);
+                const r = Number(selectedItem.records_transferred) || 0;
+                const b = Number(selectedItem.bytes_transferred) || 0;
+                const mem = Number(selectedItem.memory_used_mb) || 0;
+                const iops = Number(selectedItem.io_operations_per_second) || 0;
+                const thr = Number(selectedItem.transfer_rate) || Number(selectedItem.throughput_rps) || 0;
+                const renderDetailBar = (label: string, value: number, maxVal: number, fmt: (v: number) => string) => {
+                  const pct = maxVal > 0 ? (value / maxVal) * 100 : 0;
+                  return (
+                    <div key={label} style={{ marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <span style={{ color: asciiColors.muted, fontSize: 10 }}>{label}</span>
+                        <span style={{ fontWeight: 500, fontSize: 10 }}>{fmt(value)}</span>
+                      </div>
+                      <div style={{
+                        height: 4,
+                        backgroundColor: asciiColors.background,
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        border: `1px solid ${asciiColors.border}`
+                      }}>
+                        <div style={{
+                          width: `${pct}%`,
+                          height: '100%',
+                          backgroundColor: asciiColors.accent,
+                          borderRadius: 1,
+                          transition: 'width 0.3s ease'
+                        }} />
+                      </div>
+                    </div>
+                  );
+                };
+                return (
+                  <>
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${asciiColors.border}` }}>
+                      <div style={{ fontSize: 10, color: asciiColors.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Metrics vs dataset</div>
+                      {renderDetailBar('Records', r, maxRecords, (v) => v.toLocaleString())}
+                      {renderDetailBar('Bytes', b, maxBytes, (v) => v >= 1024 * 1024 * 1024 ? `${(v / (1024 * 1024 * 1024)).toFixed(2)} GB` : v >= 1024 * 1024 ? `${(v / (1024 * 1024)).toFixed(1)} MB` : `${v} B`)}
+                      {renderDetailBar('Memory (MB)', mem, maxMemory, (v) => `${v.toFixed(1)}`)}
+                      {renderDetailBar('IOPS', iops, maxIops, (v) => String(v))}
+                      {renderDetailBar('Throughput', thr, maxThroughput, (v) => v >= 1024 * 1024 ? `${(v / (1024 * 1024)).toFixed(2)} MB/s` : v >= 1024 ? `${(v / 1024).toFixed(2)} KB/s` : `${v.toFixed(0)} B/s`)}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -3074,173 +2795,115 @@ const UnifiedMonitor: React.FC = () => {
             </div>
         </div>
       );
-    } else {
-      const getPerformanceTierColor = (tier: string) => {
-        const upperTier = (tier || '').toUpperCase();
-        if (upperTier === 'EXCELLENT') {
-          return asciiColors.accent;
-        }
-        if (upperTier === 'GOOD') {
-          return asciiColors.foreground;
-        }
-        if (upperTier === 'FAIR') {
-          return asciiColors.muted;
-        }
-        if (upperTier === 'POOR') {
-          return asciiColors.foreground;
-        }
-        return asciiColors.muted;
-      };
+    }
+  };
 
+  const renderLiveCurrentChangesColumn = () => {
+    const filteredLogs = processingLogs.filter((log: any) => {
+      const typeMatch = !liveEventTypeFilter || (liveEventTypeFilter === 'N/A' && !log.pk_strategy) || log.pk_strategy === liveEventTypeFilter;
+      const statusMatch = !liveEventStatusFilter || log.status === liveEventStatusFilter;
+      return typeMatch && statusMatch;
+    });
+    const recentEvents = [...filteredLogs]
+      .sort((a, b) => new Date(b.processed_at || 0).getTime() - new Date(a.processed_at || 0).getTime())
+      .slice(0, 20);
+
+    const getStatusColor = (status: string) => {
+      const upperStatus = (status || '').toUpperCase();
+      if (upperStatus === 'SUCCESS') return asciiColors.accent;
+      if (upperStatus === 'ERROR' || upperStatus === 'FAILED') return asciiColors.foreground;
+      if (upperStatus === 'PENDING' || upperStatus === 'IN_PROGRESS') return asciiColors.muted;
+      return asciiColors.muted;
+    };
+
+    if (recentEvents.length === 0) {
       return (
         <div style={{
+          padding: 40,
+          textAlign: "center",
+          color: asciiColors.muted,
           fontFamily: "Consolas",
-          fontSize: 12,
-          color: asciiColors.foreground
+          fontSize: 12
         }}>
-          <div style={{
-            border: `1px solid ${asciiColors.border}`,
-            borderRadius: 2,
-            padding: 16,
-            backgroundColor: asciiColors.backgroundSoft,
-            marginBottom: 12
-          }}>
+          {ascii.dot} No recent events available
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {recentEvents.map((event, idx) => (
+          <div
+            key={idx}
+            onClick={() => setSelectedItem(event)}
+            style={{
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 2,
+              padding: 12,
+              backgroundColor: asciiColors.backgroundSoft,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              fontFamily: "Consolas",
+              fontSize: 11
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.accent;
+              e.currentTarget.style.backgroundColor = asciiColors.background;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = asciiColors.border;
+              e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+            }}
+          >
             <div style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: asciiColors.accent,
-              marginBottom: 16,
-              paddingBottom: 8,
-              borderBottom: `1px solid ${asciiColors.border}`
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8
             }}>
-              {ascii.blockFull} QUERY PERFORMANCE DETAILS
+              <span style={{
+                padding: "2px 8px",
+                borderRadius: 2,
+                fontSize: 10,
+                fontWeight: 500,
+                border: `1px solid ${getStatusColor(event.status)}`,
+                color: getStatusColor(event.status),
+                backgroundColor: "transparent"
+              }}>
+                {event.status}
+              </span>
+              <span style={{ fontSize: 10, color: asciiColors.muted, fontFamily: "Consolas" }}>
+                {formatDate(event.processed_at)}
+              </span>
             </div>
             <div style={{
               display: "flex",
               flexDirection: "column",
-              gap: 8,
-              fontFamily: "Consolas",
+              gap: 4,
               fontSize: 11,
-              lineHeight: 1.8
+              color: asciiColors.foreground
             }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Query ID:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.queryid || 'N/A'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Database:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.dbname || 'N/A'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Performance Tier:</span>
-                <span style={{ 
-                  marginLeft: 20,
-                  padding: "2px 8px",
-                  borderRadius: 2,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  border: `1px solid ${getPerformanceTierColor(selectedItem.performance_tier || 'N/A')}`,
-                  color: getPerformanceTierColor(selectedItem.performance_tier || 'N/A'),
-                  backgroundColor: "transparent"
-                }}>
-                {selectedItem.performance_tier || 'N/A'}
+              <div>
+                <span style={{ color: asciiColors.muted }}>{ascii.v}</span>
+                <span style={{ fontWeight: 600, marginLeft: 8 }}>
+                  {event.schema_name || 'N/A'}.{event.table_name || 'N/A'}
+                </span>
+                <span style={{ color: asciiColors.muted, marginLeft: 8 }}>
+                  [{event.db_engine || 'N/A'}]
                 </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Operation Type:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.operation_type || 'N/A'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Mean Time:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatTime(selectedItem.mean_time_ms)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Total Time:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatTime(selectedItem.total_time_ms)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Calls:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.calls?.toLocaleString() || 'N/A'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Efficiency Score:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>
-              {selectedItem.query_efficiency_score ? `${Number(selectedItem.query_efficiency_score).toFixed(2)}%` : 'N/A'}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Cache Hit Ratio:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>
-              {selectedItem.cache_hit_ratio ? `${Number(selectedItem.cache_hit_ratio).toFixed(2)}%` : 'N/A'}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Rows Returned:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{selectedItem.rows_returned?.toLocaleString() || 'N/A'}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Long Running:</span>
-                <span style={{ 
-                  fontWeight: 500, 
-                  marginLeft: 20,
-                  color: selectedItem.is_long_running ? asciiColors.muted : asciiColors.muted
-                }}>
-                  {selectedItem.is_long_running ? 'Yes' : 'No'}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>├─ Blocking:</span>
-                <span style={{ 
-                  fontWeight: 500, 
-                  marginLeft: 20,
-                  color: selectedItem.is_blocking ? asciiColors.foreground : asciiColors.muted
-                }}>
-                  {selectedItem.is_blocking ? 'Yes' : 'No'}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: asciiColors.muted }}>└─ Captured At:</span>
-                <span style={{ fontWeight: 500, marginLeft: 20 }}>{formatDate(selectedItem.captured_at)}</span>
+              <div style={{ paddingLeft: 16, color: asciiColors.muted }}>
+                {ascii.tRight} Strategy: {event.pk_strategy || 'N/A'}
+                {event.record_count != null && (
+                  <span style={{ marginLeft: 12 }}>
+                    {ascii.v} Records: {event.record_count.toLocaleString()}
+                  </span>
+                )}
               </div>
             </div>
           </div>
-          <div style={{
-            border: `1px solid ${asciiColors.border}`,
-            borderRadius: 2,
-            padding: 16,
-            backgroundColor: asciiColors.backgroundSoft
-          }}>
-            <h2 style={{
-              fontSize: 14,
-              fontFamily: "Consolas",
-              fontWeight: 600,
-              color: asciiColors.accent,
-              margin: 0,
-              marginBottom: 12,
-              paddingBottom: 8,
-              borderBottom: `1px solid ${asciiColors.border}`
-            }}>
-              {ascii.blockFull} QUERY TEXT
-            </h2>
-            <pre style={{
-              margin: 0,
-              padding: 12,
-              backgroundColor: asciiColors.background,
-              borderRadius: 2,
-              overflowX: "auto",
-              fontSize: 11,
-              border: `1px solid ${asciiColors.border}`,
-              fontFamily: "Consolas",
-              whiteSpace: "pre-wrap",
-              wordWrap: "break-word",
-              color: asciiColors.foreground
-            }}>
-              {selectedItem.query_text || 'N/A'}
-            </pre>
-          </div>
-        </div>
-      );
-    }
+        ))}
+      </div>
+    );
   };
 
   const renderSystemResources = () => {
@@ -3669,58 +3332,151 @@ const UnifiedMonitor: React.FC = () => {
         </div>
       );
     } else if (activeTab === 'transfer') {
-      return (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: 16,
-          marginBottom: 20,
-          transition: "opacity 0.15s ease"
-        }}>
-          {renderStatCard(transferStats.total_transfers || 0, "Total Transfers")}
-          {renderStatCard(transferStats.successful || 0, "Successful")}
-          {renderStatCard(transferStats.failed || 0, "Failed")}
-          {renderStatCard(transferStats.pending || 0, "Pending")}
-          {renderStatCard(
-            transferStats.total_records 
-              ? `${(transferStats.total_records / 1000000).toFixed(1)}M` 
-              : '0',
-            "Total Records"
-          )}
-          {renderStatCard(
-            transferStats.total_bytes 
-              ? `${(transferStats.total_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB` 
-              : '0 GB',
-            "Total Bytes"
-          )}
+      const total = transferStats.total_transfers || 0;
+      const success = transferStats.successful || 0;
+      const failed = transferStats.failed || 0;
+      const pending = transferStats.pending || 0;
+      const fullLoad = transferStats.full_load_count || 0;
+      const sync = transferStats.sync_count || 0;
+      const incremental = transferStats.incremental_count || 0;
+      const byEngine = (() => {
+        const map = new Map<string, number>();
+        (transferMetrics || []).forEach((m: any) => {
+          const e = (m.db_engine || 'N/A') as string;
+          map.set(e, (map.get(e) || 0) + 1);
+        });
+        return Array.from(map.entries()).map(([engine, count]) => ({ engine, count })).sort((a, b) => b.count - a.count);
+      })();
+      const totalRecordsComputed = (transferMetrics || []).reduce((sum: number, m: any) => sum + (Number(m.records_transferred) || 0), 0);
+      const totalBytesComputed = (transferMetrics || []).reduce((sum: number, m: any) => sum + (Number(m.bytes_transferred) || 0), 0);
+      const totalRecords = Number(transferStats.total_records) || totalRecordsComputed;
+      const totalBytes = Number(transferStats.total_bytes) || totalBytesComputed;
+      const formatRecords = (n: number) => {
+        if (n === 0 || !Number.isFinite(n)) return '0';
+        if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+        if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+        return n.toLocaleString();
+      };
+      const formatBytes = (n: number) => {
+        if (n === 0 || !Number.isFinite(n)) return '0 B';
+        if (n >= 1024 * 1024 * 1024) return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+        if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+        if (n >= 1024) return `${(n / 1024).toFixed(2)} KB`;
+        return `${n} B`;
+      };
+
+      const renderDistributionRow = (squareColor: string, label: string, count: number, pct: number, highlight: boolean) => (
+        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 11 }}>
+          <span style={{ width: 8, height: 8, backgroundColor: squareColor, flexShrink: 0 }} />
+          <span style={{ flex: 1, color: asciiColors.foreground }}>{label}</span>
+          <span style={{ fontWeight: 600, color: highlight ? asciiColors.accent : asciiColors.foreground }}>
+            {count} ({pct.toFixed(1)}%)
+          </span>
         </div>
       );
-    } else {
+
+      const cardStyle = {
+        border: `1px solid ${asciiColors.border}`,
+        borderRadius: 2,
+        padding: 16,
+        backgroundColor: asciiColors.backgroundSoft,
+        minWidth: 0
+      };
+      const cardTitleStyle = {
+        fontSize: 11,
+        fontWeight: 600,
+        color: asciiColors.foreground,
+        marginBottom: 12,
+        paddingBottom: 8,
+        borderBottom: `1px solid ${asciiColors.border}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      };
+
       return (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: 16,
-          marginBottom: 20,
-          transition: "opacity 0.15s ease"
-        }}>
-          {renderStatCard(performanceMetrics.total_queries || 0, "Total Queries")}
-          {renderStatCard(performanceMetrics.excellent_count || 0, "Excellent")}
-          {renderStatCard(performanceMetrics.good_count || 0, "Good")}
-          {renderStatCard(performanceMetrics.fair_count || 0, "Fair")}
-          {renderStatCard(performanceMetrics.poor_count || 0, "Poor")}
-          {renderStatCard(
-            performanceMetrics.avg_efficiency 
-              ? `${Number(performanceMetrics.avg_efficiency).toFixed(1)}%` 
-              : 'N/A',
-            "Avg Efficiency"
-          )}
-        </div>
+        <>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: 20,
+            marginBottom: 20,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 4,
+            padding: 20,
+            backgroundColor: asciiColors.backgroundSoft
+          }}>
+            <div style={cardStyle}>
+              <div style={cardTitleStyle}>
+                <span style={{ width: 8, height: 8, backgroundColor: asciiColors.accent, flexShrink: 0 }} />
+                DISTRIBUTION BY STATUS
+              </div>
+              {total > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {renderDistributionRow(asciiColors.accent, 'Success', success, total ? (success / total) * 100 : 0, success > 0)}
+                  {renderDistributionRow(asciiColors.foreground, 'Failed', failed, total ? (failed / total) * 100 : 0, failed > 0 && success === 0)}
+                  {renderDistributionRow(asciiColors.muted, 'Pending', pending, total ? (pending / total) * 100 : 0, pending > 0 && success === 0 && failed === 0)}
+                </div>
+              ) : (
+                <span style={{ color: asciiColors.muted, fontSize: 11 }}>No transfers</span>
+              )}
+            </div>
+            <div style={cardStyle}>
+              <div style={cardTitleStyle}>
+                <span style={{ width: 8, height: 8, backgroundColor: asciiColors.accent, flexShrink: 0 }} />
+                DISTRIBUTION BY TYPE
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {renderDistributionRow(asciiColors.accent, 'FULL_LOAD', fullLoad, total ? (fullLoad / total) * 100 : 0, fullLoad > 0)}
+                {renderDistributionRow(asciiColors.foreground, 'SYNC', sync, total ? (sync / total) * 100 : 0, sync > 0)}
+                {renderDistributionRow(asciiColors.muted, 'INCREMENTAL', incremental, total ? (incremental / total) * 100 : 0, incremental > 0 && sync === 0 && fullLoad === 0)}
+              </div>
+            </div>
+            <div style={cardStyle}>
+              <div style={cardTitleStyle}>
+                <span style={{ width: 8, height: 8, backgroundColor: asciiColors.accent, flexShrink: 0 }} />
+                DISTRIBUTION BY ENGINE
+              </div>
+              {byEngine.length ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {byEngine.slice(0, 6).map(({ engine, count }, i) =>
+                    renderDistributionRow(
+                      i === 0 ? asciiColors.accent : asciiColors.foreground,
+                      engine,
+                      count,
+                      total ? (count / total) * 100 : 0,
+                      i === 0
+                    )
+                  )}
+                </div>
+              ) : (
+                <span style={{ color: asciiColors.muted, fontSize: 11 }}>No data</span>
+              )}
+            </div>
+            <div style={cardStyle}>
+              <div style={cardTitleStyle}>
+                <span style={{ width: 8, height: 8, backgroundColor: asciiColors.accent, flexShrink: 0 }} />
+                TOTALS
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: asciiColors.muted }}>| Total Records</span>
+                  <span style={{ fontWeight: 600, color: asciiColors.accent }}>{formatRecords(totalRecords)}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: asciiColors.muted }}>| Total Bytes</span>
+                  <span style={{ fontWeight: 600, color: asciiColors.accent }}>{formatBytes(totalBytes)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       );
     }
+    return null;
   };
 
-  if (loading && activeQueries.length === 0 && processingLogs.length === 0 && queryPerformance.length === 0) {
+  if (loading && activeQueries.length === 0 && processingLogs.length === 0) {
     return <SkeletonLoader variant="table" />;
   }
 
@@ -3772,7 +3528,7 @@ const UnifiedMonitor: React.FC = () => {
         borderBottom: `1px solid ${asciiColors.border}`,
         paddingBottom: 8
       }}>
-        {(['monitor', 'live', 'performance', 'transfer', 'system'] as const).map((tab) => (
+        {(['monitor', 'live', 'transfer', 'system'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -3802,7 +3558,6 @@ const UnifiedMonitor: React.FC = () => {
             }}
           >
             {tab === 'live' ? 'Live Changes' : 
-             tab === 'performance' ? 'Query Performance' :
              tab === 'transfer' ? 'Transfer Metrics' :
              tab === 'system' ? 'System Resources' : tab}
           </button>
@@ -3813,37 +3568,6 @@ const UnifiedMonitor: React.FC = () => {
         <div style={{ marginBottom: 16 }}>
           {getStats()}
         </div>
-      )}
-      
-      {activeTab === 'performance' && (
-        <AsciiPanel title="FILTERS">
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select
-              value={performanceTierFilter}
-              onChange={(e) => setPerformanceTierFilter(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                border: `1px solid ${asciiColors.border}`,
-                borderRadius: 2,
-                fontFamily: 'Consolas',
-                fontSize: 12,
-                backgroundColor: asciiColors.background,
-                color: asciiColors.foreground
-              }}
-            >
-              <option value="">All Tiers</option>
-              <option value="EXCELLENT">EXCELLENT</option>
-              <option value="GOOD">GOOD</option>
-              <option value="FAIR">FAIR</option>
-              <option value="POOR">POOR</option>
-            </select>
-            <AsciiButton
-              label="Reset Filter"
-              onClick={() => setPerformanceTierFilter('')}
-              variant="ghost"
-            />
-          </div>
-        </AsciiPanel>
       )}
       
       {activeTab === 'live' && (
@@ -3904,6 +3628,22 @@ const UnifiedMonitor: React.FC = () => {
         return (
           <AsciiPanel title="FILTERS">
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                placeholder="Search schema, table, engine..."
+                value={transferSearchQuery}
+                onChange={(e) => setTransferSearchQuery(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  border: `1px solid ${asciiColors.border}`,
+                  borderRadius: 2,
+                  fontFamily: 'Consolas',
+                  fontSize: 12,
+                  backgroundColor: asciiColors.background,
+                  color: asciiColors.foreground,
+                  minWidth: 200
+                }}
+              />
               <select
                 value={transferStatusFilter}
                 onChange={(e) => setTransferStatusFilter(e.target.value)}
@@ -3961,6 +3701,7 @@ const UnifiedMonitor: React.FC = () => {
               <AsciiButton
                 label="Reset Filters"
                 onClick={() => {
+                  setTransferSearchQuery('');
                   setTransferStatusFilter('');
                   setTransferTypeFilter('');
                   setTransferEngineFilter('');
@@ -3978,190 +3719,17 @@ const UnifiedMonitor: React.FC = () => {
         }}>
           {renderSystemResources()}
         </div>
-      ) : activeTab === 'monitor' ? (
-        <>
-          <AsciiPanel title="TREE VIEW">
-            <div style={{
-              fontFamily: "Consolas",
-              fontSize: 12,
-              maxHeight: "calc(100vh - 200px)",
-              overflowY: "auto",
-              animation: "slideIn 0.3s ease-out"
-            }}>
-              {renderTree()}
-            </div>
-          </AsciiPanel>
-
-          {selectedItem && selectedItem.query && (
-            <>
-              <div
-                style={{
-                  position: "fixed",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: "rgba(0, 0, 0, 0.6)",
-                  zIndex: 999,
-                  opacity: 0,
-                  transition: "opacity 0.15s ease",
-                  willChange: "opacity"
-                }}
-                onClick={() => setSelectedItem(null)}
-              />
-              <div
-                style={{
-                  position: "fixed",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%) scale(0.95)",
-                  width: "85%",
-                  height: "85%",
-                  maxWidth: "1400px",
-                  maxHeight: "900px",
-                  backgroundColor: asciiColors.background,
-                  border: `2px solid ${asciiColors.border}`,
-                  borderRadius: 2,
-                  zIndex: 1000,
-                  display: "flex",
-                  flexDirection: "column",
-                  fontFamily: "Consolas",
-                  fontSize: 12,
-                  color: asciiColors.foreground,
-                  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
-                  opacity: 0,
-                  animation: "modalSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
-                  willChange: "transform, opacity"
-                }}
-              >
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "16px 20px",
-                  borderBottom: `2px solid ${asciiColors.border}`,
-                  backgroundColor: asciiColors.backgroundSoft
-                }}>
-                  <h2 style={{
-                    fontSize: 14,
-                    fontFamily: "Consolas",
-                    fontWeight: 600,
-                    color: asciiColors.accent,
-                    margin: 0
-                  }}>
-                    {ascii.blockFull} QUERY DETAILS
-                  </h2>
-                  <button
-                    onClick={() => setSelectedItem(null)}
-                    style={{
-                      background: "transparent",
-                      border: `1px solid ${asciiColors.border}`,
-                      color: asciiColors.foreground,
-                      padding: "4px 12px",
-                      borderRadius: 2,
-                      cursor: "pointer",
-                      fontFamily: "Consolas",
-                      fontSize: 11,
-                      transition: "background-color 0.12s ease-out, border-color 0.12s ease-out, color 0.12s ease-out",
-                      willChange: "background-color, color"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.border = `2px solid ${asciiColors.foreground}`;
-                      e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "transparent";
-                      e.currentTarget.style.color = asciiColors.foreground;
-                    }}
-                  >
-                    {ascii.blockFull} CLOSE
-                  </button>
-                </div>
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "4fr 1fr",
-                  gap: 20,
-                  flex: 1,
-                  padding: 20,
-                  overflow: "hidden"
-                }}>
-                  <div style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    height: "100%",
-                    overflow: "hidden"
-                  }}>
-                    <h3 style={{
-                      fontSize: 13,
-                      fontFamily: "Consolas",
-                      fontWeight: 600,
-                      color: asciiColors.accent,
-                      margin: 0,
-                      marginBottom: 12,
-                      paddingBottom: 8,
-                      borderBottom: `1px solid ${asciiColors.border}`
-                    }}>
-                      {ascii.blockFull} QUERY TEXT
-                    </h3>
-                    <pre style={{
-                      margin: 0,
-                      padding: 16,
-                      backgroundColor: asciiColors.backgroundSoft,
-                      borderRadius: 2,
-                      overflowX: "auto",
-                      overflowY: "auto",
-                      fontSize: 11,
-                      border: `1px solid ${asciiColors.border}`,
-                      fontFamily: "Consolas",
-                      whiteSpace: "pre-wrap",
-                      wordWrap: "break-word",
-                      color: asciiColors.foreground,
-                      flex: 1
-                    }}>
-                      {selectedItem.query || 'N/A'}
-                    </pre>
-                  </div>
-
-                  <div style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    height: "100%",
-                    overflow: "hidden"
-                  }}>
-                    <h3 style={{
-                      fontSize: 13,
-                      fontFamily: "Consolas",
-                      fontWeight: 600,
-                      color: asciiColors.accent,
-                      margin: 0,
-                      marginBottom: 12,
-                      paddingBottom: 8,
-                      borderBottom: `1px solid ${asciiColors.border}`
-                    }}>
-                      {ascii.blockFull} DETAILS
-                    </h3>
-                    <div style={{
-                      overflowY: "auto",
-                      flex: 1
-                    }}>
-                      {renderDetails()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </>
       ) : (
+        <>
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1fr 500px",
+          gridTemplateColumns: activeTab === 'live' ? "1fr 1fr 400px" : "1fr 500px",
           gap: 20,
           height: "calc(100vh - 300px)",
           minHeight: 600,
           marginTop: activeTab === 'transfer' ? 24 : 0
         }}>
-          <AsciiPanel title={activeTab === 'performance' ? 'QUERY LIST' : 'TREE VIEW'}>
+          <AsciiPanel title="TREE VIEW">
             <div style={{
               fontFamily: "Consolas",
               fontSize: 12,
@@ -4173,44 +3741,192 @@ const UnifiedMonitor: React.FC = () => {
             }}
             className="tree-view-container"
             >
-              {activeTab === 'performance' ? renderPerformanceCompactList() : renderTree()}
+              {renderTree()}
             </div>
           </AsciiPanel>
           
-          {activeTab === 'performance' ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-              <AsciiPanel title="QUERY VOLUME OVER TIME — Area / line (picos = más queries)">
-                <div style={{ overflowX: "auto" }}>
-                  {renderPerformanceAreaChart()}
-                </div>
-              </AsciiPanel>
-              <AsciiPanel title="TOP SLOWEST — Bar chart">
-                <div style={{ overflowX: "auto" }}>
-                  {renderPerformanceBarChart()}
-                </div>
-              </AsciiPanel>
-              <AsciiPanel title="DETAILS">
-                <div style={{
-                  maxHeight: 280,
-                  overflowY: "auto",
-                  transition: "opacity 0.15s ease"
-                }}>
-                  {renderDetails()}
-                </div>
-              </AsciiPanel>
+          <AsciiPanel title="DETAILS">
+            <div style={{
+              maxHeight: "calc(100vh - 400px)",
+              overflowY: "auto",
+              transition: "opacity 0.15s ease"
+            }}>
+              {renderDetails()}
             </div>
-          ) : (
-            <AsciiPanel title="DETAILS">
+          </AsciiPanel>
+
+          {activeTab === 'live' && (
+            <AsciiPanel title="CURRENT CHANGES">
               <div style={{
                 maxHeight: "calc(100vh - 400px)",
                 overflowY: "auto",
                 transition: "opacity 0.15s ease"
               }}>
-                {renderDetails()}
+                {renderLiveCurrentChangesColumn()}
               </div>
             </AsciiPanel>
           )}
         </div>
+
+        {activeTab === 'monitor' && selectedItem && selectedItem.query && (
+          <>
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.6)",
+                zIndex: 999,
+                opacity: 0,
+                transition: "opacity 0.15s ease",
+                willChange: "opacity"
+              }}
+              onClick={() => setSelectedItem(null)}
+            />
+            <div
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%) scale(0.95)",
+                width: "85%",
+                height: "85%",
+                maxWidth: "1400px",
+                maxHeight: "900px",
+                backgroundColor: asciiColors.background,
+                border: `2px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                zIndex: 1000,
+                display: "flex",
+                flexDirection: "column",
+                fontFamily: "Consolas",
+                fontSize: 12,
+                color: asciiColors.foreground,
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+                opacity: 0,
+                animation: "modalSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                willChange: "transform, opacity"
+              }}
+            >
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "16px 20px",
+                borderBottom: `2px solid ${asciiColors.border}`,
+                backgroundColor: asciiColors.backgroundSoft
+              }}>
+                <h2 style={{
+                  fontSize: 14,
+                  fontFamily: "Consolas",
+                  fontWeight: 600,
+                  color: asciiColors.accent,
+                  margin: 0
+                }}>
+                  {ascii.blockFull} QUERY DETAILS
+                </h2>
+                <button
+                  onClick={() => setSelectedItem(null)}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${asciiColors.border}`,
+                    color: asciiColors.foreground,
+                    padding: "4px 12px",
+                    borderRadius: 2,
+                    cursor: "pointer",
+                    fontFamily: "Consolas",
+                    fontSize: 11,
+                    transition: "background-color 0.12s ease-out, border-color 0.12s ease-out, color 0.12s ease-out",
+                    willChange: "background-color, color"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.border = `2px solid ${asciiColors.foreground}`;
+                    e.currentTarget.style.backgroundColor = asciiColors.backgroundSoft;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = asciiColors.foreground;
+                  }}
+                >
+                  {ascii.blockFull} CLOSE
+                </button>
+              </div>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "4fr 1fr",
+                gap: 20,
+                flex: 1,
+                padding: 20,
+                overflow: "hidden"
+              }}>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                  overflow: "hidden"
+                }}>
+                  <h3 style={{
+                    fontSize: 13,
+                    fontFamily: "Consolas",
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    margin: 0,
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockFull} QUERY TEXT
+                  </h3>
+                  <pre style={{
+                    margin: 0,
+                    padding: 16,
+                    backgroundColor: asciiColors.backgroundSoft,
+                    borderRadius: 2,
+                    overflowX: "auto",
+                    overflowY: "auto",
+                    fontSize: 11,
+                    border: `1px solid ${asciiColors.border}`,
+                    fontFamily: "Consolas",
+                    whiteSpace: "pre-wrap",
+                    wordWrap: "break-word",
+                    color: asciiColors.foreground,
+                    flex: 1
+                  }}>
+                    {selectedItem.query || 'N/A'}
+                  </pre>
+                </div>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                  overflow: "hidden"
+                }}>
+                  <h3 style={{
+                    fontSize: 13,
+                    fontFamily: "Consolas",
+                    fontWeight: 600,
+                    color: asciiColors.accent,
+                    margin: 0,
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottom: `1px solid ${asciiColors.border}`
+                  }}>
+                    {ascii.blockFull} DETAILS
+                  </h3>
+                  <div style={{
+                    overflowY: "auto",
+                    flex: 1
+                  }}>
+                    {renderDetails()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        </>
       )}
       <style>{`
         /* Keyframes removed - using only CSS transitions (0.15s ease) per design rules */
@@ -4289,33 +4005,10 @@ const UnifiedMonitor: React.FC = () => {
                       <span style={{ color: asciiColors.muted }}>├─</span> <strong>Live Changes:</strong> Monitor Change Data Capture (CDC) events and full load operations in real-time
                     </div>
                     <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>├─</span> <strong>Query Performance:</strong> Sortable table of queries with mean time, tier (EXCELLENT, GOOD, FAIR, POOR), efficiency, and calls; click a row for full details
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
                       <span style={{ color: asciiColors.muted }}>├─</span> <strong>Transfer Metrics:</strong> Track data transfer operations across all database engines and sources
                     </div>
                     <div style={{ marginBottom: 8 }}>
                       <span style={{ color: asciiColors.muted }}>└─</span> <strong>System Resources:</strong> Monitor CPU, memory, network, throughput, and database connection metrics
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, marginBottom: 12 }}>
-                    {ascii.blockFull} QUERY PERFORMANCE TIERS
-                  </div>
-                  <div style={{ color: asciiColors.foreground, marginLeft: 16 }}>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.accent }}>{ascii.blockFull}</span> <strong>EXCELLENT:</strong> Queries with optimal performance metrics
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.foreground }}>{ascii.blockFull}</span> <strong>GOOD:</strong> Queries with acceptable performance
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.muted }}>{ascii.blockFull}</span> <strong>FAIR:</strong> Queries with moderate performance issues
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ color: asciiColors.foreground }}>{ascii.blockFull}</span> <strong>POOR:</strong> Queries with significant performance problems requiring optimization
                     </div>
                   </div>
                 </div>
@@ -4395,7 +4088,6 @@ const UnifiedMonitor: React.FC = () => {
                   </div>
                   <div style={{ fontSize: 11, color: asciiColors.foreground }}>
                     • Monitor active queries to identify long-running or blocking queries<br/>
-                    • Use query performance tiers to prioritize optimization efforts<br/>
                     • Track live changes to ensure CDC is working correctly<br/>
                     • Monitor transfer metrics to identify bottlenecks in data synchronization<br/>
                     • Watch system resources to prevent resource exhaustion<br/>

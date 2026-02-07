@@ -95,7 +95,8 @@ router.get("/metrics", async (req, res) => {
         COUNT(*) FILTER (WHERE performance_tier = 'POOR') as poor_count,
         COUNT(*) FILTER (WHERE is_long_running = true) as long_running_count,
         COUNT(*) FILTER (WHERE is_blocking = true) as blocking_count,
-        ROUND(AVG(query_efficiency_score)::numeric, 2) as avg_efficiency
+        ROUND(AVG(query_efficiency_score)::numeric, 2) as avg_efficiency,
+        AVG(mean_time_ms)::double precision as avg_mean_time_ms
       FROM metadata.query_performance
       WHERE captured_at > NOW() - INTERVAL '24 hours'
         AND query_text NOT ILIKE '%information_schema%'
@@ -129,6 +130,85 @@ router.get("/metrics", async (req, res) => {
   }
 });
 
+const SYSTEM_QUERY_FILTER = `
+  captured_at > NOW() - INTERVAL '24 hours'
+  AND query_text NOT ILIKE '%information_schema%'
+  AND query_text NOT ILIKE '%pg_stat%'
+  AND query_text NOT ILIKE '%pg_catalog%'
+  AND query_text NOT ILIKE '%pg_class%'
+  AND query_text NOT ILIKE '%pg_namespace%'
+  AND query_text NOT ILIKE '%pg_extension%'
+  AND query_text NOT ILIKE '%pg_depend%'
+  AND query_text NOT ILIKE '%pg_attribute%'
+  AND query_text NOT ILIKE '%pg_index%'
+  AND query_text NOT ILIKE '%pg_settings%'
+  AND query_text NOT ILIKE '%pg_database%'
+  AND query_text NOT ILIKE '%pg_user%'
+  AND query_text NOT ILIKE '%pg_roles%'
+  AND query_text NOT ILIKE '%pg_postmaster%'
+  AND query_text NOT ILIKE '%pg_statio%'
+  AND query_text NOT ILIKE '%current_database()%'
+  AND operation_type IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+`;
 
+router.get("/volume-over-time", async (req, res) => {
+  try {
+    const hours = Math.min(168, Math.max(1, parseInt(req.query.hours) || 24));
+    const result = await pool.query(
+      `
+      SELECT 
+        date_trunc('hour', captured_at) AS bucket_ts,
+        COUNT(*)::int AS count
+      FROM metadata.query_performance
+      WHERE ${SYSTEM_QUERY_FILTER.replace(/^\s+/gm, "").trim()}
+      GROUP BY date_trunc('hour', captured_at)
+      ORDER BY bucket_ts ASC
+      `,
+      []
+    );
+    const data = (result.rows || []).map((r) => ({
+      bucket_ts: r.bucket_ts ? new Date(r.bucket_ts).toISOString() : null,
+      count: parseInt(r.count, 10) || 0,
+    }));
+    res.json({ data });
+  } catch (err) {
+    console.error("Error getting query volume over time:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener volumen de queries por tiempo",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
+
+router.get("/top-slowest", async (req, res) => {
+  try {
+    const limit = Math.min(50, Math.max(5, parseInt(req.query.limit) || 10));
+    // One row per distinct query_text (the one with highest mean_time_ms), then top N by time
+    const result = await pool.query(
+      `
+      SELECT * FROM (
+        SELECT DISTINCT ON (query_text) *
+        FROM metadata.query_performance
+        WHERE ${SYSTEM_QUERY_FILTER.replace(/^\s+/gm, "").trim()}
+        ORDER BY query_text, mean_time_ms DESC NULLS LAST
+      ) sub
+      ORDER BY mean_time_ms DESC NULLS LAST
+      LIMIT $1
+      `,
+      [limit]
+    );
+    res.json({ data: result.rows || [] });
+  } catch (err) {
+    console.error("Error getting top slowest queries:", err);
+    const safeError = sanitizeError(
+      err,
+      "Error al obtener consultas más lentas",
+      process.env.NODE_ENV === "production"
+    );
+    res.status(500).json({ error: safeError });
+  }
+});
 
 export default router;

@@ -1,9 +1,11 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { authApi, getCurrentUser } from '../../services/api';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import RouteTransition from './RouteTransition';
+
+const SIDEBAR_STORAGE_KEY = 'datasync_sidebar_collapsed';
 
 const LayoutContainer = styled.div`
   display: flex;
@@ -11,11 +13,12 @@ const LayoutContainer = styled.div`
   overflow: hidden;
 `;
 
-const Sidebar = styled.div`
-  width: 280px;
+const Sidebar = styled.div<{ $collapsed?: boolean }>`
+  width: ${props => (props.$collapsed ? '44px' : '280px')};
+  min-width: ${props => (props.$collapsed ? '44px' : '280px')};
   background: ${asciiColors.background};
   color: ${asciiColors.foreground};
-  padding: 16px 0;
+  padding: ${props => (props.$collapsed ? '0' : '16px 0')};
   border-right: 2px solid ${asciiColors.border};
   overflow-y: auto;
   overflow-x: hidden;
@@ -26,12 +29,13 @@ const Sidebar = styled.div`
   height: 100vh;
   position: sticky;
   top: 0;
-  
+  transition: width 0.15s ease, min-width 0.15s ease, padding 0.15s ease;
+
   &::-webkit-scrollbar {
     width: 0px;
     background: transparent;
   }
-  
+
   scrollbar-width: none;
   -ms-overflow-style: none;
 `;
@@ -152,27 +156,83 @@ const NavGroupContent = styled.div<{ $isOpen: boolean }>`
   will-change: max-height, opacity;
 `;
 
+const SidebarHeader = styled.div<{ $collapsed?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: ${props => (props.$collapsed ? 'center' : 'flex-start')};
+  border-bottom: ${props => (props.$collapsed ? 'none' : `1px solid ${asciiColors.border}`)};
+  margin-bottom: ${props => (props.$collapsed ? '0' : '16px')};
+  padding-top: ${props => (props.$collapsed ? '14px' : '0')};
+  padding-bottom: ${props => (props.$collapsed ? '14px' : '0')};
+  flex-shrink: 0;
+`;
+
 const Logo = styled.h1`
+  flex: 1;
   padding: 16px 20px;
   font-size: 18px;
   font-family: "Consolas, 'Source Code Pro', monospace";
   color: ${asciiColors.foreground};
   font-weight: 600;
   margin: 0;
-  border-bottom: 1px solid ${asciiColors.border};
-  margin-bottom: 16px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: background-color 0.12s ease-out, transform 0.12s ease-out;
-  
+
   &:hover {
     background: ${asciiColors.backgroundSoft};
     transform: translateX(2px);
   }
 `;
 
+const SIDEBAR_HAMBURGER = '☰';
+
+const SidebarToggle = styled.button<{ $collapsed?: boolean }>`
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-right: ${props => (props.$collapsed ? 0 : '12px')};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${asciiColors.background};
+  border: 1px solid ${asciiColors.border};
+  color: ${asciiColors.foreground};
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 18px;
+  line-height: 1;
+  font-family: "Consolas, 'Source Code Pro', monospace";
+  transition: background-color 0.12s ease-out, border-color 0.12s ease-out, color 0.12s ease-out;
+
+  &:hover {
+    background: ${asciiColors.backgroundSoft};
+    border-color: ${asciiColors.accent};
+    color: ${asciiColors.accent};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${asciiColors.accent};
+    outline-offset: 2px;
+  }
+`;
+
+const SidebarNav = styled.div<{ $visible?: boolean }>`
+  flex: ${props => (props.$visible ? 1 : 0)};
+  min-height: 0;
+  overflow: hidden;
+  opacity: ${props => (props.$visible ? 1 : 0)};
+  pointer-events: ${props => (props.$visible ? 'auto' : 'none')};
+  transition: opacity 0.15s ease, flex 0.15s ease;
+`;
+
 const UserInfo = styled.div`
   padding: 16px 20px;
   border-top: 1px solid ${asciiColors.border};
   margin-top: auto;
+  flex-shrink: 0;
 `;
 
 const UsernameDisplay = styled.div`
@@ -206,18 +266,27 @@ const LogoutButton = styled.button`
   font-size: 11px;
   font-family: "Consolas, 'Source Code Pro', monospace";
   transition: background-color 0.12s ease-out, border-color 0.12s ease-out, color 0.12s ease-out, transform 0.12s ease-out;
-  
+
   &:hover {
-    background: ${asciiColors.danger};
-    border-color: ${asciiColors.danger};
-    color: #ffffff;
+    background: ${asciiColors.backgroundSoft};
+    border-color: ${asciiColors.foreground};
+    color: ${asciiColors.foreground};
     transform: translateY(-1px);
   }
 `;
 
+const getStoredSidebarCollapsed = (): boolean => {
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 const Layout = () => {
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getStoredSidebarCollapsed);
   const [openGroups, setOpenGroups] = useState<{ [key: string]: boolean }>({
     catalog: false,
     lineage: false,
@@ -228,6 +297,28 @@ const Layout = () => {
     monitoring: false,
     maintenance: false,
   });
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSidebarKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    },
+    [toggleSidebar]
+  );
 
   const toggleGroup = (group: string) => {
     setOpenGroups(prev => ({
@@ -243,14 +334,28 @@ const Layout = () => {
 
   return (
     <LayoutContainer>
-      <Sidebar>
-        <Logo>
-          DATASYNC
-        </Logo>
-        
-        <NavItem to="/" end>
-          ■ Dashboard
-        </NavItem>
+      <Sidebar $collapsed={sidebarCollapsed}>
+        <SidebarHeader $collapsed={sidebarCollapsed}>
+          {!sidebarCollapsed && (
+            <Logo title="DataSync">DATASYNC</Logo>
+          )}
+          <SidebarToggle
+            type="button"
+            $collapsed={sidebarCollapsed}
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? 'Abrir menú' : 'Cerrar menú'}
+            aria-expanded={!sidebarCollapsed}
+            onKeyDown={handleSidebarKeyDown}
+            title={sidebarCollapsed ? 'Abrir menú' : 'Cerrar menú'}
+          >
+            {sidebarCollapsed ? SIDEBAR_HAMBURGER : '◀'}
+          </SidebarToggle>
+        </SidebarHeader>
+
+        <SidebarNav $visible={!sidebarCollapsed} aria-hidden={sidebarCollapsed}>
+          <NavItem to="/" end>
+            ■ Dashboard
+          </NavItem>
 
         <NavGroup>
           <NavGroupHeader 
@@ -500,18 +605,21 @@ const Layout = () => {
             </NavSubItem>
           </NavGroupContent>
         </NavGroup>
+        </SidebarNav>
 
-        <UserInfo>
-          {currentUser && (
-            <>
-              <UsernameDisplay>{currentUser.username}</UsernameDisplay>
-              <RoleDisplay>{currentUser.role}</RoleDisplay>
-              <LogoutButton onClick={handleLogout}>
-                Logout
-              </LogoutButton>
-            </>
-          )}
-        </UserInfo>
+        {!sidebarCollapsed && (
+          <UserInfo>
+            {currentUser && (
+              <>
+                <UsernameDisplay>{currentUser.username}</UsernameDisplay>
+                <RoleDisplay>{currentUser.role}</RoleDisplay>
+                <LogoutButton onClick={handleLogout} type="button" aria-label="Cerrar sesión">
+                  Logout
+                </LogoutButton>
+              </>
+            )}
+          </UserInfo>
+        )}
       </Sidebar>
       <MainContent>
         <RouteTransition minDelay={750}>
