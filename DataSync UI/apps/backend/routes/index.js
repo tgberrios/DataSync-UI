@@ -43,6 +43,7 @@ import auditRoutes from "./audit.routes.js";
 import complianceRoutes from "./compliance.routes.js";
 import dataClassifierRoutes from "./data-classifier.routes.js";
 import dataRetentionRoutes from "./data-retention.routes.js";
+import webhooksRoutes from "./webhooks.routes.js";
 
 const router = express.Router();
 
@@ -90,6 +91,7 @@ router.use("/audit", auditRoutes);
 router.use("/compliance", complianceRoutes);
 router.use("/data-classifier", dataClassifierRoutes);
 router.use("/data-retention", dataRetentionRoutes);
+router.use("/webhooks", webhooksRoutes);
 router.use("/", docsRoutes);
 
 export default router;

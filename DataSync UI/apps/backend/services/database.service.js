@@ -2,11 +2,23 @@ import pkg from "pg";
 const { Pool } = pkg;
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
+
+// Resolve config path relative to this file so it works regardless of process.cwd()
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// From apps/backend/services/ go up to DataSync UI app root (3 levels)
+const APP_ROOT = path.join(__dirname, "..", "..", "..");
+const DEFAULT_CONFIG_PATH = path.join(APP_ROOT, "config", "config.json");
+
+/** Returns the path to config.json (DataSync UI/config/config.json). */
+export function getConfigPath() {
+  return DEFAULT_CONFIG_PATH;
+}
 
 // Load configuration from shared config file
 function loadConfig() {
   try {
-    const configPath = path.join(process.cwd(), "..", "config", "config.json");
+    const configPath = getConfigPath();
     const configData = fs.readFileSync(configPath, "utf8");
     const config = JSON.parse(configData);
     return config;

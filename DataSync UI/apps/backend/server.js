@@ -8,7 +8,7 @@ import fs from "fs";
 import crypto from "crypto";
 
 // Import services
-import { pool, config } from "./services/database.service.js";
+import { pool, config, getConfigPath } from "./services/database.service.js";
 import { upload } from "./services/fileUpload.service.js";
 
 // Import middleware
@@ -1949,10 +1949,7 @@ app.post(
         });
       }
 
-      const configData = fs.readFileSync(
-        path.join(process.cwd(), "..", "config", "config.json"),
-        "utf8"
-      );
+      const configData = fs.readFileSync(getConfigPath(), "utf8");
       const config = JSON.parse(configData);
       const dbConfig = config.database.postgres;
 

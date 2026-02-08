@@ -38,7 +38,7 @@ import { theme } from '../../theme/theme';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
-import UserManagementTreeView from './UserManagementTreeView';
+import UserManagementListView from './UserManagementListView';
 import UserManagementCharts from './UserManagementCharts';
 import SkeletonLoader from '../shared/SkeletonLoader';
 
@@ -930,28 +930,37 @@ const UserManagement = () => {
             </AsciiPanel>
           </div>
         ) : activeView === 'list' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedUser ? '1fr 400px' : '1fr', gap: theme.spacing.lg }}>
-          <UserManagementTreeView 
-            users={data} 
-            onUserClick={(user) => setSelectedUser(prev => prev?.id === user.id ? null : user)}
+        <div style={{ width: '100%' }}>
+          <UserManagementListView
+            users={data}
+            selectedUser={selectedUser}
+            onUserClick={(user) => setSelectedUser(user)}
           />
-          
-          {selectedUser && (
-            <AsciiPanel title="USER DETAILS">
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '1fr', 
+        </div>
+      ) : null}
+
+        {selectedUser && (
+          <ModalOverlay $isOpen={!!selectedUser} onClick={() => setSelectedUser(null)}>
+            <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+              <ModalHeader>
+                <ModalTitle style={{ fontFamily: 'Consolas', fontSize: 14 }}>USER DETAILS</ModalTitle>
+                <CloseButton onClick={() => setSelectedUser(null)} aria-label="Close modal">×</CloseButton>
+              </ModalHeader>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr',
                 gap: theme.spacing.md,
-                fontFamily: "Consolas",
-                fontSize: 12
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                padding: theme.spacing.md
               }}>
                 <div>
-                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Username:</strong>
-                  <div style={{ 
-                    color: asciiColors.foreground, 
-                    fontSize: 12, 
+                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: 'Consolas', fontWeight: 600 }}>Username:</strong>
+                  <div style={{
+                    color: asciiColors.foreground,
+                    fontSize: 12,
                     marginTop: '6px',
-                    fontFamily: "Consolas",
+                    fontFamily: 'Consolas',
                     padding: theme.spacing.sm,
                     background: asciiColors.backgroundSoft,
                     borderRadius: 2,
@@ -961,12 +970,12 @@ const UserManagement = () => {
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Email:</strong>
-                  <div style={{ 
-                    color: asciiColors.foreground, 
-                    fontSize: 12, 
+                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: 'Consolas', fontWeight: 600 }}>Email:</strong>
+                  <div style={{
+                    color: asciiColors.foreground,
+                    fontSize: 12,
                     marginTop: '6px',
-                    fontFamily: "Consolas",
+                    fontFamily: 'Consolas',
                     padding: theme.spacing.sm,
                     background: asciiColors.backgroundSoft,
                     borderRadius: 2,
@@ -976,7 +985,7 @@ const UserManagement = () => {
                   </div>
                 </div>
                 <div>
-                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Role:</strong>
+                  <strong style={{ color: asciiColors.accent, fontSize: 11, fontFamily: 'Consolas', fontWeight: 600 }}>Role:</strong>
                   <div style={{ marginTop: '6px' }}>
                     <RoleBadge $role={selectedUser.role}>{selectedUser.role.toUpperCase()}</RoleBadge>
                   </div>
@@ -999,12 +1008,12 @@ const UserManagement = () => {
                     </span>
                   </div>
                 </div>
-                <div style={{ 
-                  marginTop: theme.spacing.md, 
-                  paddingTop: theme.spacing.md, 
-                  borderTop: `1px solid ${asciiColors.border}` 
+                <div style={{
+                  marginTop: theme.spacing.md,
+                  paddingTop: theme.spacing.md,
+                  borderTop: `1px solid ${asciiColors.border}`
                 }}>
-                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: "Consolas", fontWeight: 600 }}>Account Information:</strong>
+                  <strong style={{ color: asciiColors.muted, fontSize: 11, fontFamily: 'Consolas', fontWeight: 600 }}>Account Information:</strong>
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div>
                       <span style={{ color: asciiColors.muted, fontSize: 10 }}>Created:</span>{' '}
@@ -1022,9 +1031,9 @@ const UserManagement = () => {
                     )}
                     <div>
                       <span style={{ color: asciiColors.muted, fontSize: 10 }}>Last Login:</span>{' '}
-                      <span style={{ 
-                        color: selectedUser.last_login ? asciiColors.foreground : asciiColors.muted, 
-                        fontSize: 11 
+                      <span style={{
+                        color: selectedUser.last_login ? asciiColors.foreground : asciiColors.muted,
+                        fontSize: 11
                       }}>
                         {selectedUser.last_login
                           ? format(new Date(selectedUser.last_login), 'yyyy-MM-dd HH:mm:ss')
@@ -1033,13 +1042,13 @@ const UserManagement = () => {
                     </div>
                   </div>
                 </div>
-                <div style={{ 
-                  marginTop: theme.spacing.md, 
-                  paddingTop: theme.spacing.md, 
-                  borderTop: `1px solid ${asciiColors.border}` 
+                <div style={{
+                  marginTop: theme.spacing.md,
+                  paddingTop: theme.spacing.md,
+                  borderTop: `1px solid ${asciiColors.border}`
                 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                    <AsciiButton 
+                    <AsciiButton
                       label="Edit User"
                       onClick={() => {
                         handleOpenModal(selectedUser);
@@ -1074,10 +1083,9 @@ const UserManagement = () => {
                   </div>
                 </div>
               </div>
-            </AsciiPanel>
-          )}
-        </div>
-      ) : null}
+            </ModalContent>
+          </ModalOverlay>
+        )}
 
         {isModalOpen && (
           <ModalOverlay $isOpen={isModalOpen} onClick={handleCloseModal}>

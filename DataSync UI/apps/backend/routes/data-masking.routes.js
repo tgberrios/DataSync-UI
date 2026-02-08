@@ -1,5 +1,5 @@
 import express from "express";
-import { pool } from "../services/database.service.js";
+import { pool, getConfigPath } from "../services/database.service.js";
 import { sanitizeError } from "../server-utils/errorHandler.js";
 import { requireAuth, requireRole } from "../server-utils/auth.js";
 import { Pool } from "pg";
@@ -587,10 +587,7 @@ router.post("/batch-analyze",
         });
       }
 
-      const configData = fs.readFileSync(
-        path.join(process.cwd(), "..", "config", "config.json"),
-        "utf8"
-      );
+      const configData = fs.readFileSync(getConfigPath(), "utf8");
       const config = JSON.parse(configData);
       const dbConfig = config.database.postgres;
 

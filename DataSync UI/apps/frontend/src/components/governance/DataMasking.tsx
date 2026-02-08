@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react';
 import styled from 'styled-components';
 import { dataMaskingApi } from '../../services/api';
 import { Container, LoadingOverlay, ErrorMessage } from '../shared/BaseComponents';
@@ -8,7 +8,6 @@ import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { theme } from '../../theme/theme';
-import DataMaskingTreeView from './DataMaskingTreeView';
 
 const MaskingTable = styled.table`
   width: 100%;
@@ -99,6 +98,7 @@ const DataMasking = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<MaskingPolicy | null>(null);
   const [filters, setFilters] = useState({
+    search: '',
     schema_name: '',
     table_name: '',
     masking_type: '',
@@ -122,6 +122,7 @@ const DataMasking = () => {
   });
   const [availableDatabases, setAvailableDatabases] = useState<string[]>([]);
   const [deactivatingAll, setDeactivatingAll] = useState(false);
+  const [executingAll, setExecutingAll] = useState(false);
   const [activeTab, setActiveTab] = useState<'policies' | 'sensitive' | 'unprotected'>('policies');
   const [sensitiveColumnsList, setSensitiveColumnsList] = useState<any[]>([]);
   const [unprotectedColumnsList, setUnprotectedColumnsList] = useState<any[]>([]);
@@ -142,6 +143,18 @@ const DataMasking = () => {
     { value: 'TOKENIZE', label: 'Tokenize (TOKEN_xxx)' },
   ];
 
+  const filteredPolicies = useMemo(() => {
+    const q = (filters.search || '').trim().toLowerCase();
+    if (!q) return policies;
+    return policies.filter(
+      (p) =>
+        String(p.policy_name ?? '').toLowerCase().includes(q) ||
+        String(p.schema_name ?? '').toLowerCase().includes(q) ||
+        String(p.table_name ?? '').toLowerCase().includes(q) ||
+        String(p.column_name ?? '').toLowerCase().includes(q)
+    );
+  }, [policies, filters.search]);
+
   const fetchPolicies = useCallback(async () => {
     if (!isMountedRef.current) return;
     
@@ -156,6 +169,7 @@ const DataMasking = () => {
       if (filters.table_name) params.table_name = filters.table_name;
       if (filters.masking_type) params.masking_type = filters.masking_type;
       if (filters.active !== '') params.active = filters.active === 'true';
+      // search is client-side only, not sent to API
 
       const response = await dataMaskingApi.getAll(params);
       
@@ -294,6 +308,50 @@ const DataMasking = () => {
       setBatchProcessing(false);
     }
   }, [batchConfig, fetchPolicies, fetchMaskingStatus]);
+
+  const handleExecuteAllMasking = useCallback(async () => {
+    const dbs = availableDatabases.filter(
+      (db) => db !== 'postgres' && db !== 'template0' && db !== 'template1'
+    );
+    if (dbs.length === 0) {
+      const list = availableDatabases.length > 0
+        ? 'Only system databases are available. Use "Batch Analyze & Create" to select a database.'
+        : 'No databases available. Check connection or use "Batch Analyze & Create" and enter a database name.';
+      alert(list);
+      return;
+    }
+    if (
+      !confirm(
+        `Execute batch masking on ${dbs.length} database(s): ${dbs.join(', ')}?\n\nThis will analyze sensitive columns and create/update masking policies.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setExecutingAll(true);
+      setError(null);
+      const response = await dataMaskingApi.batchAnalyze({
+        database_names: dbs,
+        masking_type: 'FULL',
+        auto_activate: true,
+        min_confidence: 0.75,
+      });
+      alert(
+        `Batch masking completed.\n\nPolicies created: ${response.policies_created}\nSkipped: ${response.policies_skipped}\nTotal analyzed: ${response.total_analyzed}`
+      );
+      await fetchPolicies();
+      await fetchMaskingStatus();
+      setSensitiveColumnsList((prev) => (prev.some((c) => c._error) ? prev : []));
+      setUnprotectedColumnsList((prev) => (prev.some((c) => c._error) ? prev : []));
+      lastSensitiveTabRef.current = null;
+      lastUnprotectedTabRef.current = null;
+    } catch (err) {
+      setError(extractApiError(err));
+    } finally {
+      setExecutingAll(false);
+    }
+  }, [availableDatabases, fetchPolicies, fetchMaskingStatus]);
 
   const handleDeactivateAll = useCallback(async () => {
     if (!confirm('Are you sure you want to deactivate ALL masking policies? This will disable masking for all columns.')) {
@@ -458,281 +516,107 @@ const DataMasking = () => {
         </div>
       )}
 
-      {maskingStatus && maskingStatus.overall_summary && (
-        <AsciiPanel title="MASKING STATUS OVERVIEW">
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(6, 1fr)',
-            gap: theme.spacing.md,
-            padding: theme.spacing.md,
+      {maskingStatus && maskingStatus.overall_summary && (() => {
+        const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
+        const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
+        const realProtected = realSensitive > 0 ? realSensitive - realUnprotected : maskingStatus.overall_summary.columns_with_policies;
+        const realCoveragePct = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
+        const realStatus = realCoveragePct >= 90 ? 'EXCELLENT' : realCoveragePct >= 70 ? 'GOOD' : realCoveragePct >= 50 ? 'FAIR' : realCoveragePct > 0 ? 'POOR' : 'NONE';
+        const totalTables = maskingStatus.overall_summary.total_tables;
+        const sensitiveCols = realSensitive || maskingStatus.overall_summary.sensitive_columns;
+
+        const metricRow = (label: string, value: string | number) => (
+          <div key={label} style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: `${theme.spacing.sm} 0`,
+            borderBottom: `1px solid ${asciiColors.border}`,
             fontFamily: 'Consolas',
-            fontSize: 11
+            fontSize: 12
+          }}>
+            <span style={{ color: asciiColors.foreground }}>{label}</span>
+            <span style={{ color: asciiColors.accent, fontWeight: 600 }}>{value}</span>
+          </div>
+        );
+
+        const cardPanel = (title: string, children: ReactNode) => (
+          <div style={{
+            flex: 1,
+            minWidth: 0,
+            background: asciiColors.background,
+            border: `1px solid ${asciiColors.border}`,
+            borderRadius: 2,
+            padding: theme.spacing.md,
+            fontFamily: 'Consolas'
           }}>
             <div style={{
-              padding: theme.spacing.lg,
-              minHeight: '100px',
-              background: asciiColors.backgroundSoft,
-              border: `1px solid ${asciiColors.border}`,
-              borderLeft: `2px solid ${asciiColors.accent}`,
-              borderRadius: 2,
-              transition: 'background-color 0.15s ease',
-              position: 'relative',
-              fontFamily: 'Consolas',
-              fontSize: 12
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              marginBottom: theme.spacing.sm,
+              paddingBottom: theme.spacing.sm,
+              borderBottom: `1px solid ${asciiColors.border}`
             }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.muted,
-                marginBottom: theme.spacing.sm,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontFamily: 'Consolas',
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs
-              }}>
-                Total Tables
-              </div>
-              <div style={{
-                fontSize: 18,
+              <span style={{
+                width: 10,
+                height: 10,
+                backgroundColor: asciiColors.accent,
+                flexShrink: 0
+              }} />
+              <span style={{
                 fontWeight: 700,
-                color: asciiColors.accent,
-                fontFamily: 'Consolas'
-              }}>
-                {maskingStatus.overall_summary.total_tables}
-              </div>
-            </div>
-            <div style={{
-              padding: theme.spacing.lg,
-              minHeight: '100px',
-              background: asciiColors.backgroundSoft,
-              border: `1px solid ${asciiColors.border}`,
-              borderLeft: `2px solid ${asciiColors.muted}`,
-              borderRadius: 2,
-              transition: 'background-color 0.15s ease',
-              position: 'relative',
-              fontFamily: 'Consolas',
-              fontSize: 12
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.muted,
-                marginBottom: theme.spacing.sm,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontFamily: 'Consolas',
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs
-              }}>
-                Sensitive Columns
-              </div>
-              <div style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: asciiColors.muted,
-                fontFamily: 'Consolas'
-              }}>
-                {(() => {
-                  const realCount = sensitiveColumnsList.filter(item => !item._error).length;
-                  return realCount || maskingStatus.overall_summary.sensitive_columns;
-                })()}
-              </div>
-            </div>
-            <div style={{
-              padding: theme.spacing.lg,
-              minHeight: '100px',
-              background: asciiColors.backgroundSoft,
-              border: `1px solid ${asciiColors.border}`,
-              borderLeft: `2px solid ${asciiColors.accent}`,
-              borderRadius: 2,
-              transition: 'background-color 0.15s ease',
-              position: 'relative',
-              fontFamily: 'Consolas',
-              fontSize: 12
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.muted,
-                marginBottom: theme.spacing.sm,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontFamily: 'Consolas',
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs
-              }}>
-                Protected
-              </div>
-              <div style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: asciiColors.accent,
-                fontFamily: 'Consolas'
-              }}>
-                {(() => {
-                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
-                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
-                  return realSensitive > 0 ? realSensitive - realUnprotected : maskingStatus.overall_summary.columns_with_policies;
-                })()}
-              </div>
-            </div>
-            <div style={{
-              padding: theme.spacing.lg,
-              minHeight: '100px',
-              background: asciiColors.backgroundSoft,
-              border: `1px solid ${asciiColors.border}`,
-              borderLeft: `2px solid ${asciiColors.foreground}`,
-              borderRadius: 2,
-              transition: 'background-color 0.15s ease',
-              position: 'relative',
-              fontFamily: 'Consolas',
-              fontSize: 12
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.muted,
-                marginBottom: theme.spacing.sm,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontFamily: 'Consolas',
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs
-              }}>
-                Unprotected
-              </div>
-              <div style={{
-                fontSize: 18,
-                fontWeight: 700,
+                fontSize: 12,
                 color: asciiColors.foreground,
-                fontFamily: 'Consolas'
-              }}>
-                {unprotectedColumnsList.filter(item => !item._error).length}
-              </div>
-            </div>
-            <div style={{
-              padding: theme.spacing.lg,
-              minHeight: '100px',
-              background: asciiColors.backgroundSoft,
-              border: `1px solid ${asciiColors.border}`,
-              borderLeft: `2px solid ${(() => {
-                const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
-                const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
-                const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
-                return realCoverage >= 90 ? asciiColors.accent : realCoverage >= 70 ? asciiColors.muted : asciiColors.foreground;
-              })()}`,
-              borderRadius: 2,
-              transition: 'background-color 0.15s ease',
-              position: 'relative',
-              fontFamily: 'Consolas',
-              fontSize: 12
-            }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.muted,
-                marginBottom: theme.spacing.sm,
-                fontWeight: 600,
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontFamily: 'Consolas',
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs
+                letterSpacing: '0.5px'
               }}>
-                Coverage
-              </div>
-              <div style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: (() => {
-                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
-                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
-                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
-                  return realCoverage >= 90 ? asciiColors.accent : realCoverage >= 70 ? asciiColors.muted : asciiColors.foreground;
-                })(),
-                fontFamily: 'Consolas'
-              }}>
-                {(() => {
-                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
-                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
-                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
-                  return realCoverage.toFixed(1);
-                })()}%
-              </div>
+                {title}
+              </span>
             </div>
+            {children}
+          </div>
+        );
+
+        return (
+          <AsciiPanel title="MASKING STATUS OVERVIEW">
             <div style={{
-              padding: theme.spacing.lg,
-              minHeight: '100px',
-              background: asciiColors.backgroundSoft,
-              border: `1px solid ${asciiColors.border}`,
-              borderLeft: `2px solid ${(() => {
-                const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
-                const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
-                const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
-                const realStatus = realCoverage >= 90 ? 'EXCELLENT' : realCoverage >= 70 ? 'GOOD' : realCoverage >= 50 ? 'FAIR' : realCoverage > 0 ? 'POOR' : 'NONE';
-                return realStatus === 'EXCELLENT' ? asciiColors.accent : realStatus === 'GOOD' ? asciiColors.muted : realStatus === 'FAIR' ? asciiColors.muted : asciiColors.foreground;
-              })()}`,
-              borderRadius: 2,
-              transition: 'background-color 0.15s ease',
-              position: 'relative',
-              fontFamily: 'Consolas',
-              fontSize: 12
+              display: 'flex',
+              gap: theme.spacing.lg,
+              padding: theme.spacing.md,
+              fontFamily: 'Consolas'
             }}>
-              <div style={{
-                fontSize: 11,
-                color: asciiColors.muted,
-                marginBottom: theme.spacing.sm,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontFamily: 'Consolas',
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs
-              }}>
-                Status
-              </div>
-              <div style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: (() => {
-                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
-                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
-                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
-                  const realStatus = realCoverage >= 90 ? 'EXCELLENT' : realCoverage >= 70 ? 'GOOD' : realCoverage >= 50 ? 'FAIR' : realCoverage > 0 ? 'POOR' : 'NONE';
-                  return realStatus === 'EXCELLENT' ? asciiColors.accent : realStatus === 'GOOD' ? asciiColors.muted : realStatus === 'FAIR' ? asciiColors.muted : asciiColors.foreground;
-                })(),
-                fontFamily: 'Consolas'
-              }}>
-                {(() => {
-                  const realSensitive = sensitiveColumnsList.filter(item => !item._error).length;
-                  const realUnprotected = unprotectedColumnsList.filter(item => !item._error).length;
-                  const realCoverage = realSensitive > 0 ? (realSensitive - realUnprotected) / realSensitive * 100 : maskingStatus.overall_summary.coverage_percentage;
-                  return realCoverage >= 90 ? 'EXCELLENT' : realCoverage >= 70 ? 'GOOD' : realCoverage >= 50 ? 'FAIR' : realCoverage > 0 ? 'POOR' : 'NONE';
-                })()}
-              </div>
+              {cardPanel('TABLES & COLUMNS', (
+                <div style={{ paddingTop: theme.spacing.xs }}>
+                  {metricRow('Total Tables', totalTables)}
+                  {metricRow('Sensitive Columns', sensitiveCols)}
+                  {metricRow('Protected', realProtected)}
+                  {metricRow('Unprotected', realUnprotected)}
+                </div>
+              ))}
+              {cardPanel('PROTECTION OVERVIEW', (
+                <div style={{ paddingTop: theme.spacing.xs }}>
+                  {metricRow('Coverage', `${realCoveragePct.toFixed(1)}%`)}
+                  {metricRow('Status', realStatus)}
+                </div>
+              ))}
             </div>
-          </div>
-          <div style={{ marginTop: theme.spacing.md, padding: theme.spacing.sm, borderTop: `1px solid ${asciiColors.border}`, display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-            <AsciiButton
-              label="Masking Info"
-              onClick={() => setShowMaskingPlaybook(true)}
-              variant="ghost"
-            />
-            <AsciiButton
-              label="Refresh Status"
-              onClick={fetchMaskingStatus}
-              variant="ghost"
-              disabled={loadingStatus}
-            />
-          </div>
-        </AsciiPanel>
-      )}
+            <div style={{ marginTop: theme.spacing.md, padding: theme.spacing.sm, borderTop: `1px solid ${asciiColors.border}`, display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
+              <AsciiButton
+                label="Masking Info"
+                onClick={() => setShowMaskingPlaybook(true)}
+                variant="ghost"
+              />
+              <AsciiButton
+                label="Refresh Status"
+                onClick={fetchMaskingStatus}
+                variant="ghost"
+                disabled={loadingStatus}
+              />
+            </div>
+          </AsciiPanel>
+        );
+      })()}
 
       <div style={{ 
         display: 'flex', 
@@ -743,6 +627,12 @@ const DataMasking = () => {
         fontSize: 12
       }}>
         <div style={{ display: 'flex', gap: theme.spacing.sm }}>
+          <AsciiButton 
+            label={executingAll ? `${ascii.blockFull} Executing...` : `${ascii.blockFull} Execute All Masking`}
+            onClick={handleExecuteAllMasking}
+            variant="primary"
+            disabled={executingAll || availableDatabases.length === 0}
+          />
           <AsciiButton 
             label={`${ascii.blockFull} Create Masking Policy`}
             onClick={handleCreatePolicy}
@@ -759,119 +649,6 @@ const DataMasking = () => {
             variant="ghost"
             disabled={deactivatingAll}
           />
-        </div>
-        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
-          <input
-            type="text"
-            placeholder="Schema..."
-            value={filters.schema_name}
-            onChange={(e) => setFilters(prev => ({ ...prev, schema_name: e.target.value }))}
-            style={{
-              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.background,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 11,
-              outline: 'none',
-              transition: 'border-color 0.15s ease'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = asciiColors.accent;
-              e.target.style.outline = `2px solid ${asciiColors.accent}`;
-              e.target.style.outlineOffset = '2px';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = asciiColors.border;
-              e.target.style.outline = 'none';
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Table..."
-            value={filters.table_name}
-            onChange={(e) => setFilters(prev => ({ ...prev, table_name: e.target.value }))}
-            style={{
-              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.background,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 11,
-              outline: 'none',
-              transition: 'border-color 0.15s ease'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = asciiColors.accent;
-              e.target.style.outline = `2px solid ${asciiColors.accent}`;
-              e.target.style.outlineOffset = '2px';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = asciiColors.border;
-              e.target.style.outline = 'none';
-            }}
-          />
-          <select
-            value={filters.masking_type}
-            onChange={(e) => setFilters(prev => ({ ...prev, masking_type: e.target.value }))}
-            style={{
-              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.background,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 11,
-              outline: 'none',
-              transition: 'border-color 0.15s ease',
-              cursor: 'pointer'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = asciiColors.accent;
-              e.target.style.outline = `2px solid ${asciiColors.accent}`;
-              e.target.style.outlineOffset = '2px';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = asciiColors.border;
-              e.target.style.outline = 'none';
-            }}
-          >
-            <option value="">All Types</option>
-            {maskingTypes.map(type => (
-              <option key={type.value} value={type.value}>{type.label}</option>
-            ))}
-          </select>
-          <select
-            value={filters.active}
-            onChange={(e) => setFilters(prev => ({ ...prev, active: e.target.value }))}
-            style={{
-              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-              border: `1px solid ${asciiColors.border}`,
-              borderRadius: 2,
-              background: asciiColors.background,
-              color: asciiColors.foreground,
-              fontFamily: 'Consolas',
-              fontSize: 11,
-              outline: 'none',
-              transition: 'border-color 0.15s ease',
-              cursor: 'pointer'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = asciiColors.accent;
-              e.target.style.outline = `2px solid ${asciiColors.accent}`;
-              e.target.style.outlineOffset = '2px';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = asciiColors.border;
-              e.target.style.outline = 'none';
-            }}
-          >
-            <option value="">All Status</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
         </div>
       </div>
 
@@ -936,13 +713,226 @@ const DataMasking = () => {
 
       {activeTab === 'policies' && (
         <AsciiPanel title="MASKING POLICIES">
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: theme.spacing.sm,
+            marginBottom: theme.spacing.md,
+            paddingBottom: theme.spacing.md,
+            borderBottom: `1px solid ${asciiColors.border}`,
+            alignItems: 'center',
+            fontFamily: 'Consolas'
+          }}>
+            <input
+              type="text"
+              placeholder="Search by policy, schema, table, column..."
+              value={filters.search}
+              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              style={{
+                flex: '1 1 220px',
+                minWidth: 200,
+                padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                background: asciiColors.background,
+                color: asciiColors.foreground,
+                fontFamily: 'Consolas',
+                fontSize: 12,
+                outline: 'none',
+                transition: 'border-color 0.15s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = asciiColors.accent;
+                e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                e.target.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = asciiColors.border;
+                e.target.style.outline = 'none';
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Schema"
+              value={filters.schema_name}
+              onChange={(e) => setFilters((prev) => ({ ...prev, schema_name: e.target.value }))}
+              style={{
+                width: 120,
+                padding: `${theme.spacing.sm} ${theme.spacing.sm}`,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                background: asciiColors.background,
+                color: asciiColors.foreground,
+                fontFamily: 'Consolas',
+                fontSize: 11,
+                outline: 'none',
+                transition: 'border-color 0.15s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = asciiColors.accent;
+                e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                e.target.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = asciiColors.border;
+                e.target.style.outline = 'none';
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Table"
+              value={filters.table_name}
+              onChange={(e) => setFilters((prev) => ({ ...prev, table_name: e.target.value }))}
+              style={{
+                width: 120,
+                padding: `${theme.spacing.sm} ${theme.spacing.sm}`,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                background: asciiColors.background,
+                color: asciiColors.foreground,
+                fontFamily: 'Consolas',
+                fontSize: 11,
+                outline: 'none',
+                transition: 'border-color 0.15s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = asciiColors.accent;
+                e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                e.target.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = asciiColors.border;
+                e.target.style.outline = 'none';
+              }}
+            />
+            <select
+              value={filters.masking_type}
+              onChange={(e) => setFilters((prev) => ({ ...prev, masking_type: e.target.value }))}
+              style={{
+                padding: `${theme.spacing.sm} ${theme.spacing.sm}`,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                background: asciiColors.background,
+                color: asciiColors.foreground,
+                fontFamily: 'Consolas',
+                fontSize: 11,
+                outline: 'none',
+                transition: 'border-color 0.15s ease',
+                cursor: 'pointer',
+                minWidth: 100
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = asciiColors.accent;
+                e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                e.target.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = asciiColors.border;
+                e.target.style.outline = 'none';
+              }}
+            >
+              <option value="">All Types</option>
+              {maskingTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.active}
+              onChange={(e) => setFilters((prev) => ({ ...prev, active: e.target.value }))}
+              style={{
+                padding: `${theme.spacing.sm} ${theme.spacing.sm}`,
+                border: `1px solid ${asciiColors.border}`,
+                borderRadius: 2,
+                background: asciiColors.background,
+                color: asciiColors.foreground,
+                fontFamily: 'Consolas',
+                fontSize: 11,
+                outline: 'none',
+                transition: 'border-color 0.15s ease',
+                cursor: 'pointer',
+                minWidth: 90
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = asciiColors.accent;
+                e.target.style.outline = `2px solid ${asciiColors.accent}`;
+                e.target.style.outlineOffset = '2px';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = asciiColors.border;
+                e.target.style.outline = 'none';
+              }}
+            >
+              <option value="">All Status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
           {loading && <LoadingOverlay />}
-          <DataMaskingTreeView
-            policies={policies}
-            onEdit={handleEditPolicy}
-            onDelete={handleDeletePolicy}
-            onAnalyze={handleAnalyzeColumns}
-          />
+          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            <MaskingTable>
+              <thead>
+                <tr>
+                  <Th>Policy</Th>
+                  <Th>Schema</Th>
+                  <Th>Table</Th>
+                  <Th>Column</Th>
+                  <Th>Type</Th>
+                  <Th>Status</Th>
+                  <Th style={{ width: 120 }}>Actions</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPolicies.length === 0 ? (
+                  <TableRow>
+                    <Td colSpan={7} style={{ textAlign: 'center', color: asciiColors.muted, padding: theme.spacing.lg }}>
+                      {policies.length === 0
+                        ? 'No masking policies found. Create one to get started.'
+                        : 'No policies match the current search or filters.'}
+                    </Td>
+                  </TableRow>
+                ) : (
+                  filteredPolicies.map((policy) => (
+                    <TableRow key={policy.policy_id ?? `${policy.schema_name}.${policy.table_name}.${policy.column_name}`}>
+                      <Td style={{ fontFamily: 'Consolas' }}>{policy.policy_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{policy.schema_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{policy.table_name}</Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>{policy.column_name}</Td>
+                      <Td>
+                        <span style={{ color: getMaskingTypeColor(policy.masking_type), fontFamily: 'Consolas' }}>
+                          {policy.masking_type}
+                        </span>
+                      </Td>
+                      <Td>
+                        <span style={{ color: getStatusColor(policy.active ? 'ACTIVE' : 'INACTIVE'), fontFamily: 'Consolas' }}>
+                          {policy.active ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                      </Td>
+                      <Td style={{ fontFamily: 'Consolas' }}>
+                        <div style={{ display: 'flex', gap: theme.spacing.xs }}>
+                          <AsciiButton
+                            label="Edit"
+                            onClick={() => handleEditPolicy(policy)}
+                            variant="ghost"
+                            style={{ fontSize: 10, padding: '2px 6px' }}
+                          />
+                          {policy.policy_id != null && (
+                            <AsciiButton
+                              label="Delete"
+                              onClick={() => handleDeletePolicy(policy.policy_id!)}
+                              variant="ghost"
+                              style={{ fontSize: 10, padding: '2px 6px' }}
+                            />
+                          )}
+                        </div>
+                      </Td>
+                    </TableRow>
+                  ))
+                )}
+              </tbody>
+            </MaskingTable>
+          </div>
         </AsciiPanel>
       )}
 
