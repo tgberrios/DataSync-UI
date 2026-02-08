@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AsciiPanel } from '../../ui/layout/AsciiPanel';
 import { AsciiButton } from '../../ui/controls/AsciiButton';
 import { asciiColors, ascii } from '../../ui/theme/asciiTheme';
@@ -9,18 +9,20 @@ import { schemaMigrationsApi } from '../../services/api';
 import type { SchemaMigrationEntry } from '../../services/api';
 import { extractApiError } from '../../utils/errorHandler';
 import { sanitizeSearch } from '../../utils/validation';
-import SchemaMigrationsTreeView from './SchemaMigrationsTreeView';
+import SchemaMigrationsListView from './SchemaMigrationsListView';
 import CreateMigrationModal from './CreateMigrationModal';
 import MigrationDetailsModal from './MigrationDetailsModal';
 import MigrationIntegrityDashboard from './MigrationIntegrityDashboard';
 import MigrationChainView from './MigrationChainView';
 import UnregisteredChangesDetector from './UnregisteredChangesDetector';
 import TestMigrationModal from './TestMigrationModal';
-import { Container } from '../shared/BaseComponents';
+import { Container, Pagination, PageButton } from '../shared/BaseComponents';
 import { theme } from '../../theme/theme';
 
+const PAGE_SIZE = 10;
+
 const SchemaMigrations = () => {
-  const { setPage } = usePagination(1, 20);
+  const { page, limit, offset, setPage, calculateTotalPages } = usePagination(1, PAGE_SIZE);
   const { filters, setFilter } = useTableFilters({
     status: '',
     environment: '',
@@ -91,6 +93,21 @@ const SchemaMigrations = () => {
   useEffect(() => {
     fetchAllMigrations();
   }, [fetchAllMigrations]);
+
+  const totalPages = useMemo(
+    () => calculateTotalPages(allMigrations.length),
+    [allMigrations.length, calculateTotalPages]
+  );
+  const paginatedMigrations = useMemo(
+    () => allMigrations.slice(offset, offset + limit),
+    [allMigrations, offset, limit]
+  );
+
+  useEffect(() => {
+    if (totalPages >= 1 && page > totalPages) {
+      setPage(1);
+    }
+  }, [totalPages, page, setPage]);
 
   const handleSearch = useCallback(() => {
     setSearch(searchInput);
@@ -360,14 +377,36 @@ const SchemaMigrations = () => {
         </div>
       )}
 
-      <SchemaMigrationsTreeView
-        migrations={allMigrations}
+      <SchemaMigrationsListView
+        migrations={paginatedMigrations}
         loading={loadingTree}
         onViewMigration={handleViewMigration}
         onApplyMigration={handleApplyMigration}
         onRollbackMigration={handleRollbackMigration}
         onTestMigration={handleTestMigration}
       />
+
+      {totalPages > 1 && (
+        <div style={{ marginTop: theme.spacing.lg }}>
+          <Pagination>
+            <PageButton
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </PageButton>
+            <span style={{ fontFamily: 'Consolas', fontSize: 12, color: asciiColors.foreground }}>
+              Page {page} of {totalPages} ({allMigrations.length} total)
+            </span>
+            <PageButton
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+            </PageButton>
+          </Pagination>
+        </div>
+      )}
 
       {isCreateModalOpen && (
         <CreateMigrationModal

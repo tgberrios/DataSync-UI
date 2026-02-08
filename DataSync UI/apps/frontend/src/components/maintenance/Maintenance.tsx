@@ -181,42 +181,87 @@ const Maintenance = () => {
         </div>
       )}
       
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: theme.spacing.md, 
-        marginBottom: theme.spacing.lg 
+      {/* Two compact metric cards: Status + Impact/Reclaimed */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: theme.spacing.md,
+        marginBottom: theme.spacing.lg
       }}>
-        <AsciiPanel title="Total Pending">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.total_pending || 0}
+        {[
+          {
+            title: 'STATUS',
+            rows: [
+              { label: 'Total Pending', value: String(metrics.total_pending ?? 0) },
+              { label: 'Total Completed', value: String(metrics.total_completed ?? 0) },
+              { label: 'Total Failed', value: String(metrics.total_failed ?? 0) }
+            ]
+          },
+          {
+            title: 'RECLAIMED & IMPACT',
+            rows: [
+              { label: 'Space Reclaimed', value: formatBytes(metrics.total_space_reclaimed_mb) },
+              { label: 'Avg Impact Score', value: metrics.avg_impact_score != null ? Number(metrics.avg_impact_score).toFixed(1) : 'N/A' },
+              { label: 'Objects Improved', value: String(metrics.objects_improved ?? 0) }
+            ]
+          }
+        ].map((card) => (
+          <div
+            key={card.title}
+            style={{
+              backgroundColor: asciiColors.background,
+              border: `1px solid ${asciiColors.border}`,
+              borderRadius: 4,
+              overflow: 'hidden',
+              fontFamily: 'Consolas'
+            }}
+          >
+            <div style={{
+              padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+              borderBottom: `1px solid ${asciiColors.border}`
+            }}>
+              <span style={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                backgroundColor: asciiColors.accent,
+                marginRight: theme.spacing.sm,
+                verticalAlign: 'middle'
+              }} />
+              <span style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: asciiColors.foreground,
+                textTransform: 'uppercase',
+                letterSpacing: 0.3
+              }}>
+                {card.title}
+              </span>
+            </div>
+            <div style={{ padding: theme.spacing.sm }}>
+              {card.rows.map((row, i) => (
+                <div
+                  key={row.label}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: theme.spacing.sm,
+                    padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+                    borderBottom: i < card.rows.length - 1 ? `1px solid ${asciiColors.border}` : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: 12, color: asciiColors.muted, flex: '1 1 auto', minWidth: 0 }}>
+                    {row.label}
+                  </span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: asciiColors.accent, flexShrink: 0 }}>
+                    {row.value}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </AsciiPanel>
-        <AsciiPanel title="Total Completed">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.total_completed || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Total Failed">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.total_failed || 0}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Space Reclaimed">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {formatBytes(metrics.total_space_reclaimed_mb)}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Avg Impact Score">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.avg_impact_score ? `${Number(metrics.avg_impact_score).toFixed(1)}` : 'N/A'}
-          </div>
-        </AsciiPanel>
-        <AsciiPanel title="Objects Improved">
-          <div style={{ fontFamily: 'Consolas', fontSize: 14, fontWeight: 600, color: asciiColors.foreground }}>
-            {metrics.objects_improved || 0}
-          </div>
-        </AsciiPanel>
+        ))}
       </div>
 
       <div style={{ 

@@ -7,7 +7,7 @@ import { AsciiConnectionStringSelector } from '../shared/AsciiConnectionStringSe
 import SkeletonLoader from '../shared/SkeletonLoader';
 import { Container } from '../shared/BaseComponents';
 import { theme } from '../../theme/theme';
-import BackupManagerTreeView from './BackupManagerTreeView';
+import BackupManagerListView from './BackupManagerListView';
 import BackupHistoryTreeView from './BackupHistoryTreeView';
 
 const BackupManager = () => {
@@ -415,7 +415,7 @@ const BackupManager = () => {
         </div>
       ) : (
         <>
-          <BackupManagerTreeView
+          <BackupManagerListView
             backups={backups}
             onViewHistory={handleViewHistory}
             onToggleSchedule={handleToggleSchedule}

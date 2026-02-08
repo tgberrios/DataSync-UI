@@ -1,1 +1,0 @@
-import{r as n}from"./index-f6ac47b8.js";const P=(o=1,h=10,s=100)=>{const[e,i]=n.useState(Math.max(1,o)),[t,c]=n.useState(Math.min(s,Math.max(1,h))),m=n.useMemo(()=>(e-1)*t,[e,t]);return{page:e,limit:t,offset:m,setPage:a=>{i(Math.max(1,a))},setLimit:a=>{const l=Math.min(s,Math.max(1,a));c(l),i(1)},calculateTotalPages:a=>Math.max(1,Math.ceil(a/t))}};export{P as u};

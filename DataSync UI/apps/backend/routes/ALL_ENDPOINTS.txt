@@ -27,6 +27,14 @@
 /api/business-glossary/terms/:termId/tables
 /api/catalog
 /api/catalog-cleaner/preview
+/api/catalog-cleaner/clean-all
+/api/catalog-cleaner/clean-non-existent-tables
+/api/catalog-cleaner/clean-orphaned-tables
+/api/catalog-cleaner/clean-old-logs
+/api/catalog-cleaner/clean-orphaned-governance
+/api/catalog-cleaner/clean-orphaned-quality
+/api/catalog-cleaner/clean-orphaned-maintenance
+/api/catalog-cleaner/clean-orphaned-lineage
 /api/catalog/engines
 /api/catalog/execution-history
 /api/catalog-locks/locks
