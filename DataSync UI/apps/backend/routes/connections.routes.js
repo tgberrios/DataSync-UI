@@ -300,12 +300,13 @@ router.post("/test-connection", requireAuth, (req, res, next) => {
 
       case "Oracle": {
         try {
-          const oracledb = await import("oracledb").catch(() => null);
-          if (!oracledb) {
+          const oracledbModule = await import("oracledb").catch(() => null);
+          if (!oracledbModule) {
             message =
               "Oracle driver (oracledb) is not installed. Please install it with: npm install oracledb";
             break;
           }
+          const oracledb = oracledbModule.default;
 
           const connStr = connection_string;
           const params = {};
@@ -1006,14 +1007,15 @@ router.post("/discover-schemas", requireAuth, async (req, res) => {
 
       case "Oracle": {
         try {
-          const oracledb = await import("oracledb").catch(() => null);
-          if (!oracledb) {
+          const oracledbModule = await import("oracledb").catch(() => null);
+          if (!oracledbModule) {
             return res.status(400).json({
               success: false,
               error:
                 "Oracle driver (oracledb) is not installed. Please install it with: npm install oracledb",
             });
           }
+          const oracledb = oracledbModule.default;
 
           const connStr = connection_string;
           const params = {};
@@ -1362,14 +1364,15 @@ router.post("/discover-tables", requireAuth, async (req, res) => {
 
       case "Oracle": {
         try {
-          const oracledb = await import("oracledb").catch(() => null);
-          if (!oracledb) {
+          const oracledbModule = await import("oracledb").catch(() => null);
+          if (!oracledbModule) {
             return res.status(400).json({
               success: false,
               error:
                 "Oracle driver (oracledb) is not installed. Please install it with: npm install oracledb",
             });
           }
+          const oracledb = oracledbModule.default;
 
           const connStr = connection_string;
           const params = {};
@@ -1703,14 +1706,15 @@ router.post("/discover-columns", requireAuth, async (req, res) => {
 
       case "Oracle": {
         try {
-          const oracledb = await import("oracledb").catch(() => null);
-          if (!oracledb) {
+          const oracledbModule = await import("oracledb").catch(() => null);
+          if (!oracledbModule) {
             return res.status(400).json({
               success: false,
               error:
                 "Oracle driver (oracledb) is not installed. Please install it with: npm install oracledb",
             });
           }
+          const oracledb = oracledbModule.default;
 
           const connStr = connection_string;
           const params = {};
