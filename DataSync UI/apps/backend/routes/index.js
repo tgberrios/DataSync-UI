@@ -47,6 +47,60 @@ import webhooksRoutes from "./webhooks.routes.js";
 
 const router = express.Router();
 
+// Frontend calls these at /api/... but backend implements them under /api/connections/... Forward so both work.
+const connectionForwardPaths = [
+  "test-connection",
+  "discover-databases",
+  "discover-schemas",
+  "discover-tables",
+  "discover-columns",
+];
+
+connectionForwardPaths.forEach((pathSegment) => {
+  router.post(`/${pathSegment}`, (req, res, next) => {
+    const originalUrl = req.url;
+    req.url = `/${pathSegment}`;
+    connectionsRoutes(req, res, (err) => {
+      req.url = originalUrl;
+      if (err) {
+        console.error(`POST /api/${pathSegment} error:`, err);
+        next(err);
+      } else {
+        next();
+      }
+    });
+  });
+});
+
+// PUT/GET/DELETE /api/catalog (no trailing slash) reach the catalog router with path ""; ensure they match by forwarding with path "/"
+router.put("/catalog", (req, res, next) => {
+  const originalUrl = req.url;
+  req.url = "/";
+  catalogRoutes(req, res, (err) => {
+    req.url = originalUrl;
+    if (err) next(err);
+    else next();
+  });
+});
+router.get("/catalog", (req, res, next) => {
+  const originalUrl = req.url;
+  req.url = "/";
+  catalogRoutes(req, res, (err) => {
+    req.url = originalUrl;
+    if (err) next(err);
+    else next();
+  });
+});
+router.delete("/catalog", (req, res, next) => {
+  const originalUrl = req.url;
+  req.url = "/";
+  catalogRoutes(req, res, (err) => {
+    req.url = originalUrl;
+    if (err) next(err);
+    else next();
+  });
+});
+
 // Register all routers
 router.use("/auth", authRoutes);
 router.use("/health", healthRoutes);

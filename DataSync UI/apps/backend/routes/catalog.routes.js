@@ -689,8 +689,8 @@ router.get("/table-structure", requireAuth, async (req, res) => {
   }
 });
 
-// Obtener catálogo con paginación, filtros y búsqueda
-router.get("/", requireAuth, async (req, res) => {
+// Obtener catálogo con paginación, filtros y búsqueda ("" y "/" so GET /api/catalog works with or without trailing slash)
+router.get(["/", ""], requireAuth, async (req, res) => {
   try {
     const page = validatePage(req.query.page, 1);
     const limit = validateLimit(req.query.limit, 1, 100);
@@ -1041,8 +1041,8 @@ router.post(
   }
 );
 
-// Actualizar una entrada del catálogo
-router.put("/", requireAuth, requireRole("admin", "user"), async (req, res) => {
+// Actualizar una entrada del catálogo ("" y "/" so PUT /api/catalog and PUT /api/catalog/ both match)
+router.put(["/", ""], requireAuth, requireRole("admin", "user"), async (req, res) => {
   try {
     const schema_name = validateIdentifier(req.body.schema_name);
     const table_name = validateIdentifier(req.body.table_name);
@@ -1086,7 +1086,7 @@ router.put("/", requireAuth, requireRole("admin", "user"), async (req, res) => {
 
     const checkResult = await pool.query(
       `SELECT * FROM metadata.catalog 
-       WHERE schema_name = $1 AND table_name = $2 AND db_engine = $3`,
+       WHERE LOWER(schema_name) = LOWER($1) AND LOWER(table_name) = LOWER($2) AND db_engine = $3`,
       [schema_name, table_name, db_engine]
     );
 
@@ -1143,7 +1143,7 @@ router.put("/", requireAuth, requireRole("admin", "user"), async (req, res) => {
     const updateQuery = `
       UPDATE metadata.catalog 
       SET ${updateFields.join(', ')}
-      WHERE schema_name = $${paramCount - 2} AND table_name = $${paramCount - 1} AND db_engine = $${paramCount}
+      WHERE LOWER(schema_name) = LOWER($${paramCount - 2}) AND LOWER(table_name) = LOWER($${paramCount - 1}) AND db_engine = $${paramCount}
       RETURNING *
     `;
 
@@ -1160,8 +1160,8 @@ router.put("/", requireAuth, requireRole("admin", "user"), async (req, res) => {
   }
 });
 
-// Eliminar una entrada del catálogo
-router.delete("/", requireAuth, requireRole("admin", "user"), async (req, res) => {
+// Eliminar una entrada del catálogo ("" y "/" so DELETE /api/catalog works with or without trailing slash)
+router.delete(["/", ""], requireAuth, requireRole("admin", "user"), async (req, res) => {
   try {
     const schema_name = validateIdentifier(req.body.schema_name);
     const table_name = validateIdentifier(req.body.table_name);

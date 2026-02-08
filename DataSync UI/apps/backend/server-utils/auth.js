@@ -40,7 +40,9 @@ async function initializeUsersTable() {
         `);
       }
     } catch (err) {
-      console.error("Error checking/dropping constraint:", err);
+      if (err.code !== "42704") {
+        console.error("Error checking/dropping constraint:", err);
+      }
     }
     
     try {

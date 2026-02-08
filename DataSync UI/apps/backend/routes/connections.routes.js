@@ -11,7 +11,81 @@ import pkg from "pg";
 
 const router = express.Router();
 
-router.post("/test-connection", requireAuth, async (req, res) => {
+/** GET /api/connections?db_engine=MSSQL — list saved connections for the given engine (from metadata.available_connections). */
+router.get("/", requireAuth, async (req, res) => {
+  const dbEngine = req.query.db_engine;
+  if (!dbEngine) {
+    return res.status(400).json({
+      success: false,
+      error: "Missing required query parameter: db_engine",
+    });
+  }
+
+  const validEngine = validateEnum(
+    dbEngine,
+    ["PostgreSQL", "MariaDB", "MSSQL", "MongoDB", "Oracle", "Redshift", "Snowflake", "BigQuery"],
+    null
+  );
+  if (!validEngine) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid db_engine.",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT connection_string, connection_string_masked
+       FROM metadata.available_connections
+       WHERE db_engine = $1
+       ORDER BY connection_string`,
+      [dbEngine]
+    );
+    const connections = result.rows.map((row) => ({
+      connection_string: row.connection_string,
+      connection_string_masked: row.connection_string_masked ?? row.connection_string,
+    }));
+    res.json({ connections });
+  } catch (err) {
+    if (err.code === "42P01") {
+      return res.json({ connections: [] });
+    }
+    console.error("Error listing connections:", err);
+    res.status(500).json({
+      success: false,
+      error: sanitizeError(
+        err,
+        "Error listing connections",
+        process.env.NODE_ENV === "production"
+      ),
+    });
+  }
+});
+
+/** Safe error message for connection failures (avoids throwing if err is not an Error). */
+function connectionErrMessage(err) {
+  if (err && typeof err === "object" && typeof err.message === "string") {
+    return err.message;
+  }
+  return err != null ? String(err) : "Unknown error";
+}
+
+/** Optional cluster/host name for success response (e.g. from MongoDB connection string). */
+function extractClusterName(connectionString, dbEngine) {
+  if (!connectionString || typeof connectionString !== "string") return null;
+  if (dbEngine === "MongoDB") {
+    try {
+      const url = new URL(connectionString.replace(/^mongodb\+srv:/, "https:"));
+      return url.hostname || null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+router.post("/test-connection", requireAuth, (req, res, next) => {
+  const run = async () => {
   const { db_engine, connection_string } = req.body;
 
   if (!db_engine || !connection_string) {
@@ -105,7 +179,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           message = "PostgreSQL connection successful!";
         } catch (err) {
           console.error("PostgreSQL connection error:", err);
-          message = `PostgreSQL connection failed: ${err.message}`;
+          message = `PostgreSQL connection failed: ${connectionErrMessage(err)}`;
         }
         break;
       }
@@ -142,7 +216,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           testResult = true;
           message = "MariaDB connection successful!";
         } catch (err) {
-          message = `MariaDB connection failed: ${err.message}`;
+          message = `MariaDB connection failed: ${connectionErrMessage(err)}`;
         }
         break;
       }
@@ -194,7 +268,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           testResult = true;
           message = "MSSQL connection successful!";
         } catch (err) {
-          message = `MSSQL connection failed: ${err.message}`;
+          message = `MSSQL connection failed: ${connectionErrMessage(err)}`;
         }
         break;
       }
@@ -219,7 +293,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           testResult = true;
           message = "MongoDB connection successful!";
         } catch (err) {
-          message = `MongoDB connection failed: ${err.message}`;
+          message = `MongoDB connection failed: ${connectionErrMessage(err)}`;
         }
         break;
       }
@@ -256,7 +330,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           testResult = true;
           message = "Oracle connection successful!";
         } catch (err) {
-          message = `Oracle connection failed: ${err.message}`;
+          message = `Oracle connection failed: ${connectionErrMessage(err)}`;
         }
         break;
       }
@@ -318,7 +392,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           message = "Redshift connection successful!";
         } catch (err) {
           console.error("Redshift connection error:", err);
-          message = `Redshift connection failed: ${err.message}`;
+          message = `Redshift connection failed: ${connectionErrMessage(err)}`;
         }
         break;
       }
@@ -356,7 +430,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           message = "Snowflake connection successful!";
         } catch (err) {
           console.error("Snowflake connection error:", err);
-          message = `Snowflake connection failed: ${err.message}. Make sure Snowflake ODBC driver is installed.`;
+          message = `Snowflake connection failed: ${connectionErrMessage(err)}. Make sure Snowflake ODBC driver is installed.`;
         }
         break;
       }
@@ -428,7 +502,7 @@ router.post("/test-connection", requireAuth, async (req, res) => {
           }
         } catch (err) {
           console.error("BigQuery connection error:", err);
-          message = `BigQuery connection failed: ${err.message}`;
+          message = `BigQuery connection failed: ${connectionErrMessage(err)}`;
         }
         break;
       }
@@ -464,6 +538,8 @@ router.post("/test-connection", requireAuth, async (req, res) => {
       ),
     });
   }
+  };
+  run().catch(next);
 });
 
 router.post("/discover-databases", requireAuth, async (req, res) => {
